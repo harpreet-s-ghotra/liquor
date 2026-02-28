@@ -1,0 +1,30 @@
+.pc-pos-layout {
+  height: 100%;
+  display: grid;
+  grid-template-rows: 1fr 4rem;
+  overflow: hidden;
+}
+
+.pc-main-area {
+  display: grid;
+  grid-template-columns: 56% 44%;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.selection-info {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 4.625rem;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  background: var(--bg-surface-soft);
+  border: 0.0625rem solid var(--border-soft);
+  padding: 0.25rem 0.5rem;
+}
+
+.selection-info-selected {
+  bottom: 6.5rem;
+}

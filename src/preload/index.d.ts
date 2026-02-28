@@ -17,6 +17,6 @@ type AppApi = {
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: AppApi
+    api?: AppApi
   }
 }
