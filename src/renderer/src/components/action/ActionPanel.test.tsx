@@ -28,7 +28,10 @@ describe('ActionPanel', () => {
         filteredProducts={products}
         setActiveCategory={setActiveCategory}
         addToCart={addToCart}
+        subtotalBeforeDiscount={12}
+        subtotalDiscounted={10}
         tax={1.2}
+        totalSavings={2.2}
         total={10.5}
       />
     )
@@ -40,6 +43,10 @@ describe('ActionPanel', () => {
     expect(favoritesButton.className).toContain('category-tone-favorite')
     expect(wineButton.className).toContain('category-tone-1')
     expect(payButton).toBeDisabled()
+    expect(screen.getByText('Discount')).toBeInTheDocument()
+    expect(screen.getByText('-$2.00')).toBeInTheDocument()
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+    expect(screen.getByText('$2.20')).toBeInTheDocument()
 
     fireEvent.click(wineButton)
     expect(setActiveCategory).toHaveBeenCalledWith('Wine')
@@ -57,7 +64,10 @@ describe('ActionPanel', () => {
         filteredProducts={products}
         setActiveCategory={vi.fn()}
         addToCart={vi.fn()}
+        subtotalBeforeDiscount={30}
+        subtotalDiscounted={25}
         tax={2}
+        totalSavings={7}
         total={25}
       />
     )

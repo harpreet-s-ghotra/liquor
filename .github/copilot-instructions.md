@@ -20,8 +20,10 @@ Use this sequence during implementation:
 1. `npm run lint`
 2. `npm run typecheck`
 3. `npm run test:coverage`
+4. `npm run test:e2e` (for UI flow changes)
 
 ## Scope
 
 - Prefer focused unit tests for renderer logic (`store`, `components`, `pages`) when implementing UI behavior.
 - Keep tests deterministic and independent from external services.
+- For TDD on UI workflows, add/update Playwright tests in `tests/e2e` before or with UI implementation.

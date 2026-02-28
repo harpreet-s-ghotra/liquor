@@ -1,28 +1,37 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { CartItem, Product } from '../types/pos'
+import type { CartItem, CartLineItem, Product, TransactionDiscountItem } from '../types/pos'
 
 const FAVORITES_CATEGORY = 'Favorites'
 const ALL_CATEGORY = 'All'
+const TRANSACTION_DISCOUNT_ID = -1
 const preferredFavoriteSkus = new Set(['WINE-001', 'BEER-001', 'SPIRIT-001'])
 
 type UsePosScreenState = {
   activeCategory: string
   addToCart: (product: Product) => void
+  applyDiscount: (percent: number, scope: 'item' | 'transaction') => void
   cart: CartItem[]
+  cartLines: CartLineItem[]
   categories: string[]
   clearTransaction: () => void
   filteredProducts: Product[]
   isPreviewMode: boolean
+  updateSelectedLinePrice: (price: number) => void
+  updateSelectedLineQuantity: (nextQuantity: number) => void
   quantity: string
   removeSelectedLine: () => void
   search: string
   selectedCartId: number | null
-  selectedCartItem: CartItem | null
+  selectedCartItem: CartLineItem | null
   setActiveCategory: (value: string) => void
   setQuantity: (value: string) => void
   setSearch: (value: string) => void
   setSelectedCartId: (id: number) => void
+  subtotalBeforeDiscount: number
+  subtotalDiscounted: number
   tax: number
+  totalSavings: number
+  transactionDiscountPercent: number
   total: number
 }
 
@@ -53,6 +62,114 @@ const browserPreviewProducts: Product[] = [
     price: 32.99,
     quantity: 18,
     tax_rate: 0.13
+  },
+  {
+    id: 4,
+    sku: 'COOLER-001',
+    name: 'Vodka Soda 473ml',
+    category: 'Coolers',
+    price: 4.25,
+    quantity: 96,
+    tax_rate: 0.13
+  },
+  {
+    id: 5,
+    sku: 'MIXER-001',
+    name: 'Tonic Water 1L',
+    category: 'Mixers',
+    price: 2.99,
+    quantity: 52,
+    tax_rate: 0.13
+  },
+  {
+    id: 6,
+    sku: 'WINE-002',
+    name: 'Pinot Noir 750ml',
+    category: 'Wine',
+    price: 21.99,
+    quantity: 22,
+    tax_rate: 0.13
+  },
+  {
+    id: 7,
+    sku: 'BEER-002',
+    name: 'Lager 12-Pack',
+    category: 'Beer',
+    price: 18.49,
+    quantity: 34,
+    tax_rate: 0.13
+  },
+  {
+    id: 8,
+    sku: 'SPIRIT-002',
+    name: 'Silver Tequila 750ml',
+    category: 'Spirits',
+    price: 36.5,
+    quantity: 14,
+    tax_rate: 0.13
+  },
+  {
+    id: 9,
+    sku: 'COOLER-002',
+    name: 'Gin Smash 473ml',
+    category: 'Coolers',
+    price: 4.5,
+    quantity: 88,
+    tax_rate: 0.13
+  },
+  {
+    id: 10,
+    sku: 'MIXER-002',
+    name: 'Club Soda 1L',
+    category: 'Mixers',
+    price: 2.59,
+    quantity: 47,
+    tax_rate: 0.13
+  },
+  {
+    id: 11,
+    sku: 'WINE-003',
+    name: 'Sauvignon Blanc 750ml',
+    category: 'Wine',
+    price: 17.75,
+    quantity: 19,
+    tax_rate: 0.13
+  },
+  {
+    id: 12,
+    sku: 'BEER-003',
+    name: 'Pilsner 6-Pack',
+    category: 'Beer',
+    price: 12.25,
+    quantity: 39,
+    tax_rate: 0.13
+  },
+  {
+    id: 13,
+    sku: 'SPIRIT-003',
+    name: 'London Dry Gin 750ml',
+    category: 'Spirits',
+    price: 30.99,
+    quantity: 17,
+    tax_rate: 0.13
+  },
+  {
+    id: 14,
+    sku: 'COOLER-003',
+    name: 'Whisky Cola 473ml',
+    category: 'Coolers',
+    price: 4.75,
+    quantity: 84,
+    tax_rate: 0.13
+  },
+  {
+    id: 15,
+    sku: 'MIXER-003',
+    name: 'Ginger Ale 1L',
+    category: 'Mixers',
+    price: 2.79,
+    quantity: 60,
+    tax_rate: 0.13
   }
 ]
 
@@ -68,6 +185,7 @@ export function usePosScreen(): UsePosScreenState {
   const [search, setSearch] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [activeCategory, setActiveCategory] = useState(FAVORITES_CATEGORY)
+  const [transactionDiscountPercent, setTransactionDiscountPercent] = useState(0)
   const isPreviewMode = !isElectronApiAvailable
 
   useEffect(() => {
@@ -136,13 +254,56 @@ export function usePosScreen(): UsePosScreenState {
         )
       }
 
-      return [...currentCart, { ...product, lineQuantity }]
+      return [...currentCart, { ...product, lineQuantity, itemDiscountPercent: 0 }]
     })
   }
 
+  const subtotalBeforeDiscount = useMemo(
+    () => cart.reduce((sum, item) => sum + item.price * item.lineQuantity, 0),
+    [cart]
+  )
+
+  const subtotalAfterItemDiscount = useMemo(
+    () =>
+      cart.reduce((sum, item) => {
+        const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
+        const lineBase = item.price * item.lineQuantity
+        return sum + lineBase * (1 - itemDiscountRate)
+      }, 0),
+    [cart]
+  )
+
+  const transactionDiscountAmount = useMemo(
+    () => subtotalAfterItemDiscount * (transactionDiscountPercent / 100),
+    [subtotalAfterItemDiscount, transactionDiscountPercent]
+  )
+
+  const transactionDiscountLine = useMemo<TransactionDiscountItem | null>(() => {
+    if (transactionDiscountPercent <= 0 || subtotalAfterItemDiscount <= 0) {
+      return null
+    }
+
+    return {
+      id: TRANSACTION_DISCOUNT_ID,
+      kind: 'transaction-discount',
+      name: `${transactionDiscountPercent.toFixed(0)}% Discount`,
+      lineQuantity: 1,
+      price: -transactionDiscountAmount,
+      discountRate: transactionDiscountPercent
+    }
+  }, [subtotalAfterItemDiscount, transactionDiscountAmount, transactionDiscountPercent])
+
+  const cartLines = useMemo<CartLineItem[]>(() => {
+    if (!transactionDiscountLine) {
+      return cart
+    }
+
+    return [...cart, transactionDiscountLine]
+  }, [cart, transactionDiscountLine])
+
   const selectedCartItem = useMemo(
-    () => cart.find((item) => item.id === selectedCartId) ?? null,
-    [cart, selectedCartId]
+    () => cartLines.find((item) => item.id === selectedCartId) ?? null,
+    [cartLines, selectedCartId]
   )
 
   const removeSelectedLine = (): void => {
@@ -150,33 +311,102 @@ export function usePosScreen(): UsePosScreenState {
       return
     }
 
-    setCart((currentCart) => currentCart.filter((item) => item.id !== selectedCartId))
-    setSelectedCartId(null)
+    if (selectedCartId === TRANSACTION_DISCOUNT_ID) {
+      setTransactionDiscountPercent(0)
+      setSelectedCartId(cart.length > 0 ? cart[cart.length - 1].id : null)
+      return
+    }
+
+    setCart((currentCart) => {
+      const updatedCart = currentCart.filter((item) => item.id !== selectedCartId)
+      setSelectedCartId(updatedCart.length > 0 ? updatedCart[updatedCart.length - 1].id : null)
+      return updatedCart
+    })
   }
 
   const clearTransaction = (): void => {
     setCart([])
     setSelectedCartId(null)
+    setTransactionDiscountPercent(0)
   }
 
-  const subtotal = useMemo(
-    () => cart.reduce((sum, item) => sum + item.price * item.lineQuantity, 0),
-    [cart]
+  const updateSelectedLineQuantity = (nextQuantity: number): void => {
+    if (!selectedCartId || selectedCartId === TRANSACTION_DISCOUNT_ID || nextQuantity < 1) {
+      return
+    }
+
+    setCart((currentCart) =>
+      currentCart.map((item) =>
+        item.id === selectedCartId ? { ...item, lineQuantity: nextQuantity } : item
+      )
+    )
+  }
+
+  const updateSelectedLinePrice = (price: number): void => {
+    if (!selectedCartId || selectedCartId === TRANSACTION_DISCOUNT_ID || price <= 0) {
+      return
+    }
+
+    setCart((currentCart) =>
+      currentCart.map((item) => (item.id === selectedCartId ? { ...item, price } : item))
+    )
+  }
+
+  const applyDiscount = (percent: number, scope: 'item' | 'transaction'): void => {
+    const boundedPercent = Math.min(Math.max(percent, 0), 100)
+
+    if (scope === 'transaction') {
+      setTransactionDiscountPercent(boundedPercent)
+      return
+    }
+
+    if (!selectedCartId) {
+      return
+    }
+
+    setCart((currentCart) =>
+      currentCart.map((item) =>
+        item.id === selectedCartId ? { ...item, itemDiscountPercent: boundedPercent } : item
+      )
+    )
+  }
+
+  const subtotalDiscounted = useMemo(
+    () => subtotalAfterItemDiscount * (1 - transactionDiscountPercent / 100),
+    [subtotalAfterItemDiscount, transactionDiscountPercent]
   )
-  const tax = useMemo(
+
+  const taxBeforeDiscount = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.lineQuantity * item.tax_rate, 0),
     [cart]
   )
-  const total = subtotal + tax
+
+  const tax = useMemo(() => {
+    const itemDiscountedTax = cart.reduce((sum, item) => {
+      const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
+      const lineBase = item.price * item.lineQuantity
+      return sum + lineBase * (1 - itemDiscountRate) * item.tax_rate
+    }, 0)
+
+    return itemDiscountedTax * (1 - transactionDiscountPercent / 100)
+  }, [cart, transactionDiscountPercent])
+
+  const total = subtotalDiscounted + tax
+  const totalBeforeDiscount = subtotalBeforeDiscount + taxBeforeDiscount
+  const totalSavings = totalBeforeDiscount - total
 
   return {
     activeCategory,
     addToCart,
+    applyDiscount,
     cart,
+    cartLines,
     categories,
     clearTransaction,
     filteredProducts,
     isPreviewMode,
+    updateSelectedLinePrice,
+    updateSelectedLineQuantity,
     quantity,
     removeSelectedLine,
     search,
@@ -186,7 +416,11 @@ export function usePosScreen(): UsePosScreenState {
     setQuantity,
     setSearch,
     setSelectedCartId,
+    subtotalBeforeDiscount,
+    subtotalDiscounted,
     tax,
+    totalSavings,
+    transactionDiscountPercent,
     total
   }
 }

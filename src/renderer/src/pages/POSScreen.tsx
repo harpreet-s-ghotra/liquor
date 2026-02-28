@@ -8,7 +8,9 @@ export function POSScreen(): React.JSX.Element {
   const {
     activeCategory,
     addToCart,
+    applyDiscount,
     cart,
+    cartLines,
     categories,
     clearTransaction,
     filteredProducts,
@@ -22,23 +24,34 @@ export function POSScreen(): React.JSX.Element {
     setQuantity,
     setSearch,
     setSelectedCartId,
+    subtotalBeforeDiscount,
+    subtotalDiscounted,
     tax,
-    total
+    totalSavings,
+    total,
+    transactionDiscountPercent,
+    updateSelectedLinePrice,
+    updateSelectedLineQuantity
   } = usePosScreen()
 
   return (
     <div className="pc-pos-layout">
       <main className="pc-main-area">
         <TicketPanel
-          cart={cart}
+          cart={cartLines}
           quantity={quantity}
           search={search}
           selectedCartId={selectedCartId}
+          selectedCartItem={selectedCartItem}
+          transactionDiscountPercent={transactionDiscountPercent}
           setQuantity={setQuantity}
           setSearch={setSearch}
           setSelectedCartId={setSelectedCartId}
           clearTransaction={clearTransaction}
           removeSelectedLine={removeSelectedLine}
+          applyDiscount={applyDiscount}
+          updateSelectedLinePrice={updateSelectedLinePrice}
+          updateSelectedLineQuantity={updateSelectedLineQuantity}
         />
 
         <ActionPanel
@@ -48,7 +61,10 @@ export function POSScreen(): React.JSX.Element {
           filteredProducts={filteredProducts}
           setActiveCategory={setActiveCategory}
           addToCart={addToCart}
+          subtotalBeforeDiscount={subtotalBeforeDiscount}
+          subtotalDiscounted={subtotalDiscounted}
           tax={tax}
+          totalSavings={totalSavings}
           total={total}
         />
       </main>

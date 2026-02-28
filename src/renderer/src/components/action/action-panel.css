@@ -32,6 +32,10 @@
   font-size: clamp(1rem, 1.4vw, 1.25rem);
 }
 
+.totals-box .totals-discount {
+  color: var(--pastel-peach-200);
+}
+
 .totals-box .grand-total strong {
   font-size: clamp(1.625rem, 2.6vw, 2.5rem);
   line-height: 1;

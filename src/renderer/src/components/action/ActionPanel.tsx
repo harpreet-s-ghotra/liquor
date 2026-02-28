@@ -9,7 +9,10 @@ type ActionPanelProps = {
   filteredProducts: Product[]
   setActiveCategory: (value: string) => void
   addToCart: (product: Product) => void
+  subtotalBeforeDiscount: number
+  subtotalDiscounted: number
   tax: number
+  totalSavings: number
   total: number
 }
 
@@ -20,9 +23,14 @@ export function ActionPanel({
   filteredProducts,
   setActiveCategory,
   addToCart,
+  subtotalBeforeDiscount,
+  subtotalDiscounted,
   tax,
+  totalSavings,
   total
 }: ActionPanelProps): React.JSX.Element {
+  const discountAmount = subtotalBeforeDiscount - subtotalDiscounted
+
   const categoryToneMap = useMemo(() => {
     const toneCycle = ['category-tone-1', 'category-tone-2', 'category-tone-3', 'category-tone-4']
     const map = new Map<string, string>()
@@ -45,6 +53,18 @@ export function ActionPanel({
   return (
     <aside className="action-panel">
       <div className="totals-box">
+        <div>
+          <span>Subtotal</span>
+          <strong>${subtotalBeforeDiscount.toFixed(2)}</strong>
+        </div>
+        <div className="totals-discount">
+          <span>Discount</span>
+          <strong>-${discountAmount.toFixed(2)}</strong>
+        </div>
+        <div>
+          <span>Saved</span>
+          <strong>${totalSavings.toFixed(2)}</strong>
+        </div>
         <div>
           <span>Tax</span>
           <strong>${tax.toFixed(2)}</strong>
@@ -83,13 +103,13 @@ export function ActionPanel({
       </div>
 
       <div className="payment-row">
-        <button type="button" className="pay-btn cash">
+        <button type="button" className="pay-btn cash" disabled={cartCount === 0}>
           Cash
         </button>
-        <button type="button" className="pay-btn card">
+        <button type="button" className="pay-btn card" disabled={cartCount === 0}>
           Credit
         </button>
-        <button type="button" className="pay-btn card">
+        <button type="button" className="pay-btn card" disabled={cartCount === 0}>
           Cards
         </button>
         <button type="button" className="pay-btn pay" disabled={cartCount === 0}>

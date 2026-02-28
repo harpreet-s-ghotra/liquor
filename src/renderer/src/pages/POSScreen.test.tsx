@@ -13,7 +13,9 @@ describe('POSScreen', () => {
     mockUsePosScreen.mockReturnValue({
       activeCategory: 'Favorites',
       addToCart: vi.fn(),
+      applyDiscount: vi.fn(),
       cart: [],
+      cartLines: [],
       categories: ['Favorites', 'All'],
       clearTransaction: vi.fn(),
       filteredProducts: [],
@@ -27,8 +29,14 @@ describe('POSScreen', () => {
       setQuantity: vi.fn(),
       setSearch: vi.fn(),
       setSelectedCartId: vi.fn(),
+      subtotalBeforeDiscount: 0,
+      subtotalDiscounted: 0,
       tax: 0,
-      total: 0
+      totalSavings: 0,
+      transactionDiscountPercent: 0,
+      total: 0,
+      updateSelectedLinePrice: vi.fn(),
+      updateSelectedLineQuantity: vi.fn()
     })
 
     render(<POSScreen />)
@@ -39,7 +47,9 @@ describe('POSScreen', () => {
     mockUsePosScreen.mockReturnValue({
       activeCategory: 'Favorites',
       addToCart: vi.fn(),
+      applyDiscount: vi.fn(),
       cart: [],
+      cartLines: [],
       categories: ['Favorites', 'All'],
       clearTransaction: vi.fn(),
       filteredProducts: [],
@@ -62,8 +72,14 @@ describe('POSScreen', () => {
       setQuantity: vi.fn(),
       setSearch: vi.fn(),
       setSelectedCartId: vi.fn(),
+      subtotalBeforeDiscount: 10,
+      subtotalDiscounted: 10,
       tax: 1,
-      total: 11
+      totalSavings: 0,
+      transactionDiscountPercent: 0,
+      total: 11,
+      updateSelectedLinePrice: vi.fn(),
+      updateSelectedLineQuantity: vi.fn()
     })
 
     render(<POSScreen />)
