@@ -278,4 +278,173 @@ describe('TicketPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(updateSelectedLinePrice).toHaveBeenCalledTimes(1)
   })
+
+  it('shows original price from base db price in price modal', () => {
+    const selectedItem: CartItem = {
+      ...cart[0],
+      price: 25,
+      basePrice: 19.99
+    }
+
+    render(
+      <TicketPanel
+        applyDiscount={vi.fn()}
+        cart={[selectedItem]}
+        quantity="1"
+        search=""
+        selectedCartId={1}
+        selectedCartItem={selectedItem}
+        transactionDiscountPercent={0}
+        updateSelectedLinePrice={vi.fn()}
+        updateSelectedLineQuantity={vi.fn()}
+        setQuantity={vi.fn()}
+        setSearch={vi.fn()}
+        setSelectedCartId={vi.fn()}
+        clearTransaction={vi.fn()}
+        removeSelectedLine={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Price Change' }))
+    expect(screen.getByText('Original Price: $19.99')).toBeInTheDocument()
+  })
+
+  it('restores original db price and closes modal when original price is clicked', () => {
+    const updateSelectedLinePrice = vi.fn()
+    const selectedItem: CartItem = {
+      ...cart[0],
+      price: 25,
+      basePrice: 19.99
+    }
+
+    render(
+      <TicketPanel
+        applyDiscount={vi.fn()}
+        cart={[selectedItem]}
+        quantity="1"
+        search=""
+        selectedCartId={1}
+        selectedCartItem={selectedItem}
+        transactionDiscountPercent={0}
+        updateSelectedLinePrice={updateSelectedLinePrice}
+        updateSelectedLineQuantity={vi.fn()}
+        setQuantity={vi.fn()}
+        setSearch={vi.fn()}
+        setSelectedCartId={vi.fn()}
+        clearTransaction={vi.fn()}
+        removeSelectedLine={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Price Change' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Original Price: $19.99' }))
+
+    expect(updateSelectedLinePrice).toHaveBeenCalledWith(19.99)
+    expect(screen.queryByTestId('edit-modal')).not.toBeInTheDocument()
+  })
+
+  it('calls onSearchSubmit when Enter is pressed in search input', () => {
+    const onSearchSubmit = vi.fn()
+
+    render(
+      <TicketPanel
+        applyDiscount={vi.fn()}
+        cart={cart}
+        quantity="1"
+        search="WINE-001"
+        selectedCartId={1}
+        selectedCartItem={cart[0]}
+        transactionDiscountPercent={0}
+        updateSelectedLinePrice={vi.fn()}
+        updateSelectedLineQuantity={vi.fn()}
+        setQuantity={vi.fn()}
+        setSearch={vi.fn()}
+        setSelectedCartId={vi.fn()}
+        clearTransaction={vi.fn()}
+        removeSelectedLine={vi.fn()}
+        onSearchSubmit={onSearchSubmit}
+      />
+    )
+
+    fireEvent.keyDown(screen.getByPlaceholderText('Search item'), { key: 'Enter' })
+    expect(onSearchSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not call onSearchSubmit on non-Enter keys', () => {
+    const onSearchSubmit = vi.fn()
+
+    render(
+      <TicketPanel
+        applyDiscount={vi.fn()}
+        cart={cart}
+        quantity="1"
+        search="WINE"
+        selectedCartId={1}
+        selectedCartItem={cart[0]}
+        transactionDiscountPercent={0}
+        updateSelectedLinePrice={vi.fn()}
+        updateSelectedLineQuantity={vi.fn()}
+        setQuantity={vi.fn()}
+        setSearch={vi.fn()}
+        setSelectedCartId={vi.fn()}
+        clearTransaction={vi.fn()}
+        removeSelectedLine={vi.fn()}
+        onSearchSubmit={onSearchSubmit}
+      />
+    )
+
+    fireEvent.keyDown(screen.getByPlaceholderText('Search item'), { key: 'a' })
+    expect(onSearchSubmit).not.toHaveBeenCalled()
+  })
+
+  it('search input is focused on mount via autoFocus', () => {
+    render(
+      <TicketPanel
+        applyDiscount={vi.fn()}
+        cart={[]}
+        quantity="1"
+        search=""
+        selectedCartId={null}
+        selectedCartItem={null}
+        transactionDiscountPercent={0}
+        updateSelectedLinePrice={vi.fn()}
+        updateSelectedLineQuantity={vi.fn()}
+        setQuantity={vi.fn()}
+        setSearch={vi.fn()}
+        setSelectedCartId={vi.fn()}
+        clearTransaction={vi.fn()}
+        removeSelectedLine={vi.fn()}
+      />
+    )
+
+    const searchInput = screen.getByPlaceholderText('Search item')
+    expect(document.activeElement).toBe(searchInput)
+  })
+
+  it('accepts searchRef and attaches it to the search input', () => {
+    const searchRef = { current: null } as React.RefObject<HTMLInputElement | null>
+
+    render(
+      <TicketPanel
+        applyDiscount={vi.fn()}
+        cart={[]}
+        quantity="1"
+        search=""
+        searchRef={searchRef}
+        selectedCartId={null}
+        selectedCartItem={null}
+        transactionDiscountPercent={0}
+        updateSelectedLinePrice={vi.fn()}
+        updateSelectedLineQuantity={vi.fn()}
+        setQuantity={vi.fn()}
+        setSearch={vi.fn()}
+        setSelectedCartId={vi.fn()}
+        clearTransaction={vi.fn()}
+        removeSelectedLine={vi.fn()}
+      />
+    )
+
+    expect(searchRef.current).toBeInstanceOf(HTMLInputElement)
+    expect(searchRef.current?.placeholder).toBe('Search item')
+  })
 })

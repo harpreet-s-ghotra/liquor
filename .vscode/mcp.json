@@ -6,6 +6,9 @@
     "playwright": {
       "command": "npx",
       "args": ["@playwright/mcp@latest"]
+    },
+    "staxapi": {
+      "url": "https://docs.staxpayments.com/mcp"
     }
   }
 }

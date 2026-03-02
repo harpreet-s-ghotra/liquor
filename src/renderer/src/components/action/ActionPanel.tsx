@@ -12,8 +12,10 @@ type ActionPanelProps = {
   subtotalBeforeDiscount: number
   subtotalDiscounted: number
   tax: number
-  totalSavings: number
   total: number
+  onPay: () => void
+  onCash: () => void
+  onCredit: () => void
 }
 
 export function ActionPanel({
@@ -26,8 +28,10 @@ export function ActionPanel({
   subtotalBeforeDiscount,
   subtotalDiscounted,
   tax,
-  totalSavings,
-  total
+  total,
+  onPay,
+  onCash,
+  onCredit
 }: ActionPanelProps): React.JSX.Element {
   const discountAmount = subtotalBeforeDiscount - subtotalDiscounted
 
@@ -60,10 +64,6 @@ export function ActionPanel({
         <div className="totals-discount">
           <span>Discount</span>
           <strong>-${discountAmount.toFixed(2)}</strong>
-        </div>
-        <div>
-          <span>Saved</span>
-          <strong>${totalSavings.toFixed(2)}</strong>
         </div>
         <div>
           <span>Tax</span>
@@ -103,16 +103,26 @@ export function ActionPanel({
       </div>
 
       <div className="payment-row">
-        <button type="button" className="pay-btn cash" disabled={cartCount === 0}>
+        <button type="button" className="pay-btn cash" disabled={cartCount === 0} onClick={onCash}>
           Cash
         </button>
-        <button type="button" className="pay-btn card" disabled={cartCount === 0}>
+        <button
+          type="button"
+          className="pay-btn card"
+          disabled={cartCount === 0}
+          onClick={onCredit}
+        >
           Credit
         </button>
-        <button type="button" className="pay-btn card" disabled={cartCount === 0}>
-          Cards
+        <button
+          type="button"
+          className="pay-btn card"
+          disabled={cartCount === 0}
+          onClick={onCredit}
+        >
+          Debit
         </button>
-        <button type="button" className="pay-btn pay" disabled={cartCount === 0}>
+        <button type="button" className="pay-btn pay" disabled={cartCount === 0} onClick={onPay}>
           Pay
         </button>
       </div>

@@ -1,14 +1,29 @@
-export type Product = {
-  id: number
-  sku: string
-  name: string
-  category: string
-  price: number
-  quantity: number
-  tax_rate: number
-}
+// Re-export shared types (single source of truth)
+export type {
+  Product,
+  InventoryProduct,
+  InventoryProductDetail,
+  InventorySalesHistory,
+  SpecialPricingRule,
+  SaveInventoryItemInput,
+  InventoryTaxCode,
+  Department,
+  TaxCode,
+  Vendor,
+  CreateDepartmentInput,
+  UpdateDepartmentInput,
+  CreateTaxCodeInput,
+  UpdateTaxCodeInput,
+  CreateVendorInput,
+  UpdateVendorInput
+} from '../../../shared/types'
+
+// ── Renderer-only types ──
+
+import type { Product } from '../../../shared/types'
 
 export type CartItem = Product & {
+  basePrice?: number
   kind?: 'product'
   itemDiscountPercent?: number
   lineQuantity: number
@@ -24,3 +39,14 @@ export type TransactionDiscountItem = {
 }
 
 export type CartLineItem = CartItem | TransactionDiscountItem
+
+export type PaymentMethod = 'cash' | 'credit' | 'debit'
+
+export type PaymentEntry = {
+  id: number
+  method: PaymentMethod
+  amount: number
+  label: string
+}
+
+export type PaymentStatus = 'idle' | 'collecting' | 'processing-card' | 'complete'

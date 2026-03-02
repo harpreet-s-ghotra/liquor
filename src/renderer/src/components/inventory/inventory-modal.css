@@ -1,0 +1,53 @@
+/* ── Backdrop & shell ── */
+.inventory-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--pastel-blue-900, #14181f) 30%, transparent);
+  display: grid;
+  place-items: center;
+  padding: 0.75rem;
+}
+
+.inventory-modal {
+  width: min(82rem, 100%);
+  height: min(96vh, 56rem);
+  display: grid;
+  gap: 0.75rem;
+  grid-template-rows: auto auto 1fr;
+  border: 0.0625rem solid var(--border-strong);
+  background: var(--bg-panel);
+  padding: 0.75rem;
+}
+
+/* ── Header ── */
+.inventory-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.inventory-modal-header h3 {
+  margin: 0;
+  color: var(--text-on-dark);
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+.inventory-header-actions {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.inventory-header-actions .app-btn {
+  min-height: 2.75rem;
+  padding: 0 0.9rem;
+  font-size: 1rem;
+}
+
+/* ── Body ── */
+.inventory-modal-body {
+  min-height: 0;
+  overflow: hidden;
+}

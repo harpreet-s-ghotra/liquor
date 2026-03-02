@@ -1,21 +1,32 @@
+import { InventoryModal } from '@renderer/components/inventory/InventoryModal'
+import { PaymentModal } from '@renderer/components/payment/PaymentModal'
 import { ActionPanel } from '@renderer/components/action/ActionPanel'
 import { BottomShortcutBar } from '@renderer/components/layout/BottomShortcutBar'
 import { TicketPanel } from '@renderer/components/ticket/TicketPanel'
 import { usePosScreen } from '@renderer/store/usePosScreen'
+import { useCallback, useRef, useState } from 'react'
 import '../styles/pos-screen.css'
+import type { PaymentMethod } from '@renderer/types/pos'
 
 export function POSScreen(): React.JSX.Element {
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false)
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false)
+  const [isPaymentComplete, setIsPaymentComplete] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
+
   const {
     activeCategory,
     addToCart,
+    addToCartBySku,
     applyDiscount,
     cart,
     cartLines,
     categories,
     clearTransaction,
     filteredProducts,
-    isPreviewMode,
     quantity,
+    productsLoadError,
+    reloadProducts,
     removeSelectedLine,
     search,
     selectedCartId,
@@ -27,12 +38,71 @@ export function POSScreen(): React.JSX.Element {
     subtotalBeforeDiscount,
     subtotalDiscounted,
     tax,
-    totalSavings,
     total,
     transactionDiscountPercent,
     updateSelectedLinePrice,
     updateSelectedLineQuantity
   } = usePosScreen()
+
+  const handleInventoryClose = useCallback(() => {
+    setIsInventoryOpen(false)
+    reloadProducts()
+    setTimeout(() => searchRef.current?.focus(), 0)
+  }, [reloadProducts])
+
+  const handlePaymentOpen = useCallback(
+    (method?: PaymentMethod) => {
+      if (cart.length === 0) return
+      setIsPaymentOpen(true)
+      // If a specific method was clicked, we still open the modal
+      // The method param is available for future direct-pay shortcuts
+      void method
+    },
+    [cart.length]
+  )
+
+  const handlePaymentComplete = useCallback(() => {
+    setIsPaymentOpen(false)
+    setIsPaymentComplete(false)
+    clearTransaction()
+    setTimeout(() => searchRef.current?.focus(), 0)
+  }, [clearTransaction])
+
+  const handlePaymentCancel = useCallback(() => {
+    setIsPaymentOpen(false)
+    setIsPaymentComplete(false)
+    setTimeout(() => searchRef.current?.focus(), 0)
+  }, [])
+
+  const handlePaymentStatusChange = useCallback(
+    (status: import('@renderer/types/pos').PaymentStatus) => {
+      setIsPaymentComplete(status === 'complete')
+    },
+    []
+  )
+
+  const handleAddToCart = useCallback(
+    (product: Parameters<typeof addToCart>[0]) => {
+      if (isPaymentComplete) {
+        setIsPaymentOpen(false)
+        setIsPaymentComplete(false)
+        clearTransaction()
+      }
+      addToCart(product)
+      setTimeout(() => searchRef.current?.focus(), 0)
+    },
+    [addToCart, isPaymentComplete, clearTransaction]
+  )
+
+  const handleSearchSubmit = useCallback(() => {
+    if (isPaymentComplete) {
+      setIsPaymentOpen(false)
+      setIsPaymentComplete(false)
+      clearTransaction()
+    }
+    addToCartBySku(search)
+    setTimeout(() => searchRef.current?.focus(), 0)
+  }, [addToCartBySku, search, isPaymentComplete, clearTransaction])
 
   return (
     <div className="pc-pos-layout">
@@ -41,6 +111,7 @@ export function POSScreen(): React.JSX.Element {
           cart={cartLines}
           quantity={quantity}
           search={search}
+          searchRef={searchRef}
           selectedCartId={selectedCartId}
           selectedCartItem={selectedCartItem}
           transactionDiscountPercent={transactionDiscountPercent}
@@ -52,6 +123,7 @@ export function POSScreen(): React.JSX.Element {
           applyDiscount={applyDiscount}
           updateSelectedLinePrice={updateSelectedLinePrice}
           updateSelectedLineQuantity={updateSelectedLineQuantity}
+          onSearchSubmit={handleSearchSubmit}
         />
 
         <ActionPanel
@@ -60,23 +132,30 @@ export function POSScreen(): React.JSX.Element {
           cartCount={cart.length}
           filteredProducts={filteredProducts}
           setActiveCategory={setActiveCategory}
-          addToCart={addToCart}
+          addToCart={handleAddToCart}
           subtotalBeforeDiscount={subtotalBeforeDiscount}
           subtotalDiscounted={subtotalDiscounted}
           tax={tax}
-          totalSavings={totalSavings}
           total={total}
+          onPay={() => handlePaymentOpen()}
+          onCash={() => handlePaymentOpen('cash')}
+          onCredit={() => handlePaymentOpen('credit')}
         />
       </main>
 
-      <BottomShortcutBar />
+      <BottomShortcutBar onInventoryClick={() => setIsInventoryOpen(true)} />
 
-      {isPreviewMode && <div className="selection-info">Browser preview mode (mock products)</div>}
-      {selectedCartItem && (
-        <div className="selection-info selection-info-selected">
-          Selected: {selectedCartItem.name}
-        </div>
-      )}
+      <InventoryModal isOpen={isInventoryOpen} onClose={handleInventoryClose} />
+
+      <PaymentModal
+        isOpen={isPaymentOpen}
+        total={total}
+        onComplete={handlePaymentComplete}
+        onCancel={handlePaymentCancel}
+        onStatusChange={handlePaymentStatusChange}
+      />
+
+      {productsLoadError && <div className="pos-screen-error">{productsLoadError}</div>}
     </div>
   )
 }

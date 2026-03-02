@@ -1,0 +1,29 @@
+/* ── Reusable tab bar ── */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 0.125rem solid var(--border-soft);
+  background: var(--bg-surface-soft);
+}
+
+.tab-bar__btn {
+  padding: 0.55rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  border-bottom: 0.125rem solid transparent;
+  margin-bottom: -0.125rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-bar__btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-bar__btn.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
+}

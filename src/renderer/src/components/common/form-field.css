@@ -1,0 +1,29 @@
+/* ── Reusable form field ── */
+.form-field {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.form-field__label {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.form-field__required {
+  color: var(--semantic-danger-text);
+  font-weight: 700;
+}
+
+.form-field.has-error .ticket-input,
+.form-field.has-error .tax-dropdown-toggle {
+  border-color: var(--semantic-danger-text);
+  box-shadow: 0 0 0 1px var(--semantic-danger-text);
+}
+
+.form-field__error-slot {
+  min-height: 1.1rem;
+  font-size: 0.78rem;
+  color: var(--semantic-danger-text);
+  font-weight: 600;
+}

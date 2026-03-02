@@ -1,0 +1,120 @@
+/* ── CRUD panel shared styles ── */
+.crud-panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 0;
+  padding: 0.75rem;
+}
+
+/* ── Form field overrides for dark background ── */
+.crud-panel .form-field__label {
+  color: var(--text-on-dark);
+}
+
+.crud-panel .form-field__required {
+  color: var(--semantic-danger-on-dark);
+}
+
+.crud-panel .form-field__error-slot {
+  color: var(--semantic-danger-on-dark);
+}
+
+.crud-panel__form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.crud-panel__form--wide {
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)) auto;
+}
+
+.crud-panel__form--equal-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.crud-panel__form--equal-4 .app-btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.crud-panel__form .app-btn {
+  min-height: 2.75rem;
+  align-self: end;
+  margin-bottom: 1.1rem; /* align with input above error slot */
+}
+
+.crud-panel__list {
+  min-height: 0;
+  overflow: auto;
+}
+
+.crud-panel__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.crud-panel__table th {
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-on-dark);
+  padding: 0.45rem 0.6rem;
+  border-bottom: 0.125rem solid var(--border-strong);
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+}
+
+.crud-panel__table td {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-on-dark);
+  padding: 0.4rem 0.6rem;
+  border-bottom: 0.0625rem solid var(--border-strong);
+}
+
+.crud-panel__table .crud-panel__actions {
+  display: inline-flex;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.crud-panel__table .app-btn {
+  min-height: 2.1rem;
+  font-size: 0.88rem;
+  padding: 0 0.6rem;
+}
+
+.crud-panel__status {
+  min-height: 1.5rem;
+}
+
+.crud-panel__message {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.crud-panel__message.error {
+  color: var(--semantic-danger-on-dark);
+}
+
+.crud-panel__message.success {
+  color: var(--semantic-success-on-dark);
+}
+
+.crud-panel__empty {
+  margin: 0;
+  color: var(--text-muted-on-dark);
+  font-style: italic;
+  padding: 0.75rem;
+}
+
+/* Inline edit input */
+.crud-panel__edit-input {
+  width: 100%;
+}

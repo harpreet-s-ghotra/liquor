@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
+import { create } from 'zustand'
+import { useShallow } from 'zustand/shallow'
 import type { CartItem, CartLineItem, Product, TransactionDiscountItem } from '../types/pos'
 
 const FAVORITES_CATEGORY = 'Favorites'
@@ -6,9 +8,303 @@ const ALL_CATEGORY = 'All'
 const TRANSACTION_DISCOUNT_ID = -1
 const preferredFavoriteSkus = new Set(['WINE-001', 'BEER-001', 'SPIRIT-001'])
 
+// ── State shape ──
+
+type PosState = {
+  products: Product[]
+  productsLoadError: string | null
+  isPreviewMode: boolean
+  cart: CartItem[]
+  selectedCartId: number | null
+  search: string
+  quantity: string
+  activeCategory: string
+  transactionDiscountPercent: number
+}
+
+// ── Pure derivation functions (testable, no hooks) ──
+
+function getFavoriteSkuSet(products: Product[]): Set<string> {
+  const configured = products.filter((p) => preferredFavoriteSkus.has(p.sku)).map((p) => p.sku)
+  if (configured.length > 0) return new Set(configured)
+  return new Set(
+    [...products]
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 12)
+      .map((p) => p.sku)
+  )
+}
+
+export function deriveCategories(products: Product[]): string[] {
+  const categorySet = new Set(products.map((p) => p.category))
+  return [FAVORITES_CATEGORY, ...Array.from(categorySet), ALL_CATEGORY]
+}
+
+export function deriveFilteredProducts(
+  products: Product[],
+  search: string,
+  activeCategory: string
+): Product[] {
+  const term = search.trim().toLowerCase()
+  const favoriteSkuSet = getFavoriteSkuSet(products)
+
+  return products.filter((product) => {
+    const searchMatch =
+      term.length === 0 ||
+      product.name.toLowerCase().includes(term) ||
+      product.sku.toLowerCase().includes(term)
+
+    if (term.length > 0) return searchMatch
+
+    const categoryMatch =
+      activeCategory === ALL_CATEGORY
+        ? true
+        : activeCategory === FAVORITES_CATEGORY
+          ? favoriteSkuSet.has(product.sku)
+          : product.category === activeCategory
+
+    return categoryMatch
+  })
+}
+
+export function deriveCartTotals(
+  cart: CartItem[],
+  transactionDiscountPercent: number,
+  selectedCartId: number | null
+): {
+  cartLines: CartLineItem[]
+  selectedCartItem: CartLineItem | null
+  subtotalBeforeDiscount: number
+  subtotalDiscounted: number
+  tax: number
+  total: number
+  totalSavings: number
+} {
+  const subtotalBeforeDiscount = cart.reduce((sum, item) => sum + item.price * item.lineQuantity, 0)
+
+  const subtotalAfterItemDiscount = cart.reduce((sum, item) => {
+    const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
+    const lineBase = item.price * item.lineQuantity
+    return sum + lineBase * (1 - itemDiscountRate)
+  }, 0)
+
+  const transactionDiscountAmount = subtotalAfterItemDiscount * (transactionDiscountPercent / 100)
+
+  const transactionDiscountLine: TransactionDiscountItem | null =
+    transactionDiscountPercent > 0 && subtotalAfterItemDiscount > 0
+      ? {
+          id: TRANSACTION_DISCOUNT_ID,
+          kind: 'transaction-discount',
+          name: `${transactionDiscountPercent.toFixed(0)}% Discount`,
+          lineQuantity: 1,
+          price: -transactionDiscountAmount,
+          discountRate: transactionDiscountPercent
+        }
+      : null
+
+  const cartLines: CartLineItem[] = transactionDiscountLine
+    ? [...cart, transactionDiscountLine]
+    : cart
+
+  const selectedCartItem = cartLines.find((item) => item.id === selectedCartId) ?? null
+
+  const subtotalDiscounted = subtotalAfterItemDiscount * (1 - transactionDiscountPercent / 100)
+
+  const tax = (() => {
+    const itemDiscountedTax = cart.reduce((sum, item) => {
+      const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
+      const lineBase = item.price * item.lineQuantity
+      return sum + lineBase * (1 - itemDiscountRate) * item.tax_rate
+    }, 0)
+    return itemDiscountedTax * (1 - transactionDiscountPercent / 100)
+  })()
+
+  const total = subtotalDiscounted + tax
+
+  const taxBeforeDiscount = cart.reduce(
+    (sum, item) => sum + item.price * item.lineQuantity * item.tax_rate,
+    0
+  )
+  const totalBeforeDiscount = subtotalBeforeDiscount + taxBeforeDiscount
+  const totalSavings = totalBeforeDiscount - total
+
+  return {
+    cartLines,
+    selectedCartItem,
+    subtotalBeforeDiscount,
+    subtotalDiscounted,
+    tax,
+    total,
+    totalSavings
+  }
+}
+
+// ── Actions ──
+
+type PosActions = {
+  setProducts: (products: Product[]) => void
+  setProductsLoadError: (error: string | null) => void
+  setSearch: (value: string) => void
+  setQuantity: (value: string) => void
+  setActiveCategory: (value: string) => void
+  setSelectedCartId: (id: number) => void
+  addToCart: (product: Product) => void
+  addToCartBySku: (sku: string) => boolean
+  removeSelectedLine: () => void
+  clearTransaction: () => void
+  updateSelectedLineQuantity: (nextQuantity: number) => void
+  updateSelectedLinePrice: (price: number) => void
+  applyDiscount: (percent: number, scope: 'item' | 'transaction') => void
+  reloadProducts: () => void
+}
+
+// ── Full store type ──
+
+type PosStore = PosState & PosActions
+
+// ── Store factory ──
+
+function getInitialPreviewMode(): boolean {
+  const api = typeof window !== 'undefined' ? window.api : undefined
+  return typeof api?.getProducts !== 'function'
+}
+
+export const usePosStore = create<PosStore>((set, get) => ({
+  // State
+  products: [],
+  productsLoadError: getInitialPreviewMode() ? 'Backend product API is unavailable.' : null,
+  isPreviewMode: getInitialPreviewMode(),
+  cart: [],
+  selectedCartId: null,
+  search: '',
+  quantity: '1',
+  activeCategory: FAVORITES_CATEGORY,
+  transactionDiscountPercent: 0,
+
+  // Setters
+  setProducts: (products) => set({ products, productsLoadError: null }),
+  setProductsLoadError: (error) => set({ productsLoadError: error }),
+  setSearch: (value) => set({ search: value }),
+  setQuantity: (value) => set({ quantity: value }),
+  setActiveCategory: (value) => set({ activeCategory: value }),
+  setSelectedCartId: (id) => set({ selectedCartId: id }),
+
+  // Cart actions
+  addToCart: (product) => {
+    const { quantity, cart } = get()
+    const parsedQuantity = Number.parseInt(quantity, 10)
+    const lineQuantity = Number.isNaN(parsedQuantity) || parsedQuantity < 1 ? 1 : parsedQuantity
+
+    const existingItem = cart.find((item) => item.id === product.id)
+    if (existingItem) {
+      set({
+        cart: cart.map((item) =>
+          item.id === product.id
+            ? { ...item, lineQuantity: item.lineQuantity + lineQuantity }
+            : item
+        ),
+        selectedCartId: product.id
+      })
+    } else {
+      set({
+        cart: [
+          ...cart,
+          { ...product, basePrice: product.price, lineQuantity, itemDiscountPercent: 0 }
+        ],
+        selectedCartId: product.id
+      })
+    }
+  },
+
+  addToCartBySku: (sku) => {
+    const term = sku.trim().toLowerCase()
+    if (term.length === 0) return false
+
+    const { products } = get()
+    const product = products.find((p) => p.sku.toLowerCase() === term)
+    if (!product) return false
+
+    get().addToCart(product)
+    set({ search: '', quantity: '1' })
+    return true
+  },
+
+  removeSelectedLine: () => {
+    const { selectedCartId, cart } = get()
+    if (!selectedCartId) return
+
+    if (selectedCartId === TRANSACTION_DISCOUNT_ID) {
+      set({
+        transactionDiscountPercent: 0,
+        selectedCartId: cart.length > 0 ? cart[cart.length - 1].id : null
+      })
+      return
+    }
+
+    const updatedCart = cart.filter((item) => item.id !== selectedCartId)
+    set({
+      cart: updatedCart,
+      selectedCartId: updatedCart.length > 0 ? updatedCart[updatedCart.length - 1].id : null
+    })
+  },
+
+  clearTransaction: () => set({ cart: [], selectedCartId: null, transactionDiscountPercent: 0 }),
+
+  updateSelectedLineQuantity: (nextQuantity) => {
+    const { selectedCartId, cart } = get()
+    if (!selectedCartId || selectedCartId === TRANSACTION_DISCOUNT_ID || nextQuantity < 1) return
+
+    set({
+      cart: cart.map((item) =>
+        item.id === selectedCartId ? { ...item, lineQuantity: nextQuantity } : item
+      )
+    })
+  },
+
+  updateSelectedLinePrice: (price) => {
+    const { selectedCartId, cart } = get()
+    if (!selectedCartId || selectedCartId === TRANSACTION_DISCOUNT_ID || price <= 0) return
+
+    set({
+      cart: cart.map((item) => (item.id === selectedCartId ? { ...item, price } : item))
+    })
+  },
+
+  applyDiscount: (percent, scope) => {
+    const boundedPercent = Math.min(Math.max(percent, 0), 100)
+
+    if (scope === 'transaction') {
+      set({ transactionDiscountPercent: boundedPercent })
+      return
+    }
+
+    const { selectedCartId, cart } = get()
+    if (!selectedCartId) return
+
+    set({
+      cart: cart.map((item) =>
+        item.id === selectedCartId ? { ...item, itemDiscountPercent: boundedPercent } : item
+      )
+    })
+  },
+
+  reloadProducts: () => {
+    const api = typeof window !== 'undefined' ? window.api : undefined
+    if (typeof api?.getProducts !== 'function') return
+
+    api
+      .getProducts()
+      .then((data) => set({ products: data, productsLoadError: null }))
+      .catch(() => set({ productsLoadError: 'Unable to load products from backend.' }))
+  }
+}))
+
+// ── Backward-compatible hook (wraps Zustand so existing consumers don't break) ──
+
 type UsePosScreenState = {
   activeCategory: string
   addToCart: (product: Product) => void
+  addToCartBySku: (sku: string) => boolean
   applyDiscount: (percent: number, scope: 'item' | 'transaction') => void
   cart: CartItem[]
   cartLines: CartLineItem[]
@@ -16,6 +312,7 @@ type UsePosScreenState = {
   clearTransaction: () => void
   filteredProducts: Product[]
   isPreviewMode: boolean
+  reloadProducts: () => void
   updateSelectedLinePrice: (price: number) => void
   updateSelectedLineQuantity: (nextQuantity: number) => void
   quantity: string
@@ -23,6 +320,7 @@ type UsePosScreenState = {
   search: string
   selectedCartId: number | null
   selectedCartItem: CartLineItem | null
+  productsLoadError: string | null
   setActiveCategory: (value: string) => void
   setQuantity: (value: string) => void
   setSearch: (value: string) => void
@@ -35,392 +333,81 @@ type UsePosScreenState = {
   total: number
 }
 
-const browserPreviewProducts: Product[] = [
-  {
-    id: 1,
-    sku: 'WINE-001',
-    name: 'Cabernet Sauvignon 750ml',
-    category: 'Wine',
-    price: 19.99,
-    quantity: 24,
-    tax_rate: 0.13
-  },
-  {
-    id: 2,
-    sku: 'BEER-001',
-    name: 'Craft IPA 6-Pack',
-    category: 'Beer',
-    price: 13.49,
-    quantity: 40,
-    tax_rate: 0.13
-  },
-  {
-    id: 3,
-    sku: 'SPIRIT-001',
-    name: 'Premium Vodka 1L',
-    category: 'Spirits',
-    price: 32.99,
-    quantity: 18,
-    tax_rate: 0.13
-  },
-  {
-    id: 4,
-    sku: 'COOLER-001',
-    name: 'Vodka Soda 473ml',
-    category: 'Coolers',
-    price: 4.25,
-    quantity: 96,
-    tax_rate: 0.13
-  },
-  {
-    id: 5,
-    sku: 'MIXER-001',
-    name: 'Tonic Water 1L',
-    category: 'Mixers',
-    price: 2.99,
-    quantity: 52,
-    tax_rate: 0.13
-  },
-  {
-    id: 6,
-    sku: 'WINE-002',
-    name: 'Pinot Noir 750ml',
-    category: 'Wine',
-    price: 21.99,
-    quantity: 22,
-    tax_rate: 0.13
-  },
-  {
-    id: 7,
-    sku: 'BEER-002',
-    name: 'Lager 12-Pack',
-    category: 'Beer',
-    price: 18.49,
-    quantity: 34,
-    tax_rate: 0.13
-  },
-  {
-    id: 8,
-    sku: 'SPIRIT-002',
-    name: 'Silver Tequila 750ml',
-    category: 'Spirits',
-    price: 36.5,
-    quantity: 14,
-    tax_rate: 0.13
-  },
-  {
-    id: 9,
-    sku: 'COOLER-002',
-    name: 'Gin Smash 473ml',
-    category: 'Coolers',
-    price: 4.5,
-    quantity: 88,
-    tax_rate: 0.13
-  },
-  {
-    id: 10,
-    sku: 'MIXER-002',
-    name: 'Club Soda 1L',
-    category: 'Mixers',
-    price: 2.59,
-    quantity: 47,
-    tax_rate: 0.13
-  },
-  {
-    id: 11,
-    sku: 'WINE-003',
-    name: 'Sauvignon Blanc 750ml',
-    category: 'Wine',
-    price: 17.75,
-    quantity: 19,
-    tax_rate: 0.13
-  },
-  {
-    id: 12,
-    sku: 'BEER-003',
-    name: 'Pilsner 6-Pack',
-    category: 'Beer',
-    price: 12.25,
-    quantity: 39,
-    tax_rate: 0.13
-  },
-  {
-    id: 13,
-    sku: 'SPIRIT-003',
-    name: 'London Dry Gin 750ml',
-    category: 'Spirits',
-    price: 30.99,
-    quantity: 17,
-    tax_rate: 0.13
-  },
-  {
-    id: 14,
-    sku: 'COOLER-003',
-    name: 'Whisky Cola 473ml',
-    category: 'Coolers',
-    price: 4.75,
-    quantity: 84,
-    tax_rate: 0.13
-  },
-  {
-    id: 15,
-    sku: 'MIXER-003',
-    name: 'Ginger Ale 1L',
-    category: 'Mixers',
-    price: 2.79,
-    quantity: 60,
-    tax_rate: 0.13
-  }
-]
-
 export function usePosScreen(): UsePosScreenState {
-  const api = typeof window !== 'undefined' ? window.api : undefined
-  const isElectronApiAvailable = typeof api?.getProducts === 'function'
-
-  const [products, setProducts] = useState<Product[]>(
-    isElectronApiAvailable ? [] : browserPreviewProducts
+  const store = usePosStore(
+    useShallow((s) => ({
+      products: s.products,
+      productsLoadError: s.productsLoadError,
+      isPreviewMode: s.isPreviewMode,
+      cart: s.cart,
+      selectedCartId: s.selectedCartId,
+      search: s.search,
+      quantity: s.quantity,
+      activeCategory: s.activeCategory,
+      transactionDiscountPercent: s.transactionDiscountPercent,
+      addToCart: s.addToCart,
+      addToCartBySku: s.addToCartBySku,
+      applyDiscount: s.applyDiscount,
+      clearTransaction: s.clearTransaction,
+      reloadProducts: s.reloadProducts,
+      updateSelectedLinePrice: s.updateSelectedLinePrice,
+      updateSelectedLineQuantity: s.updateSelectedLineQuantity,
+      removeSelectedLine: s.removeSelectedLine,
+      setActiveCategory: s.setActiveCategory,
+      setQuantity: s.setQuantity,
+      setSearch: s.setSearch,
+      setSelectedCartId: s.setSelectedCartId
+    }))
   )
-  const [cart, setCart] = useState<CartItem[]>([])
-  const [selectedCartId, setSelectedCartId] = useState<number | null>(null)
-  const [search, setSearch] = useState('')
-  const [quantity, setQuantity] = useState('1')
-  const [activeCategory, setActiveCategory] = useState(FAVORITES_CATEGORY)
-  const [transactionDiscountPercent, setTransactionDiscountPercent] = useState(0)
-  const isPreviewMode = !isElectronApiAvailable
 
+  // Auto-load products on mount (mirrors old useEffect behavior)
   useEffect(() => {
-    if (!isElectronApiAvailable) {
-      return
+    if (!store.isPreviewMode && store.products.length === 0 && !store.productsLoadError) {
+      store.reloadProducts()
     }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    api
-      ?.getProducts()
-      .then((data) => {
-        setProducts(data)
-      })
-      .catch(() => {
-        setProducts(browserPreviewProducts)
-      })
-  }, [api, isElectronApiAvailable])
+  const categories = useMemo(() => deriveCategories(store.products), [store.products])
 
-  const categories = useMemo(() => {
-    const categorySet = new Set(products.map((product) => product.category))
-    return [FAVORITES_CATEGORY, ...Array.from(categorySet), ALL_CATEGORY]
-  }, [products])
-
-  const filteredProducts = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    const configuredFavorites = products
-      .filter((product) => preferredFavoriteSkus.has(product.sku))
-      .map((product) => product.sku)
-    const favoriteSkuSet =
-      configuredFavorites.length > 0
-        ? new Set(configuredFavorites)
-        : new Set(
-            [...products]
-              .sort((first, second) => second.quantity - first.quantity)
-              .slice(0, 12)
-              .map((product) => product.sku)
-          )
-
-    return products.filter((product) => {
-      const searchMatch =
-        term.length === 0 ||
-        product.name.toLowerCase().includes(term) ||
-        product.sku.toLowerCase().includes(term)
-      const categoryMatch =
-        activeCategory === ALL_CATEGORY
-          ? true
-          : activeCategory === FAVORITES_CATEGORY
-            ? favoriteSkuSet.has(product.sku)
-            : product.category === activeCategory
-
-      return searchMatch && categoryMatch
-    })
-  }, [products, search, activeCategory])
-
-  const addToCart = (product: Product): void => {
-    const parsedQuantity = Number.parseInt(quantity, 10)
-    const lineQuantity = Number.isNaN(parsedQuantity) || parsedQuantity < 1 ? 1 : parsedQuantity
-    setSelectedCartId(product.id)
-
-    setCart((currentCart) => {
-      const existingItem = currentCart.find((item) => item.id === product.id)
-      if (existingItem) {
-        return currentCart.map((item) =>
-          item.id === product.id
-            ? { ...item, lineQuantity: item.lineQuantity + lineQuantity }
-            : item
-        )
-      }
-
-      return [...currentCart, { ...product, lineQuantity, itemDiscountPercent: 0 }]
-    })
-  }
-
-  const subtotalBeforeDiscount = useMemo(
-    () => cart.reduce((sum, item) => sum + item.price * item.lineQuantity, 0),
-    [cart]
+  const filteredProducts = useMemo(
+    () => deriveFilteredProducts(store.products, store.search, store.activeCategory),
+    [store.products, store.search, store.activeCategory]
   )
 
-  const subtotalAfterItemDiscount = useMemo(
-    () =>
-      cart.reduce((sum, item) => {
-        const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
-        const lineBase = item.price * item.lineQuantity
-        return sum + lineBase * (1 - itemDiscountRate)
-      }, 0),
-    [cart]
+  const totals = useMemo(
+    () => deriveCartTotals(store.cart, store.transactionDiscountPercent, store.selectedCartId),
+    [store.cart, store.transactionDiscountPercent, store.selectedCartId]
   )
-
-  const transactionDiscountAmount = useMemo(
-    () => subtotalAfterItemDiscount * (transactionDiscountPercent / 100),
-    [subtotalAfterItemDiscount, transactionDiscountPercent]
-  )
-
-  const transactionDiscountLine = useMemo<TransactionDiscountItem | null>(() => {
-    if (transactionDiscountPercent <= 0 || subtotalAfterItemDiscount <= 0) {
-      return null
-    }
-
-    return {
-      id: TRANSACTION_DISCOUNT_ID,
-      kind: 'transaction-discount',
-      name: `${transactionDiscountPercent.toFixed(0)}% Discount`,
-      lineQuantity: 1,
-      price: -transactionDiscountAmount,
-      discountRate: transactionDiscountPercent
-    }
-  }, [subtotalAfterItemDiscount, transactionDiscountAmount, transactionDiscountPercent])
-
-  const cartLines = useMemo<CartLineItem[]>(() => {
-    if (!transactionDiscountLine) {
-      return cart
-    }
-
-    return [...cart, transactionDiscountLine]
-  }, [cart, transactionDiscountLine])
-
-  const selectedCartItem = useMemo(
-    () => cartLines.find((item) => item.id === selectedCartId) ?? null,
-    [cartLines, selectedCartId]
-  )
-
-  const removeSelectedLine = (): void => {
-    if (!selectedCartId) {
-      return
-    }
-
-    if (selectedCartId === TRANSACTION_DISCOUNT_ID) {
-      setTransactionDiscountPercent(0)
-      setSelectedCartId(cart.length > 0 ? cart[cart.length - 1].id : null)
-      return
-    }
-
-    setCart((currentCart) => {
-      const updatedCart = currentCart.filter((item) => item.id !== selectedCartId)
-      setSelectedCartId(updatedCart.length > 0 ? updatedCart[updatedCart.length - 1].id : null)
-      return updatedCart
-    })
-  }
-
-  const clearTransaction = (): void => {
-    setCart([])
-    setSelectedCartId(null)
-    setTransactionDiscountPercent(0)
-  }
-
-  const updateSelectedLineQuantity = (nextQuantity: number): void => {
-    if (!selectedCartId || selectedCartId === TRANSACTION_DISCOUNT_ID || nextQuantity < 1) {
-      return
-    }
-
-    setCart((currentCart) =>
-      currentCart.map((item) =>
-        item.id === selectedCartId ? { ...item, lineQuantity: nextQuantity } : item
-      )
-    )
-  }
-
-  const updateSelectedLinePrice = (price: number): void => {
-    if (!selectedCartId || selectedCartId === TRANSACTION_DISCOUNT_ID || price <= 0) {
-      return
-    }
-
-    setCart((currentCart) =>
-      currentCart.map((item) => (item.id === selectedCartId ? { ...item, price } : item))
-    )
-  }
-
-  const applyDiscount = (percent: number, scope: 'item' | 'transaction'): void => {
-    const boundedPercent = Math.min(Math.max(percent, 0), 100)
-
-    if (scope === 'transaction') {
-      setTransactionDiscountPercent(boundedPercent)
-      return
-    }
-
-    if (!selectedCartId) {
-      return
-    }
-
-    setCart((currentCart) =>
-      currentCart.map((item) =>
-        item.id === selectedCartId ? { ...item, itemDiscountPercent: boundedPercent } : item
-      )
-    )
-  }
-
-  const subtotalDiscounted = useMemo(
-    () => subtotalAfterItemDiscount * (1 - transactionDiscountPercent / 100),
-    [subtotalAfterItemDiscount, transactionDiscountPercent]
-  )
-
-  const taxBeforeDiscount = useMemo(
-    () => cart.reduce((sum, item) => sum + item.price * item.lineQuantity * item.tax_rate, 0),
-    [cart]
-  )
-
-  const tax = useMemo(() => {
-    const itemDiscountedTax = cart.reduce((sum, item) => {
-      const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
-      const lineBase = item.price * item.lineQuantity
-      return sum + lineBase * (1 - itemDiscountRate) * item.tax_rate
-    }, 0)
-
-    return itemDiscountedTax * (1 - transactionDiscountPercent / 100)
-  }, [cart, transactionDiscountPercent])
-
-  const total = subtotalDiscounted + tax
-  const totalBeforeDiscount = subtotalBeforeDiscount + taxBeforeDiscount
-  const totalSavings = totalBeforeDiscount - total
 
   return {
-    activeCategory,
-    addToCart,
-    applyDiscount,
-    cart,
-    cartLines,
+    activeCategory: store.activeCategory,
+    addToCart: store.addToCart,
+    addToCartBySku: store.addToCartBySku,
+    applyDiscount: store.applyDiscount,
+    cart: store.cart,
+    cartLines: totals.cartLines,
     categories,
-    clearTransaction,
+    clearTransaction: store.clearTransaction,
     filteredProducts,
-    isPreviewMode,
-    updateSelectedLinePrice,
-    updateSelectedLineQuantity,
-    quantity,
-    removeSelectedLine,
-    search,
-    selectedCartId,
-    selectedCartItem,
-    setActiveCategory,
-    setQuantity,
-    setSearch,
-    setSelectedCartId,
-    subtotalBeforeDiscount,
-    subtotalDiscounted,
-    tax,
-    totalSavings,
-    transactionDiscountPercent,
-    total
+    isPreviewMode: store.isPreviewMode,
+    reloadProducts: store.reloadProducts,
+    updateSelectedLinePrice: store.updateSelectedLinePrice,
+    updateSelectedLineQuantity: store.updateSelectedLineQuantity,
+    quantity: store.quantity,
+    productsLoadError: store.productsLoadError,
+    removeSelectedLine: store.removeSelectedLine,
+    search: store.search,
+    selectedCartId: store.selectedCartId,
+    selectedCartItem: totals.selectedCartItem,
+    setActiveCategory: store.setActiveCategory,
+    setQuantity: store.setQuantity,
+    setSearch: store.setSearch,
+    setSelectedCartId: store.setSelectedCartId,
+    subtotalBeforeDiscount: totals.subtotalBeforeDiscount,
+    subtotalDiscounted: totals.subtotalDiscounted,
+    tax: totals.tax,
+    totalSavings: totals.totalSavings,
+    transactionDiscountPercent: store.transactionDiscountPercent,
+    total: totals.total
   }
 }

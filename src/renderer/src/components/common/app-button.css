@@ -1,0 +1,49 @@
+.app-btn {
+  border: 0.0625rem solid var(--border-default);
+  background: linear-gradient(to bottom, var(--pastel-blue-100), var(--pastel-blue-200));
+  color: var(--text-primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.app-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.app-btn--sm {
+  min-height: 2.25rem;
+  font-size: 0.95rem;
+  padding: 0 0.75rem;
+}
+
+.app-btn--md {
+  min-height: 2.75rem;
+  font-size: 1rem;
+  padding: 0 0.9rem;
+}
+
+.app-btn--lg {
+  min-height: 4.5rem;
+  font-size: 1.3125rem;
+  padding: 0 1rem;
+}
+
+.app-btn--success {
+  background: linear-gradient(to bottom, var(--pastel-mint-100), var(--pastel-mint-200));
+  color: var(--semantic-success-text);
+}
+
+.app-btn--danger {
+  background: linear-gradient(to bottom, var(--pastel-pink-100), var(--pastel-pink-200));
+  color: var(--semantic-danger-text);
+}
+
+.app-btn--warning {
+  background: linear-gradient(to bottom, var(--pastel-peach-100), var(--pastel-peach-200));
+  color: var(--semantic-warning-text);
+}
+
+.app-btn--neutral {
+  background: var(--bg-surface-soft);
+}

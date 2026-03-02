@@ -8,9 +8,11 @@ type TicketPanelProps = {
   applyDiscount: (percent: number, scope: 'item' | 'transaction') => void
   cart: CartLineItem[]
   clearTransaction: () => void
+  onSearchSubmit?: () => void
   quantity: string
   removeSelectedLine: () => void
   search: string
+  searchRef?: React.RefObject<HTMLInputElement | null>
   selectedCartId: number | null
   selectedCartItem: CartLineItem | null
   transactionDiscountPercent: number
@@ -25,9 +27,11 @@ export function TicketPanel({
   applyDiscount,
   cart,
   clearTransaction,
+  onSearchSubmit,
   quantity,
   removeSelectedLine,
   search,
+  searchRef,
   selectedCartId,
   selectedCartItem,
   transactionDiscountPercent,
@@ -61,6 +65,14 @@ export function TicketPanel({
         : 0
 
     return scope === 'item' ? selectedItemDiscount : transactionDiscountPercent
+  }
+
+  const getPriceOriginalValue = (): number => {
+    if (!selectedCartItem || selectedCartItem.kind === 'transaction-discount') {
+      return 0
+    }
+
+    return selectedCartItem.basePrice ?? selectedCartItem.price
   }
 
   const updateDiscountScope = (scope: 'item' | 'transaction'): void => {
@@ -167,6 +179,16 @@ export function TicketPanel({
     setIsEditPristine(false)
   }
 
+  const restoreOriginalPrice = (): void => {
+    const originalPrice = getPriceOriginalValue()
+
+    if (originalPrice > 0) {
+      updateSelectedLinePrice(originalPrice)
+    }
+
+    closeEditModal()
+  }
+
   const submitEdit = (): void => {
     if (!editMode) {
       return
@@ -221,10 +243,18 @@ export function TicketPanel({
     <section className="ticket-panel">
       <div className="ticket-controls">
         <input
+          ref={searchRef}
           className="ticket-input"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && onSearchSubmit) {
+              event.preventDefault()
+              onSearchSubmit()
+            }
+          }}
           placeholder="Search item"
+          autoFocus
         />
         <input
           className="qty-input"
@@ -349,8 +379,15 @@ export function TicketPanel({
             </h3>
             <p className="pos-modal-original">
               {editMode === 'quantity' && `Original Qty: ${selectedCartItem?.lineQuantity ?? 0}`}
-              {editMode === 'price' &&
-                `Original Price: $${(selectedCartItem?.price ?? 0).toFixed(2)}`}
+              {editMode === 'price' && (
+                <button
+                  type="button"
+                  className="pos-modal-original-action"
+                  onClick={restoreOriginalPrice}
+                >
+                  Original Price: ${getPriceOriginalValue().toFixed(2)}
+                </button>
+              )}
               {editMode === 'discount' &&
                 `Original Discount: ${getDiscountOriginalValue(discountScope).toFixed(2)}%`}
             </p>

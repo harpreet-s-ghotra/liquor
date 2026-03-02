@@ -208,6 +208,17 @@
   padding: 0.625rem 1rem;
 }
 
+.pos-modal-original-action {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
 .pos-modal .ticket-input {
   font-size: 1.75rem;
   min-height: 4rem;

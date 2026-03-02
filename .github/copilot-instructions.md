@@ -27,3 +27,12 @@ Use this sequence during implementation:
 - Prefer focused unit tests for renderer logic (`store`, `components`, `pages`) when implementing UI behavior.
 - Keep tests deterministic and independent from external services.
 - For TDD on UI workflows, add/update Playwright tests in `tests/e2e` before or with UI implementation.
+
+## Visual Verification
+
+Before finalizing any UI-related change:
+
+1. Open the app UI in the browser (Simple Browser or `open_simple_browser`) to visually verify the result.
+2. Check that text is readable, layouts are correct, and interactive elements work as expected.
+3. If the change affects dark-background panels, confirm contrast and color token usage (e.g. `--text-on-dark` for text on dark surfaces).
+4. Do not mark a UI task as complete until you have visually confirmed the output.

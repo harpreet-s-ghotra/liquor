@@ -31,8 +31,10 @@ describe('ActionPanel', () => {
         subtotalBeforeDiscount={12}
         subtotalDiscounted={10}
         tax={1.2}
-        totalSavings={2.2}
         total={10.5}
+        onPay={vi.fn()}
+        onCash={vi.fn()}
+        onCredit={vi.fn()}
       />
     )
 
@@ -45,8 +47,6 @@ describe('ActionPanel', () => {
     expect(payButton).toBeDisabled()
     expect(screen.getByText('Discount')).toBeInTheDocument()
     expect(screen.getByText('-$2.00')).toBeInTheDocument()
-    expect(screen.getByText('Saved')).toBeInTheDocument()
-    expect(screen.getByText('$2.20')).toBeInTheDocument()
 
     fireEvent.click(wineButton)
     expect(setActiveCategory).toHaveBeenCalledWith('Wine')
@@ -67,8 +67,10 @@ describe('ActionPanel', () => {
         subtotalBeforeDiscount={30}
         subtotalDiscounted={25}
         tax={2}
-        totalSavings={7}
         total={25}
+        onPay={vi.fn()}
+        onCash={vi.fn()}
+        onCredit={vi.fn()}
       />
     )
 

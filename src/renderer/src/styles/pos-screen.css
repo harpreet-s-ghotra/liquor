@@ -14,17 +14,13 @@
   overflow: hidden;
 }
 
-.selection-info {
+.pos-screen-error {
   position: absolute;
   right: 0.75rem;
   bottom: 4.625rem;
   font-size: 0.8125rem;
-  color: var(--text-primary);
+  color: var(--semantic-danger-text);
   background: var(--bg-surface-soft);
   border: 0.0625rem solid var(--border-soft);
   padding: 0.25rem 0.5rem;
-}
-
-.selection-info-selected {
-  bottom: 6.5rem;
 }

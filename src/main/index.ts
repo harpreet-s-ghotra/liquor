@@ -2,7 +2,28 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { getProducts, initializeDatabase } from './database'
+import {
+  getInventoryDepartments,
+  getInventoryProductDetail,
+  getInventoryProducts,
+  getInventoryTaxCodes,
+  getProducts,
+  initializeDatabase,
+  saveInventoryItem,
+  searchInventoryProducts,
+  getDepartments,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+  getTaxCodes,
+  createTaxCode,
+  updateTaxCode,
+  deleteTaxCode,
+  getVendors,
+  createVendor,
+  updateVendor,
+  deleteVendor
+} from './database'
 
 function createWindow(): void {
   // Create the browser window.
@@ -52,8 +73,159 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  ipcMain.handle('products:list', () => {
-    return getProducts()
+  ipcMain.handle('products:list', async () => {
+    try {
+      return getProducts()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list products')
+    }
+  })
+
+  ipcMain.handle('inventory:products:list', async () => {
+    try {
+      return getInventoryProducts()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list inventory products')
+    }
+  })
+
+  ipcMain.handle('inventory:products:search', async (_, query: string) => {
+    try {
+      return searchInventoryProducts(query)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to search inventory products')
+    }
+  })
+
+  ipcMain.handle('inventory:products:detail', async (_, itemNumber: number) => {
+    try {
+      return getInventoryProductDetail(itemNumber)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get product detail')
+    }
+  })
+
+  ipcMain.handle('inventory:products:save', async (_, payload) => {
+    try {
+      return saveInventoryItem(payload)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to save inventory item')
+    }
+  })
+
+  ipcMain.handle('inventory:departments:list', async () => {
+    try {
+      return getInventoryDepartments()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list departments')
+    }
+  })
+
+  ipcMain.handle('inventory:tax-codes:list', async () => {
+    try {
+      return getInventoryTaxCodes()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list tax codes')
+    }
+  })
+
+  // Department CRUD
+  ipcMain.handle('departments:list', async () => {
+    try {
+      return getDepartments()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list departments')
+    }
+  })
+
+  ipcMain.handle('departments:create', async (_, input) => {
+    try {
+      return createDepartment(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to create department')
+    }
+  })
+
+  ipcMain.handle('departments:update', async (_, input) => {
+    try {
+      return updateDepartment(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to update department')
+    }
+  })
+
+  ipcMain.handle('departments:delete', async (_, id: number) => {
+    try {
+      return deleteDepartment(id)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete department')
+    }
+  })
+
+  // Tax Code CRUD
+  ipcMain.handle('tax-codes:list', async () => {
+    try {
+      return getTaxCodes()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list tax codes')
+    }
+  })
+
+  ipcMain.handle('tax-codes:create', async (_, input) => {
+    try {
+      return createTaxCode(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to create tax code')
+    }
+  })
+
+  ipcMain.handle('tax-codes:update', async (_, input) => {
+    try {
+      return updateTaxCode(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to update tax code')
+    }
+  })
+
+  ipcMain.handle('tax-codes:delete', async (_, id: number) => {
+    try {
+      return deleteTaxCode(id)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete tax code')
+    }
+  })
+
+  // Vendor CRUD
+  ipcMain.handle('vendors:list', async () => {
+    try {
+      return getVendors()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list vendors')
+    }
+  })
+
+  ipcMain.handle('vendors:create', async (_, input) => {
+    try {
+      return createVendor(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to create vendor')
+    }
+  })
+
+  ipcMain.handle('vendors:update', async (_, input) => {
+    try {
+      return updateVendor(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to update vendor')
+    }
+  })
+
+  ipcMain.handle('vendors:delete', async (_, vendorNumber: number) => {
+    try {
+      return deleteVendor(vendorNumber)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete vendor')
+    }
   })
 
   createWindow()

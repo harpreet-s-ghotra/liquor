@@ -30,6 +30,10 @@
   --semantic-warning-text: #78350f;
   --semantic-success-text: #0a2515;
 
+  --semantic-danger-on-dark: #fca5a5;
+  --semantic-success-on-dark: #86efac;
+  --text-muted-on-dark: #94a3b8;
+
   --totals-bg: #0f1012;
   --totals-text: #4ade80;
 }

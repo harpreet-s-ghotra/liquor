@@ -1,17 +1,41 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-
-type Product = {
-  id: number
-  sku: string
-  name: string
-  category: string
-  price: number
-  quantity: number
-  tax_rate: number
-}
+import type {
+  Product,
+  InventoryProduct,
+  InventoryProductDetail,
+  SaveInventoryItemInput,
+  InventoryTaxCode,
+  Department,
+  TaxCode,
+  Vendor,
+  CreateDepartmentInput,
+  UpdateDepartmentInput,
+  CreateTaxCodeInput,
+  UpdateTaxCodeInput,
+  CreateVendorInput,
+  UpdateVendorInput
+} from '../shared/types'
 
 type AppApi = {
   getProducts: () => Promise<Product[]>
+  getInventoryProducts: () => Promise<InventoryProduct[]>
+  searchInventoryProducts: (query: string) => Promise<InventoryProduct[]>
+  getInventoryProductDetail: (itemNumber: number) => Promise<InventoryProductDetail | null>
+  saveInventoryItem: (payload: SaveInventoryItemInput) => Promise<InventoryProductDetail>
+  getInventoryDepartments: () => Promise<string[]>
+  getInventoryTaxCodes: () => Promise<InventoryTaxCode[]>
+  getDepartments: () => Promise<Department[]>
+  createDepartment: (input: CreateDepartmentInput) => Promise<Department>
+  updateDepartment: (input: UpdateDepartmentInput) => Promise<Department>
+  deleteDepartment: (id: number) => Promise<void>
+  getTaxCodes: () => Promise<TaxCode[]>
+  createTaxCode: (input: CreateTaxCodeInput) => Promise<TaxCode>
+  updateTaxCode: (input: UpdateTaxCodeInput) => Promise<TaxCode>
+  deleteTaxCode: (id: number) => Promise<void>
+  getVendors: () => Promise<Vendor[]>
+  createVendor: (input: CreateVendorInput) => Promise<Vendor>
+  updateVendor: (input: UpdateVendorInput) => Promise<Vendor>
+  deleteVendor: (vendorNumber: number) => Promise<void>
 }
 
 declare global {
