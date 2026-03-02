@@ -1,6 +1,7 @@
 .action-panel {
   background: var(--bg-panel);
-  border: 0.0625rem solid var(--border-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   padding: 0.375rem;
   min-height: 0;
   display: grid;
@@ -12,6 +13,7 @@
 .totals-box {
   background: var(--totals-bg);
   color: var(--totals-text);
+  border-radius: var(--radius);
   padding: 0.5rem;
   display: grid;
   gap: 0.5rem;
@@ -33,7 +35,7 @@
 }
 
 .totals-box .totals-discount {
-  color: var(--pastel-peach-200);
+  color: var(--accent-peach);
 }
 
 .totals-box .grand-total strong {
@@ -50,17 +52,29 @@
 }
 
 .category-btn {
-  border: 0.0625rem solid var(--border-default);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius);
   min-height: 3.25rem;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--btn-text);
+  background: var(--btn-bg);
   cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.category-btn:not(:disabled):hover {
+  background: var(--btn-hover-bg);
+  box-shadow: var(--shadow-sm);
 }
 
 .category-btn.active {
-  border-color: var(--border-strong);
-  box-shadow: inset 0 0 0 0.125rem rgba(15, 23, 42, 0.25);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
 .product-pad {
@@ -73,44 +87,63 @@
 }
 
 .product-pad-btn {
-  border: 0.0625rem solid var(--border-default);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius);
   min-height: 4.75rem;
   padding: 0.5rem;
   display: grid;
   text-align: left;
   font-size: 0.9375rem;
-  color: var(--text-primary);
+  color: var(--btn-text);
+  background: var(--btn-bg);
   cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.product-pad-btn:hover {
+  background: var(--btn-hover-bg);
+  box-shadow: var(--shadow-sm);
 }
 
 .category-btn.category-tone-favorite,
 .product-pad-btn.category-tone-favorite {
-  background: linear-gradient(to bottom, var(--pastel-peach-100), var(--pastel-peach-200));
+  background: var(--cat-fav-bg);
+  border-color: var(--cat-fav-border);
 }
 
 .category-btn.category-tone-all,
 .product-pad-btn.category-tone-all {
-  background: linear-gradient(to bottom, var(--bg-surface), var(--bg-surface-soft));
+  background: var(--cat-all-bg);
+  border-color: var(--cat-all-border);
 }
 
 .category-btn.category-tone-1,
 .product-pad-btn.category-tone-1 {
-  background: linear-gradient(to bottom, var(--pastel-blue-100), var(--pastel-blue-200));
+  background: var(--cat-1-bg);
+  border-color: var(--cat-1-border);
 }
 
 .category-btn.category-tone-2,
 .product-pad-btn.category-tone-2 {
-  background: linear-gradient(to bottom, var(--pastel-lavender-100), var(--pastel-lavender-200));
+  background: var(--cat-2-bg);
+  border-color: var(--cat-2-border);
 }
 
 .category-btn.category-tone-3,
 .product-pad-btn.category-tone-3 {
-  background: linear-gradient(to bottom, var(--pastel-mint-100), var(--pastel-mint-200));
+  background: var(--cat-3-bg);
+  border-color: var(--cat-3-border);
 }
 
 .category-btn.category-tone-4,
 .product-pad-btn.category-tone-4 {
-  background: linear-gradient(to bottom, var(--pastel-pink-100), var(--pastel-pink-200));
+  background: var(--cat-4-bg);
+  border-color: var(--cat-4-border);
 }
 
 .product-pad-btn strong {
@@ -124,37 +157,57 @@
   gap: 0.375rem;
   margin-top: 0.375rem;
   padding-top: 0.625rem;
-  border-top: 0.125rem solid var(--border-strong);
+  border-top: 2px solid var(--border-strong);
+  border-radius: 0 0 var(--radius) var(--radius);
   background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.12));
   align-content: start;
   overflow: hidden;
 }
 
 .pay-btn {
-  border: 0.0625rem solid var(--border-default);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius);
   min-height: 4.875rem;
   font-size: 1.375rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--btn-text);
+  background: var(--btn-bg);
   cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.pay-btn:not(:disabled):hover {
+  background: var(--btn-hover-bg);
+  box-shadow: var(--shadow-sm);
 }
 
 .pay-btn.cash {
-  background: linear-gradient(to bottom, var(--pastel-mint-100), var(--pastel-mint-200));
+  background: var(--btn-success-bg);
+  border-color: var(--btn-success-border);
+  color: var(--btn-success-text);
 }
 
 .pay-btn.card {
-  background: linear-gradient(to bottom, var(--pastel-blue-100), var(--pastel-blue-200));
+  background: var(--btn-bg);
+  border-color: var(--btn-border);
+  color: var(--btn-text);
 }
 
 .pay-btn.pay {
   grid-column: 1 / -1;
   display: block;
   width: 100%;
-  background: linear-gradient(to bottom, var(--pastel-mint-100), var(--pastel-mint-200));
+  background: var(--btn-success-bg);
+  border-color: var(--btn-success-border);
   font-size: 2.75rem;
   min-height: 5.375rem;
-  color: var(--semantic-success-text);
+  color: var(--btn-success-text);
+  border-radius: var(--radius);
 }
 
 .pay-btn:disabled {

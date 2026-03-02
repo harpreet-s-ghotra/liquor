@@ -1,39 +1,90 @@
 :root {
-  --font-sans: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  /* ── Typography ── */
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono',
+    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 
+  /* ── Backgrounds (full dark palette) ── */
   --bg-shell: #14181f;
   --bg-app: #171b22;
+  --bg-surface: #1e242e;
+  --bg-surface-soft: #252b36;
   --bg-panel: #2a2f3a;
-  --bg-surface: #f7f8fb;
-  --bg-surface-soft: #eceff5;
 
+  /* ── Borders ── */
   --border-strong: #4f5767;
   --border-default: #677086;
-  --border-soft: #d7dce6;
+  --border-soft: #3a4150;
 
-  --text-primary: #0f172a;
-  --text-muted: #5f6778;
-  --text-on-dark: #f5f7fa;
+  /* ── Text ── */
+  --text-primary: #e2e8f0;
+  --text-muted: #8892a4;
+  --text-on-dark: #e8ecf0;
 
-  --pastel-pink-100: #f8d6e8;
-  --pastel-pink-200: #f0bfd8;
-  --pastel-lavender-100: #e5d7f8;
-  --pastel-lavender-200: #d7c5f2;
-  --pastel-blue-100: #d8eaf9;
-  --pastel-blue-200: #bddbf2;
-  --pastel-mint-100: #d8f5e5;
-  --pastel-mint-200: #bdeccb;
-  --pastel-peach-100: #ffe8cc;
-  --pastel-peach-200: #ffd6ab;
+  /* ── Button palette (dark solid fill + lighter border + light text) ── */
+  --btn-bg: #1c3344;
+  --btn-border: #3a5c72;
+  --btn-text: #e8ecf0;
+  --btn-hover-bg: #24404f;
 
-  --semantic-danger-text: #7f1d1d;
-  --semantic-warning-text: #78350f;
-  --semantic-success-text: #0a2515;
+  --btn-danger-bg: #3b1f1f;
+  --btn-danger-border: #6b3535;
+  --btn-danger-text: #fca5a5;
 
+  --btn-success-bg: #1a3328;
+  --btn-success-border: #2d5a44;
+  --btn-success-text: #86efac;
+
+  --btn-warning-bg: #3d2f1a;
+  --btn-warning-border: #6b5235;
+  --btn-warning-text: #fcd34d;
+
+  /* ── Category tones (subtle dark hue tints) ── */
+  --cat-all-bg: #2a2f3a;
+  --cat-all-border: #4f5767;
+  --cat-fav-bg: #3a2d20;
+  --cat-fav-border: #5c4a35;
+  --cat-1-bg: #1c3344;
+  --cat-1-border: #3a5c72;
+  --cat-2-bg: #2a2340;
+  --cat-2-border: #4a3d6a;
+  --cat-3-bg: #1c3530;
+  --cat-3-border: #3a6858;
+  --cat-4-bg: #3a2035;
+  --cat-4-border: #5c3558;
+
+  /* ── Accent highlights (muted for dark theme — badges, row tints) ── */
+  --accent-peach: #d4a574;
+  --accent-peach-soft: #332820;
+  --accent-blue: #7baac8;
+  --accent-blue-soft: #1e2a35;
+  --accent-lavender: #a689c9;
+  --accent-lavender-soft: #2d2340;
+  --accent-mint: #7bc49a;
+  --accent-mint-soft: #1e3028;
+
+  /* ── Semantic colors (bright on dark) ── */
+  --semantic-danger-text: #fca5a5;
+  --semantic-warning-text: #fcd34d;
+  --semantic-success-text: #86efac;
   --semantic-danger-on-dark: #fca5a5;
   --semantic-success-on-dark: #86efac;
   --text-muted-on-dark: #94a3b8;
 
+  /* ── Totals panel ── */
   --totals-bg: #0f1012;
   --totals-text: #4ade80;
+
+  /* ── Radius — 4px everywhere ── */
+  --radius: 0.25rem;
+  --radius-pill: 999px;
+
+  /* ── Shadows ── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.12), 0 4px 6px rgba(0, 0, 0, 0.08);
+
+  /* ── Transitions ── */
+  --transition-fast: 0.12s ease;
+  --transition-normal: 0.2s ease;
 }

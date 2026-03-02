@@ -1,15 +1,24 @@
 .shortcut-bar {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.0625rem;
+  gap: 0.125rem;
   background: var(--border-strong);
   border-top: 0.0625rem solid var(--border-strong);
 }
 
 .shortcut-bar button {
   border: none;
+  border-radius: 0;
   background: var(--bg-surface-soft);
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-primary);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.shortcut-bar button:hover {
+  background: var(--btn-bg);
+  color: var(--btn-text);
 }

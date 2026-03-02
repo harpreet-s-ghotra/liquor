@@ -50,6 +50,7 @@
 .crud-panel__list {
   min-height: 0;
   overflow: auto;
+  border-radius: var(--radius);
 }
 
 .crud-panel__table {

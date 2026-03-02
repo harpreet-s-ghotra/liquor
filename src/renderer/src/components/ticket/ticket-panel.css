@@ -1,6 +1,7 @@
 .ticket-panel {
   background: var(--bg-panel);
-  border: 0.0625rem solid var(--border-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   position: relative;
   padding: 0.375rem;
   min-height: 0;
@@ -18,7 +19,8 @@
 
 .ticket-input,
 .qty-input {
-  border: 0.0625rem solid var(--border-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
   background: var(--bg-surface);
   padding: 0.625rem;
   font-size: 1.125rem;
@@ -26,7 +28,8 @@
 }
 
 .ticket-table {
-  border: 0.0625rem solid var(--border-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
   background: var(--bg-surface);
   display: grid;
   grid-template-rows: 1.875rem 1fr;
@@ -69,12 +72,12 @@
 }
 
 .ticket-line.discounted {
-  background: linear-gradient(to right, var(--pastel-peach-100), var(--bg-surface));
-  border-left: 0.25rem solid var(--pastel-peach-200);
+  background: linear-gradient(to right, var(--accent-peach-soft), var(--bg-surface));
+  border-left: 0.25rem solid var(--accent-peach);
 }
 
 .ticket-line.active {
-  background: var(--pastel-blue-200);
+  background: var(--accent-blue-soft);
 }
 
 .ticket-line > span {
@@ -104,9 +107,10 @@
 }
 
 .ticket-line-discount-badge {
-  background: var(--pastel-peach-200);
-  border: 0.0625rem solid var(--border-default);
-  color: var(--semantic-warning-text);
+  background: var(--accent-peach);
+  border: 1px solid var(--btn-warning-border);
+  border-radius: var(--radius);
+  color: var(--btn-warning-text);
   padding: 0.0625rem 0.375rem;
   font-size: 0.8125rem;
   font-weight: 800;
@@ -123,8 +127,8 @@
   position: sticky;
   bottom: 0;
   z-index: 2;
-  background: linear-gradient(to right, var(--pastel-lavender-100), var(--pastel-lavender-200));
-  border-top: 0.125rem solid var(--border-strong);
+  background: linear-gradient(to right, var(--accent-lavender-soft), var(--accent-lavender));
+  border-top: 2px solid var(--border-strong);
 }
 
 .empty-ticket {
@@ -140,23 +144,37 @@
 }
 
 .pos-btn {
-  border: 0.0625rem solid var(--border-default);
-  background: linear-gradient(to bottom, var(--pastel-blue-100), var(--pastel-blue-200));
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius);
+  background: var(--btn-bg);
   font-size: 1.3125rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--btn-text);
   min-height: 4.5rem;
   cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.pos-btn:not(:disabled):hover {
+  background: var(--btn-hover-bg);
+  box-shadow: var(--shadow-sm);
 }
 
 .pos-btn.danger {
-  background: linear-gradient(to bottom, var(--pastel-pink-100), var(--pastel-pink-200));
-  color: var(--semantic-danger-text);
+  background: var(--btn-danger-bg);
+  border-color: var(--btn-danger-border);
+  color: var(--btn-danger-text);
 }
 
 .pos-btn.warning {
-  background: linear-gradient(to bottom, var(--pastel-peach-100), var(--pastel-peach-200));
-  color: var(--semantic-warning-text);
+  background: var(--btn-warning-bg);
+  border-color: var(--btn-warning-border);
+  color: var(--btn-warning-text);
 }
 
 .pos-btn:disabled {
@@ -167,7 +185,7 @@
 .pos-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--pastel-blue-900) 25%, transparent);
+  background: color-mix(in srgb, var(--bg-shell) 55%, transparent);
   display: grid;
   place-items: center;
   z-index: 10;
@@ -175,11 +193,13 @@
 
 .pos-modal {
   width: min(34rem, calc(100% - 2rem));
-  border: 0.0625rem solid var(--border-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   background: var(--bg-panel);
   padding: 1rem;
   display: grid;
   gap: 1rem;
+  box-shadow: var(--shadow-lg);
 }
 
 .pos-modal h3 {
@@ -189,7 +209,8 @@
 .pos-modal-title {
   background: var(--bg-shell);
   color: var(--text-on-dark);
-  border: 0.0625rem solid var(--border-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   padding: 0.75rem 1rem;
   font-size: 1.5rem;
 }
@@ -205,6 +226,7 @@
   font-weight: 600;
   color: var(--text-on-dark);
   background: var(--border-strong);
+  border-radius: var(--radius);
   padding: 0.625rem 1rem;
 }
 
@@ -262,13 +284,24 @@
 }
 
 .pos-keypad-btn {
-  border: 0.0625rem solid var(--border-default);
-  background: var(--bg-surface-soft);
-  color: var(--text-primary);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius);
+  background: var(--btn-bg);
+  color: var(--btn-text);
   font-size: 1.75rem;
   font-weight: 700;
   min-height: 4.5rem;
   cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.pos-keypad-btn:hover {
+  background: var(--btn-hover-bg);
+  box-shadow: var(--shadow-sm);
 }
 
 .pos-keypad-btn-wide {

@@ -3,7 +3,7 @@
   position: absolute;
   inset: 0;
   z-index: 20;
-  background: color-mix(in srgb, var(--pastel-blue-900, #14181f) 30%, transparent);
+  background: color-mix(in srgb, var(--bg-shell) 55%, transparent);
   display: grid;
   place-items: center;
   padding: 0.75rem;
@@ -15,9 +15,11 @@
   display: grid;
   gap: 0.75rem;
   grid-template-rows: auto auto 1fr;
-  border: 0.0625rem solid var(--border-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   background: var(--bg-panel);
   padding: 0.75rem;
+  box-shadow: var(--shadow-lg);
 }
 
 /* ── Header ── */

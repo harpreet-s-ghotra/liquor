@@ -15,9 +15,11 @@
   display: grid;
   gap: 0.75rem;
   grid-template-rows: auto auto 1fr;
-  border: 0.0625rem solid var(--border-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   background: var(--bg-panel);
   padding: 0.75rem;
+  box-shadow: var(--shadow-lg);
 }
 
 /* ── Header ── */
@@ -36,14 +38,16 @@
 }
 
 .payment-close-btn {
-  border: 0.0625rem solid var(--border-default);
-  background: linear-gradient(to bottom, var(--pastel-pink-100), var(--pastel-pink-200));
-  color: var(--semantic-danger-text);
+  border: 1px solid var(--btn-danger-border);
+  border-radius: var(--radius);
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-text);
   font-size: 1.125rem;
   font-weight: 700;
   padding: 0.5rem 1.25rem;
   min-height: 2.75rem;
   cursor: pointer;
+  box-shadow: var(--shadow-xs);
 }
 
 .payment-close-btn:disabled {
@@ -57,6 +61,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
+  border-radius: var(--radius);
   background: var(--totals-bg);
   color: var(--totals-text);
   font-size: 1.375rem;
@@ -92,24 +97,37 @@
 }
 
 .payment-method-btn {
-  border: 0.0625rem solid var(--border-default);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius);
   min-height: 4.5rem;
   font-size: 1.375rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--btn-text);
   cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .payment-method-btn.cash {
-  background: linear-gradient(to bottom, var(--pastel-mint-100), var(--pastel-mint-200));
+  background: var(--btn-success-bg);
+  border-color: var(--btn-success-border);
+  color: var(--btn-success-text);
 }
 
 .payment-method-btn.credit {
-  background: linear-gradient(to bottom, var(--pastel-blue-100), var(--pastel-blue-200));
+  background: var(--btn-bg);
+  border-color: var(--btn-border);
+  color: var(--btn-text);
 }
 
 .payment-method-btn.debit {
-  background: linear-gradient(to bottom, var(--pastel-lavender-100), var(--pastel-lavender-200));
+  background: var(--cat-4-bg);
+  border-color: var(--cat-4-border);
+  color: var(--btn-text);
 }
 
 .payment-method-btn:disabled {
@@ -120,6 +138,7 @@
 /* ── Status area ── */
 .payment-status-area {
   padding: 0.625rem 1rem;
+  border-radius: var(--radius);
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text-on-dark);
@@ -134,14 +153,14 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--pastel-blue-200);
+  color: var(--accent-blue);
 }
 
 .processing-spinner {
   display: inline-block;
   width: 1.125rem;
   height: 1.125rem;
-  border: 0.1875rem solid var(--pastel-blue-200);
+  border: 0.1875rem solid var(--accent-blue);
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -164,19 +183,21 @@
 }
 
 .payment-ok-btn {
-  border: 0.0625rem solid var(--border-default);
-  background: linear-gradient(to bottom, var(--pastel-mint-100), var(--pastel-mint-200));
-  color: var(--semantic-success-text);
+  border: 1px solid var(--btn-success-border);
+  border-radius: var(--radius);
+  background: var(--btn-success-bg);
+  color: var(--btn-success-text);
   font-size: 1.25rem;
   font-weight: 700;
   padding: 0.5rem 2rem;
   min-height: 2.75rem;
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: var(--shadow-xs);
 }
 
 .payment-ok-btn:hover {
-  filter: brightness(0.95);
+  filter: brightness(1.12);
 }
 
 .payment-remaining strong,
@@ -210,13 +231,24 @@
 }
 
 .tender-btn {
-  border: 0.0625rem solid var(--border-default);
-  background: linear-gradient(to bottom, var(--bg-surface), var(--bg-surface-soft));
-  color: var(--text-primary);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius);
+  background: var(--btn-bg);
+  color: var(--btn-text);
   font-size: 1.375rem;
   font-weight: 700;
   min-height: 4rem;
   cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.tender-btn:not(:disabled):hover {
+  background: var(--btn-hover-bg);
+  box-shadow: var(--shadow-sm);
 }
 
 .tender-btn:disabled {
@@ -228,7 +260,8 @@
 .payment-right {
   display: grid;
   grid-template-rows: auto 1fr;
-  border: 0.0625rem solid var(--border-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   background: var(--bg-shell);
   min-height: 0;
   overflow: hidden;
@@ -240,10 +273,11 @@
   align-items: center;
   padding: 0.625rem 0.75rem;
   background: var(--totals-bg);
+  border-radius: var(--radius) var(--radius) 0 0;
   color: var(--totals-text);
   font-size: 1.125rem;
   font-weight: 700;
-  border-bottom: 0.0625rem solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .paid-so-far-header strong {
@@ -268,20 +302,21 @@
   padding: 0.5rem 0.625rem;
   font-size: 1rem;
   font-weight: 600;
-  border: 0.0625rem solid var(--border-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
 }
 
 .paid-entry-cash {
-  background: linear-gradient(to right, var(--pastel-mint-100), var(--pastel-mint-200));
-  color: var(--semantic-success-text);
+  background: var(--btn-success-bg);
+  color: var(--btn-success-text);
 }
 
 .paid-entry-credit {
-  background: linear-gradient(to right, var(--pastel-blue-100), var(--pastel-blue-200));
-  color: var(--text-primary);
+  background: var(--btn-bg);
+  color: var(--btn-text);
 }
 
 .paid-entry-debit {
-  background: linear-gradient(to right, var(--pastel-lavender-100), var(--pastel-lavender-200));
-  color: var(--text-primary);
+  background: var(--cat-4-bg);
+  color: var(--btn-text);
 }

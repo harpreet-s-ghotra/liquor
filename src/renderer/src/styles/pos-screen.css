@@ -21,6 +21,8 @@
   font-size: 0.8125rem;
   color: var(--semantic-danger-text);
   background: var(--bg-surface-soft);
-  border: 0.0625rem solid var(--border-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
   padding: 0.25rem 0.5rem;
+  box-shadow: var(--shadow-sm);
 }
