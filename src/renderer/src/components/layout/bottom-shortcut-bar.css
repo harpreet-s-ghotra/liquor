@@ -13,12 +13,4 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-primary);
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.shortcut-bar button:hover {
-  background: var(--btn-bg);
-  color: var(--btn-text);
 }

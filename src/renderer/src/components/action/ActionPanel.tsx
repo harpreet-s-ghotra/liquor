@@ -16,6 +16,7 @@ type ActionPanelProps = {
   onPay: () => void
   onCash: () => void
   onCredit: () => void
+  onDebit: () => void
 }
 
 export function ActionPanel({
@@ -31,7 +32,8 @@ export function ActionPanel({
   total,
   onPay,
   onCash,
-  onCredit
+  onCredit,
+  onDebit
 }: ActionPanelProps): React.JSX.Element {
   const discountAmount = subtotalBeforeDiscount - subtotalDiscounted
 
@@ -116,9 +118,9 @@ export function ActionPanel({
         </button>
         <button
           type="button"
-          className="pay-btn card"
+          className="pay-btn debit"
           disabled={cartCount === 0}
-          onClick={onCredit}
+          onClick={onDebit}
         >
           Debit
         </button>

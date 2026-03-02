@@ -108,7 +108,7 @@
 
 .ticket-line-discount-badge {
   background: var(--accent-peach);
-  border: 1px solid var(--btn-warning-border);
+  border: none;
   border-radius: var(--radius);
   color: var(--btn-warning-text);
   padding: 0.0625rem 0.375rem;
@@ -144,7 +144,7 @@
 }
 
 .pos-btn {
-  border: 1px solid var(--btn-border);
+  border: none;
   border-radius: var(--radius);
   background: var(--btn-bg);
   font-size: 1.3125rem;
@@ -153,27 +153,15 @@
   min-height: 4.5rem;
   cursor: pointer;
   box-shadow: var(--shadow-xs);
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.pos-btn:not(:disabled):hover {
-  background: var(--btn-hover-bg);
-  box-shadow: var(--shadow-sm);
 }
 
 .pos-btn.danger {
   background: var(--btn-danger-bg);
-  border-color: var(--btn-danger-border);
   color: var(--btn-danger-text);
 }
 
 .pos-btn.warning {
   background: var(--btn-warning-bg);
-  border-color: var(--btn-warning-border);
   color: var(--btn-warning-text);
 }
 
@@ -284,7 +272,7 @@
 }
 
 .pos-keypad-btn {
-  border: 1px solid var(--btn-border);
+  border: none;
   border-radius: var(--radius);
   background: var(--btn-bg);
   color: var(--btn-text);
@@ -293,15 +281,6 @@
   min-height: 4.5rem;
   cursor: pointer;
   box-shadow: var(--shadow-xs);
-  transition:
-    background var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.pos-keypad-btn:hover {
-  background: var(--btn-hover-bg);
-  box-shadow: var(--shadow-sm);
 }
 
 .pos-keypad-btn-wide {

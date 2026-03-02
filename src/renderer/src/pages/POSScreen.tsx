@@ -12,6 +12,7 @@ export function POSScreen(): React.JSX.Element {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false)
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
   const [isPaymentComplete, setIsPaymentComplete] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
   const searchRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -53,10 +54,8 @@ export function POSScreen(): React.JSX.Element {
   const handlePaymentOpen = useCallback(
     (method?: PaymentMethod) => {
       if (cart.length === 0) return
+      setPaymentMethod(method)
       setIsPaymentOpen(true)
-      // If a specific method was clicked, we still open the modal
-      // The method param is available for future direct-pay shortcuts
-      void method
     },
     [cart.length]
   )
@@ -64,6 +63,7 @@ export function POSScreen(): React.JSX.Element {
   const handlePaymentComplete = useCallback(() => {
     setIsPaymentOpen(false)
     setIsPaymentComplete(false)
+    setPaymentMethod(undefined)
     clearTransaction()
     setTimeout(() => searchRef.current?.focus(), 0)
   }, [clearTransaction])
@@ -71,6 +71,7 @@ export function POSScreen(): React.JSX.Element {
   const handlePaymentCancel = useCallback(() => {
     setIsPaymentOpen(false)
     setIsPaymentComplete(false)
+    setPaymentMethod(undefined)
     setTimeout(() => searchRef.current?.focus(), 0)
   }, [])
 
@@ -140,6 +141,7 @@ export function POSScreen(): React.JSX.Element {
           onPay={() => handlePaymentOpen()}
           onCash={() => handlePaymentOpen('cash')}
           onCredit={() => handlePaymentOpen('credit')}
+          onDebit={() => handlePaymentOpen('debit')}
         />
       </main>
 
@@ -150,6 +152,7 @@ export function POSScreen(): React.JSX.Element {
       <PaymentModal
         isOpen={isPaymentOpen}
         total={total}
+        initialMethod={paymentMethod}
         onComplete={handlePaymentComplete}
         onCancel={handlePaymentCancel}
         onStatusChange={handlePaymentStatusChange}

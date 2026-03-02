@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
-import type { PaymentEntry, PaymentStatus } from '../../types/pos'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { PaymentEntry, PaymentMethod, PaymentStatus } from '../../types/pos'
 import './payment-modal.css'
 
 type PaymentModalProps = {
   isOpen: boolean
   total: number
+  initialMethod?: PaymentMethod
   onComplete: () => void
   onCancel: () => void
   onStatusChange?: (status: PaymentStatus) => void
@@ -16,6 +17,7 @@ const CARD_PROCESSING_DELAY_MS = 2000
 export function PaymentModal({
   isOpen,
   total,
+  initialMethod,
   onComplete,
   onCancel,
   onStatusChange
@@ -134,6 +136,27 @@ export function PaymentModal({
     },
     [remaining, status, total, onStatusChange]
   )
+
+  // Auto-trigger payment when modal opens with an initialMethod
+  const autoTriggeredRef = useRef(false)
+  useEffect(() => {
+    if (!isOpen) {
+      autoTriggeredRef.current = false
+      return
+    }
+    if (!initialMethod || autoTriggeredRef.current || status !== 'idle') return
+    autoTriggeredRef.current = true
+
+    // Defer to avoid synchronous setState inside effect body
+    const id = setTimeout(() => {
+      if (initialMethod === 'cash') {
+        handleCashExact()
+      } else {
+        handleCardPayment(initialMethod)
+      }
+    }, 0)
+    return (): void => clearTimeout(id)
+  }, [isOpen, initialMethod, status, handleCashExact, handleCardPayment])
 
   if (!isOpen) {
     return null

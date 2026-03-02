@@ -38,7 +38,7 @@
 }
 
 .payment-close-btn {
-  border: 1px solid var(--btn-danger-border);
+  border: none;
   border-radius: var(--radius);
   background: var(--btn-danger-bg);
   color: var(--btn-danger-text);
@@ -97,7 +97,7 @@
 }
 
 .payment-method-btn {
-  border: 1px solid var(--btn-border);
+  border: none;
   border-radius: var(--radius);
   min-height: 4.5rem;
   font-size: 1.375rem;
@@ -105,29 +105,21 @@
   color: var(--btn-text);
   cursor: pointer;
   box-shadow: var(--shadow-xs);
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
 }
 
 .payment-method-btn.cash {
-  background: var(--btn-success-bg);
-  border-color: var(--btn-success-border);
-  color: var(--btn-success-text);
+  background: var(--pay-cash-bg);
+  color: var(--pay-cash-text);
 }
 
 .payment-method-btn.credit {
-  background: var(--btn-bg);
-  border-color: var(--btn-border);
-  color: var(--btn-text);
+  background: var(--pay-credit-bg);
+  color: var(--pay-credit-text);
 }
 
 .payment-method-btn.debit {
-  background: var(--cat-4-bg);
-  border-color: var(--cat-4-border);
-  color: var(--btn-text);
+  background: var(--pay-debit-bg);
+  color: var(--pay-debit-text);
 }
 
 .payment-method-btn:disabled {
@@ -183,7 +175,7 @@
 }
 
 .payment-ok-btn {
-  border: 1px solid var(--btn-success-border);
+  border: none;
   border-radius: var(--radius);
   background: var(--btn-success-bg);
   color: var(--btn-success-text);
@@ -194,10 +186,6 @@
   cursor: pointer;
   white-space: nowrap;
   box-shadow: var(--shadow-xs);
-}
-
-.payment-ok-btn:hover {
-  filter: brightness(1.12);
 }
 
 .payment-remaining strong,
@@ -231,7 +219,7 @@
 }
 
 .tender-btn {
-  border: 1px solid var(--btn-border);
+  border: none;
   border-radius: var(--radius);
   background: var(--btn-bg);
   color: var(--btn-text);
@@ -240,15 +228,6 @@
   min-height: 4rem;
   cursor: pointer;
   box-shadow: var(--shadow-xs);
-  transition:
-    background var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.tender-btn:not(:disabled):hover {
-  background: var(--btn-hover-bg);
-  box-shadow: var(--shadow-sm);
 }
 
 .tender-btn:disabled {
@@ -302,21 +281,21 @@
   padding: 0.5rem 0.625rem;
   font-size: 1rem;
   font-weight: 600;
-  border: 1px solid var(--border-strong);
+  border: none;
   border-radius: var(--radius);
 }
 
 .paid-entry-cash {
-  background: var(--btn-success-bg);
-  color: var(--btn-success-text);
+  background: var(--pay-cash-bg);
+  color: var(--pay-cash-text);
 }
 
 .paid-entry-credit {
-  background: var(--btn-bg);
-  color: var(--btn-text);
+  background: var(--pay-credit-bg);
+  color: var(--pay-credit-text);
 }
 
 .paid-entry-debit {
-  background: var(--cat-4-bg);
-  color: var(--btn-text);
+  background: var(--pay-debit-bg);
+  color: var(--pay-debit-text);
 }

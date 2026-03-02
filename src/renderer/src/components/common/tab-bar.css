@@ -9,28 +9,17 @@
 
 .tab-bar__btn {
   padding: 0.5rem 1.1rem;
-  border: 1px solid transparent;
+  border: none;
   background: transparent;
   color: var(--text-muted-on-dark);
   font-weight: 700;
   font-size: 0.92rem;
   cursor: pointer;
   border-radius: var(--radius);
-  transition:
-    color var(--transition-fast),
-    background var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.tab-bar__btn:hover {
-  color: var(--text-on-dark);
-  background: var(--btn-bg);
-  border-color: var(--btn-border);
 }
 
 .tab-bar__btn.active {
   color: var(--btn-text);
   background: var(--btn-bg);
-  border-color: var(--btn-border);
   box-shadow: var(--shadow-xs);
 }

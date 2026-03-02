@@ -20,37 +20,36 @@
   --text-muted: #8892a4;
   --text-on-dark: #e8ecf0;
 
-  /* ── Button palette (dark solid fill + lighter border + light text) ── */
-  --btn-bg: #1c3344;
-  --btn-border: #3a5c72;
-  --btn-text: #e8ecf0;
-  --btn-hover-bg: #24404f;
+  /* ── Button palette (pastel bg + black text + no border) ── */
+  --btn-bg: #93c5fd;
+  --btn-border: transparent;
+  --btn-text: #111111;
 
-  --btn-danger-bg: #3b1f1f;
-  --btn-danger-border: #6b3535;
-  --btn-danger-text: #fca5a5;
+  --btn-danger-bg: #fca5a5;
+  --btn-danger-border: transparent;
+  --btn-danger-text: #111111;
 
-  --btn-success-bg: #1a3328;
-  --btn-success-border: #2d5a44;
-  --btn-success-text: #86efac;
+  --btn-success-bg: #86efac;
+  --btn-success-border: transparent;
+  --btn-success-text: #111111;
 
-  --btn-warning-bg: #3d2f1a;
-  --btn-warning-border: #6b5235;
-  --btn-warning-text: #fcd34d;
+  --btn-warning-bg: #fcd34d;
+  --btn-warning-border: transparent;
+  --btn-warning-text: #111111;
 
-  /* ── Category tones (subtle dark hue tints) ── */
-  --cat-all-bg: #2a2f3a;
-  --cat-all-border: #4f5767;
-  --cat-fav-bg: #3a2d20;
-  --cat-fav-border: #5c4a35;
-  --cat-1-bg: #1c3344;
-  --cat-1-border: #3a5c72;
-  --cat-2-bg: #2a2340;
-  --cat-2-border: #4a3d6a;
-  --cat-3-bg: #1c3530;
-  --cat-3-border: #3a6858;
-  --cat-4-bg: #3a2035;
-  --cat-4-border: #5c3558;
+  /* ── Category tones (pastel bg + no border) ── */
+  --cat-all-bg: #cbd5e1;
+  --cat-all-border: transparent;
+  --cat-fav-bg: #fdba74;
+  --cat-fav-border: transparent;
+  --cat-1-bg: #93c5fd;
+  --cat-1-border: transparent;
+  --cat-2-bg: #c4b5fd;
+  --cat-2-border: transparent;
+  --cat-3-bg: #6ee7b7;
+  --cat-3-border: transparent;
+  --cat-4-bg: #f9a8d4;
+  --cat-4-border: transparent;
 
   /* ── Accent highlights (muted for dark theme — badges, row tints) ── */
   --accent-peach: #d4a574;
@@ -74,6 +73,17 @@
   --totals-bg: #0f1012;
   --totals-text: #4ade80;
 
+  /* ── Payment method buttons (bright bg + dark text) ── */
+  --pay-cash-bg: #4ade80;
+  --pay-cash-border: transparent;
+  --pay-cash-text: #111111;
+  --pay-credit-bg: #60a5fa;
+  --pay-credit-border: transparent;
+  --pay-credit-text: #111111;
+  --pay-debit-bg: #c084fc;
+  --pay-debit-border: transparent;
+  --pay-debit-text: #111111;
+
   /* ── Radius — 4px everywhere ── */
   --radius: 0.25rem;
   --radius-pill: 999px;
@@ -84,7 +94,7 @@
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.12), 0 4px 6px rgba(0, 0, 0, 0.08);
 
-  /* ── Transitions ── */
-  --transition-fast: 0.12s ease;
-  --transition-normal: 0.2s ease;
+  /* ── Transitions (disabled — no animations) ── */
+  --transition-fast: 0s;
+  --transition-normal: 0s;
 }

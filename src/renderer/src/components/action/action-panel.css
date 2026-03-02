@@ -52,7 +52,7 @@
 }
 
 .category-btn {
-  border: 1px solid var(--btn-border);
+  border: none;
   border-radius: var(--radius);
   min-height: 3.25rem;
   font-size: 1rem;
@@ -61,16 +61,6 @@
   background: var(--btn-bg);
   cursor: pointer;
   box-shadow: var(--shadow-xs);
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.category-btn:not(:disabled):hover {
-  background: var(--btn-hover-bg);
-  box-shadow: var(--shadow-sm);
 }
 
 .category-btn.active {
@@ -87,7 +77,7 @@
 }
 
 .product-pad-btn {
-  border: 1px solid var(--btn-border);
+  border: none;
   border-radius: var(--radius);
   min-height: 4.75rem;
   padding: 0.5rem;
@@ -98,52 +88,36 @@
   background: var(--btn-bg);
   cursor: pointer;
   box-shadow: var(--shadow-xs);
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.product-pad-btn:hover {
-  background: var(--btn-hover-bg);
-  box-shadow: var(--shadow-sm);
 }
 
 .category-btn.category-tone-favorite,
 .product-pad-btn.category-tone-favorite {
   background: var(--cat-fav-bg);
-  border-color: var(--cat-fav-border);
 }
 
 .category-btn.category-tone-all,
 .product-pad-btn.category-tone-all {
   background: var(--cat-all-bg);
-  border-color: var(--cat-all-border);
 }
 
 .category-btn.category-tone-1,
 .product-pad-btn.category-tone-1 {
   background: var(--cat-1-bg);
-  border-color: var(--cat-1-border);
 }
 
 .category-btn.category-tone-2,
 .product-pad-btn.category-tone-2 {
   background: var(--cat-2-bg);
-  border-color: var(--cat-2-border);
 }
 
 .category-btn.category-tone-3,
 .product-pad-btn.category-tone-3 {
   background: var(--cat-3-bg);
-  border-color: var(--cat-3-border);
 }
 
 .category-btn.category-tone-4,
 .product-pad-btn.category-tone-4 {
   background: var(--cat-4-bg);
-  border-color: var(--cat-4-border);
 }
 
 .product-pad-btn strong {
@@ -165,7 +139,7 @@
 }
 
 .pay-btn {
-  border: 1px solid var(--btn-border);
+  border: none;
   border-radius: var(--radius);
   min-height: 4.875rem;
   font-size: 1.375rem;
@@ -174,39 +148,31 @@
   background: var(--btn-bg);
   cursor: pointer;
   box-shadow: var(--shadow-xs);
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.pay-btn:not(:disabled):hover {
-  background: var(--btn-hover-bg);
-  box-shadow: var(--shadow-sm);
 }
 
 .pay-btn.cash {
-  background: var(--btn-success-bg);
-  border-color: var(--btn-success-border);
-  color: var(--btn-success-text);
+  background: var(--pay-cash-bg);
+  color: var(--pay-cash-text);
 }
 
 .pay-btn.card {
-  background: var(--btn-bg);
-  border-color: var(--btn-border);
-  color: var(--btn-text);
+  background: var(--pay-credit-bg);
+  color: var(--pay-credit-text);
+}
+
+.pay-btn.debit {
+  background: var(--pay-debit-bg);
+  color: var(--pay-debit-text);
 }
 
 .pay-btn.pay {
   grid-column: 1 / -1;
   display: block;
   width: 100%;
-  background: var(--btn-success-bg);
-  border-color: var(--btn-success-border);
+  background: var(--pay-cash-bg);
   font-size: 2.75rem;
   min-height: 5.375rem;
-  color: var(--btn-success-text);
+  color: var(--pay-cash-text);
   border-radius: var(--radius);
 }
 

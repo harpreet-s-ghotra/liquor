@@ -57,19 +57,6 @@ body {
 /* ── Global button & input resets ── */
 button {
   border-radius: var(--radius, 0.25rem);
-  transition:
-    background var(--transition-fast, 0.12s ease),
-    border-color var(--transition-fast, 0.12s ease),
-    box-shadow var(--transition-fast, 0.12s ease),
-    transform var(--transition-fast, 0.12s ease);
-}
-
-button:not(:disabled):hover {
-  filter: brightness(1.12);
-}
-
-button:not(:disabled):active {
-  transform: scale(0.98);
 }
 
 input,
@@ -79,8 +66,6 @@ textarea {
   color: var(--text-primary, #e2e8f0);
   border: 1px solid var(--border-default, #677086);
   border-radius: var(--radius, 0.25rem);
-  transition: border-color var(--transition-fast, 0.12s ease),
-    box-shadow var(--transition-fast, 0.12s ease);
 }
 
 input:focus,

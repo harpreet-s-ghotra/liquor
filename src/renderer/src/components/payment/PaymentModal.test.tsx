@@ -179,4 +179,92 @@ describe('PaymentModal', () => {
       expect(screen.getByRole('button', { name: `$${amount}` })).toBeDisabled()
     }
   })
+
+  // ── initialMethod auto-trigger tests ──
+
+  it('auto-triggers cash exact payment when initialMethod is cash', () => {
+    const onComplete = vi.fn()
+    render(
+      <PaymentModal
+        isOpen={true}
+        total={10.0}
+        initialMethod="cash"
+        onComplete={onComplete}
+        onCancel={vi.fn()}
+      />
+    )
+
+    // Flush the deferred setTimeout(…, 0) that auto-triggers the payment
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+
+    // Should immediately show payment complete (cash is instant)
+    expect(screen.getByTestId('payment-complete')).toHaveTextContent('Payment complete!')
+    expect(screen.getByTestId('paid-so-far-list')).toHaveTextContent('$10.00 Cash (Exact)')
+  })
+
+  it('auto-triggers credit card processing when initialMethod is credit', () => {
+    const onComplete = vi.fn()
+    render(
+      <PaymentModal
+        isOpen={true}
+        total={15.0}
+        initialMethod="credit"
+        onComplete={onComplete}
+        onCancel={vi.fn()}
+      />
+    )
+
+    // Flush deferred setTimeout(…, 0) to start card processing
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+
+    // Should immediately start card processing
+    expect(screen.getByTestId('payment-processing')).toHaveTextContent('Processing card payment...')
+
+    act(() => {
+      vi.advanceTimersByTime(2100)
+    })
+
+    expect(screen.getByTestId('payment-complete')).toHaveTextContent('Payment complete!')
+    expect(screen.getByTestId('paid-so-far-list')).toHaveTextContent('$15.00 Credit')
+  })
+
+  it('auto-triggers debit card processing when initialMethod is debit', () => {
+    const onComplete = vi.fn()
+    render(
+      <PaymentModal
+        isOpen={true}
+        total={8.5}
+        initialMethod="debit"
+        onComplete={onComplete}
+        onCancel={vi.fn()}
+      />
+    )
+
+    // Flush deferred setTimeout(…, 0) to start card processing
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+
+    expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(2100)
+    })
+
+    expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+    expect(screen.getByTestId('paid-so-far-list')).toHaveTextContent('$8.50 Debit')
+  })
+
+  it('does not auto-trigger when no initialMethod is provided', () => {
+    render(<PaymentModal isOpen={true} total={20.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+    // Should show idle state with remaining
+    expect(screen.getByTestId('payment-remaining')).toHaveTextContent('Remaining: $20.00')
+    expect(screen.queryByTestId('payment-processing')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('payment-complete')).not.toBeInTheDocument()
+  })
 })

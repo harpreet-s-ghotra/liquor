@@ -35,6 +35,7 @@ describe('ActionPanel', () => {
         onPay={vi.fn()}
         onCash={vi.fn()}
         onCredit={vi.fn()}
+        onDebit={vi.fn()}
       />
     )
 
@@ -71,6 +72,7 @@ describe('ActionPanel', () => {
         onPay={vi.fn()}
         onCash={vi.fn()}
         onCredit={vi.fn()}
+        onDebit={vi.fn()}
       />
     )
 
