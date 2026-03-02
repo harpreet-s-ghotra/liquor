@@ -15,69 +15,185 @@ const products: Product[] = [
   }
 ]
 
+const baseProps = {
+  cartCount: 0,
+  filteredProducts: products,
+  addToCart: vi.fn(),
+  subtotalBeforeDiscount: 12,
+  subtotalDiscounted: 10,
+  tax: 1.2,
+  total: 10.5,
+  onPay: vi.fn(),
+  onCash: vi.fn(),
+  onCredit: vi.fn(),
+  onDebit: vi.fn()
+}
+
 describe('ActionPanel', () => {
-  it('renders categories with tone classes and handles actions', () => {
+  it('renders category dropdown and opens menu on click', () => {
     const setActiveCategory = vi.fn()
-    const addToCart = vi.fn()
 
     render(
       <ActionPanel
+        {...baseProps}
         activeCategory="Favorites"
         categories={['Favorites', 'Wine', 'All']}
-        cartCount={0}
-        filteredProducts={products}
         setActiveCategory={setActiveCategory}
-        addToCart={addToCart}
-        subtotalBeforeDiscount={12}
-        subtotalDiscounted={10}
-        tax={1.2}
-        total={10.5}
-        onPay={vi.fn()}
-        onCash={vi.fn()}
-        onCredit={vi.fn()}
-        onDebit={vi.fn()}
       />
     )
 
-    const favoritesButton = screen.getByRole('button', { name: 'Favorites' })
-    const wineButton = screen.getByRole('button', { name: 'Wine' })
-    const payButton = screen.getByRole('button', { name: 'Pay' })
+    // Should show the current category in the trigger
+    const trigger = screen.getByRole('button', { name: /Favorites/i })
+    expect(trigger).toBeInTheDocument()
 
-    expect(favoritesButton.className).toContain('category-tone-favorite')
-    expect(wineButton.className).toContain('category-tone-1')
-    expect(payButton).toBeDisabled()
-    expect(screen.getByText('Discount')).toBeInTheDocument()
-    expect(screen.getByText('-$2.00')).toBeInTheDocument()
+    // Menu should NOT be visible initially
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
 
-    fireEvent.click(wineButton)
+    // Open the menu
+    fireEvent.click(trigger)
+    const menu = screen.getByRole('listbox', { name: 'Categories' })
+    expect(menu).toBeInTheDocument()
+
+    // All categories listed as options
+    const options = screen.getAllByRole('option')
+    expect(options).toHaveLength(3)
+
+    // Active category has checkmark
+    const favOption = screen.getByRole('option', { name: /Favorites/i })
+    expect(favOption).toHaveAttribute('aria-selected', 'true')
+    expect(favOption).toHaveTextContent('✓')
+
+    // Non-active has no checkmark
+    const wineOption = screen.getByRole('option', { name: /Wine/i })
+    expect(wineOption).toHaveAttribute('aria-selected', 'false')
+
+    // Clicking an option calls setActiveCategory and closes menu
+    fireEvent.click(wineOption)
     expect(setActiveCategory).toHaveBeenCalledWith('Wine')
-
-    fireEvent.click(screen.getByRole('button', { name: /Cabernet Sauvignon/i }))
-    expect(addToCart).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
-  it('enables pay button when cart has items and applies tone classes', () => {
+  it('renders category tone classes on dropdown items', () => {
     render(
       <ActionPanel
+        {...baseProps}
         activeCategory="All"
         categories={['Favorites', 'Wine', 'Beer', 'Spirits', 'All']}
-        cartCount={2}
-        filteredProducts={products}
         setActiveCategory={vi.fn()}
-        addToCart={vi.fn()}
-        subtotalBeforeDiscount={30}
-        subtotalDiscounted={25}
-        tax={2}
-        total={25}
-        onPay={vi.fn()}
-        onCash={vi.fn()}
-        onCredit={vi.fn()}
-        onDebit={vi.fn()}
+        cartCount={2}
+      />
+    )
+
+    // Open the dropdown
+    const trigger = document.querySelector('.category-dropdown-trigger') as HTMLElement
+    fireEvent.click(trigger)
+
+    const options = screen.getAllByRole('option')
+    expect(options[0].className).toContain('category-tone-favorite')
+    expect(options[1].className).toContain('category-tone-1')
+    expect(options[2].className).toContain('category-tone-2')
+    expect(options[3].className).toContain('category-tone-3')
+    expect(options[4].className).toContain('category-tone-all')
+  })
+
+  it('enables pay button when cart has items', () => {
+    render(
+      <ActionPanel
+        {...baseProps}
+        activeCategory="All"
+        categories={['All']}
+        setActiveCategory={vi.fn()}
+        cartCount={2}
       />
     )
 
     expect(screen.getByRole('button', { name: 'Pay' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'All' }).className).toContain('category-tone-all')
-    expect(screen.getByRole('button', { name: 'Beer' }).className).toContain('category-tone-2')
+  })
+
+  it('shows size toggle and product items with correct layout', () => {
+    const addToCart = vi.fn()
+
+    render(
+      <ActionPanel
+        {...baseProps}
+        activeCategory="All"
+        categories={['All']}
+        setActiveCategory={vi.fn()}
+        addToCart={addToCart}
+      />
+    )
+
+    // Size toggle buttons present
+    const smallBtn = screen.getByRole('button', { name: 'Small items' })
+    const largeBtn = screen.getByRole('button', { name: 'Large items' })
+    expect(smallBtn).toBeInTheDocument()
+    expect(largeBtn).toBeInTheDocument()
+
+    // Small is active by default
+    expect(smallBtn.className).toContain('active')
+    expect(largeBtn.className).not.toContain('active')
+
+    // Product button is present and clickable
+    fireEvent.click(screen.getByRole('button', { name: /Cabernet Sauvignon/i }))
+    expect(addToCart).toHaveBeenCalledTimes(1)
+
+    // Switch to large
+    fireEvent.click(largeBtn)
+    expect(largeBtn.className).toContain('active')
+    expect(smallBtn.className).not.toContain('active')
+  })
+
+  it('shows discount amount in totals', () => {
+    render(
+      <ActionPanel
+        {...baseProps}
+        activeCategory="All"
+        categories={['All']}
+        setActiveCategory={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('Discount')).toBeInTheDocument()
+    expect(screen.getByText('-$2.00')).toBeInTheDocument()
+  })
+
+  it('closes dropdown on outside click', () => {
+    render(
+      <ActionPanel
+        {...baseProps}
+        activeCategory="All"
+        categories={['All', 'Wine']}
+        setActiveCategory={vi.fn()}
+      />
+    )
+
+    // Open menu
+    const trigger = document.querySelector('.category-dropdown-trigger') as HTMLElement
+    fireEvent.click(trigger)
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+
+    // Click outside the dropdown
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('selects category via keyboard Enter on dropdown item', () => {
+    const setActiveCategory = vi.fn()
+    render(
+      <ActionPanel
+        {...baseProps}
+        activeCategory="All"
+        categories={['All', 'Wine']}
+        setActiveCategory={setActiveCategory}
+      />
+    )
+
+    // Open menu
+    fireEvent.click(document.querySelector('.category-dropdown-trigger')!)
+    const wineOption = screen.getByRole('option', { name: /Wine/i })
+
+    // Press Enter
+    fireEvent.keyDown(wineOption, { key: 'Enter' })
+    expect(setActiveCategory).toHaveBeenCalledWith('Wine')
   })
 })
