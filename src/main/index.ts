@@ -22,8 +22,17 @@ import {
   getVendors,
   createVendor,
   updateVendor,
-  deleteVendor
+  deleteVendor,
+  getMerchantConfig,
+  saveMerchantConfig,
+  clearMerchantConfig,
+  getCashiers,
+  createCashier,
+  validatePin,
+  updateCashier,
+  deleteCashier
 } from './database'
+import { validateApiKey } from './services/stax'
 
 function createWindow(): void {
   // Create the browser window.
@@ -225,6 +234,77 @@ app.whenReady().then(() => {
       return deleteVendor(vendorNumber)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to delete vendor')
+    }
+  })
+
+  // Merchant Config
+  ipcMain.handle('merchant:get-config', async () => {
+    try {
+      return getMerchantConfig()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get merchant config')
+    }
+  })
+
+  ipcMain.handle('merchant:activate', async (_, apiKey: string) => {
+    try {
+      const staxInfo = await validateApiKey(apiKey)
+      return saveMerchantConfig({
+        stax_api_key: apiKey,
+        merchant_id: staxInfo.merchant_id,
+        merchant_name: staxInfo.company_name
+      })
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to activate merchant')
+    }
+  })
+
+  ipcMain.handle('merchant:deactivate', async () => {
+    try {
+      return clearMerchantConfig()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to deactivate merchant')
+    }
+  })
+
+  // Cashiers
+  ipcMain.handle('cashiers:list', async () => {
+    try {
+      return getCashiers()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list cashiers')
+    }
+  })
+
+  ipcMain.handle('cashiers:create', async (_, input) => {
+    try {
+      return createCashier(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to create cashier')
+    }
+  })
+
+  ipcMain.handle('cashiers:validate-pin', async (_, pin: string) => {
+    try {
+      return validatePin(pin)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to validate PIN')
+    }
+  })
+
+  ipcMain.handle('cashiers:update', async (_, input) => {
+    try {
+      return updateCashier(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to update cashier')
+    }
+  })
+
+  ipcMain.handle('cashiers:delete', async (_, id: number) => {
+    try {
+      return deleteCashier(id)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete cashier')
     }
   })
 

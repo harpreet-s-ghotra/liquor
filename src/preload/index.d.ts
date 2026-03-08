@@ -13,7 +13,11 @@ import type {
   CreateTaxCodeInput,
   UpdateTaxCodeInput,
   CreateVendorInput,
-  UpdateVendorInput
+  UpdateVendorInput,
+  MerchantConfig,
+  Cashier,
+  CreateCashierInput,
+  UpdateCashierInput
 } from '../shared/types'
 
 type AppApi = {
@@ -36,6 +40,18 @@ type AppApi = {
   createVendor: (input: CreateVendorInput) => Promise<Vendor>
   updateVendor: (input: UpdateVendorInput) => Promise<Vendor>
   deleteVendor: (vendorNumber: number) => Promise<void>
+
+  // Merchant Config
+  getMerchantConfig: () => Promise<MerchantConfig | null>
+  activateMerchant: (apiKey: string) => Promise<MerchantConfig>
+  deactivateMerchant: () => Promise<void>
+
+  // Cashiers
+  getCashiers: () => Promise<Cashier[]>
+  createCashier: (input: CreateCashierInput) => Promise<Cashier>
+  validatePin: (pin: string) => Promise<Cashier | null>
+  updateCashier: (input: UpdateCashierInput) => Promise<Cashier>
+  deleteCashier: (id: number) => Promise<void>
 }
 
 declare global {

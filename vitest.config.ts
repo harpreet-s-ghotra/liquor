@@ -20,7 +20,8 @@ export default defineConfig({
         'src/renderer/src/App.tsx',
         'src/renderer/src/components/**/*.tsx',
         'src/renderer/src/pages/**/*.tsx',
-        'src/renderer/src/store/**/*.ts'
+        'src/renderer/src/store/**/*.ts',
+        'src/renderer/src/utils/**/*.ts'
       ],
       exclude: ['src/renderer/src/components/Versions.tsx'],
       thresholds: {

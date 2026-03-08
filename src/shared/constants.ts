@@ -14,3 +14,12 @@ export const DEPARTMENT_NAME_MAX_LENGTH = 64
 
 /** Maximum length for tax code name */
 export const TAX_CODE_MAX_LENGTH = 32
+
+/** Length of cashier PINs */
+export const PIN_LENGTH = 4
+
+/** Max failed PIN attempts before lockout */
+export const MAX_PIN_ATTEMPTS = 3
+
+/** Lockout duration in milliseconds (30 seconds) */
+export const PIN_LOCKOUT_MS = 30_000

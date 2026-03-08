@@ -15,7 +15,14 @@ export type {
   CreateTaxCodeInput,
   UpdateTaxCodeInput,
   CreateVendorInput,
-  UpdateVendorInput
+  UpdateVendorInput,
+  MerchantConfig,
+  SaveMerchantConfigInput,
+  Cashier,
+  CashierRole,
+  CreateCashierInput,
+  UpdateCashierInput,
+  StaxMerchantInfo
 } from '../../../shared/types'
 
 // ── Renderer-only types ──

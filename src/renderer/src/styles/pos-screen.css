@@ -1,7 +1,7 @@
 .pc-pos-layout {
   height: 100%;
   display: grid;
-  grid-template-rows: 1fr 4rem;
+  grid-template-rows: auto 1fr 4rem;
   overflow: hidden;
 }
 

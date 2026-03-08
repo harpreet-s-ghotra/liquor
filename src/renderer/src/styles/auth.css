@@ -1,0 +1,322 @@
+/* ── Auth screens (Activation + Login) ── */
+
+.auth-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg-app);
+  padding: 1rem;
+}
+
+.auth-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 2.5rem;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+}
+
+.auth-logo {
+  margin-bottom: 2rem;
+}
+
+.auth-brand {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+
+.auth-subtitle {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.auth-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.auth-description {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+/* ── Form ── */
+
+.auth-form {
+  text-align: left;
+}
+
+.auth-input-group {
+  margin-bottom: 1rem;
+}
+
+.auth-label {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.375rem;
+}
+
+.auth-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 0.625rem 2.5rem 0.625rem 0.75rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.auth-input:focus {
+  border-color: var(--btn-bg);
+}
+
+.auth-input:disabled {
+  opacity: 0.5;
+}
+
+.auth-toggle-btn {
+  position: absolute;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+/* ── Error ── */
+
+.auth-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  font-size: 0.825rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+/* ── Submit ── */
+
+.auth-submit-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.auth-submit-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.auth-submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Help text ── */
+
+.auth-help {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin: 1.5rem 0 0;
+}
+
+/* ── Login Screen specific ── */
+
+.auth-merchant-badge {
+  display: inline-block;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.auth-merchant-name {
+  color: var(--btn-bg);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+/* ── PIN display ── */
+
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.pin-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border-default);
+  background: transparent;
+  transition: all 0.15s;
+}
+
+.pin-dot.filled {
+  background: var(--btn-bg);
+  border-color: var(--btn-bg);
+}
+
+/* ── PIN pad ── */
+
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  max-width: 280px;
+  margin: 0 auto 1rem;
+}
+
+.pin-key {
+  padding: 1rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.1s;
+  user-select: none;
+}
+
+.pin-key:hover {
+  background: var(--bg-surface-soft);
+  border-color: var(--border-default);
+}
+
+.pin-key:active {
+  transform: scale(0.96);
+}
+
+.pin-key.pin-key--clear {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.pin-key.pin-key--backspace {
+  font-size: 1.25rem;
+}
+
+/* ── Cashier setup ── */
+
+.auth-setup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Shake animation for invalid PIN ── */
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-8px);
+  }
+  40%,
+  80% {
+    transform: translateX(8px);
+  }
+}
+
+.pin-shake {
+  animation: shake 0.4s ease;
+}
+
+/* ── Lockout overlay ── */
+
+.auth-lockout {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.auth-lockout-timer {
+  color: #fca5a5;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.auth-lockout-text {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+/* ── Logout / switch cashier button on POS ── */
+
+.pos-cashier-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.75rem;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 0.8rem;
+}
+
+.pos-cashier-name {
+  color: var(--text-muted);
+}
+
+.pos-cashier-name strong {
+  color: var(--text-primary);
+}
+
+.pos-logout-btn {
+  background: none;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pos-logout-btn:hover {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}

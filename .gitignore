@@ -6,3 +6,8 @@ out
 *.log*
 coverage/
 .playwright-mcp
+
+# Environment secrets
+.env
+.env.local
+.env.*.local

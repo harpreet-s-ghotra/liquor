@@ -109,3 +109,50 @@ export type UpdateVendorInput = {
   phone?: string
   email?: string
 }
+
+// ── Merchant Activation & Cashier Login ──
+
+export type MerchantConfig = {
+  id: number
+  stax_api_key: string
+  merchant_id: string
+  merchant_name: string
+  activated_at: string
+  updated_at: string
+}
+
+export type SaveMerchantConfigInput = {
+  stax_api_key: string
+  merchant_id: string
+  merchant_name: string
+}
+
+export type CashierRole = 'admin' | 'cashier'
+
+export type Cashier = {
+  id: number
+  name: string
+  role: CashierRole
+  is_active: number
+  created_at: string
+}
+
+export type CreateCashierInput = {
+  name: string
+  pin: string
+  role?: CashierRole
+}
+
+export type UpdateCashierInput = {
+  id: number
+  name?: string
+  pin?: string
+  role?: CashierRole
+  is_active?: number
+}
+
+export type StaxMerchantInfo = {
+  merchant_id: string
+  company_name: string
+  status: string
+}

@@ -117,6 +117,25 @@ export function initializeDatabase(userDataPath: string): void {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS merchant_config (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      stax_api_key TEXT NOT NULL,
+      merchant_id TEXT NOT NULL,
+      merchant_name TEXT NOT NULL,
+      activated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS cashiers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      pin_hash TEXT NOT NULL,
+      role TEXT DEFAULT 'cashier' CHECK (role IN ('admin', 'cashier')),
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `)
 
   // ── Column migrations ──

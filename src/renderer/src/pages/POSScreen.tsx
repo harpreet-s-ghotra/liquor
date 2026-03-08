@@ -4,8 +4,10 @@ import { ActionPanel } from '@renderer/components/action/ActionPanel'
 import { BottomShortcutBar } from '@renderer/components/layout/BottomShortcutBar'
 import { TicketPanel } from '@renderer/components/ticket/TicketPanel'
 import { usePosScreen } from '@renderer/store/usePosScreen'
-import { useCallback, useRef, useState } from 'react'
+import { useAuthStore } from '@renderer/store/useAuthStore'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import '../styles/pos-screen.css'
+import '../styles/auth.css'
 import type { PaymentMethod } from '@renderer/types/pos'
 
 export function POSScreen(): React.JSX.Element {
@@ -14,6 +16,21 @@ export function POSScreen(): React.JSX.Element {
   const [isPaymentComplete, setIsPaymentComplete] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
   const searchRef = useRef<HTMLInputElement>(null)
+
+  const currentCashier = useAuthStore((s) => s.currentCashier)
+  const logout = useAuthStore((s) => s.logout)
+
+  // Ctrl+L keyboard shortcut for logout
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+        e.preventDefault()
+        logout()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [logout])
 
   const {
     activeCategory,
@@ -107,6 +124,16 @@ export function POSScreen(): React.JSX.Element {
 
   return (
     <div className="pc-pos-layout">
+      {currentCashier && (
+        <div className="pos-cashier-bar">
+          <span className="pos-cashier-name">
+            Cashier: <strong>{currentCashier.name}</strong>
+          </span>
+          <button className="pos-logout-btn" onClick={logout} title="Switch Cashier (Ctrl+L)">
+            Switch Cashier
+          </button>
+        </div>
+      )}
       <main className="pc-main-area">
         <TicketPanel
           cart={cartLines}

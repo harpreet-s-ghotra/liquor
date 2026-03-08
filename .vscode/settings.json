@@ -7,5 +7,10 @@
   },
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "chat.tools.terminal.autoApprove": {
+    "npx vitest": true,
+    "npx eslint": true,
+    "npx vite": true
   }
 }

@@ -39,6 +39,18 @@ export { getTaxCodes, createTaxCode, updateTaxCode, deleteTaxCode } from './tax-
 // Vendors
 export { getVendors, createVendor, updateVendor, deleteVendor } from './vendors.repo'
 
+// Merchant config
+export { getMerchantConfig, saveMerchantConfig, clearMerchantConfig } from './merchant-config.repo'
+
+// Cashiers
+export {
+  getCashiers,
+  createCashier,
+  validatePin,
+  updateCashier,
+  deleteCashier
+} from './cashiers.repo'
+
 // Re-export shared types so existing consumers (main/index.ts) don't break
 export type {
   SaveInventoryItemInput,
@@ -51,5 +63,10 @@ export type {
   CreateTaxCodeInput,
   UpdateTaxCodeInput,
   CreateVendorInput,
-  UpdateVendorInput
+  UpdateVendorInput,
+  MerchantConfig,
+  SaveMerchantConfigInput,
+  Cashier,
+  CreateCashierInput,
+  UpdateCashierInput
 } from '../../shared/types'

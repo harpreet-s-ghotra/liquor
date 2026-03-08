@@ -14,7 +14,11 @@ import type {
   CreateTaxCodeInput,
   UpdateTaxCodeInput,
   CreateVendorInput,
-  UpdateVendorInput
+  UpdateVendorInput,
+  MerchantConfig,
+  Cashier,
+  CreateCashierInput,
+  UpdateCashierInput
 } from '../shared/types'
 
 // Custom APIs for renderer
@@ -56,7 +60,24 @@ const api = {
   updateVendor: (input: UpdateVendorInput): Promise<Vendor> =>
     ipcRenderer.invoke('vendors:update', input),
   deleteVendor: (vendorNumber: number): Promise<void> =>
-    ipcRenderer.invoke('vendors:delete', vendorNumber)
+    ipcRenderer.invoke('vendors:delete', vendorNumber),
+
+  // Merchant Config
+  getMerchantConfig: (): Promise<MerchantConfig | null> =>
+    ipcRenderer.invoke('merchant:get-config'),
+  activateMerchant: (apiKey: string): Promise<MerchantConfig> =>
+    ipcRenderer.invoke('merchant:activate', apiKey),
+  deactivateMerchant: (): Promise<void> => ipcRenderer.invoke('merchant:deactivate'),
+
+  // Cashiers
+  getCashiers: (): Promise<Cashier[]> => ipcRenderer.invoke('cashiers:list'),
+  createCashier: (input: CreateCashierInput): Promise<Cashier> =>
+    ipcRenderer.invoke('cashiers:create', input),
+  validatePin: (pin: string): Promise<Cashier | null> =>
+    ipcRenderer.invoke('cashiers:validate-pin', pin),
+  updateCashier: (input: UpdateCashierInput): Promise<Cashier> =>
+    ipcRenderer.invoke('cashiers:update', input),
+  deleteCashier: (id: number): Promise<void> => ipcRenderer.invoke('cashiers:delete', id)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
