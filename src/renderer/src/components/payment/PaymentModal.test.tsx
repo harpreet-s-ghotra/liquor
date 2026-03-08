@@ -1,14 +1,19 @@
-import { fireEvent, render, screen, act } from '@testing-library/react'
+import { fireEvent, render, screen, act, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { PaymentModal } from './PaymentModal'
 
 describe('PaymentModal', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    // Default: no terminal API (no merchant activated)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api = {}
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).api
   })
 
   it('returns null when not open', () => {
@@ -54,49 +59,6 @@ describe('PaymentModal', () => {
     expect(onComplete).toHaveBeenCalledTimes(1)
   })
 
-  it('handles credit card payment with processing state', () => {
-    const onComplete = vi.fn()
-    render(<PaymentModal isOpen={true} total={15.0} onComplete={onComplete} onCancel={vi.fn()} />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
-
-    expect(screen.getByTestId('payment-processing')).toHaveTextContent('Processing card payment...')
-    // Buttons should be disabled during processing
-    expect(screen.getByRole('button', { name: 'Cash (Exact)' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
-
-    // Advance past the card processing delay
-    act(() => {
-      vi.advanceTimersByTime(2100)
-    })
-
-    expect(screen.getByTestId('payment-complete')).toHaveTextContent('Payment complete!')
-
-    // Modal stays open until OK is clicked
-    expect(onComplete).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByTestId('payment-ok-btn'))
-    expect(onComplete).toHaveBeenCalledTimes(1)
-  })
-
-  it('handles debit card payment', () => {
-    const onComplete = vi.fn()
-    render(<PaymentModal isOpen={true} total={8.5} onComplete={onComplete} onCancel={vi.fn()} />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Debit' }))
-    expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
-
-    act(() => {
-      vi.advanceTimersByTime(2100)
-    })
-
-    expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
-    expect(onComplete).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByTestId('payment-ok-btn'))
-    expect(onComplete).toHaveBeenCalledTimes(1)
-  })
-
   it('accumulates tender denominations and shows change', () => {
     const onComplete = vi.fn()
     render(<PaymentModal isOpen={true} total={17.0} onComplete={onComplete} onCancel={vi.fn()} />)
@@ -119,35 +81,6 @@ describe('PaymentModal', () => {
     expect(screen.getByTestId('payment-complete')).toHaveTextContent('Change: $3.00')
 
     // Modal stays open — click OK
-    fireEvent.click(screen.getByTestId('payment-ok-btn'))
-    expect(onComplete).toHaveBeenCalledTimes(1)
-  })
-
-  it('supports split payment: partial cash then card', () => {
-    const onComplete = vi.fn()
-    render(<PaymentModal isOpen={true} total={25.0} onComplete={onComplete} onCancel={vi.fn()} />)
-
-    // Pay $10 cash via tender
-    fireEvent.click(screen.getByRole('button', { name: '$10' }))
-    expect(screen.getByTestId('payment-remaining')).toHaveTextContent('Remaining: $15.00')
-
-    // Pay remaining via credit
-    fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
-    expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
-
-    act(() => {
-      vi.advanceTimersByTime(2100)
-    })
-
-    expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
-
-    // Should have 2 entries in paid-so-far
-    const paidList = screen.getByTestId('paid-so-far-list')
-    expect(paidList).toHaveTextContent('$10.00 Cash')
-    expect(paidList).toHaveTextContent('$15.00 Credit')
-
-    // Modal stays open — click OK
-    expect(onComplete).not.toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('payment-ok-btn'))
     expect(onComplete).toHaveBeenCalledTimes(1)
   })
@@ -204,61 +137,6 @@ describe('PaymentModal', () => {
     expect(screen.getByTestId('paid-so-far-list')).toHaveTextContent('$10.00 Cash (Exact)')
   })
 
-  it('auto-triggers credit card processing when initialMethod is credit', () => {
-    const onComplete = vi.fn()
-    render(
-      <PaymentModal
-        isOpen={true}
-        total={15.0}
-        initialMethod="credit"
-        onComplete={onComplete}
-        onCancel={vi.fn()}
-      />
-    )
-
-    // Flush deferred setTimeout(…, 0) to start card processing
-    act(() => {
-      vi.advanceTimersByTime(1)
-    })
-
-    // Should immediately start card processing
-    expect(screen.getByTestId('payment-processing')).toHaveTextContent('Processing card payment...')
-
-    act(() => {
-      vi.advanceTimersByTime(2100)
-    })
-
-    expect(screen.getByTestId('payment-complete')).toHaveTextContent('Payment complete!')
-    expect(screen.getByTestId('paid-so-far-list')).toHaveTextContent('$15.00 Credit')
-  })
-
-  it('auto-triggers debit card processing when initialMethod is debit', () => {
-    const onComplete = vi.fn()
-    render(
-      <PaymentModal
-        isOpen={true}
-        total={8.5}
-        initialMethod="debit"
-        onComplete={onComplete}
-        onCancel={vi.fn()}
-      />
-    )
-
-    // Flush deferred setTimeout(…, 0) to start card processing
-    act(() => {
-      vi.advanceTimersByTime(1)
-    })
-
-    expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
-
-    act(() => {
-      vi.advanceTimersByTime(2100)
-    })
-
-    expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
-    expect(screen.getByTestId('paid-so-far-list')).toHaveTextContent('$8.50 Debit')
-  })
-
   it('does not auto-trigger when no initialMethod is provided', () => {
     render(<PaymentModal isOpen={true} total={20.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
 
@@ -266,5 +144,373 @@ describe('PaymentModal', () => {
     expect(screen.getByTestId('payment-remaining')).toHaveTextContent('Remaining: $20.00')
     expect(screen.queryByTestId('payment-processing')).not.toBeInTheDocument()
     expect(screen.queryByTestId('payment-complete')).not.toBeInTheDocument()
+  })
+
+  // ── Terminal card payment tests ──
+
+  describe('with terminal API (chargeTerminal)', () => {
+    const mockChargeTerminal = vi.fn()
+
+    beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api = { chargeTerminal: mockChargeTerminal }
+      mockChargeTerminal.mockReset()
+    })
+
+    it('shows processing spinner when Credit is clicked', async () => {
+      vi.useRealTimers()
+      // Never resolve to keep spinner visible
+      mockChargeTerminal.mockReturnValue(new Promise(() => {}))
+
+      render(<PaymentModal isOpen={true} total={22.59} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
+        expect(screen.getByTestId('payment-processing')).toHaveTextContent(
+          'Waiting for card machine...'
+        )
+      })
+    })
+
+    it('shows processing spinner when Debit is clicked', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockReturnValue(new Promise(() => {}))
+
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Debit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
+      })
+    })
+
+    it('calls chargeTerminal and shows success on approved charge', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockResolvedValue({
+        transaction_id: 'txn-123',
+        success: true,
+        last_four: '1111',
+        card_type: 'visa',
+        total: 22.59,
+        message: 'Approved',
+        status: 'approved'
+      })
+
+      const onComplete = vi.fn()
+      render(
+        <PaymentModal isOpen={true} total={22.59} onComplete={onComplete} onCancel={vi.fn()} />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      // Should show processing first
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
+      })
+
+      // Then complete
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+      })
+
+      expect(mockChargeTerminal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          total: 22.59,
+          payment_type: 'credit'
+        })
+      )
+
+      const paidList = screen.getByTestId('paid-so-far-list')
+      expect(paidList).toHaveTextContent('Credit')
+      expect(paidList).toHaveTextContent('visa')
+      expect(paidList).toHaveTextContent('1111')
+    })
+
+    it('shows friendly error on declined charge', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockResolvedValue({
+        transaction_id: '',
+        success: false,
+        last_four: '',
+        card_type: 'unknown',
+        total: 10.0,
+        message: 'Card declined',
+        status: 'declined'
+      })
+
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('card-error')).toHaveTextContent(
+          'Card declined. Please try a different card or payment method.'
+        )
+      })
+    })
+
+    it('shows friendly error on API failure', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockRejectedValue(new Error('No terminal devices found'))
+
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('card-error')).toHaveTextContent(
+          'Card reader not connected. Please check your terminal and try again.'
+        )
+      })
+    })
+
+    it('shows friendly error on terminal timeout', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockResolvedValue({
+        transaction_id: 'txn-456',
+        success: false,
+        last_four: '',
+        card_type: 'unknown',
+        total: 10.0,
+        message: 'Terminal timed out — no response from card reader',
+        status: 'timeout'
+      })
+
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('card-error')).toHaveTextContent(
+          'No response from the card reader. Please try again.'
+        )
+      })
+    })
+
+    it('dismiss button clears card error', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockRejectedValue(new Error('Connection refused'))
+
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('card-error')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByTestId('card-retry-btn'))
+
+      expect(screen.queryByTestId('card-error')).not.toBeInTheDocument()
+    })
+
+    it('card error is cleared when Cash (Exact) is clicked', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockRejectedValue(new Error('No terminal devices found'))
+
+      const onComplete = vi.fn()
+      render(
+        <PaymentModal isOpen={true} total={10.0} onComplete={onComplete} onCancel={vi.fn()} />
+      )
+
+      // Trigger a card error
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+      await waitFor(() => {
+        expect(screen.getByTestId('card-error')).toBeInTheDocument()
+      })
+
+      // Click Cash (Exact) — error should disappear and payment should complete
+      fireEvent.click(screen.getByRole('button', { name: 'Cash (Exact)' }))
+
+      expect(screen.queryByTestId('card-error')).not.toBeInTheDocument()
+      expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+    })
+
+    it('card error is cleared when a tender denomination is clicked', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockRejectedValue(new Error('No terminal devices found'))
+
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      // Trigger a card error
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+      await waitFor(() => {
+        expect(screen.getByTestId('card-error')).toBeInTheDocument()
+      })
+
+      // Click $10 tender — error should disappear
+      fireEvent.click(screen.getByRole('button', { name: '$10' }))
+
+      expect(screen.queryByTestId('card-error')).not.toBeInTheDocument()
+    })
+
+    it('supports split payment: partial cash then card via terminal', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockResolvedValue({
+        transaction_id: 'txn-split',
+        success: true,
+        last_four: '4444',
+        card_type: 'mastercard',
+        total: 15.0,
+        message: 'Approved',
+        status: 'approved'
+      })
+
+      const onComplete = vi.fn()
+      render(<PaymentModal isOpen={true} total={25.0} onComplete={onComplete} onCancel={vi.fn()} />)
+
+      // Pay $10 cash
+      fireEvent.click(screen.getByRole('button', { name: '$10' }))
+      expect(screen.getByTestId('payment-remaining')).toHaveTextContent('$15.00')
+
+      // Pay remaining with credit card via terminal
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+      })
+
+      const paidList = screen.getByTestId('paid-so-far-list')
+      expect(paidList).toHaveTextContent('$10.00 Cash')
+      expect(paidList).toHaveTextContent('mastercard')
+    })
+
+    it('auto-triggers credit card via terminal when initialMethod is credit', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockResolvedValue({
+        transaction_id: 'txn-auto',
+        success: true,
+        last_four: '9999',
+        card_type: 'visa',
+        total: 15.0,
+        message: 'Approved',
+        status: 'approved'
+      })
+
+      const onComplete = vi.fn()
+      render(
+        <PaymentModal
+          isOpen={true}
+          total={15.0}
+          initialMethod="credit"
+          onComplete={onComplete}
+          onCancel={vi.fn()}
+        />
+      )
+
+      // Wait for processing and completion
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+      })
+
+      expect(mockChargeTerminal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          total: 15.0,
+          payment_type: 'credit'
+        })
+      )
+    })
+
+    it('auto-triggers debit card via terminal when initialMethod is debit', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockResolvedValue({
+        transaction_id: 'txn-debit',
+        success: true,
+        last_four: '5555',
+        card_type: 'mastercard',
+        total: 8.5,
+        message: 'Approved',
+        status: 'approved'
+      })
+
+      render(
+        <PaymentModal
+          isOpen={true}
+          total={8.5}
+          initialMethod="debit"
+          onComplete={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+      })
+
+      expect(mockChargeTerminal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          total: 8.5,
+          payment_type: 'debit'
+        })
+      )
+    })
+
+    it('disables Cancel while processing card', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockReturnValue(new Promise(() => {}))
+
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
+      })
+
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    })
+
+    it('disables payment method buttons while processing', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockReturnValue(new Promise(() => {}))
+
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
+      })
+
+      expect(screen.getByRole('button', { name: 'Cash (Exact)' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Credit' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Debit' })).toBeDisabled()
+    })
+
+    it('completes transaction and returns result with card details via OK button', async () => {
+      vi.useRealTimers()
+      mockChargeTerminal.mockResolvedValue({
+        transaction_id: 'txn-ok',
+        success: true,
+        last_four: '4242',
+        card_type: 'visa',
+        total: 10.0,
+        message: 'Approved',
+        status: 'approved'
+      })
+
+      const onComplete = vi.fn()
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={onComplete} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-ok-btn')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByTestId('payment-ok-btn'))
+
+      expect(onComplete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'credit',
+          stax_transaction_id: 'txn-ok',
+          card_last_four: '4242',
+          card_type: 'visa'
+        })
+      )
+    })
   })
 })

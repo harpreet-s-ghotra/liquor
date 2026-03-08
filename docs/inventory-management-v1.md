@@ -105,3 +105,8 @@ Also included in V1 UI:
 - Bulk CSV import/export UI.
 - Sales analytics beyond recent transactional lines.
 - Multi-store or permission workflows.
+- ability to hold an invoice.
+- ability to return an item.
+- Have size properties for an item, eg, 50ml, 187ml, 375ml, 750ml, 1500ml 1 gallon, other custom sizes. This will be a global property assiable to all items.
+- inventory screen, should show values like price with tax, gross margin, net margin.
+- We need an option to add alerts to inventory maintaince, below a certain threshold for an item, we should get a low stock alert. Still need to decide the UI and workflow for these alerts.

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 /**
  * Full mock that covers POS products + inventory CRUD (departments, tax codes, vendors, items).
@@ -46,6 +46,26 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
+      // Auth APIs
+      getMerchantConfig: async () => ({
+        id: 1,
+        stax_api_key: 'test-api-key',
+        merchant_id: 'test-merchant-id',
+        merchant_name: 'Test Liquor Store',
+        activated_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      }),
+      getCashiers: async () => [
+        { id: 1, name: 'Test Cashier', role: 'admin', is_active: 1, created_at: '2025-01-01' }
+      ],
+      validatePin: async () => ({
+        id: 1,
+        name: 'Test Cashier',
+        role: 'admin',
+        is_active: 1,
+        created_at: '2025-01-01'
+      }),
+
       /* ── Products (POS screen) ── */
       getProducts: async () => [...products],
 
@@ -87,9 +107,11 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
           in_stock: payload.in_stock,
           tax_1: taxRates[0] ?? 0,
           tax_2: taxRates[1] ?? 0,
+          tax_rates: taxRates,
           vendor_number: null,
           vendor_name: null,
-          bottles_per_case: 12,
+          bottles_per_case: payload.bottles_per_case ?? 12,
+          case_discount_price: payload.case_discount_price ?? null,
           barcode: null,
           description: null,
           special_pricing_enabled: 0,
@@ -202,116 +224,168 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
   })
 }
 
+/** Enter PIN 1234 on the login screen to get to POS */
+const loginWithPin = async (page: Page): Promise<void> => {
+  const pinKey = page.locator('.pin-key').first()
+  await pinKey.waitFor({ state: 'visible', timeout: 10000 })
+  for (const digit of ['1', '2', '3', '4']) {
+    await page.locator(`.pin-key:text("${digit}")`).click()
+  }
+  await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
+}
+
+const gotoAndLogin = async (page: Page): Promise<void> => {
+  await page.goto('/')
+  await loginWithPin(page)
+}
+
+/**
+ * Click a tab within the inventory modal via dispatchEvent.
+ * Native Playwright .click() hangs on CDP for elements inside this modal.
+ */
+const clickTab = async (page: Page, name: string): Promise<void> => {
+  const tab = page.getByRole('tab', { name })
+  await tab.dispatchEvent('click')
+  await expect(tab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
+}
+
+/**
+ * Fill an input inside the modal using evaluate + native value setter.
+ * Works with React controlled inputs. Clears first for edit scenarios.
+ */
+const fillInput = async (locator: Locator, value: string): Promise<void> => {
+  await locator.evaluate((el, val) => {
+    const input = el as HTMLInputElement
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!
+    setter.call(input, '')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    setter.call(input, val)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  }, value)
+}
+
+/** Click an element inside the modal using dispatchEvent (avoids CDP hang). */
+const clickEl = async (locator: Locator): Promise<void> => {
+  await locator.dispatchEvent('click')
+}
+
+/** Check a checkbox inside the modal via DOM click (avoids CDP hang). */
+const checkBox = async (locator: Locator): Promise<void> => {
+  await locator.evaluate((el) => {
+    const input = el as HTMLInputElement
+    if (!input.checked) input.click()
+  })
+}
+
 test.describe('Inventory Management – Full Workflow', () => {
   test.beforeEach(async ({ page }) => {
     await attachFullApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
   })
 
   test('creates department, tax code, vendor, saves item, then verifies on POS screen', async ({
     page
   }) => {
+    test.setTimeout(60_000)
     /* ── Step 1: Open Inventory Modal ── */
     await page.getByRole('button', { name: 'F2 - Inventory' }).click()
     const dialog = page.getByRole('dialog', { name: 'Inventory Management' })
     await expect(dialog).toBeVisible()
 
     /* ── Step 2: Create a Department ── */
-    await page.getByRole('tab', { name: 'Departments' }).click()
-    await page.getByRole('textbox', { name: 'Department Name' }).fill('Wine')
-    await page.getByRole('button', { name: 'Add Department' }).click()
+    await clickTab(page, 'Departments')
+    await fillInput(page.getByRole('textbox', { name: 'Department Name' }), 'Wine')
+    await clickEl(page.getByRole('button', { name: 'Add Department' }))
     await expect(page.getByText('Department created')).toBeVisible()
-    // Verify it appears in the table
     const deptTable = page.getByRole('table', { name: 'Departments list' })
     await expect(deptTable.getByText('Wine')).toBeVisible()
 
     /* ── Step 3: Create a Tax Code ── */
-    await page.getByRole('tab', { name: 'Tax Codes' }).click()
-    await page.getByRole('textbox', { name: 'Tax Code Name' }).fill('HST')
-    await page.getByRole('textbox', { name: 'Tax Rate' }).fill('13')
-    await page.getByRole('button', { name: 'Add Tax Code' }).click()
+    await clickTab(page, 'Tax Codes')
+    await fillInput(page.getByRole('textbox', { name: 'Tax Code Name' }), 'HST')
+    await fillInput(page.getByRole('textbox', { name: 'Tax Rate' }), '13')
+    await clickEl(page.getByRole('button', { name: 'Add Tax Code' }))
     await expect(page.getByText('Tax code created')).toBeVisible()
     const taxTable = page.getByRole('table', { name: 'Tax codes list' })
     await expect(taxTable.getByText('HST')).toBeVisible()
     await expect(taxTable.getByText('13.00%')).toBeVisible()
 
     /* ── Step 4: Create a Vendor ── */
-    await page.getByRole('tab', { name: 'Vendors' }).click()
-    await page.getByRole('textbox', { name: 'Vendor Name' }).fill('Premium Wines Inc')
-    await page.getByRole('textbox', { name: 'Contact Name' }).fill('Jane Doe')
-    await page.getByRole('textbox', { name: 'Phone' }).fill('555-0123')
-    await page.getByRole('textbox', { name: 'Email' }).fill('jane@premiumwines.com')
-    await page.getByRole('button', { name: 'Add Vendor' }).click()
+    await clickTab(page, 'Vendors')
+    await fillInput(page.getByRole('textbox', { name: 'Vendor Name' }), 'Premium Wines Inc')
+    await fillInput(page.getByRole('textbox', { name: 'Contact Name' }), 'Jane Doe')
+    await fillInput(page.getByRole('textbox', { name: 'Phone' }), '555-0123')
+    await fillInput(page.getByRole('textbox', { name: 'Email' }), 'jane@premiumwines.com')
+    await clickEl(page.getByRole('button', { name: 'Add Vendor' }))
     await expect(page.getByText('Vendor created')).toBeVisible()
     const vendorTable = page.getByRole('table', { name: 'Vendors list' })
     await expect(vendorTable.getByText('Premium Wines Inc')).toBeVisible()
     await expect(vendorTable.getByText('Jane Doe')).toBeVisible()
 
     /* ── Step 5: Switch to Items tab and save a new item ── */
-    await page.getByRole('tab', { name: 'Items' }).click()
+    await clickTab(page, 'Items')
 
     const sku = `E2E-${Date.now()}`
     const itemName = `Test Merlot 750ml`
 
-    await page.getByRole('textbox', { name: 'SKU', exact: true }).fill(sku)
-    await page.getByLabel('Name').fill(itemName)
-    // The department dropdown should now contain the department we created (id "1")
-    await page.getByLabel('Department').selectOption('1')
-    await page.getByLabel('Cost').fill('12.50')
-    await page.getByLabel('Price Charged').fill('24.99')
-    await page.getByLabel('In Stock').fill('30')
+    await fillInput(page.getByRole('textbox', { name: 'SKU', exact: true }), sku)
+    await fillInput(page.getByLabel('Name'), itemName)
 
-    // Select tax code from dropdown
-    const taxContainer = page.getByLabel('Tax Codes')
-    await taxContainer.getByRole('button').click()
-    const taxOptions = taxContainer.getByRole('option')
-    for (const opt of await taxOptions.all()) {
-      const checkbox = opt.getByRole('checkbox')
-      if (!(await checkbox.isChecked())) {
-        await checkbox.check()
-      }
+    // Department dropdown
+    const deptDropdown = page.locator('.dept-dropdown')
+    await clickEl(deptDropdown.locator('button'))
+    await checkBox(deptDropdown.locator('li', { hasText: '1' }).locator('input[type="checkbox"]'))
+    await clickEl(deptDropdown.locator('button'))
+
+    await fillInput(page.getByLabel('Cost'), '12.50')
+    await fillInput(page.getByLabel('Price Charged'), '24.99')
+    await fillInput(page.getByLabel('In Stock'), '30')
+
+    // Tax code dropdown
+    const taxDropdown = page.locator('.tax-dropdown')
+    await clickEl(taxDropdown.locator('button'))
+    for (const opt of await taxDropdown.locator('li').all()) {
+      await checkBox(opt.locator('input[type="checkbox"]'))
     }
-    await taxContainer.getByRole('button').click()
+    await clickEl(taxDropdown.locator('button'))
 
-    await page.getByRole('button', { name: 'Save Item' }).click()
+    await clickEl(page.getByRole('button', { name: 'Save Item' }))
     await expect(page.getByText('Item saved')).toBeVisible()
 
-    /* ── Step 6: Close inventory modal (triggers product reload in POS screen) ── */
-    await page.getByRole('button', { name: 'Close' }).click()
+    /* ── Step 6: Close inventory modal ── */
+    await clickEl(page.getByRole('button', { name: 'Close' }))
     await expect(dialog).not.toBeVisible()
 
     /* ── Step 7: Verify item appears on POS screen ── */
-    // Switch to "All" category to see all products
-    await page.getByRole('button', { name: 'All' }).click()
+    await page.locator('.category-dropdown-trigger').click()
+    await page.locator('.category-dropdown-item', { hasText: 'All' }).click()
     await expect(page.getByText(itemName)).toBeVisible()
 
-    /* ── Step 8: Search for the item in the POS ticket search ── */
-    await page.getByPlaceholder('Search products').fill(sku)
+    /* ── Step 8: Search for the item ── */
+    await page.getByPlaceholder('Search item').fill(sku)
     await expect(page.getByText(itemName)).toBeVisible()
   })
 
   test('edits and deletes a department', async ({ page }) => {
     await page.getByRole('button', { name: 'F2 - Inventory' }).click()
-    await page.getByRole('tab', { name: 'Departments' }).click()
+    await clickTab(page, 'Departments')
 
-    // Create a department first
-    await page.getByRole('textbox', { name: 'Department Name' }).fill('Beer')
-    await page.getByRole('button', { name: 'Add Department' }).click()
+    // Create
+    await fillInput(page.getByRole('textbox', { name: 'Department Name' }), 'Beer')
+    await clickEl(page.getByRole('button', { name: 'Add Department' }))
     await expect(page.getByText('Department created')).toBeVisible()
 
     const deptTable = page.getByRole('table', { name: 'Departments list' })
 
-    // Edit the department
-    await deptTable.getByRole('button', { name: 'Edit' }).click()
-    const editInput = page.getByRole('textbox', { name: 'Edit Department Name' })
-    await editInput.clear()
-    await editInput.fill('Craft Beer')
-    await deptTable.getByRole('button', { name: 'Save' }).click()
+    // Edit
+    await clickEl(deptTable.getByRole('button', { name: 'Edit' }))
+    await fillInput(page.getByRole('textbox', { name: 'Edit Department Name' }), 'Craft Beer')
+    await clickEl(deptTable.getByRole('button', { name: 'Save' }))
     await expect(page.getByText('Department updated')).toBeVisible()
     await expect(deptTable.getByText('Craft Beer')).toBeVisible()
 
-    // Delete the department
-    await deptTable.getByRole('button', { name: 'Delete' }).click()
+    // Delete
+    await clickEl(deptTable.getByRole('button', { name: 'Delete' }))
     await expect(page.getByText('Department deleted')).toBeVisible()
     await expect(page.getByText('No departments yet')).toBeVisible()
   })
@@ -319,76 +393,168 @@ test.describe('Inventory Management – Full Workflow', () => {
   test('validates required fields on CRUD panels', async ({ page }) => {
     await page.getByRole('button', { name: 'F2 - Inventory' }).click()
 
-    // Department: try to add with empty name
-    await page.getByRole('tab', { name: 'Departments' }).click()
-    await page.getByRole('button', { name: 'Add Department' }).click()
+    // Department: empty name
+    await clickTab(page, 'Departments')
+    await clickEl(page.getByRole('button', { name: 'Add Department' }))
     await expect(page.getByText('Name is required')).toBeVisible()
 
-    // Tax Code: try to add with empty fields
-    await page.getByRole('tab', { name: 'Tax Codes' }).click()
-    await page.getByRole('button', { name: 'Add Tax Code' }).click()
+    // Tax Code: empty fields
+    await clickTab(page, 'Tax Codes')
+    await clickEl(page.getByRole('button', { name: 'Add Tax Code' }))
     await expect(page.getByText('Code is required')).toBeVisible()
     await expect(page.getByText('Rate is required')).toBeVisible()
 
-    // Vendor: try to add with empty name
-    await page.getByRole('tab', { name: 'Vendors' }).click()
-    await page.getByRole('button', { name: 'Add Vendor' }).click()
+    // Vendor: empty name
+    await clickTab(page, 'Vendors')
+    await clickEl(page.getByRole('button', { name: 'Add Vendor' }))
     await expect(page.getByText('Vendor name is required')).toBeVisible()
   })
 
   test('edits and deletes a tax code', async ({ page }) => {
     await page.getByRole('button', { name: 'F2 - Inventory' }).click()
-    await page.getByRole('tab', { name: 'Tax Codes' }).click()
+    await clickTab(page, 'Tax Codes')
 
     // Create
-    await page.getByRole('textbox', { name: 'Tax Code Name' }).fill('GST')
-    await page.getByRole('textbox', { name: 'Tax Rate' }).fill('5')
-    await page.getByRole('button', { name: 'Add Tax Code' }).click()
+    await fillInput(page.getByRole('textbox', { name: 'Tax Code Name' }), 'GST')
+    await fillInput(page.getByRole('textbox', { name: 'Tax Rate' }), '5')
+    await clickEl(page.getByRole('button', { name: 'Add Tax Code' }))
     await expect(page.getByText('Tax code created')).toBeVisible()
 
     const taxTable = page.getByRole('table', { name: 'Tax codes list' })
 
     // Edit
-    await taxTable.getByRole('button', { name: 'Edit' }).click()
-    const editCode = page.getByRole('textbox', { name: 'Edit Tax Code Name' })
-    await editCode.clear()
-    await editCode.fill('PST')
-    const editRate = page.getByRole('textbox', { name: 'Edit Tax Rate' })
-    await editRate.clear()
-    await editRate.fill('8')
-    await taxTable.getByRole('button', { name: 'Save' }).click()
+    await clickEl(taxTable.getByRole('button', { name: 'Edit' }))
+    await fillInput(page.getByRole('textbox', { name: 'Edit Tax Code Name' }), 'PST')
+    await fillInput(page.getByRole('textbox', { name: 'Edit Tax Rate' }), '8')
+    await clickEl(taxTable.getByRole('button', { name: 'Save' }))
     await expect(page.getByText('Tax code updated')).toBeVisible()
     await expect(taxTable.getByText('PST')).toBeVisible()
 
     // Delete
-    await taxTable.getByRole('button', { name: 'Delete' }).click()
+    await clickEl(taxTable.getByRole('button', { name: 'Delete' }))
     await expect(page.getByText('Tax code deleted')).toBeVisible()
     await expect(page.getByText('No tax codes yet')).toBeVisible()
   })
 
   test('edits and deletes a vendor', async ({ page }) => {
     await page.getByRole('button', { name: 'F2 - Inventory' }).click()
-    await page.getByRole('tab', { name: 'Vendors' }).click()
+    await clickTab(page, 'Vendors')
 
     // Create
-    await page.getByRole('textbox', { name: 'Vendor Name' }).fill('ABC Dist')
-    await page.getByRole('button', { name: 'Add Vendor' }).click()
+    await fillInput(page.getByRole('textbox', { name: 'Vendor Name' }), 'ABC Dist')
+    await clickEl(page.getByRole('button', { name: 'Add Vendor' }))
     await expect(page.getByText('Vendor created')).toBeVisible()
 
     const vendorTable = page.getByRole('table', { name: 'Vendors list' })
 
     // Edit
-    await vendorTable.getByRole('button', { name: 'Edit' }).click()
-    const editName = page.getByRole('textbox', { name: 'Edit Vendor Name' })
-    await editName.clear()
-    await editName.fill('XYZ Distributors')
-    await vendorTable.getByRole('button', { name: 'Save' }).click()
+    await clickEl(vendorTable.getByRole('button', { name: 'Edit' }))
+    await fillInput(page.getByRole('textbox', { name: 'Edit Vendor Name' }), 'XYZ Distributors')
+    await clickEl(vendorTable.getByRole('button', { name: 'Save' }))
     await expect(page.getByText('Vendor updated')).toBeVisible()
     await expect(vendorTable.getByText('XYZ Distributors')).toBeVisible()
 
     // Delete
-    await vendorTable.getByRole('button', { name: 'Delete' }).click()
+    await clickEl(vendorTable.getByRole('button', { name: 'Delete' }))
     await expect(page.getByText('Vendor deleted')).toBeVisible()
     await expect(page.getByText('No vendors yet')).toBeVisible()
+  })
+
+  test('items tab defaults to Case & Quantity sub-tab', async ({ page }) => {
+    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Inventory Management' })
+    await expect(dialog).toBeVisible()
+
+    // Items tab is already the default
+    await clickTab(page, 'Items')
+
+    // Case & Quantity sub-tab should be active by default
+    const caseTab = page.getByRole('tab', { name: 'Case & Quantity' })
+    await expect(caseTab).toHaveAttribute('aria-selected', 'true')
+
+    // Bottles Per Case input should be visible
+    await expect(page.getByLabel('Bottles Per Case')).toBeVisible()
+
+    // Percent mode toggle should be active by default
+    await expect(page.getByLabel('Switch to percent mode')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('case discount supports percent and dollar toggle', async ({ page }) => {
+    test.setTimeout(60_000)
+    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await clickTab(page, 'Items')
+
+    // Initially in percent mode
+    await expect(page.getByLabel('Case Discount Percent')).toBeVisible()
+
+    // Switch to dollar mode
+    await clickEl(page.getByLabel('Switch to dollar mode'))
+    await expect(page.getByLabel('Case Discount Price')).toBeVisible()
+    expect(await page.getByLabel('Switch to dollar mode').getAttribute('aria-pressed')).toBe('true')
+
+    // Switch back to percent mode
+    await clickEl(page.getByLabel('Switch to percent mode'))
+    await expect(page.getByLabel('Case Discount Percent')).toBeVisible()
+    expect(await page.getByLabel('Switch to percent mode').getAttribute('aria-pressed')).toBe(
+      'true'
+    )
+  })
+
+  test('editing item with tax code does not show validation error', async ({ page }) => {
+    test.setTimeout(60_000)
+    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Inventory Management' })
+    await expect(dialog).toBeVisible()
+
+    /* Create a tax code first */
+    await clickTab(page, 'Tax Codes')
+    await fillInput(page.getByRole('textbox', { name: 'Tax Code Name' }), 'HST')
+    await fillInput(page.getByRole('textbox', { name: 'Tax Rate' }), '13')
+    await clickEl(page.getByRole('button', { name: 'Add Tax Code' }))
+    await expect(page.getByText('Tax code created')).toBeVisible()
+
+    /* Create a department */
+    await clickTab(page, 'Departments')
+    await fillInput(page.getByRole('textbox', { name: 'Department Name' }), 'Wine')
+    await clickEl(page.getByRole('button', { name: 'Add Department' }))
+    await expect(page.getByText('Department created')).toBeVisible()
+
+    /* Switch to Items and create an item with a tax code */
+    await clickTab(page, 'Items')
+    await fillInput(page.getByRole('textbox', { name: 'SKU', exact: true }), 'TAX-TEST')
+    await fillInput(page.getByLabel('Name'), 'Tax Test Item')
+
+    const deptDropdown = page.locator('.dept-dropdown')
+    await clickEl(deptDropdown.locator('button'))
+    await checkBox(deptDropdown.locator('li').first().locator('input[type="checkbox"]'))
+    await clickEl(deptDropdown.locator('button'))
+
+    await fillInput(page.getByLabel('Cost'), '10.00')
+    await fillInput(page.getByLabel('Price Charged'), '20.00')
+    await fillInput(page.getByLabel('In Stock'), '10')
+
+    const taxDropdown = page.locator('.tax-dropdown')
+    await clickEl(taxDropdown.locator('button'))
+    await checkBox(taxDropdown.locator('li').first().locator('input[type="checkbox"]'))
+    await clickEl(taxDropdown.locator('button'))
+
+    await clickEl(page.getByRole('button', { name: 'Save Item' }))
+    await expect(page.getByText('Item saved')).toBeVisible()
+
+    /* Now search for the saved item to edit it */
+    await fillInput(page.getByLabel('Search Inventory'), 'TAX-TEST')
+    await clickEl(page.getByRole('button', { name: 'Search' }))
+
+    // Wait for item to load
+    await expect(page.getByLabel('SKU')).toHaveValue('TAX-TEST', { timeout: 5000 })
+
+    /* Save again without changes — no validation error should appear */
+    await clickEl(page.getByRole('button', { name: 'Save Item' }))
+    await expect(page.getByText('Item saved')).toBeVisible()
+
+    // The tax code validation error should NOT appear
+    await expect(
+      page.getByText('At least one tax code must be selected from backend values')
+    ).not.toBeVisible()
   })
 })

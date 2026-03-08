@@ -18,7 +18,12 @@ import type {
   MerchantConfig,
   Cashier,
   CreateCashierInput,
-  UpdateCashierInput
+  UpdateCashierInput,
+  TerminalChargeInput,
+  TerminalChargeResult,
+  TerminalRegister,
+  SaveTransactionInput,
+  SavedTransaction
 } from '../shared/types'
 
 // Custom APIs for renderer
@@ -77,7 +82,19 @@ const api = {
     ipcRenderer.invoke('cashiers:validate-pin', pin),
   updateCashier: (input: UpdateCashierInput): Promise<Cashier> =>
     ipcRenderer.invoke('cashiers:update', input),
-  deleteCashier: (id: number): Promise<void> => ipcRenderer.invoke('cashiers:delete', id)
+  deleteCashier: (id: number): Promise<void> => ipcRenderer.invoke('cashiers:delete', id),
+
+  // Stax Terminal Payments
+  getTerminalRegisters: (): Promise<TerminalRegister[]> =>
+    ipcRenderer.invoke('stax:terminal:registers'),
+  chargeTerminal: (input: TerminalChargeInput): Promise<TerminalChargeResult> =>
+    ipcRenderer.invoke('stax:terminal:charge', input),
+
+  // Transactions
+  saveTransaction: (input: SaveTransactionInput): Promise<SavedTransaction> =>
+    ipcRenderer.invoke('transactions:save', input),
+  getRecentTransactions: (limit?: number): Promise<SavedTransaction[]> =>
+    ipcRenderer.invoke('transactions:recent', limit)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

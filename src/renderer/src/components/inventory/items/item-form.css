@@ -206,6 +206,52 @@
   align-content: start;
 }
 
+/* ── Tab: Case & Quantity ── */
+
+.item-form__case-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.item-form__case-discount-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.item-form__case-discount-row .ticket-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-form__mode-toggle {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 2rem;
+  text-align: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.item-form__mode-toggle--active {
+  background: var(--accent);
+  color: var(--text-on-dark);
+  border-color: var(--accent);
+}
+
+.item-form__case-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* ── Tab: Additional SKUs ── */
 .item-form__inline-row {
   display: grid;
@@ -286,6 +332,37 @@
   margin: 0;
   color: var(--text-muted);
   font-style: italic;
+}
+
+.item-form__history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.item-form__history-table th,
+.item-form__history-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.item-form__history-table th {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.item-form__history-txn {
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.item-form__history-card {
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .item-form__history-list {

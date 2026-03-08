@@ -17,7 +17,12 @@ import type {
   MerchantConfig,
   Cashier,
   CreateCashierInput,
-  UpdateCashierInput
+  UpdateCashierInput,
+  TerminalChargeInput,
+  TerminalChargeResult,
+  TerminalRegister,
+  SaveTransactionInput,
+  SavedTransaction
 } from '../shared/types'
 
 type AppApi = {
@@ -52,6 +57,14 @@ type AppApi = {
   validatePin: (pin: string) => Promise<Cashier | null>
   updateCashier: (input: UpdateCashierInput) => Promise<Cashier>
   deleteCashier: (id: number) => Promise<void>
+
+  // Stax Terminal Payments
+  getTerminalRegisters: () => Promise<TerminalRegister[]>
+  chargeTerminal: (input: TerminalChargeInput) => Promise<TerminalChargeResult>
+
+  // Transactions
+  saveTransaction: (input: SaveTransactionInput) => Promise<SavedTransaction>
+  getRecentTransactions: (limit?: number) => Promise<SavedTransaction[]>
 }
 
 declare global {

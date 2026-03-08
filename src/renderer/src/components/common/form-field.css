@@ -15,11 +15,7 @@
   font-weight: 700;
 }
 
-.form-field.has-error .ticket-input,
-.form-field.has-error .tax-dropdown-toggle {
-  border-color: var(--semantic-danger-text);
-  box-shadow: 0 0 0 1px var(--semantic-danger-text);
-}
+
 
 .form-field__error-slot {
   min-height: 1.1rem;

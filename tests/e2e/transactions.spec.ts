@@ -141,16 +141,89 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
       }
     ]
 
+    const savedTransactions: Array<Record<string, unknown>> = []
+
+    const merchantConfig = {
+      id: 1,
+      stax_api_key: 'test-api-key',
+      merchant_id: 'test-merchant-id',
+      merchant_name: 'Test Liquor Store',
+      activated_at: '2025-01-01T00:00:00.000Z',
+      updated_at: '2025-01-01T00:00:00.000Z'
+    }
+
+    const testCashier = {
+      id: 1,
+      name: 'Test Cashier',
+      role: 'admin',
+      is_active: 1,
+      created_at: '2025-01-01T00:00:00.000Z'
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
+      // Auth APIs
+      getMerchantConfig: async () => merchantConfig,
+      getCashiers: async () => [testCashier],
+      validatePin: async () => testCashier,
+
+      // Product APIs
       getProducts: async () => products,
       searchInventoryProducts: async () => [],
       getInventoryProductDetail: async () => null,
       saveInventoryItem: async () => {
         throw new Error('Not implemented in transactions mock')
-      }
+      },
+
+      // Terminal payment mock (simulates physical card reader)
+      chargeTerminal: async (input: { total: number; payment_type: string }) => {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        const cardType = input.payment_type === 'debit' ? 'mastercard' : 'visa'
+        const lastFour = input.payment_type === 'debit' ? '3222' : '4242'
+        return {
+          transaction_id: `txn-${Date.now()}`,
+          success: true,
+          last_four: lastFour,
+          card_type: cardType,
+          total: input.total,
+          message: 'Approved',
+          status: 'approved'
+        }
+      },
+
+      // Transaction persistence mock
+      saveTransaction: async (input: Record<string, unknown>) => {
+        const txn = {
+          id: savedTransactions.length + 1,
+          transaction_number: `TXN-${Date.now()}`,
+          ...input,
+          status: 'completed',
+          created_at: new Date().toISOString()
+        }
+        savedTransactions.push(txn)
+        return txn
+      },
+      getRecentTransactions: async () => [...savedTransactions].reverse()
     }
   })
+}
+
+/** Enter PIN 1234 on the login screen to get to POS */
+const loginWithPin = async (page: Page): Promise<void> => {
+  const pinKey = page.locator('.pin-key').first()
+  await pinKey.waitFor({ state: 'visible', timeout: 10000 })
+
+  for (const digit of ['1', '2', '3', '4']) {
+    await page.locator(`.pin-key:text("${digit}")`).click()
+  }
+
+  await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
+}
+
+/** Navigate to the app and log in */
+const gotoAndLogin = async (page: Page): Promise<void> => {
+  await page.goto('/')
+  await loginWithPin(page)
 }
 
 const parseAmount = async (selector: string, page: Page): Promise<number> => {
@@ -161,12 +234,12 @@ const parseAmount = async (selector: string, page: Page): Promise<number> => {
 test.describe('Simple Transactions', () => {
   test('payment buttons become enabled after adding an item', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     const firstProduct = page.locator('.product-pad-btn').first()
     await firstProduct.click()
 
-    await expect(page.getByRole('button', { name: 'Cash' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Cash', exact: true })).toBeEnabled()
     await expect(page.getByRole('button', { name: 'Credit' })).toBeEnabled()
     await expect(page.getByRole('button', { name: 'Debit' })).toBeEnabled()
     await expect(page.getByRole('button', { name: 'Pay' })).toBeEnabled()
@@ -174,7 +247,7 @@ test.describe('Simple Transactions', () => {
 
   test('delete removes currently selected item', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await page.getByRole('button', { name: 'All' }).click()
 
     const products = page.locator('.product-pad-btn')
@@ -193,7 +266,7 @@ test.describe('Simple Transactions', () => {
 
   test('price change updates selected cart line price only', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await page.getByRole('button', { name: 'All' }).click()
 
     const products = page.locator('.product-pad-btn')
@@ -219,7 +292,7 @@ test.describe('Simple Transactions', () => {
 
   test('discount supports selected item and entire transaction modes', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await page.getByRole('button', { name: 'All' }).click()
 
     const products = page.locator('.product-pad-btn')
@@ -270,7 +343,7 @@ test.describe('Simple Transactions', () => {
 
   test('search by SKU finds product across all categories and adds to cart', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     // Default is Favorites — COOLER-001 is not a favorite
     // Verify the cooler product is NOT visible initially
@@ -299,7 +372,7 @@ test.describe('Simple Transactions', () => {
 
   test('partial SKU search narrows product grid results', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     const searchInput = page.getByPlaceholder('Search item')
     await searchInput.fill('MIXER')
@@ -314,7 +387,7 @@ test.describe('Simple Transactions', () => {
 
   test('quantity change updates selected item quantity with keypad', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await page.getByRole('button', { name: 'All' }).click()
 
     const product = page.locator('.product-pad-btn').first()
@@ -335,7 +408,7 @@ test.describe('Simple Transactions', () => {
 
   test('typing a SKU and pressing Enter adds the item to the cart', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     const searchInput = page.getByPlaceholder('Search item')
     await searchInput.fill('COOLER-001')
@@ -351,7 +424,7 @@ test.describe('Simple Transactions', () => {
 
   test('pressing Enter with a non-existent SKU does not add to cart', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     const searchInput = page.getByPlaceholder('Search item')
     await searchInput.fill('INVALID-999')
@@ -366,7 +439,7 @@ test.describe('Simple Transactions', () => {
 
   test('search input is auto-focused on page load', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     const searchInput = page.getByPlaceholder('Search item')
     await expect(searchInput).toBeFocused()
@@ -374,7 +447,7 @@ test.describe('Simple Transactions', () => {
 
   test('Enter adds item with current quantity and resets to 1', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     const qtyInput = page.getByPlaceholder('Qty')
     await qtyInput.fill('3')
@@ -391,6 +464,53 @@ test.describe('Simple Transactions', () => {
     // Quantity input should be reset to 1
     await expect(qtyInput).toHaveValue('1')
   })
+
+  test('saved transaction includes discounted prices when item discount is applied', async ({
+    page
+  }) => {
+    await attachPosApiMock(page)
+    await gotoAndLogin(page)
+    await page.getByRole('button', { name: 'All' }).click()
+
+    // Add Cabernet Sauvignon ($19.99)
+    const product = page.locator('.product-pad-btn').first()
+    await product.click()
+
+    // Select the line and apply 10% item discount
+    await page.locator('.ticket-line').first().click()
+    await page.getByRole('button', { name: 'Discount', exact: true }).click()
+    const discountModal = page.getByTestId('edit-modal')
+    await discountModal.getByRole('button', { name: '1' }).click()
+    await discountModal.getByRole('button', { name: '0' }).click()
+    await page.getByRole('button', { name: 'Save' }).click()
+
+    // Verify discount applied on screen
+    await expect(page.locator('.ticket-line').first().getByText('DISCOUNT 10.00%')).toBeVisible()
+
+    // Complete payment with cash
+    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Cash (Exact)' }).click()
+    await page.getByTestId('payment-ok-btn').click()
+
+    // Verify saved transaction has discounted prices
+    // Check the mock stored the transaction — use the getRecentTransactions API
+    const recentTxns = await page.evaluate(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const api = (window as any).api
+      return api?.getRecentTransactions?.()
+    })
+
+    // Should have saved 1 transaction
+    expect(recentTxns).toBeTruthy()
+    expect(recentTxns.length).toBe(1)
+
+    const txn = recentTxns[0]
+    const items = txn.items as Array<{ unit_price: number; total_price: number }>
+
+    // $19.99 * 0.9 = $17.991 → rounded to $17.99
+    expect(items[0].unit_price).toBeCloseTo(17.99, 1)
+    expect(items[0].total_price).toBeCloseTo(17.99, 1)
+  })
 })
 
 test.describe('Payment Modal', () => {
@@ -403,7 +523,7 @@ test.describe('Payment Modal', () => {
 
   test('Pay button opens the payment modal', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await addProductToCart(page)
 
     await page.getByRole('button', { name: 'Pay' }).click()
@@ -420,7 +540,7 @@ test.describe('Payment Modal', () => {
 
   test('Pay button does nothing when cart is empty', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     // Pay button should be disabled when cart is empty
     await expect(page.getByRole('button', { name: 'Pay' })).toBeDisabled()
@@ -429,7 +549,7 @@ test.describe('Payment Modal', () => {
 
   test('Cash (Exact) completes payment and clears transaction', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await addProductToCart(page)
 
     const totalText = await page.locator('.grand-total strong').textContent()
@@ -459,7 +579,7 @@ test.describe('Payment Modal', () => {
 
   test('Credit card shows processing then completes', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await addProductToCart(page)
 
     await page.getByRole('button', { name: 'Pay' }).click()
@@ -469,7 +589,7 @@ test.describe('Payment Modal', () => {
 
     // Should show processing state
     await expect(modal.getByTestId('payment-processing')).toBeVisible()
-    await expect(modal.getByText('Processing card payment...')).toBeVisible()
+    await expect(modal.getByText('Waiting for card machine...')).toBeVisible()
 
     // Cancel should be disabled during processing
     await expect(modal.getByRole('button', { name: 'Cancel' })).toBeDisabled()
@@ -483,7 +603,7 @@ test.describe('Payment Modal', () => {
 
   test('Debit card payment works like credit', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await addProductToCart(page)
 
     await page.getByRole('button', { name: 'Pay' }).click()
@@ -500,7 +620,7 @@ test.describe('Payment Modal', () => {
 
   test('tender denomination buttons accumulate and show change', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await addProductToCart(page)
 
     // Cabernet Sauvignon: $19.99 * 1.13 = $22.59
@@ -531,7 +651,7 @@ test.describe('Payment Modal', () => {
 
   test('split payment: partial cash then card completes', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await addProductToCart(page)
 
     // Cabernet Sauvignon total = $22.59
@@ -559,7 +679,7 @@ test.describe('Payment Modal', () => {
 
   test('Cancel closes modal without clearing transaction', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await addProductToCart(page)
 
     await page.getByRole('button', { name: 'Pay' }).click()
@@ -579,7 +699,7 @@ test.describe('Payment Modal', () => {
 
   test('all seven tender denomination buttons are rendered', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await addProductToCart(page)
 
     await page.getByRole('button', { name: 'Pay' }).click()
@@ -592,28 +712,40 @@ test.describe('Payment Modal', () => {
 
   test('Cash/Credit/Debit buttons in action panel open payment modal', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await addProductToCart(page)
 
-    // Test Cash button opens modal
-    await page.getByRole('button', { name: 'Cash' }).click()
+    // Test Cash button opens modal — auto-triggers Cash (Exact) → complete
+    await page.getByRole('button', { name: 'Cash', exact: true }).click()
     await expect(page.getByTestId('payment-modal')).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    // Cash auto-completes, click OK to dismiss
+    await expect(page.getByTestId('payment-complete')).toBeVisible()
+    await page.getByTestId('payment-ok-btn').click()
     await expect(page.getByTestId('payment-modal')).toHaveCount(0)
 
-    // Test Credit button opens modal
+    // Add product again for next test
+    await addProductToCart(page)
+
+    // Test Credit button opens modal — auto-triggers terminal charge
     await page.getByRole('button', { name: 'Credit' }).click()
     await expect(page.getByTestId('payment-modal')).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    // Terminal charge completes (mock resolves in 300ms)
+    await expect(page.getByTestId('payment-complete')).toBeVisible({ timeout: 5000 })
+    await page.getByTestId('payment-ok-btn').click()
+    await expect(page.getByTestId('payment-modal')).toHaveCount(0)
 
-    // Test Debit button opens modal (it calls onCredit in ActionPanel)
+    // Add product again for next test
+    await addProductToCart(page)
+
+    // Test Debit button opens modal — auto-triggers terminal charge
     await page.getByRole('button', { name: 'Debit' }).click()
     await expect(page.getByTestId('payment-modal')).toBeVisible()
+    await expect(page.getByTestId('payment-complete')).toBeVisible({ timeout: 5000 })
   })
 
   test('focus returns to search bar after adding item via product grid', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await page.getByRole('button', { name: 'All' }).click()
 
     const product = page.locator('.product-pad-btn').first()
@@ -627,7 +759,7 @@ test.describe('Payment Modal', () => {
     page
   }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
     await addProductToCart(page)
 
     // Complete a cash payment

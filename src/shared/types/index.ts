@@ -25,6 +25,7 @@ export type InventoryProduct = {
   vendor_number: number | null
   vendor_name: string | null
   bottles_per_case: number
+  case_discount_price: number | null
   barcode: string | null
   description: string | null
   special_pricing_enabled: number
@@ -40,6 +41,49 @@ export type InventorySalesHistory = {
   total_price: number
 }
 
+/** Extended sales history with payment details (used in inventory detail view) */
+export type TransactionHistoryItem = InventorySalesHistory & {
+  transaction_number: string
+  payment_method: string | null
+  stax_transaction_id: string | null
+  card_last_four: string | null
+  card_type: string | null
+}
+
+/** Input for saving a completed transaction */
+export type SaveTransactionInput = {
+  subtotal: number
+  tax_amount: number
+  total: number
+  payment_method: string
+  stax_transaction_id?: string | null
+  card_last_four?: string | null
+  card_type?: string | null
+  notes?: string | null
+  items: Array<{
+    product_id: number
+    product_name: string
+    quantity: number
+    unit_price: number
+    total_price: number
+  }>
+}
+
+/** Saved transaction record returned from the database */
+export type SavedTransaction = {
+  id: number
+  transaction_number: string
+  subtotal: number
+  tax_amount: number
+  total: number
+  payment_method: string
+  stax_transaction_id: string | null
+  card_last_four: string | null
+  card_type: string | null
+  status: string
+  created_at: string
+}
+
 export type SpecialPricingRule = {
   quantity: number
   price: number
@@ -49,7 +93,7 @@ export type SpecialPricingRule = {
 export type InventoryProductDetail = InventoryProduct & {
   tax_rates: number[]
   additional_skus: string[]
-  sales_history: InventorySalesHistory[]
+  sales_history: TransactionHistoryItem[]
   special_pricing: SpecialPricingRule[]
 }
 
@@ -65,6 +109,8 @@ export type SaveInventoryItemInput = {
   tax_rates: number[]
   special_pricing: SpecialPricingRule[]
   additional_skus: string[]
+  bottles_per_case: number
+  case_discount_price: number | null
 }
 
 export type InventoryTaxCode = {
@@ -155,4 +201,45 @@ export type StaxMerchantInfo = {
   merchant_id: string
   company_name: string
   status: string
+}
+
+// ── Stax Terminal Payment Processing ──
+
+/** A physical card reader / terminal device paired with the merchant */
+export type TerminalRegister = {
+  id: string
+  nickname: string
+  serial: string
+  type: string
+  model: string
+  is_default: boolean
+  register_num: number
+}
+
+/** Input for sending a charge to a physical card terminal */
+export type TerminalChargeInput = {
+  /** Total amount in dollars (e.g. 22.59) — minimum 0.01 */
+  total: number
+  /** Payment type: credit or debit */
+  payment_type: 'credit' | 'debit'
+  /** Optional metadata (tax, subtotal, lineItems, etc.) */
+  meta?: Record<string, unknown>
+}
+
+/** Result from a terminal charge (after polling completes) */
+export type TerminalChargeResult = {
+  /** Stax transaction ID (UUID) */
+  transaction_id: string
+  /** Whether the charge was approved */
+  success: boolean
+  /** Last 4 digits of card */
+  last_four: string
+  /** Card brand (visa, mastercard, etc.) */
+  card_type: string
+  /** Amount charged in dollars */
+  total: number
+  /** Human-readable message from gateway */
+  message: string
+  /** Final terminal status */
+  status: 'approved' | 'declined' | 'timeout' | 'error'
 }

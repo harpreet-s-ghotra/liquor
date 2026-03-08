@@ -17,6 +17,7 @@ const baseInventoryItem = {
   vendor_number: null,
   vendor_name: null,
   bottles_per_case: 12,
+  case_discount_price: null,
   barcode: null,
   description: null,
   special_pricing_enabled: 0,
@@ -32,18 +33,34 @@ const baseDetail = {
   sales_history: [
     {
       transaction_id: 10,
-      created_at: '2026-02-28 10:00:00',
+      transaction_number: 'TXN-001',
+      created_at: '2026-02-28T10:00:00.000Z',
       quantity: 2,
       unit_price: 15,
-      total_price: 30
+      total_price: 30,
+      payment_method: 'credit',
+      stax_transaction_id: 'stax-uuid-123',
+      card_last_four: '1111',
+      card_type: 'visa'
     }
   ]
 }
 
 describe('ItemForm', () => {
+  /** Find the dropdown container by its aria-label (picks the div, not the label) */
+  const getDeptDropdown = (): HTMLElement => {
+    const matches = screen.getAllByLabelText('Department')
+    return matches.find((el) => el.classList.contains('dept-dropdown')) ?? matches[0]
+  }
+
+  const getTaxDropdown = (): HTMLElement => {
+    const matches = screen.getAllByLabelText('Tax Codes')
+    return matches.find((el) => el.classList.contains('tax-dropdown')) ?? matches[0]
+  }
+
   /** Open the tax dropdown and toggle rate checkboxes */
   const setTaxCodes = (rates: string[]): void => {
-    const container = screen.getByLabelText('Tax Codes')
+    const container = getTaxDropdown()
     const toggle = container.querySelector('button') as HTMLButtonElement
     if (toggle.getAttribute('aria-expanded') !== 'true') {
       fireEvent.click(toggle)
@@ -66,7 +83,7 @@ describe('ItemForm', () => {
 
   /** Open the department dropdown and toggle department checkboxes */
   const setDepartments = (depts: string[]): void => {
-    const container = screen.getByLabelText('Department')
+    const container = getDeptDropdown()
     const toggle = container.querySelector('button') as HTMLButtonElement
     if (toggle.getAttribute('aria-expanded') !== 'true') {
       fireEvent.click(toggle)
@@ -123,30 +140,28 @@ describe('ItemForm', () => {
     render(<ItemForm />)
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Department')).toBeInTheDocument()
+      expect(getDeptDropdown()).toBeInTheDocument()
     })
-
-    setDepartments([])
-    setTaxCodes([])
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
     expect(await screen.findByText('SKU is required')).toBeInTheDocument()
     expect(screen.getByText('Name is required')).toBeInTheDocument()
-    expect(screen.getByText('At least one department is required')).toBeInTheDocument()
     expect(screen.getByText('Cost is required')).toBeInTheDocument()
     expect(screen.getByText('Price is required')).toBeInTheDocument()
     expect(screen.getByText('In stock is required')).toBeInTheDocument()
+    // Department and Tax Codes are optional, so no validation errors for them
+    expect(screen.queryByText('At least one department is required')).not.toBeInTheDocument()
     expect(
-      screen.getByText('At least one tax code must be selected from backend values')
-    ).toBeInTheDocument()
+      screen.queryByText('At least one tax code must be selected from backend values')
+    ).not.toBeInTheDocument()
   })
 
   it('shows validation when in stock is not an integer', async () => {
     render(<ItemForm />)
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Department')).toBeInTheDocument()
+      expect(getDeptDropdown()).toBeInTheDocument()
     })
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NEW' } })
@@ -187,8 +202,7 @@ describe('ItemForm', () => {
     render(<ItemForm />)
 
     await waitFor(() => {
-      const summary = screen.getByLabelText('Department').querySelector('.dept-dropdown-summary')
-      expect(summary?.textContent).toBe('11')
+      expect(getDeptDropdown()).toBeInTheDocument()
     })
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NEW' } })
@@ -199,6 +213,8 @@ describe('ItemForm', () => {
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
     setTaxCodes(['0', '0.13'])
 
+    // Navigate to Additional SKUs tab (default is now Case & Quantity)
+    fireEvent.click(screen.getByRole('tab', { name: 'Additional SKUs' }))
     fireEvent.change(screen.getByLabelText('Additional SKU Input'), {
       target: { value: 'SKU-NEW-ALT' }
     })
@@ -271,9 +287,14 @@ describe('ItemForm', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Sales History' }))
 
-    expect(
-      await screen.findByText('#10 · 2026-02-28 10:00:00 · Qty 2 · $30.00')
-    ).toBeInTheDocument()
+    // Sales history now renders as a table with payment info
+    const table = await screen.findByRole('table')
+    expect(table).toBeInTheDocument()
+    expect(table).toHaveTextContent('TXN-001')
+    expect(table).toHaveTextContent('2')
+    expect(table).toHaveTextContent('$30.00')
+    expect(table).toHaveTextContent('credit')
+    expect(table).toHaveTextContent('visa ****1111')
   })
 
   it('falls back to legacy tax fields when tax_rates is missing', async () => {
@@ -298,11 +319,11 @@ describe('ItemForm', () => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
     })
 
-    const container = screen.getByLabelText('Tax Codes')
+    const container = getTaxDropdown()
     const toggle = container.querySelector('button') as HTMLButtonElement
     fireEvent.click(toggle)
 
-    const options = screen.getAllByRole('option')
+    const options = within(container).getAllByRole('option')
     const checkboxes = options
       .map((opt) => opt.querySelector('input[type="checkbox"]') as HTMLInputElement | null)
       .filter(Boolean) as HTMLInputElement[]
@@ -314,8 +335,11 @@ describe('ItemForm', () => {
     render(<ItemForm />)
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Additional SKU Input')).toBeInTheDocument()
+      expect(screen.getByLabelText('Bottles Per Case')).toBeInTheDocument()
     })
+
+    // Navigate to Additional SKUs tab (default is now Case & Quantity)
+    fireEvent.click(screen.getByRole('tab', { name: 'Additional SKUs' }))
 
     fireEvent.change(screen.getByLabelText('Additional SKU Input'), {
       target: { value: 'SKU-X' }
@@ -433,10 +457,10 @@ describe('ItemForm', () => {
     render(<ItemForm />)
 
     await waitFor(() => {
-      const summary = screen.getByLabelText('Department').querySelector('.dept-dropdown-summary')
-      expect(summary?.textContent).toBe('11')
+      expect(getDeptDropdown()).toBeInTheDocument()
     })
 
+    setDepartments(['11'])
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-ERR' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Error Item' } })
     fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '500' } })
@@ -447,5 +471,142 @@ describe('ItemForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
     expect(await screen.findByText('Save failed')).toBeInTheDocument()
+  })
+
+  it('defaults to Case & Quantity sub-tab', async () => {
+    render(<ItemForm />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Bottles Per Case')).toBeInTheDocument()
+    })
+
+    // Case & Quantity tab panel is visible by default
+    expect(screen.getByRole('tab', { name: 'Case & Quantity' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+  })
+
+  it('shows percent mode toggle by default for new items', async () => {
+    render(<ItemForm />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Bottles Per Case')).toBeInTheDocument()
+    })
+
+    expect(screen.getByLabelText('Switch to percent mode')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
+    expect(screen.getByLabelText('Case Discount Percent')).toBeInTheDocument()
+  })
+
+  it('switches to dollar mode when $ toggle is clicked', async () => {
+    render(<ItemForm />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Bottles Per Case')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByLabelText('Switch to dollar mode'))
+
+    expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByLabelText('Case Discount Price')).toBeInTheDocument()
+  })
+
+  it('loads existing item with case_discount_price in dollar mode', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (window as any).api
+    api.getInventoryProductDetail = vi.fn(async () => ({
+      ...baseDetail,
+      case_discount_price: 149.99
+    }))
+
+    render(<ItemForm />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    await waitFor(() => {
+      expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
+    })
+
+    // Should show dollar mode when loading existing case discount price
+    await waitFor(() => {
+      expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
+    })
+    expect(screen.getByLabelText('Case Discount Price')).toHaveValue('$149.99')
+  })
+
+  it('saves case discount in percent mode as dollar value', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (window as any).api
+
+    render(<ItemForm />)
+
+    await waitFor(() => {
+      expect(getDeptDropdown()).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-CASE' } })
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Case Item' } })
+    setDepartments(['11'])
+    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
+    fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
+    setTaxCodes(['0.13'])
+
+    // Enter 10% discount on a $10 x 12 = $120 full case price
+    fireEvent.change(screen.getByLabelText('Case Discount Percent'), {
+      target: { value: '10' }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
+
+    await waitFor(() => {
+      expect(api.saveInventoryItem).toHaveBeenCalled()
+    })
+    // Full case price: 10 * 12 = $120, 10% off → $108
+    expect(api.saveInventoryItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        case_discount_price: 108
+      })
+    )
+  })
+
+  it('does not show tax validation error when no tax codes selected', async () => {
+    render(<ItemForm />)
+
+    await waitFor(() => {
+      expect(getDeptDropdown()).toBeInTheDocument()
+    })
+
+    // Fill required fields but select no tax codes
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NOTAX' } })
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'No Tax Item' } })
+    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '500' } })
+    fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
+    fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '1' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
+
+    // Should NOT show "tax code must be selected from backend values" error
+    expect(
+      screen.queryByText('At least one tax code must be selected from backend values')
+    ).not.toBeInTheDocument()
   })
 })

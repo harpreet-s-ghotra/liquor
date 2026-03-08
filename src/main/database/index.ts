@@ -9,6 +9,7 @@
  *   departments.repo.ts - department CRUD
  *   tax-codes.repo.ts   - tax code CRUD
  *   vendors.repo.ts     - vendor CRUD
+ *   transactions.repo.ts - transaction saving & history
  */
 
 // Schema / lifecycle
@@ -39,6 +40,9 @@ export { getTaxCodes, createTaxCode, updateTaxCode, deleteTaxCode } from './tax-
 // Vendors
 export { getVendors, createVendor, updateVendor, deleteVendor } from './vendors.repo'
 
+// Transactions
+export { saveTransaction, getRecentTransactions, getProductSalesHistory } from './transactions.repo'
+
 // Merchant config
 export { getMerchantConfig, saveMerchantConfig, clearMerchantConfig } from './merchant-config.repo'
 
@@ -68,5 +72,8 @@ export type {
   SaveMerchantConfigInput,
   Cashier,
   CreateCashierInput,
-  UpdateCashierInput
+  UpdateCashierInput,
+  SaveTransactionInput,
+  SavedTransaction,
+  TransactionHistoryItem
 } from '../../shared/types'

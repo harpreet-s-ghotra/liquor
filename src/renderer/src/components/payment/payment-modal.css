@@ -299,3 +299,44 @@
   background: var(--pay-debit-bg);
   color: var(--pay-debit-text);
 }
+
+/* ── Card Entry Form ── */
+.card-entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+}
+
+.card-entry-form h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.card-entry-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.card-entry-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.375rem;
+}
+
+.card-entry-error {
+  color: var(--error);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.card-entry-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}

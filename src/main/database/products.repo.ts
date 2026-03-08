@@ -4,7 +4,7 @@ import type {
   Product,
   InventoryProduct,
   InventoryProductDetail,
-  InventorySalesHistory,
+  TransactionHistoryItem,
   SpecialPricingRule,
   InventoryTaxCode,
   SaveInventoryItemInput
@@ -57,6 +57,7 @@ export function getInventoryProducts(): InventoryProduct[] {
         products.vendor_number,
         vendors.vendor_name,
         COALESCE(products.bottles_per_case, 12) AS bottles_per_case,
+        products.case_discount_price,
         products.barcode,
         products.description,
         COALESCE(products.special_pricing_enabled, 0) AS special_pricing_enabled,
@@ -120,6 +121,7 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
         products.vendor_number,
         vendors.vendor_name,
         COALESCE(products.bottles_per_case, 12) AS bottles_per_case,
+        products.case_discount_price,
         products.barcode,
         products.description,
         COALESCE(products.special_pricing_enabled, 0) AS special_pricing_enabled,
@@ -153,6 +155,7 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         products.vendor_number,
         vendors.vendor_name,
         COALESCE(products.bottles_per_case, 12) AS bottles_per_case,
+        products.case_discount_price,
         products.barcode,
         products.description,
         COALESCE(products.special_pricing_enabled, 0) AS special_pricing_enabled,
@@ -192,19 +195,24 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
     .prepare(
       `
       SELECT
-        transaction_items.transaction_id,
-        transactions.created_at,
-        transaction_items.quantity,
-        transaction_items.unit_price,
-        transaction_items.total_price
-      FROM transaction_items
-      INNER JOIN transactions ON transactions.id = transaction_items.transaction_id
-      WHERE transaction_items.product_id = ?
-      ORDER BY transactions.created_at DESC
+        t.id           AS transaction_id,
+        t.transaction_number,
+        t.created_at,
+        ti.quantity,
+        ti.unit_price,
+        ti.total_price,
+        t.payment_method,
+        t.stax_transaction_id,
+        t.card_last_four,
+        t.card_type
+      FROM transaction_items ti
+      INNER JOIN transactions t ON t.id = ti.transaction_id
+      WHERE ti.product_id = ?
+      ORDER BY t.created_at DESC
       LIMIT 20
       `
     )
-    .all(itemNumber) as InventorySalesHistory[]
+    .all(itemNumber) as TransactionHistoryItem[]
 
   const specialPricing = getDb()
     .prepare(
@@ -247,10 +255,6 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     throw new Error('Name is required')
   }
 
-  if (!normalizedDept) {
-    throw new Error('Department is required')
-  }
-
   if (normalizedSku.length > SKU_MAX_LENGTH) {
     throw new Error(`SKU must be ${SKU_MAX_LENGTH} characters or less`)
   }
@@ -271,10 +275,6 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     throw new Error('In stock must be an integer')
   }
 
-  if (!Array.isArray(input.tax_rates) || input.tax_rates.length === 0) {
-    throw new Error('At least one tax code must be selected')
-  }
-
   if (
     input.special_pricing.some(
       (rule) =>
@@ -289,19 +289,23 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     throw new Error('Special pricing rules must have valid quantity, price, and duration')
   }
 
-  const allowedDepartments = new Set(getInventoryDepartments())
+  if (normalizedDept) {
+    const allowedDepartments = new Set(getInventoryDepartments())
+    const deptParts = normalizedDept
+      .split(',')
+      .map((d) => d.trim())
+      .filter(Boolean)
+    for (const part of deptParts) {
+      if (!allowedDepartments.has(part)) {
+        throw new Error('Department must be selected from available departments')
+      }
+    }
+  }
+
   const deptParts = normalizedDept
     .split(',')
     .map((d) => d.trim())
     .filter(Boolean)
-  if (deptParts.length === 0) {
-    throw new Error('Department is required')
-  }
-  for (const part of deptParts) {
-    if (!allowedDepartments.has(part)) {
-      throw new Error('Department must be selected from available departments')
-    }
-  }
 
   const allowedTaxRates = new Set(getInventoryTaxCodes().map((code) => normalizeTaxRate(code.rate)))
   const normalizedTaxRates = Array.from(
@@ -312,11 +316,10 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     )
   )
 
-  if (normalizedTaxRates.length === 0) {
-    throw new Error('At least one tax code must be selected')
-  }
-
-  if (normalizedTaxRates.some((taxRate) => !allowedTaxRates.has(taxRate))) {
+  if (
+    normalizedTaxRates.length > 0 &&
+    normalizedTaxRates.some((taxRate) => !allowedTaxRates.has(taxRate))
+  ) {
     throw new Error('Tax codes must be selected from available backend tax codes')
   }
 
@@ -360,9 +363,11 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
       tax_2: secondaryTaxRate,
       special_pricing_enabled: hasSpecialPricing ? 1 : 0,
       special_price: hasSpecialPricing ? payload.special_pricing[0].price : null,
-      category: deptParts[0],
+      category: deptParts[0] ?? '',
       quantity: payload.in_stock,
-      vendor_number: payload.vendor_number
+      vendor_number: payload.vendor_number,
+      bottles_per_case: payload.bottles_per_case,
+      case_discount_price: payload.case_discount_price
     }
 
     let productId = payload.item_number
@@ -387,6 +392,8 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           special_pricing_enabled = @special_pricing_enabled,
           special_price = @special_price,
           vendor_number = @vendor_number,
+          bottles_per_case = @bottles_per_case,
+          case_discount_price = @case_discount_price,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = @id
         `
@@ -398,12 +405,14 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           INSERT INTO products (
             sku, name, category, price, cost, quantity, tax_rate,
             dept_id, retail_price, in_stock, tax_1, tax_2,
-            special_pricing_enabled, special_price, vendor_number
+            special_pricing_enabled, special_price, vendor_number,
+            bottles_per_case, case_discount_price
           )
           VALUES (
             @sku, @name, @category, @retail_price, @cost, @quantity, @tax_1,
             @dept_id, @retail_price, @in_stock, @tax_1, @tax_2,
-            @special_pricing_enabled, @special_price, @vendor_number
+            @special_pricing_enabled, @special_price, @vendor_number,
+            @bottles_per_case, @case_discount_price
           )
           `
         )

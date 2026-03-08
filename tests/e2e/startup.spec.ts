@@ -142,6 +142,26 @@ const attachPosApiMock = async (page): Promise<void> => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
+      // Auth APIs
+      getMerchantConfig: async () => ({
+        id: 1,
+        stax_api_key: 'test-api-key',
+        merchant_id: 'test-merchant-id',
+        merchant_name: 'Test Liquor Store',
+        activated_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      }),
+      getCashiers: async () => [
+        { id: 1, name: 'Test Cashier', role: 'admin', is_active: 1, created_at: '2025-01-01' }
+      ],
+      validatePin: async () => ({
+        id: 1,
+        name: 'Test Cashier',
+        role: 'admin',
+        is_active: 1,
+        created_at: '2025-01-01'
+      }),
+
       getProducts: async () => products,
       searchInventoryProducts: async () => [],
       getInventoryProductDetail: async () => null,
@@ -152,17 +172,34 @@ const attachPosApiMock = async (page): Promise<void> => {
   })
 }
 
+/** Enter PIN 1234 on the login screen to get to POS */
+const loginWithPin = async (page): Promise<void> => {
+  const pinKey = page.locator('.pin-key').first()
+  await pinKey.waitFor({ state: 'visible', timeout: 10000 })
+  for (const digit of ['1', '2', '3', '4']) {
+    await page.locator(`.pin-key:text("${digit}")`).click()
+  }
+  await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
+}
+
+const gotoAndLogin = async (page): Promise<void> => {
+  await page.goto('/')
+  await loginWithPin(page)
+}
+
 test.describe('Startup', () => {
   test('startup panels are visible and favorites is default', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     await expect(page.locator('.ticket-panel')).toBeVisible()
     await expect(page.locator('.action-panel')).toBeVisible()
     await expect(page.locator('.shortcut-bar')).toBeVisible()
 
-    await expect(page.getByRole('button', { name: 'Favorites' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Favorites' })).toHaveClass(/active/)
+    // Category dropdown defaults to "Favorites"
+    const categoryTrigger = page.locator('.category-dropdown-trigger')
+    await expect(categoryTrigger).toBeVisible()
+    await expect(categoryTrigger).toContainText('Favorites')
 
     const productPadItems = page.locator('.product-pad-btn')
     await expect(productPadItems.first()).toBeVisible()
@@ -171,9 +208,9 @@ test.describe('Startup', () => {
 
   test('payment buttons are disabled on startup', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
-    await expect(page.getByRole('button', { name: 'Cash' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Cash', exact: true })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Credit' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Debit' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Pay' })).toBeDisabled()
@@ -181,9 +218,11 @@ test.describe('Startup', () => {
 
   test('latest added item is selected, and clicking another item selects it', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
-    await page.getByRole('button', { name: 'All' }).click()
+    // Open category dropdown and select "All"
+    await page.locator('.category-dropdown-trigger').click()
+    await page.locator('.category-dropdown-item', { hasText: 'All' }).click()
     const products = page.locator('.product-pad-btn')
     await expect(products).toHaveCount(15)
 
@@ -205,12 +244,14 @@ test.describe('Startup', () => {
 
   test('cart section is scrollable and auto-scrolls to latest added item', async ({ page }) => {
     await attachPosApiMock(page)
-    await page.goto('/')
-    await page.getByRole('button', { name: 'All' }).click()
+    await gotoAndLogin(page)
+    // Open category dropdown and select "All"
+    await page.locator('.category-dropdown-trigger').click()
+    await page.locator('.category-dropdown-item', { hasText: 'All' }).click()
 
     const products = page.locator('.product-pad-btn')
+    await expect(products).toHaveCount(15)
     const totalProducts = await products.count()
-    expect(totalProducts).toBeGreaterThanOrEqual(12)
 
     let lastName = ''
     for (let index = 0; index < Math.min(totalProducts, 12); index += 1) {

@@ -25,6 +25,8 @@ type SpecialPricingFormRow = {
   duration_days: string
 }
 
+type CaseDiscountMode = 'percent' | 'dollar'
+
 type InventoryFormState = {
   item_number?: number
   sku: string
@@ -37,6 +39,9 @@ type InventoryFormState = {
   tax_rates: string[]
   special_pricing: SpecialPricingFormRow[]
   additional_skus: string[]
+  bottles_per_case: string
+  case_discount_price: string
+  case_discount_mode: CaseDiscountMode
 }
 
 const emptyFormState: InventoryFormState = {
@@ -49,10 +54,14 @@ const emptyFormState: InventoryFormState = {
   in_stock: '',
   tax_rates: [],
   special_pricing: [],
-  additional_skus: []
+  additional_skus: [],
+  bottles_per_case: '12',
+  case_discount_price: '',
+  case_discount_mode: 'percent'
 }
 
 const itemSubTabs = [
+  { id: 'case-settings', label: 'Case & Quantity' },
   { id: 'additional-skus', label: 'Additional SKUs' },
   { id: 'special-pricing', label: 'Special Pricing' },
   { id: 'sales-history', label: 'Sales History' }
@@ -71,7 +80,7 @@ export function ItemForm(): React.JSX.Element {
   const [showValidation, setShowValidation] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState('additional-skus')
+  const [activeTab, setActiveTab] = useState('case-settings')
   const [taxDropdownOpen, setTaxDropdownOpen] = useState(false)
   const [deptDropdownOpen, setDeptDropdownOpen] = useState(false)
 
@@ -98,14 +107,12 @@ export function ItemForm(): React.JSX.Element {
   )
 
   const defaultFormState = useMemo<InventoryFormState>(() => {
-    const defaultDepartments = departmentOptions.length > 0 ? [departmentOptions[0]] : []
-    const defaultTaxRates = taxCodeOptions[0] ? [String(taxCodeOptions[0].rate)] : []
     return {
       ...emptyFormState,
-      dept_ids: defaultDepartments,
-      tax_rates: defaultTaxRates
+      dept_ids: [],
+      tax_rates: []
     }
-  }, [departmentOptions, taxCodeOptions])
+  }, [])
 
   const loadSearchResults = async (query: string): Promise<void> => {
     if (!hasBackendApi) {
@@ -140,17 +147,6 @@ export function ItemForm(): React.JSX.Element {
         setDepartmentOptions(departments)
         setTaxCodeOptions(taxCodes)
         setVendorOptions(vendors)
-        setFormState((current) => ({
-          ...current,
-          dept_ids:
-            current.dept_ids.length > 0 ? current.dept_ids : departments[0] ? [departments[0]] : [],
-          tax_rates:
-            current.tax_rates.length > 0
-              ? current.tax_rates
-              : taxCodes[0]
-                ? [String(taxCodes[0].rate)]
-                : []
-        }))
         setErrorMessage(null)
       })
       .catch(() => {
@@ -190,7 +186,12 @@ export function ItemForm(): React.JSX.Element {
         price: formatCurrency(rule.price),
         duration_days: String(rule.duration_days)
       })),
-      additional_skus: [...detail.additional_skus]
+      additional_skus: [...detail.additional_skus],
+      bottles_per_case: String(detail.bottles_per_case ?? 12),
+      case_discount_price:
+        detail.case_discount_price != null ? formatCurrency(detail.case_discount_price) : '',
+      case_discount_mode:
+        (detail.case_discount_price != null ? 'dollar' : 'percent') as CaseDiscountMode
     })
   }
 
@@ -200,7 +201,7 @@ export function ItemForm(): React.JSX.Element {
     setShowValidation(false)
     setSaveMessage(null)
     setErrorMessage(null)
-    setActiveTab('additional-skus')
+    setActiveTab('case-settings')
   }
 
   const fieldErrors = useMemo(() => {
@@ -220,9 +221,8 @@ export function ItemForm(): React.JSX.Element {
       errors.item_name = `Name must be ${NAME_MAX_LENGTH} characters or less`
     }
 
-    if (formState.dept_ids.length === 0) {
-      errors.dept_id = 'At least one department is required'
-    } else if (
+    if (
+      formState.dept_ids.length > 0 &&
       departmentOptions.length > 0 &&
       formState.dept_ids.some((d) => !departmentOptions.includes(d))
     ) {
@@ -246,14 +246,16 @@ export function ItemForm(): React.JSX.Element {
       }
     }
 
-    if (formState.tax_rates.length === 0) {
-      errors.tax_rates = 'At least one tax code must be selected from backend values'
-    } else if (formState.tax_rates.some((taxRate) => !isAllowedTaxRate(taxRate))) {
+    if (
+      formState.tax_rates.length > 0 &&
+      taxCodeOptions.length > 0 &&
+      formState.tax_rates.some((taxRate) => !isAllowedTaxRate(taxRate))
+    ) {
       errors.tax_rates = 'Tax codes must be selected from backend values'
     }
 
     return errors
-  }, [departmentOptions, formState, isAllowedTaxRate])
+  }, [departmentOptions, formState, isAllowedTaxRate, taxCodeOptions.length])
 
   const hasFieldErrors = Object.keys(fieldErrors).length > 0
 
@@ -285,12 +287,7 @@ export function ItemForm(): React.JSX.Element {
           rule.duration_days >= 1
       )
 
-    if (
-      Number.isNaN(cost) ||
-      Number.isNaN(retailPrice) ||
-      Number.isNaN(inStock) ||
-      taxRates.length === 0
-    ) {
+    if (Number.isNaN(cost) || Number.isNaN(retailPrice) || Number.isNaN(inStock)) {
       setErrorMessage('One or more numeric fields are invalid')
       return null
     }
@@ -306,7 +303,24 @@ export function ItemForm(): React.JSX.Element {
       in_stock: inStock,
       tax_rates: taxRates,
       special_pricing: specialPricing,
-      additional_skus: formState.additional_skus
+      additional_skus: formState.additional_skus,
+      bottles_per_case: formState.bottles_per_case
+        ? Number.parseInt(formState.bottles_per_case, 10)
+        : 12,
+      case_discount_price: (() => {
+        if (!formState.case_discount_price) return null
+        if (formState.case_discount_mode === 'percent') {
+          // Percent off retail × bottles_per_case
+          const pct = Number.parseFloat(formState.case_discount_price)
+          if (Number.isNaN(pct) || pct <= 0) return null
+          const bpc = formState.bottles_per_case
+            ? Number.parseInt(formState.bottles_per_case, 10)
+            : 12
+          const fullCasePrice = retailPrice * bpc
+          return Math.round(fullCasePrice * (1 - pct / 100) * 100) / 100
+        }
+        return parseCurrencyDigitsToDollars(formState.case_discount_price)
+      })()
     }
   }
 
@@ -435,7 +449,10 @@ export function ItemForm(): React.JSX.Element {
     }))
   }
 
-  const updateCurrencyField = (field: 'cost' | 'retail_price', value: string): void => {
+  const updateCurrencyField = (
+    field: 'cost' | 'retail_price' | 'case_discount_price',
+    value: string
+  ): void => {
     setFormState((current) => ({
       ...current,
       [field]: normalizeCurrencyForInput(value)
@@ -515,12 +532,7 @@ export function ItemForm(): React.JSX.Element {
               onChange={(value) => setFormState((current) => ({ ...current, item_name: value }))}
             />
           </FormField>
-          <FormField
-            label="Department"
-            required
-            error={fieldErrors.dept_id}
-            showError={showValidation}
-          >
+          <FormField label="Department" error={fieldErrors.dept_id} showError={showValidation}>
             <div className="dept-dropdown" aria-label="Department">
               <button
                 type="button"
@@ -611,12 +623,7 @@ export function ItemForm(): React.JSX.Element {
               onChange={(value) => setFormState((current) => ({ ...current, in_stock: value }))}
             />
           </FormField>
-          <FormField
-            label="Tax Codes"
-            required
-            error={fieldErrors.tax_rates}
-            showError={showValidation}
-          >
+          <FormField label="Tax Codes" error={fieldErrors.tax_rates} showError={showValidation}>
             <div className="tax-dropdown" aria-label="Tax Codes">
               <button
                 type="button"
@@ -677,6 +684,93 @@ export function ItemForm(): React.JSX.Element {
         <TabBar tabs={itemSubTabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
         <div className="item-form__tab-content" role="tabpanel">
+          {activeTab === 'case-settings' && (
+            <div className="item-form__tab-panel">
+              <div className="item-form__case-grid">
+                <FormField label="Bottles Per Case">
+                  <ValidatedInput
+                    fieldType="integer"
+                    aria-label="Bottles Per Case"
+                    value={formState.bottles_per_case}
+                    onChange={(value) =>
+                      setFormState((current) => ({ ...current, bottles_per_case: value }))
+                    }
+                    placeholder="e.g. 12"
+                  />
+                </FormField>
+                <FormField
+                  label={
+                    formState.case_discount_mode === 'percent'
+                      ? 'Case Discount (%)'
+                      : 'Case Discount Price ($)'
+                  }
+                >
+                  <div className="item-form__case-discount-row">
+                    <button
+                      type="button"
+                      className={`item-form__mode-toggle ${formState.case_discount_mode === 'percent' ? 'item-form__mode-toggle--active' : ''}`}
+                      aria-label="Switch to percent mode"
+                      aria-pressed={formState.case_discount_mode === 'percent'}
+                      onClick={() =>
+                        setFormState((current) => ({
+                          ...current,
+                          case_discount_mode: 'percent' as CaseDiscountMode,
+                          case_discount_price: ''
+                        }))
+                      }
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      className={`item-form__mode-toggle ${formState.case_discount_mode === 'dollar' ? 'item-form__mode-toggle--active' : ''}`}
+                      aria-label="Switch to dollar mode"
+                      aria-pressed={formState.case_discount_mode === 'dollar'}
+                      onClick={() =>
+                        setFormState((current) => ({
+                          ...current,
+                          case_discount_mode: 'dollar' as CaseDiscountMode,
+                          case_discount_price: ''
+                        }))
+                      }
+                    >
+                      $
+                    </button>
+                    {formState.case_discount_mode === 'percent' ? (
+                      <input
+                        className="ticket-input"
+                        aria-label="Case Discount Percent"
+                        inputMode="decimal"
+                        value={formState.case_discount_price}
+                        onChange={(event) => {
+                          const raw = event.target.value.replace(/[^0-9.]/g, '')
+                          setFormState((current) => ({ ...current, case_discount_price: raw }))
+                        }}
+                        placeholder="e.g. 10"
+                      />
+                    ) : (
+                      <input
+                        className="ticket-input"
+                        aria-label="Case Discount Price"
+                        inputMode="numeric"
+                        value={formState.case_discount_price}
+                        onChange={(event) =>
+                          updateCurrencyField('case_discount_price', event.target.value)
+                        }
+                        placeholder="e.g. $199.99"
+                      />
+                    )}
+                  </div>
+                </FormField>
+              </div>
+              <p className="item-form__case-hint">
+                Set the number of bottles in a case to enable case-level inventory and pricing.
+                {formState.case_discount_mode === 'percent'
+                  ? ' Enter the discount percentage off the full case price.'
+                  : ' The case discount price is the total price when selling a full case.'}
+              </p>
+            </div>
+          )}
           {activeTab === 'additional-skus' && (
             <div className="item-form__tab-panel">
               <div className="item-form__inline-row">
@@ -798,14 +892,40 @@ export function ItemForm(): React.JSX.Element {
               {!selectedItem || selectedItem.sales_history.length === 0 ? (
                 <p className="item-form__empty-state">No sales history found</p>
               ) : (
-                <ul className="item-form__history-list">
-                  {selectedItem.sales_history.map((history) => (
-                    <li key={`${history.transaction_id}-${history.created_at}`}>
-                      #{history.transaction_id} · {history.created_at} · Qty {history.quantity} ·{' '}
-                      {formatCurrency(history.total_price)}
-                    </li>
-                  ))}
-                </ul>
+                <table className="item-form__history-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Txn #</th>
+                      <th>Qty</th>
+                      <th>Price</th>
+                      <th>Total</th>
+                      <th>Payment</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedItem.sales_history.map((h) => (
+                      <tr key={`${h.transaction_id}-${h.created_at}`}>
+                        <td>{new Date(h.created_at).toLocaleDateString()}</td>
+                        <td className="item-form__history-txn">
+                          {h.transaction_number ?? `#${h.transaction_id}`}
+                        </td>
+                        <td>{h.quantity}</td>
+                        <td>{formatCurrency(h.unit_price)}</td>
+                        <td>{formatCurrency(h.total_price)}</td>
+                        <td>
+                          {h.payment_method ?? '—'}
+                          {h.card_type && h.card_last_four && (
+                            <span className="item-form__history-card">
+                              {' '}
+                              ({h.card_type} ****{h.card_last_four})
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           )}

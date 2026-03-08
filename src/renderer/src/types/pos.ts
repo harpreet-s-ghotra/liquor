@@ -22,7 +22,10 @@ export type {
   CashierRole,
   CreateCashierInput,
   UpdateCashierInput,
-  StaxMerchantInfo
+  StaxMerchantInfo,
+  SaveTransactionInput,
+  SavedTransaction,
+  TransactionHistoryItem
 } from '../../../shared/types'
 
 // ── Renderer-only types ──
@@ -57,3 +60,14 @@ export type PaymentEntry = {
 }
 
 export type PaymentStatus = 'idle' | 'collecting' | 'processing-card' | 'complete'
+
+/** Summary of a completed payment, emitted by PaymentModal → POSScreen */
+export type PaymentResult = {
+  method: PaymentMethod
+  /** Stax transaction UUID (only for real API card payments) */
+  stax_transaction_id?: string | null
+  /** Last 4 digits of card (only for card payments) */
+  card_last_four?: string | null
+  /** Card brand: visa, mastercard, etc. */
+  card_type?: string | null
+}

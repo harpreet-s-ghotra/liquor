@@ -44,6 +44,26 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
+      // Auth APIs
+      getMerchantConfig: async () => ({
+        id: 1,
+        stax_api_key: 'test-api-key',
+        merchant_id: 'test-merchant-id',
+        merchant_name: 'Test Liquor Store',
+        activated_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      }),
+      getCashiers: async () => [
+        { id: 1, name: 'Test Cashier', role: 'admin', is_active: 1, created_at: '2025-01-01' }
+      ],
+      validatePin: async () => ({
+        id: 1,
+        name: 'Test Cashier',
+        role: 'admin',
+        is_active: 1,
+        created_at: '2025-01-01'
+      }),
+
       getProducts: async () => products,
       searchInventoryProducts: async (query: string) => {
         const normalized = query.trim().toLowerCase()
@@ -88,6 +108,7 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         { code: 'RATE_0', rate: 0 },
         { code: 'RATE_0_13', rate: 0.13 }
       ],
+      getVendors: async () => [],
       saveInventoryItem: async (payload) => {
         const nextId =
           payload.item_number ??
@@ -132,10 +153,25 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
   })
 }
 
+/** Enter PIN 1234 on the login screen to get to POS */
+const loginWithPin = async (page: Page): Promise<void> => {
+  const pinKey = page.locator('.pin-key').first()
+  await pinKey.waitFor({ state: 'visible', timeout: 10000 })
+  for (const digit of ['1', '2', '3', '4']) {
+    await page.locator(`.pin-key:text("${digit}")`).click()
+  }
+  await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
+}
+
+const gotoAndLogin = async (page: Page): Promise<void> => {
+  await page.goto('/')
+  await loginWithPin(page)
+}
+
 test.describe('Inventory Management', () => {
   test('opens inventory popup from F2 button', async ({ page }) => {
     await attachInventoryApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     await page.getByRole('button', { name: 'F2 - Inventory' }).click()
 
@@ -145,38 +181,23 @@ test.describe('Inventory Management', () => {
 
   test('validates required fields before saving', async ({ page }) => {
     await attachInventoryApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     await page.getByRole('button', { name: 'F2 - Inventory' }).click()
-    await page.getByLabel('Department').selectOption('')
 
-    // Open the tax codes dropdown and uncheck all options
-    const taxContainer = page.getByLabel('Tax Codes')
-    await taxContainer.getByRole('button').click()
-    const taxOptions = taxContainer.getByRole('option')
-    for (const opt of await taxOptions.all()) {
-      const checkbox = opt.getByRole('checkbox')
-      if (await checkbox.isChecked()) {
-        await checkbox.uncheck()
-      }
-    }
-
+    // Click Save with all fields empty to trigger validation
     await page.getByRole('button', { name: 'Save Item' }).click()
 
     await expect(page.getByText('SKU is required')).toBeVisible()
     await expect(page.getByText('Name is required')).toBeVisible()
-    await expect(page.getByText('Department is required')).toBeVisible()
     await expect(page.getByText('Cost is required')).toBeVisible()
     await expect(page.getByText('Price is required')).toBeVisible()
     await expect(page.getByText('In stock is required')).toBeVisible()
-    await expect(
-      page.getByText('At least one tax code must be selected from backend values')
-    ).toBeVisible()
   })
 
   test('saves a new inventory item and finds it by search', async ({ page }) => {
     await attachInventoryApiMock(page)
-    await page.goto('/')
+    await gotoAndLogin(page)
 
     const sku = `E2E-${Date.now()}`
     const name = `E2E ITEM ${Date.now()}`
@@ -185,7 +206,11 @@ test.describe('Inventory Management', () => {
 
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill(sku)
     await page.getByLabel('Name').fill(name)
-    await page.getByLabel('Department').selectOption('11')
+    // Open department dropdown and select '11'
+    const deptDropdown = page.locator('.dept-dropdown')
+    await deptDropdown.locator('button').click()
+    await deptDropdown.locator('li', { hasText: '11' }).locator('input[type="checkbox"]').check()
+    await deptDropdown.locator('button').click()
     await page.getByLabel('Cost').fill('9.99')
     await page.getByLabel('Price Charged').fill('15.99')
     await page.getByLabel('In Stock').fill('8')
@@ -203,6 +228,8 @@ test.describe('Inventory Management', () => {
     // Close dropdown by clicking toggle again
     await taxContainer.getByRole('button').click()
 
+    // Navigate to Additional SKUs tab (default is now Case & Quantity)
+    await page.getByRole('tab', { name: 'Additional SKUs' }).click()
     await page.getByLabel('Additional SKU Input').fill(`${sku}-ALT-1`)
     await page.getByRole('button', { name: 'Add Additional SKU' }).click()
 

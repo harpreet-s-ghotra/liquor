@@ -8,7 +8,7 @@ import { useAuthStore } from '@renderer/store/useAuthStore'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import '../styles/pos-screen.css'
 import '../styles/auth.css'
-import type { PaymentMethod } from '@renderer/types/pos'
+import type { PaymentMethod, PaymentResult } from '@renderer/types/pos'
 
 export function POSScreen(): React.JSX.Element {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false)
@@ -77,13 +77,49 @@ export function POSScreen(): React.JSX.Element {
     [cart.length]
   )
 
-  const handlePaymentComplete = useCallback(() => {
-    setIsPaymentOpen(false)
-    setIsPaymentComplete(false)
-    setPaymentMethod(undefined)
-    clearTransaction()
-    setTimeout(() => searchRef.current?.focus(), 0)
-  }, [clearTransaction])
+  const handlePaymentComplete = useCallback(
+    (result: PaymentResult) => {
+      // Save transaction to the database (fire-and-forget)
+      if (window.api?.saveTransaction && cart.length > 0) {
+        const txDiscountMultiplier =
+          transactionDiscountPercent > 0 ? 1 - transactionDiscountPercent / 100 : 1
+
+        const lineItems = cart.map((item) => {
+          const itemDiscountMultiplier = item.itemDiscountPercent
+            ? 1 - item.itemDiscountPercent / 100
+            : 1
+          const effectiveUnitPrice = item.price * itemDiscountMultiplier * txDiscountMultiplier
+          return {
+            product_id: item.id,
+            product_name: item.name,
+            quantity: item.lineQuantity,
+            unit_price: Math.round(effectiveUnitPrice * 100) / 100,
+            total_price: Math.round(effectiveUnitPrice * item.lineQuantity * 100) / 100
+          }
+        })
+
+        window.api
+          .saveTransaction({
+            subtotal: subtotalDiscounted,
+            tax_amount: tax,
+            total,
+            payment_method: result.method,
+            stax_transaction_id: result.stax_transaction_id ?? null,
+            card_last_four: result.card_last_four ?? null,
+            card_type: result.card_type ?? null,
+            items: lineItems
+          })
+          .catch((err) => console.error('Failed to save transaction:', err))
+      }
+
+      setIsPaymentOpen(false)
+      setIsPaymentComplete(false)
+      setPaymentMethod(undefined)
+      clearTransaction()
+      setTimeout(() => searchRef.current?.focus(), 0)
+    },
+    [cart, subtotalDiscounted, tax, total, transactionDiscountPercent, clearTransaction]
+  )
 
   const handlePaymentCancel = useCallback(() => {
     setIsPaymentOpen(false)

@@ -30,9 +30,12 @@ import {
   createCashier,
   validatePin,
   updateCashier,
-  deleteCashier
+  deleteCashier,
+  saveTransaction,
+  getRecentTransactions
 } from './database'
-import { validateApiKey } from './services/stax'
+import { validateApiKey, getTerminalRegisters, chargeTerminal } from './services/stax'
+import type { TerminalChargeInput, SaveTransactionInput } from '../shared/types'
 
 function createWindow(): void {
   // Create the browser window.
@@ -305,6 +308,48 @@ app.whenReady().then(() => {
       return deleteCashier(id)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to delete cashier')
+    }
+  })
+
+  // Transactions
+  ipcMain.handle('transactions:save', async (_, input: SaveTransactionInput) => {
+    try {
+      return saveTransaction(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to save transaction')
+    }
+  })
+
+  ipcMain.handle('transactions:recent', async (_, limit?: number) => {
+    try {
+      return getRecentTransactions(limit)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get transactions')
+    }
+  })
+
+  // Stax Terminal Payments
+  ipcMain.handle('stax:terminal:registers', async () => {
+    try {
+      const config = getMerchantConfig()
+      if (!config) {
+        throw new Error('Merchant not activated — cannot list terminals')
+      }
+      return await getTerminalRegisters(config.stax_api_key)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get terminals')
+    }
+  })
+
+  ipcMain.handle('stax:terminal:charge', async (_, input: TerminalChargeInput) => {
+    try {
+      const config = getMerchantConfig()
+      if (!config) {
+        throw new Error('Merchant not activated — cannot process payments')
+      }
+      return await chargeTerminal(config.stax_api_key, input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Payment failed')
     }
   })
 

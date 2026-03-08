@@ -52,6 +52,7 @@ export function initializeDatabase(userDataPath: string): void {
       tax_2 REAL,
       vendor_number INTEGER,
       bottles_per_case INTEGER DEFAULT 12,
+      case_discount_price REAL,
       special_pricing_enabled INTEGER DEFAULT 0,
       special_price REAL,
       is_active INTEGER DEFAULT 1,
@@ -86,6 +87,9 @@ export function initializeDatabase(userDataPath: string): void {
       tax_amount REAL NOT NULL,
       total REAL NOT NULL,
       payment_method TEXT,
+      stax_transaction_id TEXT,
+      card_last_four TEXT,
+      card_type TEXT,
       status TEXT DEFAULT 'completed',
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -140,6 +144,10 @@ export function initializeDatabase(userDataPath: string): void {
 
   // ── Column migrations ──
 
+  ensureColumn('transactions', 'stax_transaction_id', 'stax_transaction_id TEXT')
+  ensureColumn('transactions', 'card_last_four', 'card_last_four TEXT')
+  ensureColumn('transactions', 'card_type', 'card_type TEXT')
+
   ensureColumn('products', 'dept_id', 'dept_id TEXT')
   ensureColumn('products', 'category_id', 'category_id INTEGER')
   ensureColumn('products', 'category_name', 'category_name TEXT')
@@ -149,6 +157,7 @@ export function initializeDatabase(userDataPath: string): void {
   ensureColumn('products', 'tax_2', 'tax_2 REAL')
   ensureColumn('products', 'vendor_number', 'vendor_number INTEGER')
   ensureColumn('products', 'bottles_per_case', 'bottles_per_case INTEGER DEFAULT 12')
+  ensureColumn('products', 'case_discount_price', 'case_discount_price REAL')
   ensureColumn('products', 'special_pricing_enabled', 'special_pricing_enabled INTEGER DEFAULT 0')
   ensureColumn('products', 'special_price', 'special_price REAL')
 

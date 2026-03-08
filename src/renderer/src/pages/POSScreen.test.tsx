@@ -265,4 +265,97 @@ describe('POSScreen', () => {
 
     expect(addToCartBySku).toHaveBeenCalledWith('WINE-001')
   })
+
+  it('saves discounted unit_price and total_price when discounts are applied', () => {
+    const clearTransaction = vi.fn()
+    const discountedItem = {
+      ...sampleCartItem,
+      price: 10,
+      lineQuantity: 2,
+      itemDiscountPercent: 20 // 20% item-level discount
+    }
+
+    const saveTransaction = vi.fn(async () => ({}))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api = { saveTransaction }
+
+    mockUsePosScreen.mockReturnValue(
+      createDefaultMock({
+        cart: [discountedItem],
+        total: 17.6,
+        tax: 1.6,
+        subtotalDiscounted: 16,
+        transactionDiscountPercent: 0,
+        clearTransaction
+      })
+    )
+    render(<POSScreen />)
+
+    // Open payment → Cash (Exact) → OK
+    fireEvent.click(screen.getByText('Pay'))
+    fireEvent.click(screen.getByText('Cash (Exact)'))
+    fireEvent.click(screen.getByTestId('payment-ok-btn'))
+
+    act(() => {
+      vi.runAllTimers()
+    })
+
+    expect(saveTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            unit_price: 8, // $10 * (1 - 0.20) = $8
+            total_price: 16 // $8 * 2
+          })
+        ])
+      })
+    )
+  })
+
+  it('saves with both item and transaction discounts applied', () => {
+    const clearTransaction = vi.fn()
+    const discountedItem = {
+      ...sampleCartItem,
+      price: 100,
+      lineQuantity: 1,
+      itemDiscountPercent: 10 // 10% item discount
+    }
+
+    const saveTransaction = vi.fn(async () => ({}))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api = { saveTransaction }
+
+    mockUsePosScreen.mockReturnValue(
+      createDefaultMock({
+        cart: [discountedItem],
+        total: 81,
+        tax: 0,
+        subtotalDiscounted: 81,
+        transactionDiscountPercent: 10, // 10% transaction discount
+        clearTransaction
+      })
+    )
+    render(<POSScreen />)
+
+    // Open payment → Cash (Exact) → OK
+    fireEvent.click(screen.getByText('Pay'))
+    fireEvent.click(screen.getByText('Cash (Exact)'))
+    fireEvent.click(screen.getByTestId('payment-ok-btn'))
+
+    act(() => {
+      vi.runAllTimers()
+    })
+
+    // $100 * 0.9 (item) * 0.9 (tx) = $81
+    expect(saveTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            unit_price: 81,
+            total_price: 81
+          })
+        ])
+      })
+    )
+  })
 })

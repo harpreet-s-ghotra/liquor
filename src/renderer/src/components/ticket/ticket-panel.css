@@ -25,6 +25,12 @@
   padding: 0.625rem;
   font-size: 1.125rem;
   color: var(--text-primary);
+  outline: none;
+}
+
+.ticket-input:focus,
+.qty-input:focus {
+  border-color: var(--accent-blue);
 }
 
 .ticket-table {

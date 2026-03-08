@@ -1,5 +1,18 @@
 # Copilot Instructions
 
+## Documentation
+
+Before implementing a feature, read the relevant docs:
+
+- **[docs/README.md](../docs/README.md)** — Documentation index, project goals, tech stack overview
+- **[PROJECT_PLAN.md](../PROJECT_PLAN.md)** — Full project vision, roadmap, database schema
+- **[docs/UI_ARCHITECTURE.md](../docs/UI_ARCHITECTURE.md)** — Layout rules, design tokens, CSS strategy
+- **[docs/inventory-management-v1.md](../docs/inventory-management-v1.md)** — Inventory CRUD spec
+- **[docs/stax-activation-and-login.md](../docs/stax-activation-and-login.md)** — Auth flow spec
+- **[docs/stax-integration-plan.md](../docs/stax-integration-plan.md)** — Stax API endpoints, test cards, webhooks
+
+When adding a new feature, create a doc in `docs/` and add it to the index in `docs/README.md`.
+
 ## Testing & Coverage Gate
 
 For every code change in this repository:
