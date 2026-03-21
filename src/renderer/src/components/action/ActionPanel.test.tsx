@@ -85,7 +85,7 @@ describe('ActionPanel', () => {
     )
 
     // Open the dropdown
-    const trigger = document.querySelector('.category-dropdown-trigger') as HTMLElement
+    const trigger = screen.getByRole('button', { name: /^\W*All\W*$/i })
     fireEvent.click(trigger)
 
     const options = screen.getAllByRole('option')
@@ -129,9 +129,9 @@ describe('ActionPanel', () => {
     expect(smallBtn).toBeInTheDocument()
     expect(largeBtn).toBeInTheDocument()
 
-    // Small is active by default
-    expect(smallBtn.className).toContain('active')
-    expect(largeBtn.className).not.toContain('active')
+    // Small is active by default (uses btn-bg token for active state)
+    expect(smallBtn.className).toContain('btn-bg')
+    expect(largeBtn.className).toContain('bg-surface-soft')
 
     // Product button is present and clickable
     fireEvent.click(screen.getByRole('button', { name: /Cabernet Sauvignon/i }))
@@ -139,8 +139,8 @@ describe('ActionPanel', () => {
 
     // Switch to large
     fireEvent.click(largeBtn)
-    expect(largeBtn.className).toContain('active')
-    expect(smallBtn.className).not.toContain('active')
+    expect(largeBtn.className).toContain('btn-bg')
+    expect(smallBtn.className).toContain('bg-surface-soft')
   })
 
   it('shows discount amount in totals', () => {
@@ -168,7 +168,7 @@ describe('ActionPanel', () => {
     )
 
     // Open menu
-    const trigger = document.querySelector('.category-dropdown-trigger') as HTMLElement
+    const trigger = screen.getByRole('button', { name: /^\W*All\W*$/i })
     fireEvent.click(trigger)
     expect(screen.getByRole('listbox')).toBeInTheDocument()
 
@@ -189,7 +189,7 @@ describe('ActionPanel', () => {
     )
 
     // Open menu
-    fireEvent.click(document.querySelector('.category-dropdown-trigger')!)
+    fireEvent.click(screen.getByRole('button', { name: /^\W*All\W*$/i }))
     const wineOption = screen.getByRole('option', { name: /Wine/i })
 
     // Press Enter

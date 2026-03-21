@@ -7,16 +7,16 @@ describe('AppButton', () => {
     render(<AppButton>Default</AppButton>)
 
     const button = screen.getByRole('button', { name: 'Default' })
-    expect(button.className).toContain('app-btn')
-    expect(button.className).toContain('app-btn--default')
-    expect(button.className).toContain('app-btn--md')
+    expect(button).toBeInTheDocument()
+    // shadcn Button uses Tailwind utility classes via CVA, just verify render
+    expect(button.className).toContain('inline-flex')
   })
 
   it('renders success variant for save actions', () => {
     render(<AppButton variant="success">Save Item</AppButton>)
 
     const button = screen.getByRole('button', { name: 'Save Item' })
-    expect(button.className).toContain('app-btn--success')
+    expect(button.className).toContain('btn-success')
   })
 
   it('fires click handler when enabled and blocks when disabled', () => {

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   Product,
+  ActiveSpecialPricingRule,
   InventoryProduct,
   InventoryProductDetail,
   SaveInventoryItemInput,
@@ -23,12 +24,17 @@ import type {
   TerminalChargeResult,
   TerminalRegister,
   SaveTransactionInput,
-  SavedTransaction
+  SavedTransaction,
+  SearchProductFilters
 } from '../shared/types'
 
 // Custom APIs for renderer
 const api = {
   getProducts: (): Promise<Product[]> => ipcRenderer.invoke('products:list'),
+  searchProducts: (query: string, filters?: SearchProductFilters): Promise<Product[]> =>
+    ipcRenderer.invoke('products:search', query, filters),
+  getActiveSpecialPricing: (): Promise<ActiveSpecialPricingRule[]> =>
+    ipcRenderer.invoke('products:active-special-pricing'),
   getInventoryProducts: (): Promise<InventoryProduct[]> =>
     ipcRenderer.invoke('inventory:products:list'),
   searchInventoryProducts: (query: string): Promise<InventoryProduct[]> =>

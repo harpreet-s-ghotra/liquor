@@ -226,6 +226,12 @@ const gotoAndLogin = async (page: Page): Promise<void> => {
   await loginWithPin(page)
 }
 
+/** Open category dropdown and select "All" */
+const selectAllCategory = async (page: Page): Promise<void> => {
+  await page.locator('.category-dropdown-trigger').click()
+  await page.locator('.category-dropdown-item', { hasText: 'All' }).click()
+}
+
 const parseAmount = async (selector: string, page: Page): Promise<number> => {
   const text = await page.locator(selector).textContent()
   return Number.parseFloat((text ?? '').replace('$', '').trim())
@@ -248,7 +254,7 @@ test.describe('Simple Transactions', () => {
   test('delete removes currently selected item', async ({ page }) => {
     await attachPosApiMock(page)
     await gotoAndLogin(page)
-    await page.getByRole('button', { name: 'All' }).click()
+    await selectAllCategory(page)
 
     const products = page.locator('.product-pad-btn')
     const firstName = (await products.nth(0).locator('span').first().textContent())?.trim() ?? ''
@@ -267,7 +273,7 @@ test.describe('Simple Transactions', () => {
   test('price change updates selected cart line price only', async ({ page }) => {
     await attachPosApiMock(page)
     await gotoAndLogin(page)
-    await page.getByRole('button', { name: 'All' }).click()
+    await selectAllCategory(page)
 
     const products = page.locator('.product-pad-btn')
     await products.nth(0).click()
@@ -293,7 +299,7 @@ test.describe('Simple Transactions', () => {
   test('discount supports selected item and entire transaction modes', async ({ page }) => {
     await attachPosApiMock(page)
     await gotoAndLogin(page)
-    await page.getByRole('button', { name: 'All' }).click()
+    await selectAllCategory(page)
 
     const products = page.locator('.product-pad-btn')
     await products.nth(0).click()
@@ -388,7 +394,7 @@ test.describe('Simple Transactions', () => {
   test('quantity change updates selected item quantity with keypad', async ({ page }) => {
     await attachPosApiMock(page)
     await gotoAndLogin(page)
-    await page.getByRole('button', { name: 'All' }).click()
+    await selectAllCategory(page)
 
     const product = page.locator('.product-pad-btn').first()
     await product.click()
@@ -470,7 +476,7 @@ test.describe('Simple Transactions', () => {
   }) => {
     await attachPosApiMock(page)
     await gotoAndLogin(page)
-    await page.getByRole('button', { name: 'All' }).click()
+    await selectAllCategory(page)
 
     // Add Cabernet Sauvignon ($19.99)
     const product = page.locator('.product-pad-btn').first()
@@ -516,7 +522,7 @@ test.describe('Simple Transactions', () => {
 test.describe('Payment Modal', () => {
   // Helper: add a product to the cart and return its total (price * 1.13 tax)
   const addProductToCart = async (page: Page): Promise<void> => {
-    await page.getByRole('button', { name: 'All' }).click()
+    await selectAllCategory(page)
     const firstProduct = page.locator('.product-pad-btn').first()
     await firstProduct.click()
   }
@@ -746,7 +752,7 @@ test.describe('Payment Modal', () => {
   test('focus returns to search bar after adding item via product grid', async ({ page }) => {
     await attachPosApiMock(page)
     await gotoAndLogin(page)
-    await page.getByRole('button', { name: 'All' }).click()
+    await selectAllCategory(page)
 
     const product = page.locator('.product-pad-btn').first()
     await product.click()

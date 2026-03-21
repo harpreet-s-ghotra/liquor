@@ -3,7 +3,11 @@ import { DEPARTMENT_NAME_MAX_LENGTH } from '../../shared/constants'
 import type { Department, CreateDepartmentInput, UpdateDepartmentInput } from '../../shared/types'
 
 export function getDepartments(): Department[] {
-  return getDb().prepare('SELECT id, name FROM departments ORDER BY name').all() as Department[]
+  return getDb()
+    .prepare(
+      'SELECT id, name, description, COALESCE(default_profit_margin, 0) AS default_profit_margin, COALESCE(default_tax_rate, 0) AS default_tax_rate FROM departments ORDER BY name'
+    )
+    .all() as Department[]
 }
 
 export function createDepartment(input: CreateDepartmentInput): Department {
@@ -26,8 +30,23 @@ export function createDepartment(input: CreateDepartmentInput): Department {
     throw new Error('Department already exists')
   }
 
-  const result = db.prepare('INSERT INTO departments (name) VALUES (?)').run(name)
-  return { id: Number(result.lastInsertRowid), name }
+  const result = db
+    .prepare(
+      'INSERT INTO departments (name, description, default_profit_margin, default_tax_rate) VALUES (?, ?, ?, ?)'
+    )
+    .run(
+      name,
+      input.description ?? null,
+      input.default_profit_margin ?? 0,
+      input.default_tax_rate ?? 0
+    )
+  return {
+    id: Number(result.lastInsertRowid),
+    name,
+    description: input.description ?? null,
+    default_profit_margin: input.default_profit_margin ?? 0,
+    default_tax_rate: input.default_tax_rate ?? 0
+  }
 }
 
 export function updateDepartment(input: UpdateDepartmentInput): Department {
@@ -58,15 +77,26 @@ export function updateDepartment(input: UpdateDepartmentInput): Department {
     throw new Error('Department not found')
   }
 
-  db.prepare('UPDATE departments SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(
+  db.prepare(
+    'UPDATE departments SET name = ?, description = ?, default_profit_margin = ?, default_tax_rate = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+  ).run(
     name,
+    input.description ?? null,
+    input.default_profit_margin ?? 0,
+    input.default_tax_rate ?? 0,
     input.id
   )
 
   // Update products that reference the old department name
   db.prepare('UPDATE products SET dept_id = ? WHERE dept_id = ?').run(name, current.name)
 
-  return { id: input.id, name }
+  return {
+    id: input.id,
+    name,
+    description: input.description ?? null,
+    default_profit_margin: input.default_profit_margin ?? 0,
+    default_tax_rate: input.default_tax_rate ?? 0
+  }
 }
 
 export function deleteDepartment(id: number): void {

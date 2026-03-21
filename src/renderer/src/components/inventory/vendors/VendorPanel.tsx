@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { FormField } from '@renderer/components/common/FormField'
 import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
+import { Input } from '@renderer/components/ui/input'
 import { validateField } from '@renderer/components/common/validation'
 import { useCrudPanel } from '@renderer/hooks/useCrudPanel'
 import type { Vendor } from '@renderer/types/pos'
@@ -11,19 +12,69 @@ export function VendorPanel(): React.JSX.Element {
   const api = typeof window !== 'undefined' ? window.api : undefined
   const hasApi = typeof api?.getVendors === 'function'
 
+  const loadVendors = useCallback(async (): Promise<Vendor[]> => {
+    const a = window.api
+    if (typeof a?.getVendors !== 'function') return []
+    return a.getVendors()
+  }, [])
+
   const crud = useCrudPanel<Vendor>({
     entityName: 'vendor',
-    loadFn: hasApi ? () => api.getVendors() : undefined
+    loadFn: hasApi ? loadVendors : undefined
   })
 
+  const [searchFilter, setSearchFilter] = useState('')
+  const [selectedVendorNum, setSelectedVendorNum] = useState<number | null>(null)
+
+  // New entry form
   const [newName, setNewName] = useState('')
   const [newContact, setNewContact] = useState('')
   const [newPhone, setNewPhone] = useState('')
   const [newEmail, setNewEmail] = useState('')
-  const [editingName, setEditingName] = useState('')
-  const [editingContact, setEditingContact] = useState('')
-  const [editingPhone, setEditingPhone] = useState('')
-  const [editingEmail, setEditingEmail] = useState('')
+
+  // Edit form fields
+  const [editName, setEditName] = useState('')
+  const [editContact, setEditContact] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [showEditValidation, setShowEditValidation] = useState(false)
+
+  const filteredVendors = useMemo(() => {
+    const q = searchFilter.trim().toLowerCase()
+    if (!q) return crud.items
+    return crud.items.filter(
+      (v) =>
+        v.vendor_name.toLowerCase().includes(q) ||
+        (v.contact_name && v.contact_name.toLowerCase().includes(q)) ||
+        (v.phone && v.phone.toLowerCase().includes(q)) ||
+        (v.email && v.email.toLowerCase().includes(q))
+    )
+  }, [crud.items, searchFilter])
+
+  const selectedVendor = useMemo(
+    () => crud.items.find((v) => v.vendor_number === selectedVendorNum) ?? null,
+    [crud.items, selectedVendorNum]
+  )
+
+  const hasEditChanges = useMemo(() => {
+    if (!selectedVendor) return false
+    return (
+      editName !== selectedVendor.vendor_name ||
+      editContact !== (selectedVendor.contact_name ?? '') ||
+      editPhone !== (selectedVendor.phone ?? '') ||
+      editEmail !== (selectedVendor.email ?? '')
+    )
+  }, [selectedVendor, editName, editContact, editPhone, editEmail])
+
+  const selectVendor = (v: Vendor): void => {
+    crud.clearMessages()
+    setSelectedVendorNum(v.vendor_number)
+    setEditName(v.vendor_name)
+    setEditContact(v.contact_name ?? '')
+    setEditPhone(v.phone ?? '')
+    setEditEmail(v.email ?? '')
+    setShowEditValidation(false)
+  }
 
   const fieldErrors = useMemo(() => {
     const errors: Record<string, string | undefined> = {}
@@ -47,7 +98,7 @@ export function VendorPanel(): React.JSX.Element {
 
     if (hasFieldErrors) return
 
-    const ok = await crud.runAction(
+    const freshItems = await crud.runAction(
       () =>
         api.createVendor({
           vendor_name: newName.trim(),
@@ -57,7 +108,7 @@ export function VendorPanel(): React.JSX.Element {
         }),
       'Vendor created'
     )
-    if (ok) {
+    if (freshItems) {
       setNewName('')
       setNewContact('')
       setNewPhone('')
@@ -66,85 +117,82 @@ export function VendorPanel(): React.JSX.Element {
     }
   }
 
-  const handleUpdate = async (vendorNumber: number): Promise<void> => {
+  const handleSave = async (): Promise<void> => {
     crud.clearMessages()
+    setShowEditValidation(true)
 
-    if (!hasApi) {
-      crud.setError('Backend API unavailable.')
-      return
-    }
+    if (!hasApi || !selectedVendorNum) return
 
-    const trimmed = editingName.trim()
-    if (!trimmed) {
-      crud.setError('Vendor name is required')
-      return
-    }
+    const trimmed = editName.trim()
+    if (!trimmed) return
 
-    const phoneErr = validateField('phone', editingPhone)
+    const phoneErr = validateField('phone', editPhone)
     if (phoneErr) {
       crud.setError(phoneErr)
       return
     }
 
-    const emailErr = validateField('email', editingEmail)
+    const emailErr = validateField('email', editEmail)
     if (emailErr) {
       crud.setError(emailErr)
       return
     }
 
-    const ok = await crud.runAction(
+    const vendorNum = selectedVendorNum
+    const freshItems = await crud.runAction(
       () =>
         api.updateVendor({
-          vendor_number: vendorNumber,
+          vendor_number: vendorNum,
           vendor_name: trimmed,
-          contact_name: editingContact.trim() || undefined,
-          phone: editingPhone.trim() || undefined,
-          email: editingEmail.trim() || undefined
+          contact_name: editContact.trim() || undefined,
+          phone: editPhone.trim() || undefined,
+          email: editEmail.trim() || undefined
         }),
-      'Vendor updated'
+      'Vendor saved'
     )
-    if (ok) {
-      crud.setEditingId(null)
+    if (freshItems) {
+      setShowEditValidation(false)
+      const saved = freshItems.find((v) => v.vendor_number === vendorNum)
+      if (saved) {
+        setEditName(saved.vendor_name)
+        setEditContact(saved.contact_name ?? '')
+        setEditPhone(saved.phone ?? '')
+        setEditEmail(saved.email ?? '')
+      }
     }
   }
 
-  const handleDelete = async (vendorNumber: number): Promise<void> => {
+  const handleDelete = async (): Promise<void> => {
     crud.clearMessages()
 
-    if (!hasApi) {
-      crud.setError('Backend API unavailable.')
-      return
+    if (!hasApi || !selectedVendorNum) return
+
+    const freshItems = await crud.runAction(
+      () => api.deleteVendor(selectedVendorNum),
+      'Vendor deleted'
+    )
+    if (freshItems) {
+      setSelectedVendorNum(null)
+      setEditName('')
+      setEditContact('')
+      setEditPhone('')
+      setEditEmail('')
     }
-
-    await crud.runAction(() => api.deleteVendor(vendorNumber), 'Vendor deleted')
   }
 
-  const startEdit = (v: Vendor): void => {
-    crud.clearMessages()
-    crud.setEditingId(v.vendor_number)
-    setEditingName(v.vendor_name)
-    setEditingContact(v.contact_name ?? '')
-    setEditingPhone(v.phone ?? '')
-    setEditingEmail(v.email ?? '')
-  }
+  const nameError = fieldErrors.name
 
-  const cancelEdit = (): void => {
-    crud.setEditingId(null)
-    setEditingName('')
-    setEditingContact('')
-    setEditingPhone('')
-    setEditingEmail('')
-  }
+  const editNameError =
+    showEditValidation && !editName.trim() ? 'Vendor name is required' : undefined
 
   return (
-    <div className="crud-panel" aria-label="Vendors">
-      <div className="crud-panel__form crud-panel__form--equal-4">
-        <FormField
-          label="Vendor Name"
-          required
-          error={fieldErrors.name}
-          showError={crud.showValidation}
-        >
+    <div
+      className="grid grid-rows-[auto_1fr_auto_auto] gap-2 h-full min-h-0 p-3"
+      aria-label="Vendors"
+    >
+      {/* Section 1: New entry form */}
+      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-center">
+        <FormField label="Vendor Name" required error={nameError} showError={crud.showValidation}>
           <ValidatedInput
             fieldType="name"
             aria-label="Vendor Name"
@@ -183,14 +231,24 @@ export function VendorPanel(): React.JSX.Element {
             }}
           />
         </FormField>
-        <AppButton size="md" variant="success" onClick={() => void handleCreate()}>
-          Add Vendor
+        <AppButton
+          size="lg"
+          variant="success"
+          className="self-center min-w-[6rem]"
+          onClick={() => void handleCreate()}
+        >
+          Add
         </AppButton>
       </div>
 
-      <div className="crud-panel__list">
-        {crud.items.length === 0 ? (
-          <p className="crud-panel__empty">No vendors yet. Add one above to get started.</p>
+      {/* Section 2: Scrollable vendor list */}
+      <div className="min-h-0 overflow-auto rounded-[var(--radius)] border border-[var(--border-default)]">
+        {filteredVendors.length === 0 ? (
+          <p className="p-4 text-center text-[var(--text-muted)] italic text-sm">
+            {crud.items.length === 0
+              ? 'No vendors yet. Add one above to get started.'
+              : 'No vendors match your search.'}
+          </p>
         ) : (
           <table className="crud-panel__table" aria-label="Vendors list">
             <thead>
@@ -199,100 +257,21 @@ export function VendorPanel(): React.JSX.Element {
                 <th>Contact</th>
                 <th>Phone</th>
                 <th>Email</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {crud.items.map((v) => (
-                <tr key={v.vendor_number}>
-                  <td>
-                    {crud.editingId === v.vendor_number ? (
-                      <ValidatedInput
-                        fieldType="name"
-                        className="crud-panel__edit-input"
-                        aria-label="Edit Vendor Name"
-                        value={editingName}
-                        onChange={setEditingName}
-                        autoFocus
-                      />
-                    ) : (
-                      v.vendor_name
-                    )}
+              {filteredVendors.map((v) => (
+                <tr
+                  key={v.vendor_number}
+                  className={`cursor-pointer hover:bg-[var(--bg-hover)] ${selectedVendorNum === v.vendor_number ? 'bg-[var(--bg-selected)]' : ''}`}
+                  onClick={() => selectVendor(v)}
+                >
+                  <td className="font-semibold">{v.vendor_name}</td>
+                  <td className="text-[var(--text-muted)] text-[0.85rem]">
+                    {v.contact_name ?? '—'}
                   </td>
-                  <td>
-                    {crud.editingId === v.vendor_number ? (
-                      <ValidatedInput
-                        fieldType="name"
-                        className="crud-panel__edit-input"
-                        aria-label="Edit Contact Name"
-                        value={editingContact}
-                        onChange={setEditingContact}
-                      />
-                    ) : (
-                      (v.contact_name ?? '—')
-                    )}
-                  </td>
-                  <td>
-                    {crud.editingId === v.vendor_number ? (
-                      <ValidatedInput
-                        fieldType="phone"
-                        className="crud-panel__edit-input"
-                        aria-label="Edit Phone"
-                        value={editingPhone}
-                        onChange={setEditingPhone}
-                      />
-                    ) : (
-                      (v.phone ?? '—')
-                    )}
-                  </td>
-                  <td>
-                    {crud.editingId === v.vendor_number ? (
-                      <ValidatedInput
-                        fieldType="email"
-                        className="crud-panel__edit-input"
-                        aria-label="Edit Email"
-                        value={editingEmail}
-                        onChange={setEditingEmail}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') void handleUpdate(v.vendor_number)
-                          if (e.key === 'Escape') cancelEdit()
-                        }}
-                      />
-                    ) : (
-                      (v.email ?? '—')
-                    )}
-                  </td>
-                  <td>
-                    <div className="crud-panel__actions">
-                      {crud.editingId === v.vendor_number ? (
-                        <>
-                          <AppButton
-                            size="sm"
-                            variant="success"
-                            onClick={() => void handleUpdate(v.vendor_number)}
-                          >
-                            Save
-                          </AppButton>
-                          <AppButton size="sm" variant="neutral" onClick={cancelEdit}>
-                            Cancel
-                          </AppButton>
-                        </>
-                      ) : (
-                        <>
-                          <AppButton size="sm" onClick={() => startEdit(v)}>
-                            Edit
-                          </AppButton>
-                          <AppButton
-                            size="sm"
-                            variant="danger"
-                            onClick={() => void handleDelete(v.vendor_number)}
-                          >
-                            Delete
-                          </AppButton>
-                        </>
-                      )}
-                    </div>
-                  </td>
+                  <td>{v.phone ?? '—'}</td>
+                  <td>{v.email ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -300,9 +279,122 @@ export function VendorPanel(): React.JSX.Element {
         )}
       </div>
 
-      <div className="crud-panel__status">
-        {crud.success && <p className="crud-panel__message success">{crud.success}</p>}
-        {crud.error && <p className="crud-panel__message error">{crud.error}</p>}
+      {/* Section 3: Edit section */}
+      <div className="border border-[var(--border-default)] rounded-[var(--radius)] bg-[var(--bg-surface)] p-3">
+        {selectedVendor ? (
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-sm text-[var(--text-on-dark)]">
+                Editing: {selectedVendor.vendor_name}
+              </span>
+              <div className="flex gap-2">
+                <AppButton
+                  size="sm"
+                  variant="success"
+                  disabled={!hasEditChanges}
+                  onClick={() => void handleSave()}
+                >
+                  Save
+                </AppButton>
+                <AppButton size="sm" variant="danger" onClick={() => void handleDelete()}>
+                  Delete
+                </AppButton>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+              <FormField
+                label="Vendor Name"
+                required
+                error={editNameError}
+                showError={showEditValidation}
+              >
+                <ValidatedInput
+                  fieldType="name"
+                  aria-label="Edit Vendor Name"
+                  value={editName}
+                  onChange={setEditName}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleSave()
+                  }}
+                />
+              </FormField>
+              <FormField label="Contact Name" error={undefined} showError={false}>
+                <ValidatedInput
+                  fieldType="name"
+                  aria-label="Edit Contact Name"
+                  placeholder="Contact person"
+                  value={editContact}
+                  onChange={setEditContact}
+                />
+              </FormField>
+              <FormField label="Phone" error={undefined} showError={false}>
+                <ValidatedInput
+                  fieldType="phone"
+                  aria-label="Edit Phone"
+                  placeholder="e.g. (555) 123-4567"
+                  value={editPhone}
+                  onChange={setEditPhone}
+                />
+              </FormField>
+              <FormField label="Email" error={undefined} showError={false}>
+                <ValidatedInput
+                  fieldType="email"
+                  aria-label="Edit Email"
+                  placeholder="e.g. contact@vendor.com"
+                  value={editEmail}
+                  onChange={setEditEmail}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleSave()
+                  }}
+                />
+              </FormField>
+            </div>
+            {/* Status messages */}
+            <div className="min-h-[1.25rem]">
+              {crud.success && (
+                <p className="m-0 text-sm font-semibold text-[var(--semantic-success-text)]">
+                  {crud.success}
+                </p>
+              )}
+              {crud.error && (
+                <p className="m-0 text-sm font-semibold text-[var(--semantic-danger-text)]">
+                  {crud.error}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-2">
+            <p className="text-[var(--text-muted)] text-sm italic m-0">
+              Select a vendor above to view and edit its details.
+            </p>
+            <div className="min-h-[1.25rem] mt-1">
+              {crud.success && (
+                <p className="m-0 text-sm font-semibold text-[var(--semantic-success-text)]">
+                  {crud.success}
+                </p>
+              )}
+              {crud.error && (
+                <p className="m-0 text-sm font-semibold text-[var(--semantic-danger-text)]">
+                  {crud.error}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Section 4: Bottom search bar */}
+      <div className="grid grid-cols-[auto_1fr] gap-2 items-center border border-[var(--border-default)] rounded-[var(--radius)] bg-[var(--bg-surface)] px-3 py-2">
+        <span className="text-sm font-semibold text-[var(--text-on-dark)] whitespace-nowrap">
+          Search
+        </span>
+        <Input
+          aria-label="Search Vendors"
+          placeholder="Filter by name, contact, phone, or email..."
+          value={searchFilter}
+          onChange={(e) => setSearchFilter(e.target.value)}
+        />
       </div>
     </div>
   )

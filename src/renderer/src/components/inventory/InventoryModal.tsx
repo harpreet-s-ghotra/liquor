@@ -1,60 +1,94 @@
-import { useState } from 'react'
-import { AppButton } from '@renderer/components/common/AppButton'
-import { TabBar } from '@renderer/components/common/TabBar'
-import { ItemForm } from './items/ItemForm'
+import { useCallback, useRef, useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@renderer/components/ui/tabs'
+import { Button } from '@renderer/components/ui/button'
+import { ItemForm, type ItemFormHandle, type ItemFormButtonState } from './items/ItemForm'
 import { DepartmentPanel } from './departments/DepartmentPanel'
 import { TaxCodePanel } from './tax-codes/TaxCodePanel'
 import { VendorPanel } from './vendors/VendorPanel'
-import './inventory-modal.css'
 
 type InventoryModalProps = {
   isOpen: boolean
   onClose: () => void
 }
 
-const topTabs = [
-  { id: 'items', label: 'Items' },
-  { id: 'departments', label: 'Departments' },
-  { id: 'tax-codes', label: 'Tax Codes' },
-  { id: 'vendors', label: 'Vendors' }
-]
-
-export function InventoryModal({ isOpen, onClose }: InventoryModalProps): React.JSX.Element | null {
+export function InventoryModal({ isOpen, onClose }: InventoryModalProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState('items')
-
-  if (!isOpen) {
-    return null
-  }
+  const itemFormRef = useRef<ItemFormHandle>(null)
+  const [itemBtnState, setItemBtnState] = useState<ItemFormButtonState>({
+    canNew: false,
+    canSave: true
+  })
+  const handleItemButtonState = useCallback(
+    (state: ItemFormButtonState) => setItemBtnState(state),
+    []
+  )
 
   return (
-    <div className="inventory-modal-backdrop">
-      <div
-        className="inventory-modal"
-        role="dialog"
-        aria-modal="true"
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="w-[min(82rem,100%)] h-[min(96vh,56rem)] grid gap-3 grid-rows-[auto_1fr] p-3"
         aria-label="Inventory Management"
+        onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="inventory-modal-header">
-          <h3>Inventory Management</h3>
-          <div className="inventory-header-actions">
-            <AppButton size="md" variant="danger" onClick={onClose}>
+        <DialogHeader>
+          <DialogTitle>Inventory Management</DialogTitle>
+          <div className="inline-flex gap-2">
+            <Button size="md" variant="danger" onClick={onClose}>
               Close
-            </AppButton>
+            </Button>
           </div>
-        </div>
-
-        {/* Top-level tab bar */}
-        <TabBar tabs={topTabs} activeTab={activeTab} onTabChange={setActiveTab} />
+        </DialogHeader>
 
         {/* Tab content */}
-        <div className="inventory-modal-body" role="tabpanel">
-          {activeTab === 'items' && <ItemForm />}
-          {activeTab === 'departments' && <DepartmentPanel />}
-          {activeTab === 'tax-codes' && <TaxCodePanel />}
-          {activeTab === 'vendors' && <VendorPanel />}
-        </div>
-      </div>
-    </div>
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="grid grid-rows-[auto_1fr] min-h-0 overflow-hidden"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <TabsList>
+              <TabsTrigger value="items">Items</TabsTrigger>
+              <TabsTrigger value="departments">Departments</TabsTrigger>
+              <TabsTrigger value="tax-codes">Tax Codes</TabsTrigger>
+              <TabsTrigger value="vendors">Vendors</TabsTrigger>
+            </TabsList>
+            {activeTab === 'items' && (
+              <div className="flex gap-2">
+                <Button
+                  size="md"
+                  onClick={() => itemFormRef.current?.handleNewItem()}
+                  disabled={!itemBtnState.canNew}
+                >
+                  New Item
+                </Button>
+                <Button
+                  size="md"
+                  variant="success"
+                  onClick={() => itemFormRef.current?.handleSave()}
+                  disabled={!itemBtnState.canSave}
+                >
+                  Save Item
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <TabsContent value="items" className="min-h-0 overflow-hidden">
+            <ItemForm ref={itemFormRef} onButtonStateChange={handleItemButtonState} />
+          </TabsContent>
+          <TabsContent value="departments" className="min-h-0 overflow-hidden">
+            <DepartmentPanel />
+          </TabsContent>
+          <TabsContent value="tax-codes" className="min-h-0 overflow-hidden">
+            <TaxCodePanel />
+          </TabsContent>
+          <TabsContent value="vendors" className="min-h-0 overflow-hidden">
+            <VendorPanel />
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   )
 }

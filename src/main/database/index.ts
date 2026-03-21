@@ -18,12 +18,14 @@ export { initializeDatabase } from './schema'
 // Products & inventory
 export {
   getProducts,
+  searchProducts,
   getInventoryProducts,
   getInventoryDepartments,
   getInventoryTaxCodes,
   searchInventoryProducts,
   getInventoryProductDetail,
-  saveInventoryItem
+  saveInventoryItem,
+  getActiveSpecialPricing
 } from './products.repo'
 
 // Departments

@@ -1,6 +1,8 @@
 // Re-export shared types (single source of truth)
 export type {
   Product,
+  ActiveSpecialPricingRule,
+  PromoAnnotation,
   InventoryProduct,
   InventoryProductDetail,
   InventorySalesHistory,
@@ -30,13 +32,14 @@ export type {
 
 // ── Renderer-only types ──
 
-import type { Product } from '../../../shared/types'
+import type { Product, PromoAnnotation } from '../../../shared/types'
 
 export type CartItem = Product & {
   basePrice?: number
   kind?: 'product'
   itemDiscountPercent?: number
   lineQuantity: number
+  promo?: PromoAnnotation
 }
 
 export type TransactionDiscountItem = {

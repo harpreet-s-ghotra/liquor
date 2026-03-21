@@ -28,8 +28,8 @@ describe('PaymentModal', () => {
 
     expect(screen.getByText('Payment')).toBeInTheDocument()
     expect(screen.getByText('Transaction Total')).toBeInTheDocument()
-    const totalBar = screen.getByText('Transaction Total').closest('.payment-total-bar')!
-    expect(totalBar).toHaveTextContent('$22.59')
+    const totalLabel = screen.getByText('Transaction Total')
+    expect(totalLabel.parentElement).toHaveTextContent('$22.59')
     expect(screen.getByText('No payments yet')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cash (Exact)' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Credit' })).toBeEnabled()
@@ -312,9 +312,7 @@ describe('PaymentModal', () => {
       mockChargeTerminal.mockRejectedValue(new Error('No terminal devices found'))
 
       const onComplete = vi.fn()
-      render(
-        <PaymentModal isOpen={true} total={10.0} onComplete={onComplete} onCancel={vi.fn()} />
-      )
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={onComplete} onCancel={vi.fn()} />)
 
       // Trigger a card error
       fireEvent.click(screen.getByRole('button', { name: 'Credit' }))

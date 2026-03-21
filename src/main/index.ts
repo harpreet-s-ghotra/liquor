@@ -8,9 +8,11 @@ import {
   getInventoryProducts,
   getInventoryTaxCodes,
   getProducts,
+  searchProducts,
   initializeDatabase,
   saveInventoryItem,
   searchInventoryProducts,
+  getActiveSpecialPricing,
   getDepartments,
   createDepartment,
   updateDepartment,
@@ -35,7 +37,11 @@ import {
   getRecentTransactions
 } from './database'
 import { validateApiKey, getTerminalRegisters, chargeTerminal } from './services/stax'
-import type { TerminalChargeInput, SaveTransactionInput } from '../shared/types'
+import type {
+  TerminalChargeInput,
+  SaveTransactionInput,
+  SearchProductFilters
+} from '../shared/types'
 
 function createWindow(): void {
   // Create the browser window.
@@ -90,6 +96,22 @@ app.whenReady().then(() => {
       return getProducts()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to list products')
+    }
+  })
+
+  ipcMain.handle('products:active-special-pricing', async () => {
+    try {
+      return getActiveSpecialPricing()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get active special pricing')
+    }
+  })
+
+  ipcMain.handle('products:search', async (_, query: string, filters?: SearchProductFilters) => {
+    try {
+      return searchProducts(query, filters)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to search products')
     }
   })
 

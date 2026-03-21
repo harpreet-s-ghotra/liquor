@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react'
-import './app-button.css'
+import { Button, type ButtonProps } from '@renderer/components/ui/button'
 
 type AppButtonVariant = 'default' | 'success' | 'danger' | 'warning' | 'neutral'
 type AppButtonSize = 'sm' | 'md' | 'lg'
@@ -16,9 +16,13 @@ export function AppButton({
   type = 'button',
   ...props
 }: AppButtonProps): React.JSX.Element {
-  const classes = ['app-btn', `app-btn--${variant}`, `app-btn--${size}`, className]
-    .filter(Boolean)
-    .join(' ')
-
-  return <button type={type} className={classes} {...props} />
+  return (
+    <Button
+      type={type}
+      variant={variant as ButtonProps['variant']}
+      size={size as ButtonProps['size']}
+      className={className}
+      {...props}
+    />
+  )
 }

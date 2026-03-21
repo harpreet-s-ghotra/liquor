@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test'
+import { expect, Page, test } from '@playwright/test'
 
-const attachPosApiMock = async (page): Promise<void> => {
+const attachPosApiMock = async (page: Page): Promise<void> => {
   await page.addInitScript(() => {
     const products = [
       {
@@ -173,7 +173,7 @@ const attachPosApiMock = async (page): Promise<void> => {
 }
 
 /** Enter PIN 1234 on the login screen to get to POS */
-const loginWithPin = async (page): Promise<void> => {
+const loginWithPin = async (page: Page): Promise<void> => {
   const pinKey = page.locator('.pin-key').first()
   await pinKey.waitFor({ state: 'visible', timeout: 10000 })
   for (const digit of ['1', '2', '3', '4']) {
@@ -182,7 +182,7 @@ const loginWithPin = async (page): Promise<void> => {
   await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
 }
 
-const gotoAndLogin = async (page): Promise<void> => {
+const gotoAndLogin = async (page: Page): Promise<void> => {
   await page.goto('/')
   await loginWithPin(page)
 }

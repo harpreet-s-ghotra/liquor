@@ -1,6 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
 import type { CartItem, CartLineItem } from '../../types/pos'
-import './ticket-panel.css'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
+import { Label } from '../ui/label'
+import { cn } from '../../lib/utils'
 
 type EditMode = 'quantity' | 'price' | 'discount' | null
 
@@ -9,6 +13,7 @@ type TicketPanelProps = {
   cart: CartLineItem[]
   clearTransaction: () => void
   onSearchSubmit?: () => void
+  onSearchClick?: () => void
   quantity: string
   removeSelectedLine: () => void
   search: string
@@ -28,6 +33,7 @@ export function TicketPanel({
   cart,
   clearTransaction,
   onSearchSubmit,
+  onSearchClick,
   quantity,
   removeSelectedLine,
   search,
@@ -240,11 +246,14 @@ export function TicketPanel({
   }, [selectedCartId, cart.length])
 
   return (
-    <section className="ticket-panel">
-      <div className="ticket-controls">
-        <input
+    <section
+      className="ticket-panel grid gap-2 overflow-hidden rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-1.5 relative"
+      style={{ gridTemplateRows: '3rem 1fr 5.25rem' }}
+    >
+      {/* ── Search & Qty controls ── */}
+      <div className="grid gap-2" style={{ gridTemplateColumns: '1fr 5.5rem 5.5rem' }}>
+        <Input
           ref={searchRef}
-          className="ticket-input"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           onKeyDown={(event) => {
@@ -254,34 +263,54 @@ export function TicketPanel({
             }
           }}
           placeholder="Search item"
+          className="text-lg"
           autoFocus
         />
-        <input
-          className="qty-input"
+        <Input
           value={quantity}
           onChange={(event) => setQuantity(event.target.value)}
           inputMode="numeric"
           placeholder="Qty"
         />
+        <Button
+          size="md"
+          variant="outline"
+          className="text-base font-semibold"
+          onClick={onSearchClick}
+        >
+          Search
+        </Button>
       </div>
 
-      <div className="ticket-table">
-        <div className="ticket-header-row">
+      {/* ── Ticket table ── */}
+      <div
+        className="grid overflow-hidden rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-surface)]"
+        style={{ gridTemplateRows: '1.875rem 1fr' }}
+      >
+        <div
+          className="grid items-center gap-x-4 border-b border-[var(--border-soft)] bg-[var(--bg-surface-soft)] px-2 text-base font-bold text-[var(--text-primary)]"
+          style={{ gridTemplateColumns: '3rem 1fr 8rem 9rem' }}
+        >
           <span>#</span>
           <span>Item Info</span>
           <span>Quantity</span>
           <span>Price</span>
         </div>
 
-        <div className="ticket-lines" data-testid="ticket-lines">
+        <div className="overflow-auto" data-testid="ticket-lines">
           {cart.length === 0 ? (
-            <div className="empty-ticket">No items in current transaction</div>
+            <div className="p-4 text-base text-[var(--text-muted)]">
+              No items in current transaction
+            </div>
           ) : (
             productLines.map((item, index) => {
               const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
+              const effectiveUnitPrice = item.promo ? item.promo.promoUnitPrice : item.price
               const baseLineTotal = item.price * item.lineQuantity
-              const discountedLineTotal = baseLineTotal * (1 - itemDiscountRate)
+              const effectiveLineTotal = effectiveUnitPrice * item.lineQuantity
+              const discountedLineTotal = effectiveLineTotal * (1 - itemDiscountRate)
               const isDiscountedLine = itemDiscountRate > 0
+              const hasPromo = !!item.promo
 
               return (
                 <button
@@ -294,15 +323,35 @@ export function TicketPanel({
                     }
                   }}
                   type="button"
-                  className={`ticket-line ${selectedCartId === item.id ? 'active' : ''} ${isDiscountedLine ? 'discounted' : ''}`}
+                  className={cn(
+                    'ticket-line w-full grid items-center gap-x-4 border-b border-[var(--border-soft)] bg-[var(--bg-surface)] min-h-12 px-2 text-lg text-[var(--text-primary)] cursor-pointer text-left',
+                    selectedCartId === item.id && 'active bg-[var(--accent-blue-soft)]',
+                    hasPromo &&
+                      !isDiscountedLine &&
+                      'promo bg-gradient-to-r from-[var(--accent-mint-soft)] to-[var(--bg-surface)] border-l-4 border-l-[var(--accent-mint)]',
+                    isDiscountedLine &&
+                      'discounted bg-gradient-to-r from-[var(--accent-peach-soft)] to-[var(--bg-surface)] border-l-4 border-l-[var(--accent-peach)]'
+                  )}
+                  style={{ gridTemplateColumns: '3rem 1fr 8rem 9rem' }}
                   onClick={() => setSelectedCartId(item.id)}
                 >
-                  <span>{index + 1}</span>
-                  <span className="ticket-line-item-info">
-                    <span className="ticket-line-item-name">{item.name}</span>
+                  <span className="text-2xl font-medium">{index + 1}</span>
+                  <span className="grid gap-0.5 items-center">
+                    <span className="text-xl font-bold">{item.name}</span>
+                    {hasPromo && (
+                      <span className="inline-flex flex-wrap items-center gap-1.5 text-sm font-bold text-[var(--semantic-success-text)]">
+                        <span className="rounded-[var(--radius)] bg-[var(--accent-mint)] px-1.5 py-px text-xs font-extrabold text-[var(--btn-success-text)]">
+                          PROMO
+                        </span>
+                        <span>
+                          {item.promo!.promoLabel} — Save ${item.promo!.promoLineSavings.toFixed(2)}{' '}
+                          (was ${item.price.toFixed(2)} ea)
+                        </span>
+                      </span>
+                    )}
                     {isDiscountedLine && (
-                      <span className="ticket-line-discount-meta">
-                        <span className="ticket-line-discount-badge">
+                      <span className="inline-flex flex-wrap items-center gap-1.5 text-sm font-bold text-[var(--semantic-warning-text)]">
+                        <span className="rounded-[var(--radius)] bg-[var(--accent-peach)] px-1.5 py-px text-xs font-extrabold text-[var(--btn-warning-text)]">
                           DISCOUNT {(item.itemDiscountPercent ?? 0).toFixed(2)}%
                         </span>
                         <span>
@@ -311,8 +360,12 @@ export function TicketPanel({
                       </span>
                     )}
                   </span>
-                  <span className="ticket-line-qty">{item.lineQuantity}</span>
-                  <span className="ticket-line-price">{formatMoney(discountedLineTotal)}</span>
+                  <span className="ticket-line-qty text-[1.75rem] font-bold">
+                    {item.lineQuantity}
+                  </span>
+                  <span className="ticket-line-price text-[1.75rem] font-bold">
+                    {formatMoney(discountedLineTotal)}
+                  </span>
                 </button>
               )
             })
@@ -320,15 +373,20 @@ export function TicketPanel({
           {transactionDiscountLine && (
             <button
               type="button"
-              className={`ticket-line transaction-discount-line ${selectedCartId === transactionDiscountLine.id ? 'active' : ''}`}
+              className={cn(
+                'ticket-line w-full grid items-center gap-x-4 min-h-12 px-2 text-lg text-[var(--text-primary)] cursor-pointer text-left sticky bottom-0 z-[2] bg-gradient-to-r from-[var(--accent-lavender-soft)] to-[var(--accent-lavender)] border-t-2 border-t-[var(--border-strong)]',
+                selectedCartId === transactionDiscountLine.id &&
+                  'active bg-[var(--accent-blue-soft)]'
+              )}
+              style={{ gridTemplateColumns: '3rem 1fr 8rem 9rem' }}
               onClick={() => setSelectedCartId(transactionDiscountLine.id)}
             >
-              <span>#</span>
-              <span className="ticket-line-item-info">
-                <span className="ticket-line-item-name">{transactionDiscountLine.name}</span>
+              <span className="text-2xl font-medium">#</span>
+              <span className="grid gap-0.5 items-center">
+                <span className="text-xl font-bold">{transactionDiscountLine.name}</span>
               </span>
-              <span className="ticket-line-qty">1</span>
-              <span className="ticket-line-price">
+              <span className="ticket-line-qty text-[1.75rem] font-bold">1</span>
+              <span className="ticket-line-price text-[1.75rem] font-bold">
                 {formatMoney(transactionDiscountLine.price)}
               </span>
             </button>
@@ -336,53 +394,67 @@ export function TicketPanel({
         </div>
       </div>
 
-      <div className="ticket-actions">
-        <button type="button" className="pos-btn danger" onClick={removeSelectedLine}>
+      {/* ── Action buttons ── */}
+      <div className="grid grid-cols-5 gap-2">
+        <Button
+          variant="danger"
+          className="min-h-[4.5rem] text-xl font-bold"
+          onClick={removeSelectedLine}
+        >
           Delete
-        </button>
-        <button type="button" className="pos-btn warning" onClick={clearTransaction}>
+        </Button>
+        <Button
+          variant="warning"
+          className="min-h-[4.5rem] text-xl font-bold"
+          onClick={clearTransaction}
+        >
           Void
-        </button>
-        <button
-          type="button"
-          className="pos-btn"
+        </Button>
+        <Button
+          className="min-h-[4.5rem] text-xl font-bold"
           disabled={!selectedCartId || isTransactionDiscountSelected}
           onClick={() => openEditModal('quantity')}
         >
           Qty Change
-        </button>
-        <button
-          type="button"
-          className="pos-btn"
+        </Button>
+        <Button
+          className="min-h-[4.5rem] text-xl font-bold"
           disabled={!selectedCartId || isTransactionDiscountSelected}
           onClick={() => openEditModal('price')}
         >
           Price Change
-        </button>
-        <button
-          type="button"
-          className="pos-btn"
+        </Button>
+        <Button
+          className="min-h-[4.5rem] text-xl font-bold"
           disabled={!selectedCartId && cart.length === 0}
           onClick={() => openEditModal('discount')}
         >
           Discount
-        </button>
+        </Button>
       </div>
 
+      {/* ── Edit keypad modal ── */}
       {editMode && (
-        <div className="pos-modal-backdrop" data-testid="edit-modal">
-          <div className="pos-modal" role="dialog" aria-modal="true">
-            <h3 className="pos-modal-title">
+        <div
+          className="absolute inset-0 z-10 grid place-items-center bg-[color-mix(in_srgb,var(--bg-shell)_55%,transparent)]"
+          data-testid="edit-modal"
+        >
+          <div
+            className="w-[min(34rem,calc(100%-2rem))] grid gap-4 rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-4 shadow-lg"
+            role="dialog"
+            aria-modal="true"
+          >
+            <h3 className="m-0 rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg-shell)] px-4 py-3 text-2xl font-bold text-[var(--text-on-dark)]">
               {editMode === 'quantity' && 'Qty Change'}
               {editMode === 'price' && 'Price Change'}
               {editMode === 'discount' && 'Discount'}
             </h3>
-            <p className="pos-modal-original">
+            <p className="m-0 rounded-[var(--radius)] bg-[var(--border-strong)] px-4 py-2.5 text-lg font-semibold text-[var(--text-on-dark)]">
               {editMode === 'quantity' && `Original Qty: ${selectedCartItem?.lineQuantity ?? 0}`}
               {editMode === 'price' && (
                 <button
                   type="button"
-                  className="pos-modal-original-action"
+                  className="appearance-none border-none bg-transparent text-inherit font-inherit underline cursor-pointer p-0"
                   onClick={restoreOriginalPrice}
                 >
                   Original Price: ${getPriceOriginalValue().toFixed(2)}
@@ -392,38 +464,36 @@ export function TicketPanel({
                 `Original Discount: ${getDiscountOriginalValue(discountScope).toFixed(2)}%`}
             </p>
             <form
+              className="grid gap-4"
               onSubmit={(event) => {
                 event.preventDefault()
                 submitEdit()
               }}
             >
               {editMode === 'discount' && (
-                <div className="pos-modal-scope">
-                  <label>
-                    <input
-                      type="radio"
-                      name="discount-scope"
-                      value="item"
-                      checked={discountScope === 'item'}
-                      disabled={!selectedCartId}
-                      onChange={() => updateDiscountScope('item')}
-                    />
-                    Selected Item
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="discount-scope"
-                      value="transaction"
-                      checked={discountScope === 'transaction'}
-                      onChange={() => updateDiscountScope('transaction')}
-                    />
-                    Entire Transaction
-                  </label>
-                </div>
+                <RadioGroup
+                  value={discountScope}
+                  onValueChange={(v) => updateDiscountScope(v as 'item' | 'transaction')}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="item" id="scope-item" disabled={!selectedCartId} />
+                    <Label htmlFor="scope-item" className="text-lg text-[var(--text-on-dark)]">
+                      Selected Item
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="transaction" id="scope-transaction" />
+                    <Label
+                      htmlFor="scope-transaction"
+                      className="text-lg text-[var(--text-on-dark)]"
+                    >
+                      Entire Transaction
+                    </Label>
+                  </div>
+                </RadioGroup>
               )}
-              <input
-                className="ticket-input"
+              <Input
                 inputMode="decimal"
                 value={getEditDisplayValue()}
                 onChange={(event) => setEditRawValue(event.target.value)}
@@ -435,38 +505,43 @@ export function TicketPanel({
                       : 'Discount %'
                 }
                 readOnly={isKeypadMode}
+                className="text-[1.75rem] min-h-16 px-4 py-3"
                 autoFocus
               />
               {isKeypadMode && (
-                <div className="pos-keypad" aria-label="POS Keypad">
+                <div className="grid grid-cols-3 gap-3" aria-label="POS Keypad">
                   {['7', '8', '9', '4', '5', '6', '1', '2', '3', 'C', '0', '⌫'].map((key) => (
-                    <button
+                    <Button
                       key={key}
                       type="button"
-                      className="pos-keypad-btn"
+                      className="min-h-[4.5rem] text-[1.75rem] font-bold"
                       onClick={() => handleKeypadInput(key)}
                     >
                       {key}
-                    </button>
+                    </Button>
                   ))}
                   {editMode === 'discount' && (
-                    <button
+                    <Button
                       type="button"
-                      className="pos-keypad-btn pos-keypad-btn-wide"
+                      className="col-span-3 min-h-[4.5rem] text-[1.75rem] font-bold"
                       onClick={() => handleKeypadInput('.')}
                     >
                       .
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}
-              <div className="pos-modal-actions">
-                <button type="button" className="pos-btn" onClick={closeEditModal}>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  className="min-h-[4.75rem] text-2xl font-bold"
+                  onClick={closeEditModal}
+                >
                   Cancel
-                </button>
-                <button type="submit" className="pos-btn">
+                </Button>
+                <Button type="submit" className="min-h-[4.75rem] text-2xl font-bold">
                   Save
-                </button>
+                </Button>
               </div>
             </form>
           </div>

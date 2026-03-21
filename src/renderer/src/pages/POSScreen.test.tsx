@@ -56,10 +56,17 @@ const sampleCartItem = {
 describe('POSScreen', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api = {
+      getDepartments: vi.fn().mockResolvedValue([]),
+      getVendors: vi.fn().mockResolvedValue([])
+    }
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).api
   })
 
   it('does not render preview mode badge', () => {
@@ -277,7 +284,11 @@ describe('POSScreen', () => {
 
     const saveTransaction = vi.fn(async () => ({}))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).api = { saveTransaction }
+    ;(window as any).api = {
+      saveTransaction,
+      getDepartments: vi.fn().mockResolvedValue([]),
+      getVendors: vi.fn().mockResolvedValue([])
+    }
 
     mockUsePosScreen.mockReturnValue(
       createDefaultMock({
@@ -323,7 +334,11 @@ describe('POSScreen', () => {
 
     const saveTransaction = vi.fn(async () => ({}))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).api = { saveTransaction }
+    ;(window as any).api = {
+      saveTransaction,
+      getDepartments: vi.fn().mockResolvedValue([]),
+      getVendors: vi.fn().mockResolvedValue([])
+    }
 
     mockUsePosScreen.mockReturnValue(
       createDefaultMock({

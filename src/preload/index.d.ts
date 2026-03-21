@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   Product,
+  ActiveSpecialPricingRule,
   InventoryProduct,
   InventoryProductDetail,
   SaveInventoryItemInput,
@@ -22,11 +23,14 @@ import type {
   TerminalChargeResult,
   TerminalRegister,
   SaveTransactionInput,
-  SavedTransaction
+  SavedTransaction,
+  SearchProductFilters
 } from '../shared/types'
 
 type AppApi = {
   getProducts: () => Promise<Product[]>
+  searchProducts: (query: string, filters?: SearchProductFilters) => Promise<Product[]>
+  getActiveSpecialPricing: () => Promise<ActiveSpecialPricingRule[]>
   getInventoryProducts: () => Promise<InventoryProduct[]>
   searchInventoryProducts: (query: string) => Promise<InventoryProduct[]>
   getInventoryProductDetail: (itemNumber: number) => Promise<InventoryProductDetail | null>

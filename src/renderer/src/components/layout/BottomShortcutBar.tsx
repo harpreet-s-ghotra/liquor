@@ -1,4 +1,4 @@
-import './bottom-shortcut-bar.css'
+import { Button } from '@renderer/components/ui/button'
 
 type BottomShortcutBarProps = {
   onInventoryClick: () => void
@@ -6,13 +6,32 @@ type BottomShortcutBarProps = {
 
 export function BottomShortcutBar({ onInventoryClick }: BottomShortcutBarProps): React.JSX.Element {
   return (
-    <footer className="shortcut-bar">
-      <button type="button">F1 - Help</button>
-      <button type="button" onClick={onInventoryClick}>
+    <footer className="shortcut-bar grid grid-cols-4 gap-px bg-(--border-strong) border-t border-(--border-strong)">
+      <Button
+        variant="ghost"
+        className="rounded-none bg-(--bg-surface-soft) text-[0.875rem] font-semibold text-(--text-primary) shadow-none"
+      >
+        F1 - Help
+      </Button>
+      <Button
+        variant="ghost"
+        className="rounded-none bg-(--bg-surface-soft) text-[0.875rem] font-semibold text-(--text-primary) shadow-none"
+        onClick={onInventoryClick}
+      >
         F2 - Inventory
-      </button>
-      <button type="button">F3 - Clock In/Out</button>
-      <button type="button">F4 - Customers</button>
+      </Button>
+      <Button
+        variant="ghost"
+        className="rounded-none bg-(--bg-surface-soft) text-[0.875rem] font-semibold text-(--text-primary) shadow-none"
+      >
+        F3 - Clock In/Out
+      </Button>
+      <Button
+        variant="ghost"
+        className="rounded-none bg-(--bg-surface-soft) text-[0.875rem] font-semibold text-(--text-primary) shadow-none"
+      >
+        F4 - Customers
+      </Button>
     </footer>
   )
 }

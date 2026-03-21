@@ -1,12 +1,12 @@
 import { InventoryModal } from '@renderer/components/inventory/InventoryModal'
 import { PaymentModal } from '@renderer/components/payment/PaymentModal'
+import { SearchModal } from '@renderer/components/search/SearchModal'
 import { ActionPanel } from '@renderer/components/action/ActionPanel'
 import { BottomShortcutBar } from '@renderer/components/layout/BottomShortcutBar'
 import { TicketPanel } from '@renderer/components/ticket/TicketPanel'
 import { usePosScreen } from '@renderer/store/usePosScreen'
 import { useAuthStore } from '@renderer/store/useAuthStore'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import '../styles/pos-screen.css'
 import '../styles/auth.css'
 import type { PaymentMethod, PaymentResult } from '@renderer/types/pos'
 
@@ -14,6 +14,8 @@ export function POSScreen(): React.JSX.Element {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false)
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
   const [isPaymentComplete, setIsPaymentComplete] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [searchKey, setSearchKey] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -159,18 +161,28 @@ export function POSScreen(): React.JSX.Element {
   }, [addToCartBySku, search, isPaymentComplete, clearTransaction])
 
   return (
-    <div className="pc-pos-layout">
+    <div
+      className="grid h-full overflow-hidden"
+      style={{ gridTemplateRows: currentCashier ? 'auto 1fr 4rem' : '1fr 4rem' }}
+    >
       {currentCashier && (
-        <div className="pos-cashier-bar">
-          <span className="pos-cashier-name">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-(--bg-shell) text-(--text-on-dark) text-sm border-b border-(--border-strong)">
+          <span>
             Cashier: <strong>{currentCashier.name}</strong>
           </span>
-          <button className="pos-logout-btn" onClick={logout} title="Switch Cashier (Ctrl+L)">
+          <button
+            className="rounded-(--radius) border-none bg-(--btn-danger-bg) text-(--btn-danger-text) px-3 py-1 text-sm font-semibold cursor-pointer"
+            onClick={logout}
+            title="Switch Cashier (Ctrl+L)"
+          >
             Switch Cashier
           </button>
         </div>
       )}
-      <main className="pc-main-area">
+      <main
+        className="grid gap-2 p-2 min-h-0 overflow-hidden"
+        style={{ gridTemplateColumns: '56% 44%' }}
+      >
         <TicketPanel
           cart={cartLines}
           quantity={quantity}
@@ -188,6 +200,10 @@ export function POSScreen(): React.JSX.Element {
           updateSelectedLinePrice={updateSelectedLinePrice}
           updateSelectedLineQuantity={updateSelectedLineQuantity}
           onSearchSubmit={handleSearchSubmit}
+          onSearchClick={() => {
+            setSearchKey((k) => k + 1)
+            setIsSearchOpen(true)
+          }}
         />
 
         <ActionPanel
@@ -212,6 +228,22 @@ export function POSScreen(): React.JSX.Element {
 
       <InventoryModal isOpen={isInventoryOpen} onClose={handleInventoryClose} />
 
+      <SearchModal
+        key={searchKey}
+        isOpen={isSearchOpen}
+        onClose={() => {
+          setIsSearchOpen(false)
+          setTimeout(() => searchRef.current?.focus(), 0)
+        }}
+        onAddToCart={(product) => {
+          handleAddToCart(product)
+        }}
+        onOpenInInventory={() => {
+          setIsSearchOpen(false)
+          setIsInventoryOpen(true)
+        }}
+      />
+
       <PaymentModal
         isOpen={isPaymentOpen}
         total={total}
@@ -221,7 +253,11 @@ export function POSScreen(): React.JSX.Element {
         onStatusChange={handlePaymentStatusChange}
       />
 
-      {productsLoadError && <div className="pos-screen-error">{productsLoadError}</div>}
+      {productsLoadError && (
+        <div className="absolute right-3 bottom-18.5 text-[0.8125rem] text-(--semantic-danger-text) bg-(--bg-surface-soft) border border-(--border-soft) rounded-(--radius) px-2 py-1 shadow-sm">
+          {productsLoadError}
+        </div>
+      )}
     </div>
   )
 }

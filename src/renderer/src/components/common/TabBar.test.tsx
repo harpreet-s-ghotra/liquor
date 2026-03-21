@@ -17,16 +17,16 @@ describe('TabBar', () => {
     expect(screen.getByRole('tab', { name: 'Tax Codes' })).toBeInTheDocument()
   })
 
-  it('marks active tab with active class and aria-selected', () => {
+  it('marks active tab with aria-selected and distinct styling', () => {
     render(<TabBar tabs={tabs} activeTab="departments" onTabChange={vi.fn()} />)
 
     const active = screen.getByRole('tab', { name: 'Departments' })
-    expect(active.className).toContain('active')
     expect(active).toHaveAttribute('aria-selected', 'true')
+    expect(active.className).toContain('bg-')
 
     const inactive = screen.getByRole('tab', { name: 'Items' })
-    expect(inactive.className).not.toContain('active')
     expect(inactive).toHaveAttribute('aria-selected', 'false')
+    expect(inactive.className).toContain('bg-transparent')
   })
 
   it('calls onTabChange when a tab is clicked', () => {

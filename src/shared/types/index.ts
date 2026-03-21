@@ -90,6 +90,22 @@ export type SpecialPricingRule = {
   duration_days: number
 }
 
+/** An active special pricing rule returned for POS cart evaluation */
+export type ActiveSpecialPricingRule = {
+  product_id: number
+  quantity: number
+  price: number
+}
+
+/** Promotion metadata attached to a cart line by the pricing engine */
+export type PromoAnnotation = {
+  promoType: 'special-pricing' | 'mix-match'
+  promoLabel: string
+  promoUnitPrice: number
+  promoLineSavings: number
+  originalUnitPrice: number
+}
+
 export type InventoryProductDetail = InventoryProduct & {
   tax_rates: number[]
   additional_skus: string[]
@@ -121,6 +137,9 @@ export type InventoryTaxCode = {
 export type Department = {
   id: number
   name: string
+  description: string | null
+  default_profit_margin: number
+  default_tax_rate: number
 }
 
 export type TaxCode = {
@@ -138,8 +157,19 @@ export type Vendor = {
   is_active: number
 }
 
-export type CreateDepartmentInput = { name: string }
-export type UpdateDepartmentInput = { id: number; name: string }
+export type CreateDepartmentInput = {
+  name: string
+  description?: string | null
+  default_profit_margin?: number
+  default_tax_rate?: number
+}
+export type UpdateDepartmentInput = {
+  id: number
+  name: string
+  description?: string | null
+  default_profit_margin?: number
+  default_tax_rate?: number
+}
 export type CreateTaxCodeInput = { code: string; rate: number }
 export type UpdateTaxCodeInput = { id: number; code: string; rate: number }
 export type CreateVendorInput = {
@@ -214,6 +244,12 @@ export type TerminalRegister = {
   model: string
   is_default: boolean
   register_num: number
+}
+
+/** Filters for the POS product search modal */
+export type SearchProductFilters = {
+  departmentId?: number
+  vendorNumber?: number
 }
 
 /** Input for sending a charge to a physical card terminal */

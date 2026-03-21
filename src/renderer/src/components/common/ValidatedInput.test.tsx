@@ -5,9 +5,11 @@ import { validateField } from './validation'
 
 describe('ValidatedInput', () => {
   /* ── Rendering ── */
-  it('renders with ticket-input class by default', () => {
+  it('renders with shadcn Input styling by default', () => {
     render(<ValidatedInput fieldType="text" value="" onChange={vi.fn()} aria-label="Field" />)
-    expect(screen.getByLabelText('Field').className).toContain('ticket-input')
+    const input = screen.getByLabelText('Field')
+    expect(input).toBeInTheDocument()
+    expect(input.tagName).toBe('INPUT')
   })
 
   it('merges additional className', () => {
@@ -21,7 +23,6 @@ describe('ValidatedInput', () => {
       />
     )
     const input = screen.getByLabelText('Field')
-    expect(input.className).toContain('ticket-input')
     expect(input.className).toContain('extra')
   })
 

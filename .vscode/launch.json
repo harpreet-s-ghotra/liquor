@@ -13,7 +13,8 @@
       "runtimeArgs": ["--sourcemap"],
       "env": {
         "REMOTE_DEBUGGING_PORT": "9222"
-      }
+      },
+      "killBehavior": "forceful"
     },
     {
       "name": "Debug Renderer Process",
@@ -24,7 +25,8 @@
       "timeout": 60000,
       "presentation": {
         "hidden": true
-      }
+      },
+      "browserAttachLocation": "workspace"
     }
   ],
   "compounds": [

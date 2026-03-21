@@ -1,7 +1,18 @@
 import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/shallow'
-import type { CartItem, CartLineItem, Product, TransactionDiscountItem } from '../types/pos'
+import type {
+  CartItem,
+  CartLineItem,
+  Product,
+  TransactionDiscountItem,
+  ActiveSpecialPricingRule
+} from '../types/pos'
+import {
+  applyPromotions,
+  buildSpecialPricingMap,
+  type SpecialPricingMap
+} from '../utils/pricing-engine'
 
 const FAVORITES_CATEGORY = 'Favorites'
 const ALL_CATEGORY = 'All'
@@ -20,6 +31,7 @@ type PosState = {
   quantity: string
   activeCategory: string
   transactionDiscountPercent: number
+  specialPricingMap: SpecialPricingMap
 }
 
 // ── Pure derivation functions (testable, no hooks) ──
@@ -70,7 +82,8 @@ export function deriveFilteredProducts(
 export function deriveCartTotals(
   cart: CartItem[],
   transactionDiscountPercent: number,
-  selectedCartId: number | null
+  selectedCartId: number | null,
+  specialPricingMap: SpecialPricingMap = new Map()
 ): {
   cartLines: CartLineItem[]
   selectedCartItem: CartLineItem | null
@@ -80,11 +93,19 @@ export function deriveCartTotals(
   total: number
   totalSavings: number
 } {
-  const subtotalBeforeDiscount = cart.reduce((sum, item) => sum + item.price * item.lineQuantity, 0)
+  // Apply promotional pricing first
+  const { items: promoCart, promoSavings } = applyPromotions(cart, specialPricingMap)
 
-  const subtotalAfterItemDiscount = cart.reduce((sum, item) => {
+  const subtotalBeforeDiscount = promoCart.reduce(
+    (sum, item) => sum + item.price * item.lineQuantity,
+    0
+  )
+
+  const subtotalAfterItemDiscount = promoCart.reduce((sum, item) => {
     const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
-    const lineBase = item.price * item.lineQuantity
+    // Use promo price when available, otherwise use item price
+    const effectivePrice = item.promo ? item.promo.promoUnitPrice : item.price
+    const lineBase = effectivePrice * item.lineQuantity
     return sum + lineBase * (1 - itemDiscountRate)
   }, 0)
 
@@ -103,17 +124,18 @@ export function deriveCartTotals(
       : null
 
   const cartLines: CartLineItem[] = transactionDiscountLine
-    ? [...cart, transactionDiscountLine]
-    : cart
+    ? [...promoCart, transactionDiscountLine]
+    : promoCart
 
   const selectedCartItem = cartLines.find((item) => item.id === selectedCartId) ?? null
 
   const subtotalDiscounted = subtotalAfterItemDiscount * (1 - transactionDiscountPercent / 100)
 
   const tax = (() => {
-    const itemDiscountedTax = cart.reduce((sum, item) => {
+    const itemDiscountedTax = promoCart.reduce((sum, item) => {
       const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
-      const lineBase = item.price * item.lineQuantity
+      const effectivePrice = item.promo ? item.promo.promoUnitPrice : item.price
+      const lineBase = effectivePrice * item.lineQuantity
       return sum + lineBase * (1 - itemDiscountRate) * item.tax_rate
     }, 0)
     return itemDiscountedTax * (1 - transactionDiscountPercent / 100)
@@ -121,12 +143,12 @@ export function deriveCartTotals(
 
   const total = subtotalDiscounted + tax
 
-  const taxBeforeDiscount = cart.reduce(
+  const taxBeforeDiscount = promoCart.reduce(
     (sum, item) => sum + item.price * item.lineQuantity * item.tax_rate,
     0
   )
   const totalBeforeDiscount = subtotalBeforeDiscount + taxBeforeDiscount
-  const totalSavings = totalBeforeDiscount - total
+  const totalSavings = totalBeforeDiscount - total + promoSavings
 
   return {
     cartLines,
@@ -156,6 +178,7 @@ type PosActions = {
   updateSelectedLinePrice: (price: number) => void
   applyDiscount: (percent: number, scope: 'item' | 'transaction') => void
   reloadProducts: () => void
+  loadSpecialPricing: () => void
 }
 
 // ── Full store type ──
@@ -180,6 +203,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
   quantity: '1',
   activeCategory: FAVORITES_CATEGORY,
   transactionDiscountPercent: 0,
+  specialPricingMap: new Map(),
 
   // Setters
   setProducts: (products) => set({ products, productsLoadError: null }),
@@ -296,6 +320,20 @@ export const usePosStore = create<PosStore>((set, get) => ({
       .getProducts()
       .then((data) => set({ products: data, productsLoadError: null }))
       .catch(() => set({ productsLoadError: 'Unable to load products from backend.' }))
+  },
+
+  loadSpecialPricing: () => {
+    const api = typeof window !== 'undefined' ? window.api : undefined
+    if (typeof api?.getActiveSpecialPricing !== 'function') return
+
+    api
+      .getActiveSpecialPricing()
+      .then((rules: ActiveSpecialPricingRule[]) =>
+        set({ specialPricingMap: buildSpecialPricingMap(rules) })
+      )
+      .catch(() => {
+        /* pricing unavailable — cart works without promos */
+      })
   }
 }))
 
@@ -350,6 +388,8 @@ export function usePosScreen(): UsePosScreenState {
       applyDiscount: s.applyDiscount,
       clearTransaction: s.clearTransaction,
       reloadProducts: s.reloadProducts,
+      loadSpecialPricing: s.loadSpecialPricing,
+      specialPricingMap: s.specialPricingMap,
       updateSelectedLinePrice: s.updateSelectedLinePrice,
       updateSelectedLineQuantity: s.updateSelectedLineQuantity,
       removeSelectedLine: s.removeSelectedLine,
@@ -360,11 +400,12 @@ export function usePosScreen(): UsePosScreenState {
     }))
   )
 
-  // Auto-load products on mount (mirrors old useEffect behavior)
+  // Auto-load products and special pricing on mount
   useEffect(() => {
     if (!store.isPreviewMode && store.products.length === 0 && !store.productsLoadError) {
       store.reloadProducts()
     }
+    store.loadSpecialPricing()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const categories = useMemo(() => deriveCategories(store.products), [store.products])
@@ -375,8 +416,14 @@ export function usePosScreen(): UsePosScreenState {
   )
 
   const totals = useMemo(
-    () => deriveCartTotals(store.cart, store.transactionDiscountPercent, store.selectedCartId),
-    [store.cart, store.transactionDiscountPercent, store.selectedCartId]
+    () =>
+      deriveCartTotals(
+        store.cart,
+        store.transactionDiscountPercent,
+        store.selectedCartId,
+        store.specialPricingMap
+      ),
+    [store.cart, store.transactionDiscountPercent, store.selectedCartId, store.specialPricingMap]
   )
 
   return {

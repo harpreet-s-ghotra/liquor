@@ -44,12 +44,14 @@ describe('usePosScreen', () => {
       search: '',
       quantity: '1',
       activeCategory: 'Favorites',
-      transactionDiscountPercent: 0
+      transactionDiscountPercent: 0,
+      specialPricingMap: new Map()
     })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
-      getProducts: async () => mockProducts
+      getProducts: async () => mockProducts,
+      getActiveSpecialPricing: async () => []
     }
   })
 

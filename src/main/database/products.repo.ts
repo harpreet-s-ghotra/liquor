@@ -6,6 +6,7 @@ import type {
   InventoryProductDetail,
   TransactionHistoryItem,
   SpecialPricingRule,
+  ActiveSpecialPricingRule,
   InventoryTaxCode,
   SaveInventoryItemInput
 } from '../../shared/types'
@@ -13,7 +14,7 @@ import type {
 // ── Helpers ──
 
 function normalizeTaxRate(value: number): number {
-  return Number(value.toFixed(4))
+  return Number(value.toFixed(6))
 }
 
 // ── Read queries ──
@@ -94,6 +95,46 @@ export function getInventoryTaxCodes(): InventoryTaxCode[] {
       `
     )
     .all() as InventoryTaxCode[]
+}
+
+export function searchProducts(
+  query: string,
+  filters: { departmentId?: number; vendorNumber?: number } = {}
+): Product[] {
+  const normalizedQuery = query.trim()
+  if (!normalizedQuery) return []
+
+  const conditions = ['p.is_active = 1', '(p.name LIKE @likeQuery OR p.sku LIKE @likeQuery)']
+  const params: Record<string, unknown> = { likeQuery: `%${normalizedQuery}%` }
+
+  if (filters.departmentId != null) {
+    conditions.push('d.id = @departmentId')
+    params.departmentId = filters.departmentId
+  }
+  if (filters.vendorNumber != null) {
+    conditions.push('p.vendor_number = @vendorNumber')
+    params.vendorNumber = filters.vendorNumber
+  }
+
+  return getDb()
+    .prepare(
+      `
+      SELECT
+        p.id,
+        p.sku,
+        p.name,
+        p.category,
+        COALESCE(p.retail_price, p.price) AS price,
+        COALESCE(p.in_stock, p.quantity) AS quantity,
+        COALESCE(p.tax_1, p.tax_rate) AS tax_rate
+      FROM products p
+      LEFT JOIN departments d ON d.name = p.category
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY p.name ASC
+      LIMIT 50
+      `
+    )
+    .all(params) as Product[]
 }
 
 export function searchInventoryProducts(query: string): InventoryProduct[] {
@@ -186,7 +227,10 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
   const taxRates = Array.from(
     new Set(
       [product.tax_1, product.tax_2]
-        .filter((taxRate) => Number.isFinite(taxRate) && taxRate >= 0)
+        .filter(
+          (taxRate) =>
+            taxRate !== null && taxRate !== undefined && Number.isFinite(taxRate) && taxRate >= 0
+        )
         .map((taxRate) => normalizeTaxRate(taxRate))
     )
   )
@@ -232,6 +276,27 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
     sales_history: salesHistory,
     special_pricing: specialPricing
   }
+}
+
+/**
+ * Return all active (non-expired) special pricing rules for POS cart evaluation.
+ * A rule is active if created_at + duration_days >= today.
+ */
+export function getActiveSpecialPricing(): ActiveSpecialPricingRule[] {
+  return getDb()
+    .prepare(
+      `
+      SELECT
+        sp.product_id,
+        sp.quantity,
+        sp.price
+      FROM special_pricing sp
+      INNER JOIN products p ON p.id = sp.product_id AND p.is_active = 1
+      WHERE date(sp.created_at, '+' || sp.duration_days || ' days') >= date('now')
+      ORDER BY sp.product_id, sp.quantity
+      `
+    )
+    .all() as ActiveSpecialPricingRule[]
 }
 
 // ── Write operations ──
@@ -348,8 +413,8 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
   )
 
   const tx = db.transaction((payload: SaveInventoryItemInput) => {
-    const primaryTaxRate = normalizedTaxRates[0] ?? 0
-    const secondaryTaxRate = normalizedTaxRates[1] ?? 0
+    const primaryTaxRate = normalizedTaxRates.length > 0 ? normalizedTaxRates[0] : null
+    const secondaryTaxRate = normalizedTaxRates.length > 1 ? normalizedTaxRates[1] : null
     const hasSpecialPricing = payload.special_pricing.length > 0
 
     const statementPayload = {

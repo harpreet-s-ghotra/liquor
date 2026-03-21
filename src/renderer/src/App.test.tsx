@@ -6,11 +6,15 @@ import { useAuthStore, type AppState } from './store/useAuthStore'
 const mockApi = {
   getMerchantConfig: vi.fn(),
   getCashiers: vi.fn(),
-  getProducts: vi.fn()
+  getProducts: vi.fn(),
+  getDepartments: vi.fn().mockResolvedValue([]),
+  getVendors: vi.fn().mockResolvedValue([])
 }
 
 beforeEach(() => {
   Object.values(mockApi).forEach((fn) => fn.mockReset())
+  mockApi.getDepartments.mockResolvedValue([])
+  mockApi.getVendors.mockResolvedValue([])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(window as any).api = mockApi
   // Prevent initialize() from overwriting our manually-set state

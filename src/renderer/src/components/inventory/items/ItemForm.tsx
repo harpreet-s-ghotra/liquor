@@ -1,8 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AppButton } from '@renderer/components/common/AppButton'
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  forwardRef
+} from 'react'
+import { Button } from '@renderer/components/ui/button'
+import { Input } from '@renderer/components/ui/input'
+import { Label } from '@renderer/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
+import { Checkbox } from '@renderer/components/ui/checkbox'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@renderer/components/ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from '@renderer/components/ui/toggle-group'
 import { FormField } from '@renderer/components/common/FormField'
 import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
-import { TabBar } from '@renderer/components/common/TabBar'
+import { useDebounce } from '@renderer/hooks/useDebounce'
 import type {
   InventoryProduct,
   InventoryProductDetail,
@@ -17,7 +31,6 @@ import {
   normalizeCurrencyForInput,
   parseCurrencyDigitsToDollars
 } from '@renderer/utils/currency'
-import './item-form.css'
 
 type SpecialPricingFormRow = {
   quantity: string
@@ -60,17 +73,30 @@ const emptyFormState: InventoryFormState = {
   case_discount_mode: 'percent'
 }
 
-const itemSubTabs = [
-  { id: 'case-settings', label: 'Case & Quantity' },
-  { id: 'additional-skus', label: 'Additional SKUs' },
-  { id: 'special-pricing', label: 'Special Pricing' },
-  { id: 'sales-history', label: 'Sales History' }
-]
+export type ItemFormHandle = {
+  handleNewItem: () => void
+  handleSave: () => void
+}
 
-export function ItemForm(): React.JSX.Element {
+export type ItemFormButtonState = {
+  canNew: boolean
+  canSave: boolean
+}
+
+type ItemFormProps = {
+  onButtonStateChange?: (state: ItemFormButtonState) => void
+}
+
+export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemForm(
+  { onButtonStateChange },
+  ref
+) {
   const api = typeof window !== 'undefined' ? window.api : undefined
   const [searchTerm, setSearchTerm] = useState('')
-  const [, setInventoryItems] = useState<InventoryProduct[]>([])
+  const [searchResults, setSearchResults] = useState<InventoryProduct[]>([])
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const searchWrapperRef = useRef<HTMLDivElement>(null)
+  const debouncedSearch = useDebounce(searchTerm, 300)
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([])
   const [taxCodeOptions, setTaxCodeOptions] = useState<InventoryTaxCode[]>([])
   const [vendorOptions, setVendorOptions] = useState<Vendor[]>([])
@@ -93,7 +119,7 @@ export function ItemForm(): React.JSX.Element {
     typeof api?.getVendors === 'function'
 
   const normalizedTaxRateOptions = useMemo(
-    () => new Set(taxCodeOptions.map((option) => Number(option.rate.toFixed(4)))),
+    () => new Set(taxCodeOptions.map((option) => Number(option.rate.toFixed(6)))),
     [taxCodeOptions]
   )
 
@@ -101,7 +127,7 @@ export function ItemForm(): React.JSX.Element {
     (rawValue: string): boolean => {
       const parsedRate = Number.parseFloat(rawValue)
       if (Number.isNaN(parsedRate)) return false
-      return normalizedTaxRateOptions.has(Number(parsedRate.toFixed(4)))
+      return normalizedTaxRateOptions.has(Number(parsedRate.toFixed(6)))
     },
     [normalizedTaxRateOptions]
   )
@@ -123,7 +149,7 @@ export function ItemForm(): React.JSX.Element {
     }
     try {
       const results = await api.searchInventoryProducts(query)
-      setInventoryItems(results)
+      setSearchResults(results)
       setErrorMessage(null)
     } catch {
       setErrorMessage('Unable to load inventory results.')
@@ -141,9 +167,8 @@ export function ItemForm(): React.JSX.Element {
       api.getInventoryTaxCodes(),
       api.getVendors()
     ])
-      .then(([results, departments, taxCodes, vendors]) => {
+      .then(([, departments, taxCodes, vendors]) => {
         if (!active) return
-        setInventoryItems(results)
         setDepartmentOptions(departments)
         setTaxCodeOptions(taxCodes)
         setVendorOptions(vendors)
@@ -159,11 +184,46 @@ export function ItemForm(): React.JSX.Element {
     }
   }, [api, hasBackendApi])
 
+  // Debounced search: fire search when debouncedSearch changes
+  useEffect(() => {
+    if (!hasBackendApi || !debouncedSearch.trim()) return
+    let active = true
+    void api!.searchInventoryProducts(debouncedSearch).then((results) => {
+      if (!active) return
+      setSearchResults(results)
+      setShowSearchDropdown(results.length > 0)
+    })
+    return () => {
+      active = false
+    }
+  }, [debouncedSearch, api, hasBackendApi])
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent): void => {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(e.target as Node)) {
+        setShowSearchDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const applyDetailToForm = (detail: InventoryProductDetail): void => {
     const detailTaxRates =
       detail.tax_rates && detail.tax_rates.length > 0
         ? detail.tax_rates
-        : [detail.tax_1, detail.tax_2].filter((taxRate) => Number.isFinite(taxRate) && taxRate >= 0)
+        : [detail.tax_1, detail.tax_2].filter(
+            (taxRate) =>
+              taxRate !== null && taxRate !== undefined && Number.isFinite(taxRate) && taxRate >= 0
+          )
+
+    // Filter out legacy rates (e.g. default 0) that don't match any current tax code option
+    const optionRateStrings = new Set(taxCodeOptions.map((tc) => String(tc.rate)))
+    const filteredTaxRates =
+      taxCodeOptions.length > 0
+        ? detailTaxRates.filter((taxRate) => optionRateStrings.has(String(taxRate)))
+        : detailTaxRates
 
     setSelectedItem(detail)
     setFormState({
@@ -180,7 +240,7 @@ export function ItemForm(): React.JSX.Element {
       retail_price: formatCurrency(detail.retail_price),
       vendor_number: detail.vendor_number != null ? String(detail.vendor_number) : '',
       in_stock: String(detail.in_stock),
-      tax_rates: Array.from(new Set(detailTaxRates.map((taxRate) => String(taxRate)))),
+      tax_rates: Array.from(new Set(filteredTaxRates.map((taxRate) => String(taxRate)))),
       special_pricing: (detail.special_pricing ?? []).map((rule) => ({
         quantity: String(rule.quantity),
         price: formatCurrency(rule.price),
@@ -190,8 +250,9 @@ export function ItemForm(): React.JSX.Element {
       bottles_per_case: String(detail.bottles_per_case ?? 12),
       case_discount_price:
         detail.case_discount_price != null ? formatCurrency(detail.case_discount_price) : '',
-      case_discount_mode:
-        (detail.case_discount_price != null ? 'dollar' : 'percent') as CaseDiscountMode
+      case_discount_mode: (detail.case_discount_price != null
+        ? 'dollar'
+        : 'percent') as CaseDiscountMode
     })
   }
 
@@ -258,6 +319,7 @@ export function ItemForm(): React.JSX.Element {
   }, [departmentOptions, formState, isAllowedTaxRate, taxCodeOptions.length])
 
   const hasFieldErrors = Object.keys(fieldErrors).length > 0
+  const isFormEmpty = !formState.sku.trim() && !formState.item_name.trim()
 
   const parsePayload = (): SaveInventoryItemInput | null => {
     const cost = parseCurrencyDigitsToDollars(formState.cost)
@@ -365,20 +427,33 @@ export function ItemForm(): React.JSX.Element {
 
     try {
       const results = await api.searchInventoryProducts(searchTerm)
-      setInventoryItems(results)
+      setSearchResults(results)
       if (results.length > 0) {
-        const detail = await api.getInventoryProductDetail(results[0].item_number)
-        if (detail) {
-          applyDetailToForm(detail)
-          setShowValidation(false)
-        }
+        setShowSearchDropdown(true)
       } else {
+        setShowSearchDropdown(false)
         setSelectedItem(null)
         setFormState(defaultFormState)
         setErrorMessage('No items found. You can enter a new item above.')
       }
     } catch {
       setErrorMessage('Unable to search inventory.')
+    }
+  }
+
+  const selectSearchResult = async (item: InventoryProduct): Promise<void> => {
+    setShowSearchDropdown(false)
+    setSaveMessage(null)
+    setErrorMessage(null)
+    try {
+      const detail = await api!.getInventoryProductDetail(item.item_number)
+      if (detail) {
+        applyDetailToForm(detail)
+        setShowValidation(false)
+        setSearchTerm(item.sku || item.item_name)
+      }
+    } catch {
+      setErrorMessage('Unable to load item details.')
     }
   }
 
@@ -398,7 +473,7 @@ export function ItemForm(): React.JSX.Element {
     if (formState.tax_rates.length === 0) return 'Select tax codes...'
     return taxCodeOptions
       .filter((tc) => formState.tax_rates.includes(String(tc.rate)))
-      .map((tc) => `${tc.code} (${(tc.rate * 100).toFixed(2)}%)`)
+      .map((tc) => `${tc.code} (${parseFloat((tc.rate * 100).toFixed(4))}%)`)
       .join(', ')
   }, [formState.tax_rates, taxCodeOptions])
 
@@ -488,26 +563,26 @@ export function ItemForm(): React.JSX.Element {
     }))
   }
 
-  return (
-    <div className="item-form">
-      {/* Header actions row */}
-      <div className="item-form__actions">
-        <AppButton size="md" onClick={handleNewItem}>
-          New Item
-        </AppButton>
-        <AppButton
-          size="md"
-          variant="success"
-          onClick={() => void handleSave()}
-          disabled={showValidation && hasFieldErrors}
-        >
-          Save Item
-        </AppButton>
-      </div>
+  useImperativeHandle(ref, () => ({
+    handleNewItem,
+    handleSave: () => void handleSave()
+  }))
 
+  useEffect(() => {
+    onButtonStateChange?.({
+      canNew: !!selectedItem,
+      canSave: !(showValidation && hasFieldErrors)
+    })
+  }, [selectedItem, showValidation, hasFieldErrors, onButtonStateChange])
+
+  return (
+    <div className="h-full grid grid-rows-[auto_1fr_auto_auto] gap-3 overflow-hidden">
       {/* Required fields card */}
-      <section className="item-form__required-section" aria-label="Required Information">
-        <div className="item-form__required-grid">
+      <section
+        className="border border-(--border-default) rounded-(--radius) bg-(--bg-surface) p-3 grid gap-2.5"
+        aria-label="Required Information"
+      >
+        <div className="grid grid-cols-5 gap-2.5">
           {/* Row 1: SKU | Name (span 3) | Department */}
           <FormField label="SKU" required error={fieldErrors.sku} showError={showValidation}>
             <ValidatedInput
@@ -523,7 +598,7 @@ export function ItemForm(): React.JSX.Element {
             required
             error={fieldErrors.item_name}
             showError={showValidation}
-            className="item-form__col-span-3"
+            className="col-span-3"
           >
             <ValidatedInput
               fieldType="name"
@@ -533,45 +608,49 @@ export function ItemForm(): React.JSX.Element {
             />
           </FormField>
           <FormField label="Department" error={fieldErrors.dept_id} showError={showValidation}>
-            <div className="dept-dropdown" aria-label="Department">
-              <button
-                type="button"
-                className="ticket-input dept-dropdown-toggle"
-                onClick={() => setDeptDropdownOpen((open) => !open)}
-                aria-haspopup="listbox"
-                aria-expanded={deptDropdownOpen}
-              >
-                <span className="dept-dropdown-summary">{deptSummary}</span>
-                <span className="dept-dropdown-caret" aria-hidden="true">
-                  &#9662;
-                </span>
-              </button>
-              {deptDropdownOpen && (
-                <ul className="dept-dropdown-menu" role="listbox" aria-label="Department options">
-                  {departmentOptions.map((dept) => {
-                    const checked = formState.dept_ids.includes(dept)
-                    return (
-                      <li key={dept} role="option" aria-selected={checked}>
-                        <label className="dept-dropdown-option">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleDepartment(dept)}
-                          />
-                          {dept}
-                        </label>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
+            <div className="dept-dropdown">
+              <Popover open={deptDropdownOpen} onOpenChange={setDeptDropdownOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center justify-between gap-2 w-full rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-input)] px-2.5 py-2 text-[1.125rem] text-[var(--text-primary)] cursor-pointer text-left focus:border-[var(--accent-blue)] focus:ring-2 focus:ring-[var(--accent-blue)]/50 outline-none"
+                    aria-label="Department"
+                    aria-haspopup="listbox"
+                    aria-expanded={deptDropdownOpen}
+                  >
+                    <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[0.92rem]">
+                      {deptSummary}
+                    </span>
+                    <span className="text-[0.75rem] text-[var(--text-muted)]" aria-hidden="true">
+                      &#9662;
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent>
+                  <ul role="listbox" aria-label="Department options" className="p-0 m-0 list-none">
+                    {departmentOptions.map((dept) => {
+                      const checked = formState.dept_ids.includes(dept)
+                      return (
+                        <li key={dept} role="option" aria-selected={checked}>
+                          <label className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer text-[0.92rem] text-[var(--text-primary)] font-semibold rounded-[var(--radius)] mx-1">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleDepartment(dept)}
+                            />
+                            {dept}
+                          </label>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </PopoverContent>
+              </Popover>
             </div>
           </FormField>
 
           {/* Row 2: Cost | Price Charged | In Stock | Tax Codes | Vendor */}
           <FormField label="Cost" required error={fieldErrors.cost} showError={showValidation}>
-            <input
-              className="ticket-input"
+            <Input
               aria-label="Cost"
               inputMode="numeric"
               value={formState.cost}
@@ -584,21 +663,20 @@ export function ItemForm(): React.JSX.Element {
             error={fieldErrors.retail_price}
             showError={showValidation}
           >
-            <div className="item-form__price-wrapper">
-              <input
-                className="ticket-input"
+            <div className="relative">
+              <Input
                 aria-label="Price Charged"
                 inputMode="numeric"
                 value={formState.retail_price}
                 onChange={(event) => updateCurrencyField('retail_price', event.target.value)}
               />
               {markupSuggestions.length > 0 && (
-                <div className="item-form__markup-hints">
+                <div className="absolute top-full left-0 right-0 flex flex-wrap gap-1.5 mt-0.5 z-5">
                   {markupSuggestions.map((s) => (
                     <button
                       key={s.label}
                       type="button"
-                      className="item-form__markup-chip"
+                      className="border border-[var(--border-soft)] bg-[var(--bg-surface-soft)] text-[var(--text-primary)] text-[0.78rem] font-semibold px-2 py-0.5 rounded-full cursor-pointer whitespace-nowrap"
                       onClick={() =>
                         updateCurrencyField('retail_price', String(Math.round(s.price * 100)))
                       }
@@ -624,44 +702,49 @@ export function ItemForm(): React.JSX.Element {
             />
           </FormField>
           <FormField label="Tax Codes" error={fieldErrors.tax_rates} showError={showValidation}>
-            <div className="tax-dropdown" aria-label="Tax Codes">
-              <button
-                type="button"
-                className="ticket-input tax-dropdown-toggle"
-                onClick={() => setTaxDropdownOpen((open) => !open)}
-                aria-haspopup="listbox"
-                aria-expanded={taxDropdownOpen}
-              >
-                <span className="tax-dropdown-summary">{taxRateSummary}</span>
-                <span className="tax-dropdown-caret" aria-hidden="true">
-                  &#9662;
-                </span>
-              </button>
-              {taxDropdownOpen && (
-                <ul className="tax-dropdown-menu" role="listbox" aria-label="Tax code options">
-                  {taxCodeOptions.map((taxCode) => {
-                    const rateStr = String(taxCode.rate)
-                    const checked = formState.tax_rates.includes(rateStr)
-                    return (
-                      <li key={taxCode.code} role="option" aria-selected={checked}>
-                        <label className="tax-dropdown-option">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleTaxRate(rateStr)}
-                          />
-                          {taxCode.code} ({(taxCode.rate * 100).toFixed(2)}%)
-                        </label>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
+            <div className="tax-dropdown">
+              <Popover open={taxDropdownOpen} onOpenChange={setTaxDropdownOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center justify-between gap-2 w-full rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-input)] px-2.5 py-2 text-[1.125rem] text-[var(--text-primary)] cursor-pointer text-left focus:border-[var(--accent-blue)] focus:ring-2 focus:ring-[var(--accent-blue)]/50 outline-none"
+                    aria-label="Tax Codes"
+                    aria-haspopup="listbox"
+                    aria-expanded={taxDropdownOpen}
+                  >
+                    <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[0.92rem]">
+                      {taxRateSummary}
+                    </span>
+                    <span className="text-[0.75rem] text-[var(--text-muted)]" aria-hidden="true">
+                      &#9662;
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent>
+                  <ul role="listbox" aria-label="Tax code options" className="p-0 m-0 list-none">
+                    {taxCodeOptions.map((taxCode) => {
+                      const rateStr = String(taxCode.rate)
+                      const checked = formState.tax_rates.includes(rateStr)
+                      return (
+                        <li key={taxCode.code} role="option" aria-selected={checked}>
+                          <label className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer text-[0.92rem] text-[var(--text-primary)] font-semibold rounded-[var(--radius)] mx-1">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleTaxRate(rateStr)}
+                            />
+                            {taxCode.code} ({parseFloat((taxCode.rate * 100).toFixed(4))}%)
+                          </label>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </PopoverContent>
+              </Popover>
             </div>
           </FormField>
           <FormField label="Vendor">
             <select
-              className="ticket-input"
+              className="flex w-full rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-input)] px-2.5 py-2 text-[1.125rem] text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)] focus:ring-2 focus:ring-[var(--accent-blue)]/50"
               aria-label="Vendor"
               value={formState.vendor_number}
               onChange={(event) =>
@@ -680,281 +763,324 @@ export function ItemForm(): React.JSX.Element {
       </section>
 
       {/* Tabs section */}
-      <section className="item-form__tabs-section">
-        <TabBar tabs={itemSubTabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <Tabs
+        defaultValue="case-settings"
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="min-h-0 grid grid-rows-[auto_1fr] border border-[var(--border-default)] rounded-[var(--radius)] bg-[var(--bg-surface)] overflow-hidden"
+      >
+        <TabsList>
+          <TabsTrigger value="case-settings" disabled={isFormEmpty}>
+            Case &amp; Quantity
+          </TabsTrigger>
+          <TabsTrigger value="additional-skus" disabled={isFormEmpty}>
+            Additional SKUs
+          </TabsTrigger>
+          <TabsTrigger value="special-pricing" disabled={isFormEmpty}>
+            Special Pricing
+          </TabsTrigger>
+          <TabsTrigger value="sales-history" disabled={isFormEmpty}>
+            Sales History
+          </TabsTrigger>
+        </TabsList>
 
-        <div className="item-form__tab-content" role="tabpanel">
-          {activeTab === 'case-settings' && (
-            <div className="item-form__tab-panel">
-              <div className="item-form__case-grid">
-                <FormField label="Bottles Per Case">
-                  <ValidatedInput
-                    fieldType="integer"
-                    aria-label="Bottles Per Case"
-                    value={formState.bottles_per_case}
-                    onChange={(value) =>
-                      setFormState((current) => ({ ...current, bottles_per_case: value }))
-                    }
-                    placeholder="e.g. 12"
-                  />
-                </FormField>
-                <FormField
-                  label={
-                    formState.case_discount_mode === 'percent'
-                      ? 'Case Discount (%)'
-                      : 'Case Discount Price ($)'
+        <div className="min-h-0 overflow-auto">
+          <TabsContent value="case-settings" className="p-3 grid gap-2 content-start">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Bottles Per Case">
+                <ValidatedInput
+                  fieldType="integer"
+                  aria-label="Bottles Per Case"
+                  value={formState.bottles_per_case}
+                  onChange={(value) =>
+                    setFormState((current) => ({ ...current, bottles_per_case: value }))
                   }
-                >
-                  <div className="item-form__case-discount-row">
-                    <button
-                      type="button"
-                      className={`item-form__mode-toggle ${formState.case_discount_mode === 'percent' ? 'item-form__mode-toggle--active' : ''}`}
-                      aria-label="Switch to percent mode"
-                      aria-pressed={formState.case_discount_mode === 'percent'}
-                      onClick={() =>
-                        setFormState((current) => ({
-                          ...current,
-                          case_discount_mode: 'percent' as CaseDiscountMode,
-                          case_discount_price: ''
-                        }))
-                      }
-                    >
-                      %
-                    </button>
-                    <button
-                      type="button"
-                      className={`item-form__mode-toggle ${formState.case_discount_mode === 'dollar' ? 'item-form__mode-toggle--active' : ''}`}
-                      aria-label="Switch to dollar mode"
-                      aria-pressed={formState.case_discount_mode === 'dollar'}
-                      onClick={() =>
-                        setFormState((current) => ({
-                          ...current,
-                          case_discount_mode: 'dollar' as CaseDiscountMode,
-                          case_discount_price: ''
-                        }))
-                      }
-                    >
-                      $
-                    </button>
-                    {formState.case_discount_mode === 'percent' ? (
-                      <input
-                        className="ticket-input"
-                        aria-label="Case Discount Percent"
-                        inputMode="decimal"
-                        value={formState.case_discount_price}
-                        onChange={(event) => {
-                          const raw = event.target.value.replace(/[^0-9.]/g, '')
-                          setFormState((current) => ({ ...current, case_discount_price: raw }))
-                        }}
-                        placeholder="e.g. 10"
-                      />
-                    ) : (
-                      <input
-                        className="ticket-input"
-                        aria-label="Case Discount Price"
-                        inputMode="numeric"
-                        value={formState.case_discount_price}
-                        onChange={(event) =>
-                          updateCurrencyField('case_discount_price', event.target.value)
-                        }
-                        placeholder="e.g. $199.99"
-                      />
-                    )}
-                  </div>
-                </FormField>
-              </div>
-              <p className="item-form__case-hint">
-                Set the number of bottles in a case to enable case-level inventory and pricing.
-                {formState.case_discount_mode === 'percent'
-                  ? ' Enter the discount percentage off the full case price.'
-                  : ' The case discount price is the total price when selling a full case.'}
-              </p>
-            </div>
-          )}
-          {activeTab === 'additional-skus' && (
-            <div className="item-form__tab-panel">
-              <div className="item-form__inline-row">
-                <input
-                  className="ticket-input"
-                  aria-label="Additional SKU Input"
-                  placeholder="Enter additional SKU..."
-                  value={additionalSkuInput}
-                  onChange={(event) => setAdditionalSkuInput(event.target.value)}
+                  placeholder="e.g. 12"
                 />
-                <AppButton size="sm" onClick={addAdditionalSku}>
-                  Add Additional SKU
-                </AppButton>
-              </div>
-              {formState.additional_skus.length > 0 && (
-                <ul className="item-form__sku-list">
-                  {formState.additional_skus.map((sku) => (
-                    <li key={sku}>
-                      <span>{sku}</span>
-                      <AppButton
-                        size="sm"
-                        variant="neutral"
-                        onClick={() => removeAdditionalSku(sku)}
-                      >
-                        Remove
-                      </AppButton>
-                    </li>
+              </FormField>
+              <FormField label="Case Discount">
+                <div className="flex items-stretch">
+                  {formState.case_discount_mode === 'percent' ? (
+                    <Input
+                      className="flex-1 min-w-0 rounded-r-none! border-r-0!"
+                      aria-label="Case Discount Percent"
+                      inputMode="decimal"
+                      value={formState.case_discount_price}
+                      onChange={(event) => {
+                        const raw = event.target.value.replace(/[^0-9.]/g, '')
+                        setFormState((current) => ({ ...current, case_discount_price: raw }))
+                      }}
+                      placeholder="e.g. 10"
+                    />
+                  ) : (
+                    <Input
+                      className="flex-1 min-w-0 rounded-r-none! border-r-0!"
+                      aria-label="Case Discount Price"
+                      inputMode="numeric"
+                      value={formState.case_discount_price}
+                      onChange={(event) =>
+                        updateCurrencyField('case_discount_price', event.target.value)
+                      }
+                      placeholder="e.g. $199.99"
+                    />
+                  )}
+                  <ToggleGroup
+                    type="single"
+                    value={formState.case_discount_mode}
+                    onValueChange={(val) => {
+                      if (val) {
+                        setFormState((current) => ({
+                          ...current,
+                          case_discount_mode: val as CaseDiscountMode,
+                          case_discount_price: ''
+                        }))
+                      }
+                    }}
+                  >
+                    <ToggleGroupItem value="percent" aria-label="Switch to percent mode">
+                      %
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="dollar" aria-label="Switch to dollar mode">
+                      $
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+              </FormField>
+            </div>
+            <p className="m-0 text-[0.82rem] text-[var(--text-muted)] italic">
+              Set the number of bottles in a case to enable case-level inventory and pricing.
+              {formState.case_discount_mode === 'percent'
+                ? ' Enter the discount percentage off the full case price.'
+                : ' The case discount price is the total price when selling a full case.'}
+            </p>
+          </TabsContent>
+
+          <TabsContent value="additional-skus" className="p-3 grid gap-2 content-start">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+              <Input
+                aria-label="Additional SKU Input"
+                placeholder="Enter additional SKU..."
+                value={additionalSkuInput}
+                onChange={(event) => setAdditionalSkuInput(event.target.value)}
+              />
+              <Button size="sm" onClick={addAdditionalSku}>
+                Add Additional SKU
+              </Button>
+            </div>
+            {formState.additional_skus.length > 0 && (
+              <ul className="m-0 p-0 list-none grid gap-1">
+                {formState.additional_skus.map((sku) => (
+                  <li
+                    key={sku}
+                    className="flex justify-between items-center gap-1.5 py-1 border-b border-[var(--border-soft)] text-[var(--text-primary)] font-semibold text-[0.92rem]"
+                  >
+                    <span>{sku}</span>
+                    <Button size="sm" variant="neutral" onClick={() => removeAdditionalSku(sku)}>
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </TabsContent>
+
+          <TabsContent value="special-pricing" className="p-3 grid gap-2 content-start">
+            <div className="flex items-center justify-between gap-3">
+              <Label>
+                Set quantity-based pricing deals (e.g. 2 bottles for $19.99 for 20 days)
+              </Label>
+              <Button size="sm" onClick={addSpecialPricingRow}>
+                Add Rule
+              </Button>
+            </div>
+            {formState.special_pricing.length === 0 ? (
+              <p className="m-0 text-[var(--text-muted)] italic">
+                No special pricing rules. Click &quot;Add Rule&quot; to create one.
+              </p>
+            ) : (
+              <table className="w-full border-collapse" aria-label="Special Pricing Rules">
+                <thead>
+                  <tr>
+                    <th className="text-left text-[0.85rem] font-bold text-[var(--text-primary)] px-2 py-1.5 border-b border-[var(--border-soft)]">
+                      Quantity
+                    </th>
+                    <th className="text-left text-[0.85rem] font-bold text-[var(--text-primary)] px-2 py-1.5 border-b border-[var(--border-soft)]">
+                      Price
+                    </th>
+                    <th className="text-left text-[0.85rem] font-bold text-[var(--text-primary)] px-2 py-1.5 border-b border-[var(--border-soft)]">
+                      Duration (days)
+                    </th>
+                    <th className="px-2 py-1.5 border-b border-[var(--border-soft)]"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formState.special_pricing.map((row, index) => (
+                    <tr key={index}>
+                      <td className="px-2 py-1.5">
+                        <Input
+                          aria-label={`Rule ${index + 1} Quantity`}
+                          inputMode="numeric"
+                          placeholder="e.g. 2"
+                          value={row.quantity}
+                          onChange={(e) =>
+                            updateSpecialPricingRow(index, 'quantity', e.target.value)
+                          }
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input
+                          aria-label={`Rule ${index + 1} Price`}
+                          inputMode="numeric"
+                          placeholder="e.g. $19.99 total"
+                          value={row.price}
+                          onChange={(e) => updateSpecialPricingRow(index, 'price', e.target.value)}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input
+                          aria-label={`Rule ${index + 1} Duration`}
+                          inputMode="numeric"
+                          placeholder="e.g. 20"
+                          value={row.duration_days}
+                          onChange={(e) =>
+                            updateSpecialPricingRow(index, 'duration_days', e.target.value)
+                          }
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Button
+                          size="sm"
+                          variant="neutral"
+                          onClick={() => removeSpecialPricingRow(index)}
+                        >
+                          Remove
+                        </Button>
+                      </td>
+                    </tr>
                   ))}
-                </ul>
-              )}
-            </div>
-          )}
+                </tbody>
+              </table>
+            )}
+          </TabsContent>
 
-          {activeTab === 'special-pricing' && (
-            <div className="item-form__tab-panel">
-              <div className="item-form__special-pricing-header">
-                <span className="form-field__label">
-                  Set quantity-based pricing deals (e.g. 2 bottles for $19.99 for 20 days)
-                </span>
-                <AppButton size="sm" onClick={addSpecialPricingRow}>
-                  Add Rule
-                </AppButton>
-              </div>
-              {formState.special_pricing.length === 0 ? (
-                <p className="item-form__empty-state">
-                  No special pricing rules. Click &quot;Add Rule&quot; to create one.
-                </p>
-              ) : (
-                <table
-                  className="item-form__special-pricing-table"
-                  aria-label="Special Pricing Rules"
-                >
-                  <thead>
-                    <tr>
-                      <th>Quantity</th>
-                      <th>Price</th>
-                      <th>Duration (days)</th>
-                      <th></th>
+          <TabsContent value="sales-history" className="p-3 grid gap-2 content-start">
+            {!selectedItem || selectedItem.sales_history.length === 0 ? (
+              <p className="m-0 text-[var(--text-muted)] italic">No sales history found</p>
+            ) : (
+              <table className="w-full border-collapse text-[0.85rem]">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                      Date
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                      Txn #
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                      Qty
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                      Price
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                      Total
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                      Payment
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedItem.sales_history.map((h) => (
+                    <tr key={`${h.transaction_id}-${h.created_at}`}>
+                      <td className="px-2 py-1.5 border-b border-[var(--border-default)]">
+                        {new Date(h.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-2 py-1.5 border-b border-[var(--border-default)] font-mono text-[0.8rem]">
+                        {h.transaction_number ?? `#${h.transaction_id}`}
+                      </td>
+                      <td className="px-2 py-1.5 border-b border-[var(--border-default)]">
+                        {h.quantity}
+                      </td>
+                      <td className="px-2 py-1.5 border-b border-[var(--border-default)]">
+                        {formatCurrency(h.unit_price)}
+                      </td>
+                      <td className="px-2 py-1.5 border-b border-[var(--border-default)]">
+                        {formatCurrency(h.total_price)}
+                      </td>
+                      <td className="px-2 py-1.5 border-b border-[var(--border-default)]">
+                        {h.payment_method ?? '—'}
+                        {h.card_type && h.card_last_four && (
+                          <span className="text-[var(--text-muted)] text-[0.8rem]">
+                            {' '}
+                            ({h.card_type} ****{h.card_last_four})
+                          </span>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {formState.special_pricing.map((row, index) => (
-                      <tr key={index}>
-                        <td>
-                          <input
-                            className="ticket-input"
-                            aria-label={`Rule ${index + 1} Quantity`}
-                            inputMode="numeric"
-                            placeholder="e.g. 2"
-                            value={row.quantity}
-                            onChange={(e) =>
-                              updateSpecialPricingRow(index, 'quantity', e.target.value)
-                            }
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className="ticket-input"
-                            aria-label={`Rule ${index + 1} Price`}
-                            inputMode="numeric"
-                            placeholder="e.g. $19.99"
-                            value={row.price}
-                            onChange={(e) =>
-                              updateSpecialPricingRow(index, 'price', e.target.value)
-                            }
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className="ticket-input"
-                            aria-label={`Rule ${index + 1} Duration`}
-                            inputMode="numeric"
-                            placeholder="e.g. 20"
-                            value={row.duration_days}
-                            onChange={(e) =>
-                              updateSpecialPricingRow(index, 'duration_days', e.target.value)
-                            }
-                          />
-                        </td>
-                        <td>
-                          <AppButton
-                            size="sm"
-                            variant="neutral"
-                            onClick={() => removeSpecialPricingRow(index)}
-                          >
-                            Remove
-                          </AppButton>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'sales-history' && (
-            <div className="item-form__tab-panel">
-              {!selectedItem || selectedItem.sales_history.length === 0 ? (
-                <p className="item-form__empty-state">No sales history found</p>
-              ) : (
-                <table className="item-form__history-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Txn #</th>
-                      <th>Qty</th>
-                      <th>Price</th>
-                      <th>Total</th>
-                      <th>Payment</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedItem.sales_history.map((h) => (
-                      <tr key={`${h.transaction_id}-${h.created_at}`}>
-                        <td>{new Date(h.created_at).toLocaleDateString()}</td>
-                        <td className="item-form__history-txn">
-                          {h.transaction_number ?? `#${h.transaction_id}`}
-                        </td>
-                        <td>{h.quantity}</td>
-                        <td>{formatCurrency(h.unit_price)}</td>
-                        <td>{formatCurrency(h.total_price)}</td>
-                        <td>
-                          {h.payment_method ?? '—'}
-                          {h.card_type && h.card_last_four && (
-                            <span className="item-form__history-card">
-                              {' '}
-                              ({h.card_type} ****{h.card_last_four})
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </TabsContent>
         </div>
-      </section>
+      </Tabs>
 
       {/* Status messages */}
-      <div className="item-form__status-strip">
-        {saveMessage && <p className="item-form__message success">{saveMessage}</p>}
-        {errorMessage && <p className="item-form__message error">{errorMessage}</p>}
+      <div className="min-h-[1.5rem] grid gap-1 content-start">
+        {saveMessage && (
+          <p className="m-0 text-[0.95rem] font-semibold text-[var(--semantic-success-text)]">
+            {saveMessage}
+          </p>
+        )}
+        {errorMessage && (
+          <p className="m-0 text-[0.95rem] font-semibold text-[var(--semantic-danger-text)]">
+            {errorMessage}
+          </p>
+        )}
       </div>
 
       {/* Bottom search bar */}
-      <div className="item-form__search-bar">
-        <span className="form-field__label">Item Lookup</span>
-        <input
-          className="ticket-input"
-          aria-label="Search Inventory"
-          placeholder="Scan or enter SKU to look up item..."
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') void handleSearch()
-          }}
-        />
-        <AppButton size="md" onClick={() => void handleSearch()}>
-          Search
-        </AppButton>
+      <div ref={searchWrapperRef} className="relative">
+        <div className="grid grid-cols-[auto_1fr_auto] gap-2 items-center border border-[var(--border-default)] rounded-[var(--radius)] bg-[var(--bg-surface)] px-3 py-2">
+          <Label className="whitespace-nowrap">Item Lookup</Label>
+          <Input
+            aria-label="Search Inventory"
+            placeholder="Scan or enter SKU / name to look up item..."
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            onFocus={() => {
+              if (searchResults.length > 0 && searchTerm.trim()) setShowSearchDropdown(true)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void handleSearch()
+              if (event.key === 'Escape') setShowSearchDropdown(false)
+            }}
+          />
+          <Button size="md" onClick={() => void handleSearch()}>
+            Search
+          </Button>
+        </div>
+        {showSearchDropdown && searchResults.length > 0 && searchTerm.trim() && (
+          <ul
+            role="listbox"
+            className="absolute bottom-full left-0 right-0 z-50 max-h-48 overflow-y-auto rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-lg mb-1"
+          >
+            {searchResults.map((item) => (
+              <li
+                key={item.item_number}
+                role="option"
+                aria-selected={false}
+                className="px-3 py-1.5 cursor-pointer text-sm hover:bg-[var(--bg-hover)] flex justify-between items-center"
+                onMouseDown={() => void selectSearchResult(item)}
+              >
+                <span className="truncate font-medium">{item.item_name}</span>
+                <span className="ml-2 text-[var(--text-muted)] text-xs shrink-0">{item.sku}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )
-}
+})

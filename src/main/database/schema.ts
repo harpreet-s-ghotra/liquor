@@ -161,6 +161,14 @@ export function initializeDatabase(userDataPath: string): void {
   ensureColumn('products', 'special_pricing_enabled', 'special_pricing_enabled INTEGER DEFAULT 0')
   ensureColumn('products', 'special_price', 'special_price REAL')
 
+  // Special pricing column migrations
+  ensureColumn('special_pricing', 'pricing_type', "pricing_type TEXT DEFAULT 'group'")
+
+  // Department column migrations
+  ensureColumn('departments', 'description', 'description TEXT')
+  ensureColumn('departments', 'default_profit_margin', 'default_profit_margin REAL DEFAULT 0')
+  ensureColumn('departments', 'default_tax_rate', 'default_tax_rate REAL DEFAULT 0')
+
   // ── Indexes ──
 
   database.exec(`

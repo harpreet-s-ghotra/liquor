@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PaymentEntry, PaymentMethod, PaymentResult, PaymentStatus } from '../../types/pos'
 import type { TerminalChargeInput } from '../../../../shared/types'
-import './payment-modal.css'
+import { Button } from '../ui/button'
+import { cn } from '../../lib/utils'
 
 type PaymentModalProps = {
   isOpen: boolean
@@ -213,35 +214,51 @@ export function PaymentModal({
   }
 
   return (
-    <div className="payment-modal-backdrop" data-testid="payment-modal">
-      <div className="payment-modal" role="dialog" aria-modal="true" aria-label="Payment">
+    <div
+      className="absolute inset-0 z-30 grid place-items-center bg-[color-mix(in_srgb,var(--bg-shell)_70%,transparent)] p-3"
+      data-testid="payment-modal"
+    >
+      <div
+        className="grid w-[min(60rem,100%)] h-[min(90vh,50rem)] gap-3 rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-3 shadow-lg"
+        style={{ gridTemplateRows: 'auto auto 1fr' }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Payment"
+      >
         {/* Header */}
-        <div className="payment-header">
-          <h3>Payment</h3>
-          <button
-            type="button"
-            className="payment-close-btn"
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="m-0 text-2xl font-bold text-[var(--text-on-dark)]">Payment</h3>
+          <Button
+            variant="danger"
+            size="sm"
+            className="px-5 min-h-[2.75rem] text-lg"
             onClick={handleCancel}
             disabled={status === 'processing-card'}
           >
             Cancel
-          </button>
+          </Button>
         </div>
 
         {/* Transaction total */}
-        <div className="payment-total-bar">
+        <div className="payment-total-bar flex items-center justify-between rounded-[var(--radius)] bg-[var(--totals-bg)] px-4 py-3 text-[1.375rem] font-bold text-[var(--totals-text)]">
           <span>Transaction Total</span>
-          <strong>${total.toFixed(2)}</strong>
+          <strong className="text-[2rem]">${total.toFixed(2)}</strong>
         </div>
 
         {/* Main body: left = methods & info, right = paid-so-far log */}
-        <div className="payment-body">
-          <div className="payment-left">
+        <div
+          className="grid min-h-0 gap-3 overflow-hidden"
+          style={{ gridTemplateColumns: '1fr 18rem' }}
+        >
+          <div
+            className="grid min-h-0 gap-3 overflow-hidden"
+            style={{ gridTemplateRows: 'auto auto 1fr' }}
+          >
             {/* Quick payment buttons */}
-            <div className="payment-methods">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                className="payment-method-btn cash"
+                className="rounded-[var(--radius)] border-none min-h-[4.5rem] text-[1.375rem] font-bold cursor-pointer shadow-[var(--shadow-xs)] bg-[var(--pay-cash-bg)] text-[var(--pay-cash-text)] disabled:opacity-55 disabled:cursor-not-allowed"
                 onClick={handleCashExact}
                 disabled={status === 'processing-card' || status === 'complete' || remaining <= 0}
               >
@@ -249,7 +266,7 @@ export function PaymentModal({
               </button>
               <button
                 type="button"
-                className="payment-method-btn credit"
+                className="rounded-[var(--radius)] border-none min-h-[4.5rem] text-[1.375rem] font-bold cursor-pointer shadow-[var(--shadow-xs)] bg-[var(--pay-credit-bg)] text-[var(--pay-credit-text)] disabled:opacity-55 disabled:cursor-not-allowed"
                 onClick={() => handleCardPayment('credit')}
                 disabled={status === 'processing-card' || status === 'complete' || remaining <= 0}
               >
@@ -257,7 +274,7 @@ export function PaymentModal({
               </button>
               <button
                 type="button"
-                className="payment-method-btn debit"
+                className="rounded-[var(--radius)] border-none min-h-[4.5rem] text-[1.375rem] font-bold cursor-pointer shadow-[var(--shadow-xs)] bg-[var(--pay-debit-bg)] text-[var(--pay-debit-text)] disabled:opacity-55 disabled:cursor-not-allowed"
                 onClick={() => handleCardPayment('debit')}
                 disabled={status === 'processing-card' || status === 'complete' || remaining <= 0}
               >
@@ -266,88 +283,115 @@ export function PaymentModal({
             </div>
 
             {/* Status area */}
-            <div className="payment-status-area">
+            <div className="flex items-center gap-3 rounded-[var(--radius)] bg-[var(--border-strong)] px-4 py-2.5 text-xl font-semibold text-[var(--text-on-dark)] min-h-12">
               {/* Card error */}
               {cardError && status !== 'processing-card' && (
-                <div className="card-entry-error" data-testid="card-error">
+                <div className="text-sm font-semibold text-[var(--error)]" data-testid="card-error">
                   <span>{cardError}</span>
-                  <div className="card-error-actions">
-                    <button
-                      type="button"
-                      className="app-btn app-btn--neutral app-btn--sm"
+                  <div className="flex gap-2 mt-1">
+                    <Button
+                      variant="neutral"
+                      size="sm"
                       data-testid="card-retry-btn"
                       onClick={() => setCardError('')}
                     >
                       Dismiss
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
 
               {status === 'processing-card' && (
-                <div className="payment-processing" data-testid="payment-processing">
-                  <span className="processing-spinner" />
+                <div
+                  className="flex items-center gap-2 text-[var(--accent-blue)]"
+                  data-testid="payment-processing"
+                >
+                  <span className="inline-block w-[1.125rem] h-[1.125rem] border-[3px] border-[var(--accent-blue)] border-t-transparent rounded-full animate-spin" />
                   Waiting for card machine...
                 </div>
               )}
               {status === 'complete' && (
-                <div className="payment-complete" data-testid="payment-complete">
+                <div
+                  className="flex items-center justify-between gap-4 w-full font-bold text-[var(--semantic-success-on-dark)]"
+                  data-testid="payment-complete"
+                >
                   <span>Payment complete! {change > 0 && `Change: $${change.toFixed(2)}`}</span>
-                  <button
-                    type="button"
-                    className="payment-ok-btn"
+                  <Button
+                    variant="success"
+                    className="px-8 min-h-[2.75rem] text-xl whitespace-nowrap"
                     data-testid="payment-ok-btn"
                     onClick={handleOk}
                   >
                     OK
-                  </button>
+                  </Button>
                 </div>
               )}
               {(status === 'idle' || status === 'collecting') && remaining > 0 && !cardError && (
-                <div className="payment-remaining" data-testid="payment-remaining">
-                  Remaining: <strong>${remaining.toFixed(2)}</strong>
+                <div data-testid="payment-remaining">
+                  Remaining: <strong className="text-2xl">${remaining.toFixed(2)}</strong>
                 </div>
               )}
               {(status === 'idle' || status === 'collecting') && isFullyPaid && change > 0 && (
-                <div className="payment-change" data-testid="payment-change">
-                  Change Due: <strong>${change.toFixed(2)}</strong>
+                <div
+                  className="text-[var(--semantic-success-on-dark)]"
+                  data-testid="payment-change"
+                >
+                  Change Due: <strong className="text-2xl">${change.toFixed(2)}</strong>
                 </div>
               )}
             </div>
 
             {/* Tender denomination buttons */}
-            <div className="payment-tenders">
-              <span className="tender-label">Tenders</span>
-              <div className="tender-grid">
+            <div className="grid gap-2 content-start overflow-auto">
+              <span className="text-base font-bold text-[var(--text-on-dark)] py-1">Tenders</span>
+              <div className="grid grid-cols-4 gap-2">
                 {TENDER_DENOMINATIONS.map((denomination) => (
-                  <button
+                  <Button
                     key={denomination}
-                    type="button"
-                    className="tender-btn"
+                    className="min-h-16 text-[1.375rem] font-bold"
                     onClick={() => addTender(denomination)}
                     disabled={
                       status === 'processing-card' || status === 'complete' || remaining <= 0
                     }
                   >
                     ${denomination}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
           </div>
 
           {/* Right panel: paid-so-far log */}
-          <div className="payment-right">
-            <div className="paid-so-far-header">
+          <div
+            className="grid min-h-0 overflow-hidden rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg-shell)]"
+            style={{ gridTemplateRows: 'auto 1fr' }}
+          >
+            <div className="flex items-center justify-between rounded-t-[var(--radius)] border-b border-[var(--border-strong)] bg-[var(--totals-bg)] px-3 py-2.5 text-lg font-bold text-[var(--totals-text)]">
               <span>Paid So Far</span>
-              <strong>${paidSoFar.toFixed(2)}</strong>
+              <strong className="text-[1.375rem]">${paidSoFar.toFixed(2)}</strong>
             </div>
-            <div className="paid-so-far-list" data-testid="paid-so-far-list">
+            <div
+              className="grid gap-1.5 content-start overflow-auto p-2"
+              data-testid="paid-so-far-list"
+            >
               {payments.length === 0 ? (
-                <div className="paid-so-far-empty">No payments yet</div>
+                <div className="p-2 text-[0.9375rem] text-[var(--text-muted-on-dark)]">
+                  No payments yet
+                </div>
               ) : (
                 payments.map((entry) => (
-                  <div key={entry.id} className={`paid-entry paid-entry-${entry.method}`}>
+                  <div
+                    key={entry.id}
+                    className={cn(
+                      'paid-entry rounded-[var(--radius)] border-none px-2.5 py-2 text-base font-semibold',
+                      entry.method === 'cash' &&
+                        'bg-[var(--pay-cash-bg)] text-[var(--pay-cash-text)]',
+                      entry.method === 'credit' &&
+                        'bg-[var(--pay-credit-bg)] text-[var(--pay-credit-text)]',
+                      entry.method === 'debit' &&
+                        'bg-[var(--pay-debit-bg)] text-[var(--pay-debit-text)]'
+                    )}
+                  >
                     <span>{entry.label}</span>
                   </div>
                 ))

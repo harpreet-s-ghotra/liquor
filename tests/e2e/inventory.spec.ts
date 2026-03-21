@@ -207,34 +207,39 @@ test.describe('Inventory Management', () => {
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill(sku)
     await page.getByLabel('Name').fill(name)
     // Open department dropdown and select '11'
-    const deptDropdown = page.locator('.dept-dropdown')
-    await deptDropdown.locator('button').click()
-    await deptDropdown.locator('li', { hasText: '11' }).locator('input[type="checkbox"]').check()
-    await deptDropdown.locator('button').click()
+    const deptTrigger = page.getByRole('button', { name: 'Department' })
+    await deptTrigger.click()
+    const deptListbox = page.getByRole('listbox', { name: 'Department options' })
+    const deptCheckbox = deptListbox.locator('li', { hasText: '11' }).getByRole('checkbox')
+    if ((await deptCheckbox.getAttribute('aria-checked')) !== 'true') {
+      await deptCheckbox.click()
+    }
+    await deptTrigger.click()
     await page.getByLabel('Cost').fill('9.99')
     await page.getByLabel('Price Charged').fill('15.99')
     await page.getByLabel('In Stock').fill('8')
 
     // Open tax codes dropdown and select both rates
-    const taxContainer = page.getByLabel('Tax Codes')
-    await taxContainer.getByRole('button').click()
-    const taxOptions = taxContainer.getByRole('option')
+    const taxTrigger = page.getByRole('button', { name: 'Tax Codes' })
+    await taxTrigger.click()
+    const taxListbox = page.getByRole('listbox', { name: 'Tax code options' })
+    const taxOptions = taxListbox.getByRole('option')
     for (const opt of await taxOptions.all()) {
       const checkbox = opt.getByRole('checkbox')
-      if (!(await checkbox.isChecked())) {
-        await checkbox.check()
+      if ((await checkbox.getAttribute('aria-checked')) !== 'true') {
+        await checkbox.click()
       }
     }
     // Close dropdown by clicking toggle again
-    await taxContainer.getByRole('button').click()
+    await taxTrigger.click()
 
     // Navigate to Additional SKUs tab (default is now Case & Quantity)
-    await page.getByRole('tab', { name: 'Additional SKUs' }).click()
+    await page.getByRole('tab', { name: 'Additional SKUs' }).focus()
     await page.getByLabel('Additional SKU Input').fill(`${sku}-ALT-1`)
     await page.getByRole('button', { name: 'Add Additional SKU' }).click()
 
     // Switch to Special Pricing tab and add a rule
-    await page.getByRole('tab', { name: 'Special Pricing' }).click()
+    await page.getByRole('tab', { name: 'Special Pricing' }).focus()
     await page.getByRole('button', { name: 'Add Rule' }).click()
     await page.getByLabel('Rule 1 Quantity').fill('2')
     await page.getByLabel('Rule 1 Price').fill('1399')

@@ -3,7 +3,7 @@ import { TAX_CODE_MAX_LENGTH } from '../../shared/constants'
 import type { TaxCode, CreateTaxCodeInput, UpdateTaxCodeInput } from '../../shared/types'
 
 function normalizeTaxRate(value: number): number {
-  return Number(value.toFixed(4))
+  return Number(value.toFixed(6))
 }
 
 export function getTaxCodes(): TaxCode[] {

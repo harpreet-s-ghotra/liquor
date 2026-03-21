@@ -190,7 +190,7 @@ describe('TicketPanel', () => {
     )
 
     const discountLine = screen.getByRole('button', { name: /20% Discount/i })
-    expect(discountLine).toHaveClass('transaction-discount-line')
+    expect(discountLine).toBeInTheDocument()
     expect(discountLine).toContainHTML('-$20.00')
     expect(screen.getByRole('button', { name: 'Qty Change' })).toBeDisabled()
 
@@ -446,5 +446,34 @@ describe('TicketPanel', () => {
 
     expect(searchRef.current).toBeInstanceOf(HTMLInputElement)
     expect(searchRef.current?.placeholder).toBe('Search item')
+  })
+
+  it('renders Search button and fires onSearchClick', () => {
+    const onSearchClick = vi.fn()
+
+    render(
+      <TicketPanel
+        applyDiscount={vi.fn()}
+        cart={[]}
+        quantity="1"
+        search=""
+        selectedCartId={null}
+        selectedCartItem={null}
+        transactionDiscountPercent={0}
+        updateSelectedLinePrice={vi.fn()}
+        updateSelectedLineQuantity={vi.fn()}
+        setQuantity={vi.fn()}
+        setSearch={vi.fn()}
+        setSelectedCartId={vi.fn()}
+        clearTransaction={vi.fn()}
+        removeSelectedLine={vi.fn()}
+        onSearchClick={onSearchClick}
+      />
+    )
+
+    const searchBtn = screen.getByRole('button', { name: 'Search' })
+    expect(searchBtn).toBeInTheDocument()
+    fireEvent.click(searchBtn)
+    expect(onSearchClick).toHaveBeenCalledTimes(1)
   })
 })

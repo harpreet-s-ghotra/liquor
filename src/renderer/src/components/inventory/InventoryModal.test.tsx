@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InventoryModal } from './InventoryModal'
 
@@ -70,25 +71,31 @@ describe('InventoryModal', () => {
   it('switches to Departments panel when tab is clicked', async () => {
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Departments' }))
+    const tab = screen.getByRole('tab', { name: 'Departments' })
+    await userEvent.click(tab)
 
-    expect(await screen.findByLabelText('Departments')).toBeInTheDocument()
+    expect(tab).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByRole('tabpanel', { name: 'Departments' })).toBeInTheDocument()
   })
 
   it('switches to Tax Codes panel when tab is clicked', async () => {
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Tax Codes' }))
+    const tab = screen.getByRole('tab', { name: 'Tax Codes' })
+    await userEvent.click(tab)
 
-    expect(await screen.findByLabelText('Tax Codes')).toBeInTheDocument()
+    expect(tab).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByRole('tabpanel', { name: 'Tax Codes' })).toBeInTheDocument()
   })
 
   it('switches to Vendors panel when tab is clicked', async () => {
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Vendors' }))
+    const tab = screen.getByRole('tab', { name: 'Vendors' })
+    await userEvent.click(tab)
 
-    expect(await screen.findByLabelText('Vendors')).toBeInTheDocument()
+    expect(tab).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByRole('tabpanel', { name: 'Vendors' })).toBeInTheDocument()
   })
 
   it('calls close handler when Close is clicked', async () => {

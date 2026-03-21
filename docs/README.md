@@ -33,8 +33,10 @@ Build a fast, reliable Point of Sale system for liquor stores. The app should fe
 ### Feature Implementation Docs
 - [UI Architecture](UI_ARCHITECTURE.md) — Layout rules, design tokens, component boundaries, CSS strategy
 - [Inventory Management V1](inventory-management-v1.md) — Inventory modal, CRUD operations, search, form fields, data contracts
+- [Pricing Engine Plan](pricing-engine-plan.md) — Special pricing fix, mix-and-match pricing, pricing engine architecture
 - [Stax Activation & Login](stax-activation-and-login.md) — Merchant activation flow, cashier PIN login, auth state machine
 - [Stax Integration Plan](stax-integration-plan.md) — Partner API architecture, endpoints, test cards, webhook events, implementation steps
+- [Product Search Modal](product-search-modal.md) — Search button on POS screen, modal with filters, product lookup flow
 
 ### Developer Guidelines
 - [Copilot Instructions](../.github/copilot-instructions.md) — Testing gate, quality commands, coding conventions

@@ -1,6 +1,20 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import React, { useRef } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ItemForm } from './ItemForm'
+import { ItemForm, type ItemFormHandle } from './ItemForm'
+
+/** Test wrapper that exposes New Item / Save Item buttons via the ref */
+function ItemFormWithButtons(): React.JSX.Element {
+  const ref = useRef<ItemFormHandle>(null)
+  return (
+    <>
+      <button onClick={() => ref.current?.handleNewItem()}>New Item</button>
+      <button onClick={() => ref.current?.handleSave()}>Save Item</button>
+      <ItemForm ref={ref} />
+    </>
+  )
+}
 
 const baseInventoryItem = {
   item_number: 1,
@@ -27,7 +41,7 @@ const baseInventoryItem = {
 
 const baseDetail = {
   ...baseInventoryItem,
-  tax_rates: [0, 0.13],
+  tax_rates: [0.13],
   additional_skus: ['SKU-001-ALT'],
   special_pricing: [],
   sales_history: [
@@ -47,35 +61,34 @@ const baseDetail = {
 }
 
 describe('ItemForm', () => {
-  /** Find the dropdown container by its aria-label (picks the div, not the label) */
+  /** Find the dropdown trigger button by its aria-label */
   const getDeptDropdown = (): HTMLElement => {
-    const matches = screen.getAllByLabelText('Department')
-    return matches.find((el) => el.classList.contains('dept-dropdown')) ?? matches[0]
+    return screen.getByRole('button', { name: 'Department' })
   }
 
   const getTaxDropdown = (): HTMLElement => {
-    const matches = screen.getAllByLabelText('Tax Codes')
-    return matches.find((el) => el.classList.contains('tax-dropdown')) ?? matches[0]
+    return screen.getByRole('button', { name: 'Tax Codes' })
   }
 
   /** Open the tax dropdown and toggle rate checkboxes */
   const setTaxCodes = (rates: string[]): void => {
-    const container = getTaxDropdown()
-    const toggle = container.querySelector('button') as HTMLButtonElement
+    const toggle = getTaxDropdown()
     if (toggle.getAttribute('aria-expanded') !== 'true') {
       fireEvent.click(toggle)
     }
 
-    const options = within(container).getAllByRole('option')
+    const listbox = screen.getByRole('listbox', { name: 'Tax code options' })
+    const options = within(listbox).getAllByRole('option')
     for (const opt of options) {
-      const cb = opt.querySelector('input[type="checkbox"]') as HTMLInputElement | null
+      const cb = within(opt).queryByRole('checkbox')
       if (!cb) continue
       const labelText = opt.textContent || ''
       const pctMatch = labelText.match(/([\d.]+)%/)
       if (!pctMatch) continue
       const rateValue = String(Number(pctMatch[1]) / 100)
       const shouldBeChecked = rates.includes(rateValue)
-      if (cb.checked !== shouldBeChecked) {
+      const isChecked = cb.getAttribute('data-state') === 'checked'
+      if (isChecked !== shouldBeChecked) {
         fireEvent.click(cb)
       }
     }
@@ -83,19 +96,20 @@ describe('ItemForm', () => {
 
   /** Open the department dropdown and toggle department checkboxes */
   const setDepartments = (depts: string[]): void => {
-    const container = getDeptDropdown()
-    const toggle = container.querySelector('button') as HTMLButtonElement
+    const toggle = getDeptDropdown()
     if (toggle.getAttribute('aria-expanded') !== 'true') {
       fireEvent.click(toggle)
     }
 
-    const options = within(container).getAllByRole('option')
+    const listbox = screen.getByRole('listbox', { name: 'Department options' })
+    const options = within(listbox).getAllByRole('option')
     for (const opt of options) {
-      const cb = opt.querySelector('input[type="checkbox"]') as HTMLInputElement | null
+      const cb = within(opt).queryByRole('checkbox')
       if (!cb) continue
       const labelText = (opt.textContent || '').trim()
       const shouldBeChecked = depts.includes(labelText)
-      if (cb.checked !== shouldBeChecked) {
+      const isChecked = cb.getAttribute('data-state') === 'checked'
+      if (isChecked !== shouldBeChecked) {
         fireEvent.click(cb)
       }
     }
@@ -137,7 +151,7 @@ describe('ItemForm', () => {
   })
 
   it('shows required-field validation errors on empty save', async () => {
-    render(<ItemForm />)
+    render(<ItemFormWithButtons />)
 
     await waitFor(() => {
       expect(getDeptDropdown()).toBeInTheDocument()
@@ -158,7 +172,7 @@ describe('ItemForm', () => {
   })
 
   it('shows validation when in stock is not an integer', async () => {
-    render(<ItemForm />)
+    render(<ItemFormWithButtons />)
 
     await waitFor(() => {
       expect(getDeptDropdown()).toBeInTheDocument()
@@ -183,11 +197,14 @@ describe('ItemForm', () => {
       expect(screen.getByLabelText('Cost')).toBeInTheDocument()
     })
 
+    // Fill in SKU so sub-tabs are enabled
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST' } })
+
     fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '999' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1234' } })
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Special Pricing' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Add Rule' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Special Pricing' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add Rule' }))
     fireEvent.change(screen.getByLabelText('Rule 1 Price'), { target: { value: '501' } })
 
     expect(screen.getByLabelText('Cost')).toHaveValue('$9.99')
@@ -199,7 +216,7 @@ describe('ItemForm', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const api = (window as any).api
 
-    render(<ItemForm />)
+    render(<ItemFormWithButtons />)
 
     await waitFor(() => {
       expect(getDeptDropdown()).toBeInTheDocument()
@@ -214,14 +231,14 @@ describe('ItemForm', () => {
     setTaxCodes(['0', '0.13'])
 
     // Navigate to Additional SKUs tab (default is now Case & Quantity)
-    fireEvent.click(screen.getByRole('tab', { name: 'Additional SKUs' }))
-    fireEvent.change(screen.getByLabelText('Additional SKU Input'), {
+    await userEvent.click(screen.getByRole('tab', { name: 'Additional SKUs' }))
+    fireEvent.change(await screen.findByLabelText('Additional SKU Input'), {
       target: { value: 'SKU-NEW-ALT' }
     })
     fireEvent.click(screen.getByRole('button', { name: 'Add Additional SKU' }))
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Special Pricing' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Add Rule' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Special Pricing' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add Rule' }))
     fireEvent.change(screen.getByLabelText('Rule 1 Quantity'), { target: { value: '2' } })
     fireEvent.change(screen.getByLabelText('Rule 1 Price'), { target: { value: '1099' } })
     fireEvent.change(screen.getByLabelText('Rule 1 Duration'), { target: { value: '20' } })
@@ -258,6 +275,10 @@ describe('ItemForm', () => {
       expect(api.searchInventoryProducts).toHaveBeenCalledWith('SKU-001')
     })
 
+    // Click the dropdown result to load item detail
+    const option = await screen.findByRole('option', { name: /Inventory Item/i })
+    fireEvent.mouseDown(option)
+
     await waitFor(() => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
     })
@@ -276,6 +297,10 @@ describe('ItemForm', () => {
     fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 
+    // Click the dropdown result to load item detail
+    const option = await screen.findByRole('option', { name: /Inventory Item/i })
+    fireEvent.mouseDown(option)
+
     await waitFor(() => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
     })
@@ -285,7 +310,7 @@ describe('ItemForm', () => {
     })
     expect(screen.getByLabelText('Name')).toHaveValue('Inventory Item')
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Sales History' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Sales History' }))
 
     // Sales history now renders as a table with payment info
     const table = await screen.findByRole('table')
@@ -315,19 +340,23 @@ describe('ItemForm', () => {
     fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 
+    // Click dropdown result
+    const option = await screen.findByRole('option', { name: /Inventory Item/i })
+    fireEvent.mouseDown(option)
+
     await waitFor(() => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
     })
 
-    const container = getTaxDropdown()
-    const toggle = container.querySelector('button') as HTMLButtonElement
-    fireEvent.click(toggle)
+    const toggle = getTaxDropdown()
+    await userEvent.click(toggle)
 
-    const options = within(container).getAllByRole('option')
+    const listbox = await screen.findByRole('listbox', { name: 'Tax code options' })
+    const options = within(listbox).getAllByRole('option')
     const checkboxes = options
-      .map((opt) => opt.querySelector('input[type="checkbox"]') as HTMLInputElement | null)
-      .filter(Boolean) as HTMLInputElement[]
-    const checked = checkboxes.filter((cb) => cb.checked)
+      .map((opt) => within(opt).queryByRole('checkbox'))
+      .filter(Boolean) as HTMLElement[]
+    const checked = checkboxes.filter((cb) => cb.getAttribute('data-state') === 'checked')
     expect(checked.length).toBe(2)
   })
 
@@ -338,10 +367,13 @@ describe('ItemForm', () => {
       expect(screen.getByLabelText('Bottles Per Case')).toBeInTheDocument()
     })
 
-    // Navigate to Additional SKUs tab (default is now Case & Quantity)
-    fireEvent.click(screen.getByRole('tab', { name: 'Additional SKUs' }))
+    // Fill in SKU so sub-tabs are enabled
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST' } })
 
-    fireEvent.change(screen.getByLabelText('Additional SKU Input'), {
+    // Navigate to Additional SKUs tab (default is now Case & Quantity)
+    await userEvent.click(screen.getByRole('tab', { name: 'Additional SKUs' }))
+
+    fireEvent.change(await screen.findByLabelText('Additional SKU Input'), {
       target: { value: 'SKU-X' }
     })
     fireEvent.click(screen.getByRole('button', { name: 'Add Additional SKU' }))
@@ -371,7 +403,7 @@ describe('ItemForm', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const api = (window as any).api
 
-    render(<ItemForm />)
+    render(<ItemFormWithButtons />)
 
     // Search to load an existing item
     await waitFor(() => {
@@ -380,6 +412,10 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    // Click dropdown result
+    const option = await screen.findByRole('option', { name: /Inventory Item/i })
+    fireEvent.mouseDown(option)
 
     await waitFor(() => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
@@ -438,8 +474,11 @@ describe('ItemForm', () => {
       expect(screen.getByLabelText('SKU')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Special Pricing' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Add Rule' }))
+    // Fill in SKU so sub-tabs are enabled
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST' } })
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Special Pricing' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add Rule' }))
 
     expect(screen.getByLabelText('Rule 1 Quantity')).toBeInTheDocument()
 
@@ -454,7 +493,7 @@ describe('ItemForm', () => {
       throw new Error('Save failed')
     })
 
-    render(<ItemForm />)
+    render(<ItemFormWithButtons />)
 
     await waitFor(() => {
       expect(getDeptDropdown()).toBeInTheDocument()
@@ -494,14 +533,8 @@ describe('ItemForm', () => {
       expect(screen.getByLabelText('Bottles Per Case')).toBeInTheDocument()
     })
 
-    expect(screen.getByLabelText('Switch to percent mode')).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
-    expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute(
-      'aria-pressed',
-      'false'
-    )
+    expect(screen.getByLabelText('Switch to percent mode')).toHaveAttribute('data-state', 'on')
+    expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute('data-state', 'off')
     expect(screen.getByLabelText('Case Discount Percent')).toBeInTheDocument()
   })
 
@@ -514,10 +547,7 @@ describe('ItemForm', () => {
 
     fireEvent.click(screen.getByLabelText('Switch to dollar mode'))
 
-    expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
+    expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute('data-state', 'on')
     expect(screen.getByLabelText('Case Discount Price')).toBeInTheDocument()
   })
 
@@ -538,16 +568,17 @@ describe('ItemForm', () => {
     fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 
+    // Click dropdown result
+    const option = await screen.findByRole('option', { name: /Inventory Item/i })
+    fireEvent.mouseDown(option)
+
     await waitFor(() => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
     })
 
     // Should show dollar mode when loading existing case discount price
     await waitFor(() => {
-      expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute(
-        'aria-pressed',
-        'true'
-      )
+      expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute('data-state', 'on')
     })
     expect(screen.getByLabelText('Case Discount Price')).toHaveValue('$149.99')
   })
@@ -556,7 +587,7 @@ describe('ItemForm', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const api = (window as any).api
 
-    render(<ItemForm />)
+    render(<ItemFormWithButtons />)
 
     await waitFor(() => {
       expect(getDeptDropdown()).toBeInTheDocument()
@@ -589,7 +620,7 @@ describe('ItemForm', () => {
   })
 
   it('does not show tax validation error when no tax codes selected', async () => {
-    render(<ItemForm />)
+    render(<ItemFormWithButtons />)
 
     await waitFor(() => {
       expect(getDeptDropdown()).toBeInTheDocument()

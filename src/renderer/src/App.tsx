@@ -4,13 +4,28 @@ import { ActivationScreen } from './pages/ActivationScreen'
 import { LoginScreen } from './pages/LoginScreen'
 import { useAuthStore } from './store/useAuthStore'
 
+/**
+ * When running in the browser (not Electron), skip auth and go straight to POS.
+ * Launch with: cd src/renderer && npx vite --open
+ */
+function useIsDevBrowser(): boolean {
+  return typeof window !== 'undefined' && typeof window.api === 'undefined' && import.meta.env.DEV
+}
+
 function App(): React.JSX.Element {
   const appState = useAuthStore((s) => s.appState)
   const initialize = useAuthStore((s) => s.initialize)
+  const isDevBrowser = useIsDevBrowser()
 
   useEffect(() => {
+    if (isDevBrowser) return // skip backend-dependent init
     initialize()
-  }, [initialize])
+  }, [initialize, isDevBrowser])
+
+  // In dev-browser mode, render POS directly (no backend needed for UI work)
+  if (isDevBrowser) {
+    return <POSScreen />
+  }
 
   switch (appState) {
     case 'loading':
