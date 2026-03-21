@@ -11,6 +11,7 @@ import {
   searchProducts,
   initializeDatabase,
   saveInventoryItem,
+  deleteInventoryItem,
   searchInventoryProducts,
   getActiveSpecialPricing,
   getDepartments,
@@ -144,6 +145,14 @@ app.whenReady().then(() => {
       return saveInventoryItem(payload)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to save inventory item')
+    }
+  })
+
+  ipcMain.handle('inventory:products:delete', async (_, itemNumber: number) => {
+    try {
+      deleteInventoryItem(itemNumber)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete inventory item')
     }
   })
 

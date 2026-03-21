@@ -82,6 +82,11 @@ const attachTerminalMock = async (
 
         // Product APIs
         getProducts: async () => products,
+        getActiveSpecialPricing: async () => [],
+        getDepartments: async () => [],
+        getVendors: async () => [],
+        getTaxCodes: async () => [],
+        getInventoryTaxCodes: async () => [],
         searchInventoryProducts: async () => [],
         getInventoryProductDetail: async () => null,
         saveInventoryItem: async () => {
@@ -293,7 +298,7 @@ test.describe('Terminal Card Payments', () => {
     await gotoAndLogin(page)
     await addProductToCart(page)
 
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
     const modal = page.getByTestId('payment-modal')
 
     // Pay partial with $10 cash

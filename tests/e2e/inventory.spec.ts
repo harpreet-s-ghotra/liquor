@@ -108,7 +108,13 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         { code: 'RATE_0', rate: 0 },
         { code: 'RATE_0_13', rate: 0.13 }
       ],
+      getDepartments: async () => [
+        { id: 11, name: 'Dept 11' },
+        { id: 2, name: 'Dept 02' }
+      ],
+      getTaxCodes: async () => [],
       getVendors: async () => [],
+      getActiveSpecialPricing: async () => [],
       saveInventoryItem: async (payload) => {
         const nextId =
           payload.item_number ??
@@ -173,7 +179,7 @@ test.describe('Inventory Management', () => {
     await attachInventoryApiMock(page)
     await gotoAndLogin(page)
 
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
 
     await expect(page.getByRole('dialog', { name: 'Inventory Management' })).toBeVisible()
     await expect(page.getByLabel('Search Inventory')).toBeVisible()
@@ -183,10 +189,10 @@ test.describe('Inventory Management', () => {
     await attachInventoryApiMock(page)
     await gotoAndLogin(page)
 
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
 
     // Click Save with all fields empty to trigger validation
-    await page.getByRole('button', { name: 'Save Item' }).click()
+    await page.getByRole('button', { name: 'Save' }).click()
 
     await expect(page.getByText('SKU is required')).toBeVisible()
     await expect(page.getByText('Name is required')).toBeVisible()
@@ -202,36 +208,24 @@ test.describe('Inventory Management', () => {
     const sku = `E2E-${Date.now()}`
     const name = `E2E ITEM ${Date.now()}`
 
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
 
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill(sku)
     await page.getByLabel('Name').fill(name)
-    // Open department dropdown and select '11'
-    const deptTrigger = page.getByRole('button', { name: 'Department' })
-    await deptTrigger.click()
-    const deptListbox = page.getByRole('listbox', { name: 'Department options' })
-    const deptCheckbox = deptListbox.locator('li', { hasText: '11' }).getByRole('checkbox')
-    if ((await deptCheckbox.getAttribute('aria-checked')) !== 'true') {
-      await deptCheckbox.click()
-    }
-    await deptTrigger.click()
+    // Department dropdown (standard select)
+    // Scope inside Items tabpanel to avoid matching Radix tab panels
+    const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
+    await itemsPanel.getByLabel('Department').selectOption({ label: 'Dept 11' })
+
     await page.getByLabel('Cost').fill('9.99')
     await page.getByLabel('Price Charged').fill('15.99')
     await page.getByLabel('In Stock').fill('8')
 
-    // Open tax codes dropdown and select both rates
-    const taxTrigger = page.getByRole('button', { name: 'Tax Codes' })
-    await taxTrigger.click()
-    const taxListbox = page.getByRole('listbox', { name: 'Tax code options' })
-    const taxOptions = taxListbox.getByRole('option')
-    for (const opt of await taxOptions.all()) {
-      const checkbox = opt.getByRole('checkbox')
-      if ((await checkbox.getAttribute('aria-checked')) !== 'true') {
-        await checkbox.click()
-      }
-    }
-    // Close dropdown by clicking toggle again
-    await taxTrigger.click()
+    // Tax code dropdown (scoped inside Items tabpanel)
+    const taxSel = itemsPanel.getByLabel('Tax Codes')
+    const taxOpts = await taxSel.locator('option').allTextContents()
+    const rate13 = taxOpts.find((t) => t.includes('13'))
+    if (rate13) await taxSel.selectOption({ label: rate13 })
 
     // Navigate to Additional SKUs tab (default is now Case & Quantity)
     await page.getByRole('tab', { name: 'Additional SKUs' }).focus()
@@ -245,7 +239,7 @@ test.describe('Inventory Management', () => {
     await page.getByLabel('Rule 1 Price').fill('1399')
     await page.getByLabel('Rule 1 Duration').fill('20')
 
-    await page.getByRole('button', { name: 'Save Item' }).click()
+    await page.getByRole('button', { name: 'Save' }).click()
 
     await expect(page.getByText('Item saved')).toBeVisible()
 

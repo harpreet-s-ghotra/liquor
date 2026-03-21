@@ -14,6 +14,7 @@ type TicketPanelProps = {
   clearTransaction: () => void
   onSearchSubmit?: () => void
   onSearchClick?: () => void
+  onFocusSearch?: () => void
   quantity: string
   removeSelectedLine: () => void
   search: string
@@ -34,6 +35,7 @@ export function TicketPanel({
   clearTransaction,
   onSearchSubmit,
   onSearchClick,
+  onFocusSearch,
   quantity,
   removeSelectedLine,
   search,
@@ -183,6 +185,7 @@ export function TicketPanel({
     setEditMode(null)
     setEditRawValue('')
     setIsEditPristine(false)
+    onFocusSearch?.()
   }
 
   const restoreOriginalPrice = (): void => {
@@ -247,8 +250,12 @@ export function TicketPanel({
 
   return (
     <section
-      className="ticket-panel grid gap-2 overflow-hidden rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-1.5 relative"
-      style={{ gridTemplateRows: '3rem 1fr 5.25rem' }}
+      className="ticket-panel grid gap-2 overflow-hidden rounded-[var(--radius)] border p-1.5 relative"
+      style={{
+        gridTemplateRows: '3rem 1fr 5.25rem',
+        background: 'var(--bg-surface)',
+        borderColor: 'var(--ledger-border)'
+      }}
     >
       {/* ── Search & Qty controls ── */}
       <div className="grid gap-2" style={{ gridTemplateColumns: '1fr 5.5rem 5.5rem' }}>
@@ -284,17 +291,21 @@ export function TicketPanel({
 
       {/* ── Ticket table ── */}
       <div
-        className="grid overflow-hidden rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-surface)]"
-        style={{ gridTemplateRows: '1.875rem 1fr' }}
+        className="grid overflow-hidden rounded-[var(--radius)] border"
+        style={{
+          gridTemplateRows: '2.5rem 1fr',
+          background: 'var(--ledger-bg)',
+          borderColor: 'var(--ledger-border)'
+        }}
       >
         <div
-          className="grid items-center gap-x-4 border-b border-[var(--border-soft)] bg-[var(--bg-surface-soft)] px-2 text-base font-bold text-[var(--text-primary)]"
-          style={{ gridTemplateColumns: '3rem 1fr 8rem 9rem' }}
+          className="grid grid-cols-12 items-center px-6 text-[10px] font-black uppercase tracking-[2px]"
+          style={{ background: 'var(--ledger-header-bg)', color: 'var(--ledger-header-text)' }}
         >
-          <span>#</span>
-          <span>Item Info</span>
-          <span>Quantity</span>
-          <span>Price</span>
+          <span className="col-span-1">#</span>
+          <span className="col-span-6">Item Description</span>
+          <span className="col-span-2 text-right">Qty</span>
+          <span className="col-span-3 text-right">Price</span>
         </div>
 
         <div className="overflow-auto" data-testid="ticket-lines">
@@ -324,34 +335,79 @@ export function TicketPanel({
                   }}
                   type="button"
                   className={cn(
-                    'ticket-line w-full grid items-center gap-x-4 border-b border-[var(--border-soft)] bg-[var(--bg-surface)] min-h-12 px-2 text-lg text-[var(--text-primary)] cursor-pointer text-left',
-                    selectedCartId === item.id && 'active bg-[var(--accent-blue-soft)]',
-                    hasPromo &&
-                      !isDiscountedLine &&
-                      'promo bg-gradient-to-r from-[var(--accent-mint-soft)] to-[var(--bg-surface)] border-l-4 border-l-[var(--accent-mint)]',
-                    isDiscountedLine &&
-                      'discounted bg-gradient-to-r from-[var(--accent-peach-soft)] to-[var(--bg-surface)] border-l-4 border-l-[var(--accent-peach)]'
+                    'ticket-line w-full grid grid-cols-12 items-center min-h-[4.5rem] px-6 py-4 cursor-pointer text-left border-b',
+                    selectedCartId === item.id ? 'active' : '',
+                    index % 2 === 1 && selectedCartId !== item.id && 'ticket-line-alt',
+                    hasPromo && !isDiscountedLine && 'promo border-l-4',
+                    isDiscountedLine && 'discounted border-l-4'
                   )}
-                  style={{ gridTemplateColumns: '3rem 1fr 8rem 9rem' }}
+                  style={{
+                    background:
+                      selectedCartId === item.id
+                        ? 'var(--ledger-active-bg)'
+                        : index % 2 === 1
+                          ? 'var(--ledger-row-alt)'
+                          : 'var(--ledger-bg)',
+                    borderColor:
+                      selectedCartId === item.id
+                        ? 'var(--ledger-active-border)'
+                        : 'var(--ledger-border)',
+                    color:
+                      selectedCartId === item.id
+                        ? 'var(--ledger-active-text)'
+                        : 'var(--ledger-line-text)',
+                    ...(hasPromo && !isDiscountedLine
+                      ? { borderLeftColor: 'var(--accent-mint)' }
+                      : {}),
+                    ...(isDiscountedLine ? { borderLeftColor: 'var(--accent-peach)' } : {})
+                  }}
                   onClick={() => setSelectedCartId(item.id)}
                 >
-                  <span className="text-2xl font-medium">{index + 1}</span>
-                  <span className="grid gap-0.5 items-center">
-                    <span className="text-xl font-bold">{item.name}</span>
+                  <span
+                    className="col-span-1 text-base font-bold"
+                    style={{
+                      color:
+                        selectedCartId === item.id
+                          ? 'var(--ledger-active-text)'
+                          : 'var(--ledger-line-muted)'
+                    }}
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="col-span-6 grid gap-0">
+                    <span className="text-base font-extrabold uppercase">{item.name}</span>
+                    {item.sku && (
+                      <span
+                        className="text-xs font-medium opacity-70"
+                        style={{
+                          color:
+                            selectedCartId === item.id
+                              ? 'var(--ledger-active-text)'
+                              : 'var(--ledger-line-muted)'
+                        }}
+                      >
+                        SKU: {item.sku}
+                      </span>
+                    )}
                     {hasPromo && (
-                      <span className="inline-flex flex-wrap items-center gap-1.5 text-sm font-bold text-[var(--semantic-success-text)]">
+                      <span
+                        className="inline-flex flex-wrap items-center gap-1.5 text-xs font-bold"
+                        style={{ color: 'var(--semantic-success-text)' }}
+                      >
                         <span className="rounded-[var(--radius)] bg-[var(--accent-mint)] px-1.5 py-px text-xs font-extrabold text-[var(--btn-success-text)]">
                           PROMO
                         </span>
                         <span>
-                          {item.promo!.promoLabel} — Save ${item.promo!.promoLineSavings.toFixed(2)}{' '}
-                          (was ${item.price.toFixed(2)} ea)
+                          {item.promo!.promoLabel} — Save ${item.promo!.promoLineSavings.toFixed(2)}
                         </span>
                       </span>
                     )}
                     {isDiscountedLine && (
-                      <span className="inline-flex flex-wrap items-center gap-1.5 text-sm font-bold text-[var(--semantic-warning-text)]">
-                        <span className="rounded-[var(--radius)] bg-[var(--accent-peach)] px-1.5 py-px text-xs font-extrabold text-[var(--btn-warning-text)]">
+                      <span
+                        className="inline-flex flex-wrap items-center gap-1.5 text-xs font-bold"
+                        style={{ color: 'var(--semantic-warning-text)' }}
+                      >
+                        <span className="rounded-[var(--radius)] bg-[var(--accent-peach)] px-1.5 py-px text-xs font-extrabold text-white">
                           DISCOUNT {(item.itemDiscountPercent ?? 0).toFixed(2)}%
                         </span>
                         <span>
@@ -360,10 +416,10 @@ export function TicketPanel({
                       </span>
                     )}
                   </span>
-                  <span className="ticket-line-qty text-[1.75rem] font-bold">
+                  <span className="ticket-line-qty col-span-2 text-right text-lg font-black">
                     {item.lineQuantity}
                   </span>
-                  <span className="ticket-line-price text-[1.75rem] font-bold">
+                  <span className="ticket-line-price col-span-3 text-right text-lg font-black">
                     {formatMoney(discountedLineTotal)}
                   </span>
                 </button>
@@ -374,19 +430,32 @@ export function TicketPanel({
             <button
               type="button"
               className={cn(
-                'ticket-line w-full grid items-center gap-x-4 min-h-12 px-2 text-lg text-[var(--text-primary)] cursor-pointer text-left sticky bottom-0 z-[2] bg-gradient-to-r from-[var(--accent-lavender-soft)] to-[var(--accent-lavender)] border-t-2 border-t-[var(--border-strong)]',
-                selectedCartId === transactionDiscountLine.id &&
-                  'active bg-[var(--accent-blue-soft)]'
+                'ticket-line w-full grid grid-cols-12 items-center min-h-[4.5rem] px-6 py-4 cursor-pointer text-left sticky bottom-0 z-[2] border-t-2',
+                selectedCartId === transactionDiscountLine.id && 'active'
               )}
-              style={{ gridTemplateColumns: '3rem 1fr 8rem 9rem' }}
+              style={{
+                background:
+                  selectedCartId === transactionDiscountLine.id
+                    ? 'var(--ledger-active-bg)'
+                    : 'var(--accent-lavender-soft)',
+                borderColor: 'var(--border-strong)',
+                color: 'var(--ledger-line-text)'
+              }}
               onClick={() => setSelectedCartId(transactionDiscountLine.id)}
             >
-              <span className="text-2xl font-medium">#</span>
-              <span className="grid gap-0.5 items-center">
-                <span className="text-xl font-bold">{transactionDiscountLine.name}</span>
+              <span
+                className="col-span-1 text-base font-bold"
+                style={{ color: 'var(--ledger-line-muted)' }}
+              >
+                #
               </span>
-              <span className="ticket-line-qty text-[1.75rem] font-bold">1</span>
-              <span className="ticket-line-price text-[1.75rem] font-bold">
+              <span className="col-span-6 grid gap-0">
+                <span className="text-base font-extrabold uppercase">
+                  {transactionDiscountLine.name}
+                </span>
+              </span>
+              <span className="ticket-line-qty col-span-2 text-right text-lg font-black">1</span>
+              <span className="ticket-line-price col-span-3 text-right text-lg font-black">
                 {formatMoney(transactionDiscountLine.price)}
               </span>
             </button>
@@ -399,14 +468,20 @@ export function TicketPanel({
         <Button
           variant="danger"
           className="min-h-[4.5rem] text-xl font-bold"
-          onClick={removeSelectedLine}
+          onClick={() => {
+            removeSelectedLine()
+            onFocusSearch?.()
+          }}
         >
           Delete
         </Button>
         <Button
           variant="warning"
           className="min-h-[4.5rem] text-xl font-bold"
-          onClick={clearTransaction}
+          onClick={() => {
+            clearTransaction()
+            onFocusSearch?.()
+          }}
         >
           Void
         </Button>
@@ -440,16 +515,16 @@ export function TicketPanel({
           data-testid="edit-modal"
         >
           <div
-            className="w-[min(34rem,calc(100%-2rem))] grid gap-4 rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-4 shadow-lg"
+            className="w-[min(34rem,calc(100%-2rem))] grid gap-4 rounded-[var(--radius)] bg-[var(--bg-panel)] p-4 shadow-lg"
             role="dialog"
             aria-modal="true"
           >
-            <h3 className="m-0 rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg-shell)] px-4 py-3 text-2xl font-bold text-[var(--text-on-dark)]">
+            <h3 className="m-0 rounded-[var(--radius)] bg-[var(--bg-shell)] px-4 py-3 text-2xl font-bold text-[var(--text-on-dark)]">
               {editMode === 'quantity' && 'Qty Change'}
               {editMode === 'price' && 'Price Change'}
               {editMode === 'discount' && 'Discount'}
             </h3>
-            <p className="m-0 rounded-[var(--radius)] bg-[var(--border-strong)] px-4 py-2.5 text-lg font-semibold text-[var(--text-on-dark)]">
+            <p className="m-0 rounded-[var(--radius)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-lg font-semibold text-[var(--text-primary)]">
               {editMode === 'quantity' && `Original Qty: ${selectedCartItem?.lineQuantity ?? 0}`}
               {editMode === 'price' && (
                 <button
@@ -478,7 +553,7 @@ export function TicketPanel({
                 >
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="item" id="scope-item" disabled={!selectedCartId} />
-                    <Label htmlFor="scope-item" className="text-lg text-[var(--text-on-dark)]">
+                    <Label htmlFor="scope-item" className="text-lg text-[var(--text-primary)]">
                       Selected Item
                     </Label>
                   </div>
@@ -486,7 +561,7 @@ export function TicketPanel({
                     <RadioGroupItem value="transaction" id="scope-transaction" />
                     <Label
                       htmlFor="scope-transaction"
-                      className="text-lg text-[var(--text-on-dark)]"
+                      className="text-lg text-[var(--text-primary)]"
                     >
                       Entire Transaction
                     </Label>

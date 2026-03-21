@@ -3,6 +3,7 @@ import { PaymentModal } from '@renderer/components/payment/PaymentModal'
 import { SearchModal } from '@renderer/components/search/SearchModal'
 import { ActionPanel } from '@renderer/components/action/ActionPanel'
 import { BottomShortcutBar } from '@renderer/components/layout/BottomShortcutBar'
+import { HeaderBar } from '@renderer/components/layout/HeaderBar'
 import { TicketPanel } from '@renderer/components/ticket/TicketPanel'
 import { usePosScreen } from '@renderer/store/usePosScreen'
 import { useAuthStore } from '@renderer/store/useAuthStore'
@@ -12,6 +13,9 @@ import type { PaymentMethod, PaymentResult } from '@renderer/types/pos'
 
 export function POSScreen(): React.JSX.Element {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false)
+  const [pendingInventoryItemNumber, setPendingInventoryItemNumber] = useState<number | undefined>(
+    undefined
+  )
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
   const [isPaymentComplete, setIsPaymentComplete] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -64,11 +68,16 @@ export function POSScreen(): React.JSX.Element {
     updateSelectedLineQuantity
   } = usePosScreen()
 
+  const focusSearch = useCallback(() => {
+    setTimeout(() => searchRef.current?.focus(), 0)
+  }, [])
+
   const handleInventoryClose = useCallback(() => {
     setIsInventoryOpen(false)
+    setPendingInventoryItemNumber(undefined)
     reloadProducts()
-    setTimeout(() => searchRef.current?.focus(), 0)
-  }, [reloadProducts])
+    focusSearch()
+  }, [reloadProducts, focusSearch])
 
   const handlePaymentOpen = useCallback(
     (method?: PaymentMethod) => {
@@ -118,17 +127,25 @@ export function POSScreen(): React.JSX.Element {
       setIsPaymentComplete(false)
       setPaymentMethod(undefined)
       clearTransaction()
-      setTimeout(() => searchRef.current?.focus(), 0)
+      focusSearch()
     },
-    [cart, subtotalDiscounted, tax, total, transactionDiscountPercent, clearTransaction]
+    [
+      cart,
+      subtotalDiscounted,
+      tax,
+      total,
+      transactionDiscountPercent,
+      clearTransaction,
+      focusSearch
+    ]
   )
 
   const handlePaymentCancel = useCallback(() => {
     setIsPaymentOpen(false)
     setIsPaymentComplete(false)
     setPaymentMethod(undefined)
-    setTimeout(() => searchRef.current?.focus(), 0)
-  }, [])
+    focusSearch()
+  }, [focusSearch])
 
   const handlePaymentStatusChange = useCallback(
     (status: import('@renderer/types/pos').PaymentStatus) => {
@@ -145,9 +162,9 @@ export function POSScreen(): React.JSX.Element {
         clearTransaction()
       }
       addToCart(product)
-      setTimeout(() => searchRef.current?.focus(), 0)
+      focusSearch()
     },
-    [addToCart, isPaymentComplete, clearTransaction]
+    [addToCart, isPaymentComplete, clearTransaction, focusSearch]
   )
 
   const handleSearchSubmit = useCallback(() => {
@@ -157,28 +174,12 @@ export function POSScreen(): React.JSX.Element {
       clearTransaction()
     }
     addToCartBySku(search)
-    setTimeout(() => searchRef.current?.focus(), 0)
-  }, [addToCartBySku, search, isPaymentComplete, clearTransaction])
+    focusSearch()
+  }, [addToCartBySku, search, isPaymentComplete, clearTransaction, focusSearch])
 
   return (
-    <div
-      className="grid h-full overflow-hidden"
-      style={{ gridTemplateRows: currentCashier ? 'auto 1fr 4rem' : '1fr 4rem' }}
-    >
-      {currentCashier && (
-        <div className="flex items-center justify-between px-3 py-1.5 bg-(--bg-shell) text-(--text-on-dark) text-sm border-b border-(--border-strong)">
-          <span>
-            Cashier: <strong>{currentCashier.name}</strong>
-          </span>
-          <button
-            className="rounded-(--radius) border-none bg-(--btn-danger-bg) text-(--btn-danger-text) px-3 py-1 text-sm font-semibold cursor-pointer"
-            onClick={logout}
-            title="Switch Cashier (Ctrl+L)"
-          >
-            Switch Cashier
-          </button>
-        </div>
-      )}
+    <div className="grid h-full overflow-hidden" style={{ gridTemplateRows: 'auto 1fr auto' }}>
+      <HeaderBar cashierName={currentCashier?.name} />
       <main
         className="grid gap-2 p-2 min-h-0 overflow-hidden"
         style={{ gridTemplateColumns: '56% 44%' }}
@@ -200,6 +201,7 @@ export function POSScreen(): React.JSX.Element {
           updateSelectedLinePrice={updateSelectedLinePrice}
           updateSelectedLineQuantity={updateSelectedLineQuantity}
           onSearchSubmit={handleSearchSubmit}
+          onFocusSearch={focusSearch}
           onSearchClick={() => {
             setSearchKey((k) => k + 1)
             setIsSearchOpen(true)
@@ -226,20 +228,25 @@ export function POSScreen(): React.JSX.Element {
 
       <BottomShortcutBar onInventoryClick={() => setIsInventoryOpen(true)} />
 
-      <InventoryModal isOpen={isInventoryOpen} onClose={handleInventoryClose} />
+      <InventoryModal
+        isOpen={isInventoryOpen}
+        onClose={handleInventoryClose}
+        openItemNumber={pendingInventoryItemNumber}
+      />
 
       <SearchModal
         key={searchKey}
         isOpen={isSearchOpen}
         onClose={() => {
           setIsSearchOpen(false)
-          setTimeout(() => searchRef.current?.focus(), 0)
+          focusSearch()
         }}
         onAddToCart={(product) => {
           handleAddToCart(product)
         }}
-        onOpenInInventory={() => {
+        onOpenInInventory={(product) => {
           setIsSearchOpen(false)
+          setPendingInventoryItemNumber(product.id)
           setIsInventoryOpen(true)
         }}
       />

@@ -24,13 +24,13 @@ The grid changes from `1fr 5.5rem` → `1fr 5.5rem 5.5rem`.
 
 ### Button Spec
 
-| Property   | Value                              |
-|------------|------------------------------------|
-| Label      | `Search` (with magnifying glass icon) |
-| Size       | `md` (matches Qty input height)    |
-| Variant    | `secondary` or `outline`           |
-| Min width  | `5.5rem`                           |
-| Action     | Opens the Search Modal             |
+| Property  | Value                                 |
+| --------- | ------------------------------------- |
+| Label     | `Search` (with magnifying glass icon) |
+| Size      | `md` (matches Qty input height)       |
+| Variant   | `secondary` or `outline`              |
+| Min width | `5.5rem`                              |
+| Action    | Opens the Search Modal                |
 
 ## Search Modal
 
@@ -68,34 +68,34 @@ A centered overlay modal following the existing modal pattern (like InventoryMod
 
 ### Modal Spec
 
-| Property      | Value                                          |
-|---------------|------------------------------------------------|
-| Size          | `w-[min(60rem,95%)] h-[min(80vh,44rem)]`       |
-| Grid rows     | `auto auto 1fr auto` (header, filters, results, search bar) |
-| Close         | Close button in header; `Escape` key           |
-| Prevent outside click | Yes (matches existing modals)           |
+| Property              | Value                                                       |
+| --------------------- | ----------------------------------------------------------- |
+| Size                  | `w-[min(60rem,95%)] h-[min(80vh,44rem)]`                    |
+| Grid rows             | `auto auto 1fr auto` (header, filters, results, search bar) |
+| Close                 | Close button in header; `Escape` key                        |
+| Prevent outside click | Yes (matches existing modals)                               |
 
 ### Filters Row
 
 Two dropdown selects side by side:
 
-| Filter     | Source             | Default    |
-|------------|--------------------|------------|
-| Department | `getDepartments()` | All        |
-| Vendor     | `getVendors()`     | All        |
+| Filter     | Source             | Default |
+| ---------- | ------------------ | ------- |
+| Department | `getDepartments()` | All     |
+| Vendor     | `getVendors()`     | All     |
 
-Filters are applied *in combination* with the search text. Changing a filter re-runs the search automatically if there is existing search text.
+Filters are applied _in combination_ with the search text. Changing a filter re-runs the search automatically if there is existing search text.
 
 ### Results Table
 
-| Column   | Width   | Source                     |
-|----------|---------|----------------------------|
-| #        | `3rem`  | `item_number` (row index)  |
-| Name     | `1fr`   | `name`                     |
-| SKU      | `7rem`  | `sku`                      |
-| Dept     | `8rem`  | `category` (department)    |
-| Price    | `6rem`  | `price` (formatted)        |
-| In Stock | `5rem`  | `quantity`                 |
+| Column   | Width  | Source                    |
+| -------- | ------ | ------------------------- |
+| #        | `3rem` | `item_number` (row index) |
+| Name     | `1fr`  | `name`                    |
+| SKU      | `7rem` | `sku`                     |
+| Dept     | `8rem` | `category` (department)   |
+| Price    | `6rem` | `price` (formatted)       |
+| In Stock | `5rem` | `quantity`                |
 
 - Rows are clickable — clicking a row adds the item to the cart and closes the modal
 - Empty state: "No items found. Try a different search." (shown when search returns 0 results)
@@ -110,12 +110,12 @@ Positioned at the bottom of the modal (same pattern as other modals):
 [ Search items...                              ] [Go]
 ```
 
-| Element    | Spec                                         |
-|------------|----------------------------------------------|
-| Input      | Full width minus Go button, `text-lg`, autofocus |
-| Go button  | `size="md"`, triggers search                 |
-| Enter key  | Also triggers search                         |
-| Behavior   | Searches by item name (LIKE %query%) with active department/vendor filters |
+| Element   | Spec                                                                       |
+| --------- | -------------------------------------------------------------------------- |
+| Input     | Full width minus Go button, `text-lg`, autofocus                           |
+| Go button | `size="md"`, triggers search                                               |
+| Enter key | Also triggers search                                                       |
+| Behavior  | Searches by item name (LIKE %query%) with active department/vendor filters |
 
 ## Data Contract
 
@@ -138,8 +138,9 @@ function searchProducts(
 ```
 
 SQL logic:
+
 ```sql
-SELECT p.item_number AS id, p.sku, p.name, p.category, 
+SELECT p.item_number AS id, p.sku, p.name, p.category,
        COALESCE(p.retail_price, p.price) AS price,
        COALESCE(p.in_stock, p.quantity) AS quantity,
        p.tax_rate
@@ -200,11 +201,13 @@ No global search state is needed — the modal manages its own search text, filt
 ## Testing
 
 ### Unit Tests
+
 - `SearchModal.test.tsx` — renders, opens/closes, search triggers IPC, results display, row click adds to cart
 - `SearchResultsTable.test.tsx` — renders columns, empty state, row click callback
 - `products.repo.test.ts` — `searchProducts` returns filtered results, respects department/vendor filters
 
 ### E2E
+
 - Add search flow to `tests/e2e/` — open modal, search, verify results, click to add to cart
 
 ## Accessibility

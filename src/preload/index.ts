@@ -43,6 +43,8 @@ const api = {
     ipcRenderer.invoke('inventory:products:detail', itemNumber),
   saveInventoryItem: (payload: SaveInventoryItemInput): Promise<InventoryProductDetail> =>
     ipcRenderer.invoke('inventory:products:save', payload),
+  deleteInventoryItem: (itemNumber: number): Promise<void> =>
+    ipcRenderer.invoke('inventory:products:delete', itemNumber),
   getInventoryDepartments: (): Promise<string[]> =>
     ipcRenderer.invoke('inventory:departments:list'),
   getInventoryTaxCodes: (): Promise<InventoryTaxCode[]> =>

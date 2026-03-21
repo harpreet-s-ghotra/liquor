@@ -439,9 +439,19 @@ describe('SearchModal', () => {
 
   it('displays negative prices with correct format', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).api.searchProducts = vi.fn().mockResolvedValue([
-      { id: 10, sku: 'NEG-1', name: 'Refund Item', category: 'X', price: -5.5, quantity: 1, tax_rate: 0 }
-    ])
+    ;(window as any).api.searchProducts = vi
+      .fn()
+      .mockResolvedValue([
+        {
+          id: 10,
+          sku: 'NEG-1',
+          name: 'Refund Item',
+          category: 'X',
+          price: -5.5,
+          quantity: 1,
+          tax_rate: 0
+        }
+      ])
 
     render(
       <SearchModal
@@ -452,7 +462,9 @@ describe('SearchModal', () => {
       />
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'refund' } })
+    fireEvent.change(screen.getByPlaceholderText('Search items...'), {
+      target: { value: 'refund' }
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
 
     await waitFor(() => {

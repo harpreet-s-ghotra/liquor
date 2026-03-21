@@ -1,25 +1,46 @@
 /* ── Category tone backgrounds (used by dynamic class map) ── */
 .category-tone-favorite {
   background: var(--cat-fav-bg);
+  border: 1px solid var(--cat-fav-border);
+  color: var(--text-primary);
 }
 
 .category-tone-all {
   background: var(--cat-all-bg);
+  border: 1px solid var(--cat-all-border);
+  color: var(--text-primary);
 }
 
 .category-tone-1 {
   background: var(--cat-1-bg);
+  border: 1px solid var(--cat-1-border);
+  color: var(--text-primary);
 }
 
 .category-tone-2 {
   background: var(--cat-2-bg);
+  border: 1px solid var(--cat-2-border);
+  color: var(--text-primary);
 }
 
 .category-tone-3 {
   background: var(--cat-3-bg);
+  border: 1px solid var(--cat-3-border);
+  color: var(--text-primary);
 }
 
 .category-tone-4 {
   background: var(--cat-4-bg);
+  border: 1px solid var(--cat-4-border);
+  color: var(--text-primary);
 }
 
+/* ── Totals block typography ── */
+.totals-box {
+  font-family: var(--font-display);
+}
+
+/* ── Product pad button typography ── */
+.product-pad-btn {
+  font-family: var(--font-display);
+}

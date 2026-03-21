@@ -2,12 +2,17 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { FormField } from '@renderer/components/common/FormField'
 import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
+import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { Input } from '@renderer/components/ui/input'
 import { useCrudPanel } from '@renderer/hooks/useCrudPanel'
 import type { Department, TaxCode } from '@renderer/types/pos'
 import '../crud-panel.css'
 
-export function DepartmentPanel(): React.JSX.Element {
+type DepartmentPanelProps = {
+  searchFilter?: string
+}
+
+export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): React.JSX.Element {
   const api = typeof window !== 'undefined' ? window.api : undefined
   const hasApi = typeof api?.getDepartments === 'function'
 
@@ -41,8 +46,8 @@ export function DepartmentPanel(): React.JSX.Element {
     }
   }, [])
 
-  const [searchFilter, setSearchFilter] = useState('')
   const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Edit form fields
   const [editName, setEditName] = useState('')
@@ -97,6 +102,24 @@ export function DepartmentPanel(): React.JSX.Element {
     },
     [taxCodes]
   )
+
+  const clearSelection = (): void => {
+    setSelectedDeptId(null)
+    setEditName('')
+    setEditDescription('')
+    setEditProfitMargin('')
+    setEditTaxRate('')
+    setShowEditValidation(false)
+    crud.clearMessages()
+  }
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && selectedDeptId !== null) clearSelection()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [selectedDeptId])
 
   const selectDepartment = (dept: Department): void => {
     crud.clearMessages()
@@ -192,9 +215,13 @@ export function DepartmentPanel(): React.JSX.Element {
     }
   }
 
-  const handleDelete = async (): Promise<void> => {
-    crud.clearMessages()
+  const handleDelete = (): void => {
+    if (!hasApi || !selectedDeptId) return
+    setShowDeleteConfirm(true)
+  }
 
+  const handleDeleteConfirmed = async (): Promise<void> => {
+    setShowDeleteConfirm(false)
     if (!hasApi || !selectedDeptId) return
 
     const freshItems = await crud.runAction(
@@ -215,7 +242,7 @@ export function DepartmentPanel(): React.JSX.Element {
 
   return (
     <div
-      className="grid grid-rows-[auto_1fr_auto_auto] gap-2 h-full min-h-0 p-3"
+      className="grid grid-rows-[auto_1fr_auto] gap-2 h-full min-h-0 p-3"
       aria-label="Departments"
     >
       {/* Section 1: New entry form */}
@@ -277,9 +304,9 @@ export function DepartmentPanel(): React.JSX.Element {
           </select>
         </FormField>
         <AppButton
-          size="lg"
+          size="md"
           variant="success"
-          className="self-center min-w-[6rem]"
+          className="self-end min-w-[6rem]"
           onClick={() => void handleCreate()}
         >
           Add
@@ -329,7 +356,7 @@ export function DepartmentPanel(): React.JSX.Element {
         {selectedDept ? (
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-[var(--text-on-dark)]">
+              <span className="font-bold text-sm text-[var(--text-primary)]">
                 Editing: {selectedDept.name}
               </span>
               <div className="flex gap-2">
@@ -341,8 +368,11 @@ export function DepartmentPanel(): React.JSX.Element {
                 >
                   Save
                 </AppButton>
-                <AppButton size="sm" variant="danger" onClick={() => void handleDelete()}>
+                <AppButton size="sm" variant="danger" onClick={handleDelete}>
                   Delete
+                </AppButton>
+                <AppButton size="sm" variant="neutral" onClick={clearSelection}>
+                  Cancel
                 </AppButton>
               </div>
             </div>
@@ -434,18 +464,16 @@ export function DepartmentPanel(): React.JSX.Element {
         )}
       </div>
 
-      {/* Section 4: Bottom search bar */}
-      <div className="grid grid-cols-[auto_1fr] gap-2 items-center border border-[var(--border-default)] rounded-[var(--radius)] bg-[var(--bg-surface)] px-3 py-2">
-        <span className="text-sm font-semibold text-[var(--text-on-dark)] whitespace-nowrap">
-          Search
-        </span>
-        <Input
-          aria-label="Search Departments"
-          placeholder="Filter by name or description..."
-          value={searchFilter}
-          onChange={(e) => setSearchFilter(e.target.value)}
-        />
-      </div>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Department"
+        message={`Are you sure you want to delete "${selectedDept?.name}"? This cannot be undone.`}
+        confirmLabel="Yes, Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => void handleDeleteConfirmed()}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </div>
   )
 }

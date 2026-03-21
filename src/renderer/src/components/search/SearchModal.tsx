@@ -149,7 +149,7 @@ export function SearchModal({
             onChange={(e) =>
               handleDepartmentChange(e.target.value ? Number(e.target.value) : undefined)
             }
-            className="h-10 rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)]"
+            className="h-10 rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-input)] px-3 text-base text-[var(--text-primary)]"
             aria-label="Filter by department"
           >
             <option value="">All Departments</option>
@@ -165,7 +165,7 @@ export function SearchModal({
             onChange={(e) =>
               handleVendorChange(e.target.value ? Number(e.target.value) : undefined)
             }
-            className="h-10 rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)]"
+            className="h-10 rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-input)] px-3 text-base text-[var(--text-primary)]"
             aria-label="Filter by vendor"
           >
             <option value="">All Vendors</option>
@@ -179,7 +179,7 @@ export function SearchModal({
 
         {/* Results table */}
         <div
-          className="grid overflow-hidden rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-surface)]"
+          className="grid overflow-hidden rounded-[var(--radius)] bg-[var(--bg-surface)]"
           style={{ gridTemplateRows: '2.25rem 1fr' }}
         >
           <div

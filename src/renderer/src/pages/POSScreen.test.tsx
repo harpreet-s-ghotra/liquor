@@ -118,7 +118,7 @@ describe('POSScreen', () => {
     )
     render(<POSScreen />)
 
-    fireEvent.click(screen.getByText('Pay'))
+    fireEvent.click(screen.getByText('Pay Now'))
 
     // PaymentModal renders a dialog with aria-label="Payment"
     expect(screen.getByRole('dialog', { name: 'Payment' })).toBeInTheDocument()
@@ -128,7 +128,7 @@ describe('POSScreen', () => {
     mockUsePosScreen.mockReturnValue(createDefaultMock({ cart: [] }))
     render(<POSScreen />)
 
-    fireEvent.click(screen.getByText('Pay'))
+    fireEvent.click(screen.getByText('Pay Now'))
 
     expect(screen.queryByRole('dialog', { name: 'Payment' })).not.toBeInTheDocument()
   })
@@ -139,7 +139,7 @@ describe('POSScreen', () => {
 
     fireEvent.click(screen.getByText(/Inventory/i))
 
-    expect(screen.getByText('Inventory Management')).toBeInTheDocument()
+    expect(screen.getByText('Inventory Maintenance')).toBeInTheDocument()
   })
 
   it('calls clearTransaction and closes payment on payment complete', () => {
@@ -154,7 +154,7 @@ describe('POSScreen', () => {
     render(<POSScreen />)
 
     // Open payment
-    fireEvent.click(screen.getByText('Pay'))
+    fireEvent.click(screen.getByText('Pay Now'))
 
     // Pay with exact cash
     fireEvent.click(screen.getByText('Cash (Exact)'))
@@ -163,7 +163,7 @@ describe('POSScreen', () => {
     fireEvent.click(screen.getByTestId('payment-ok-btn'))
 
     act(() => {
-      vi.runAllTimers()
+      vi.advanceTimersByTime(100)
     })
 
     expect(clearTransaction).toHaveBeenCalled()
@@ -178,10 +178,10 @@ describe('POSScreen', () => {
     fireEvent.click(screen.getByText(/Inventory/i))
 
     // Close inventory
-    fireEvent.click(screen.getByText('Close'))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
 
     act(() => {
-      vi.runAllTimers()
+      vi.advanceTimersByTime(100)
     })
 
     expect(reloadProducts).toHaveBeenCalled()
@@ -196,14 +196,14 @@ describe('POSScreen', () => {
     )
     render(<POSScreen />)
 
-    fireEvent.click(screen.getByText('Pay'))
+    fireEvent.click(screen.getByText('Pay Now'))
     expect(screen.getByRole('dialog', { name: 'Payment' })).toBeInTheDocument()
 
     // Cancel payment
     fireEvent.click(screen.getByText('Cancel'))
 
     act(() => {
-      vi.runAllTimers()
+      vi.advanceTimersByTime(100)
     })
 
     // Payment modal should be hidden
@@ -235,7 +235,7 @@ describe('POSScreen', () => {
     render(<POSScreen />)
 
     // Open payment
-    fireEvent.click(screen.getByText('Pay'))
+    fireEvent.click(screen.getByText('Pay Now'))
 
     // Complete payment with exact cash
     fireEvent.click(screen.getByText('Cash (Exact)'))
@@ -246,7 +246,7 @@ describe('POSScreen', () => {
     fireEvent.click(productBtn)
 
     act(() => {
-      vi.runAllTimers()
+      vi.advanceTimersByTime(100)
     })
 
     expect(clearTransaction).toHaveBeenCalled()
@@ -267,7 +267,7 @@ describe('POSScreen', () => {
     fireEvent.keyDown(searchInput, { key: 'Enter' })
 
     act(() => {
-      vi.runAllTimers()
+      vi.advanceTimersByTime(100)
     })
 
     expect(addToCartBySku).toHaveBeenCalledWith('WINE-001')
@@ -303,12 +303,12 @@ describe('POSScreen', () => {
     render(<POSScreen />)
 
     // Open payment → Cash (Exact) → OK
-    fireEvent.click(screen.getByText('Pay'))
+    fireEvent.click(screen.getByText('Pay Now'))
     fireEvent.click(screen.getByText('Cash (Exact)'))
     fireEvent.click(screen.getByTestId('payment-ok-btn'))
 
     act(() => {
-      vi.runAllTimers()
+      vi.advanceTimersByTime(100)
     })
 
     expect(saveTransaction).toHaveBeenCalledWith(
@@ -353,12 +353,12 @@ describe('POSScreen', () => {
     render(<POSScreen />)
 
     // Open payment → Cash (Exact) → OK
-    fireEvent.click(screen.getByText('Pay'))
+    fireEvent.click(screen.getByText('Pay Now'))
     fireEvent.click(screen.getByText('Cash (Exact)'))
     fireEvent.click(screen.getByTestId('payment-ok-btn'))
 
     act(() => {
-      vi.runAllTimers()
+      vi.advanceTimersByTime(100)
     })
 
     // $100 * 0.9 (item) * 0.9 (tx) = $81

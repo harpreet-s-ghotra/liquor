@@ -169,6 +169,11 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
 
       // Product APIs
       getProducts: async () => products,
+      getActiveSpecialPricing: async () => [],
+      getDepartments: async () => [],
+      getVendors: async () => [],
+      getTaxCodes: async () => [],
+      getInventoryTaxCodes: async () => [],
       searchInventoryProducts: async () => [],
       getInventoryProductDetail: async () => null,
       saveInventoryItem: async () => {
@@ -248,7 +253,7 @@ test.describe('Simple Transactions', () => {
     await expect(page.getByRole('button', { name: 'Cash', exact: true })).toBeEnabled()
     await expect(page.getByRole('button', { name: 'Credit' })).toBeEnabled()
     await expect(page.getByRole('button', { name: 'Debit' })).toBeEnabled()
-    await expect(page.getByRole('button', { name: 'Pay' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Pay Now' })).toBeEnabled()
   })
 
   test('delete removes currently selected item', async ({ page }) => {
@@ -494,7 +499,7 @@ test.describe('Simple Transactions', () => {
     await expect(page.locator('.ticket-line').first().getByText('DISCOUNT 10.00%')).toBeVisible()
 
     // Complete payment with cash
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
     await page.getByRole('button', { name: 'Cash (Exact)' }).click()
     await page.getByTestId('payment-ok-btn').click()
 
@@ -532,7 +537,7 @@ test.describe('Payment Modal', () => {
     await gotoAndLogin(page)
     await addProductToCart(page)
 
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
 
     const modal = page.getByTestId('payment-modal')
     await expect(modal).toBeVisible()
@@ -549,7 +554,7 @@ test.describe('Payment Modal', () => {
     await gotoAndLogin(page)
 
     // Pay button should be disabled when cart is empty
-    await expect(page.getByRole('button', { name: 'Pay' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Pay Now' })).toBeDisabled()
     await expect(page.getByTestId('payment-modal')).toHaveCount(0)
   })
 
@@ -560,7 +565,7 @@ test.describe('Payment Modal', () => {
 
     const totalText = await page.locator('.grand-total strong').textContent()
 
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
     const modal = page.getByTestId('payment-modal')
 
     // Verify total matches
@@ -588,7 +593,7 @@ test.describe('Payment Modal', () => {
     await gotoAndLogin(page)
     await addProductToCart(page)
 
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
     const modal = page.getByTestId('payment-modal')
 
     await modal.getByRole('button', { name: 'Credit' }).click()
@@ -612,7 +617,7 @@ test.describe('Payment Modal', () => {
     await gotoAndLogin(page)
     await addProductToCart(page)
 
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
     const modal = page.getByTestId('payment-modal')
 
     await modal.getByRole('button', { name: 'Debit' }).click()
@@ -630,7 +635,7 @@ test.describe('Payment Modal', () => {
     await addProductToCart(page)
 
     // Cabernet Sauvignon: $19.99 * 1.13 = $22.59
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
     const modal = page.getByTestId('payment-modal')
 
     // Add $10 tender
@@ -661,7 +666,7 @@ test.describe('Payment Modal', () => {
     await addProductToCart(page)
 
     // Cabernet Sauvignon total = $22.59
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
     const modal = page.getByTestId('payment-modal')
 
     // Pay $10 cash
@@ -688,7 +693,7 @@ test.describe('Payment Modal', () => {
     await gotoAndLogin(page)
     await addProductToCart(page)
 
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
     await expect(page.getByTestId('payment-modal')).toBeVisible()
 
     await page.getByRole('button', { name: 'Cancel' }).click()
@@ -708,7 +713,7 @@ test.describe('Payment Modal', () => {
     await gotoAndLogin(page)
     await addProductToCart(page)
 
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
     const modal = page.getByTestId('payment-modal')
 
     for (const denom of ['$1', '$2', '$5', '$10', '$20', '$50', '$100']) {
@@ -769,7 +774,7 @@ test.describe('Payment Modal', () => {
     await addProductToCart(page)
 
     // Complete a cash payment
-    await page.getByRole('button', { name: 'Pay' }).click()
+    await page.getByRole('button', { name: 'Pay Now' }).click()
     const modal = page.getByTestId('payment-modal')
     await modal.getByRole('button', { name: 'Cash (Exact)' }).click()
     await expect(modal.getByTestId('payment-complete')).toBeVisible()

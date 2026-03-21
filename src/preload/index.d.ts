@@ -35,6 +35,7 @@ type AppApi = {
   searchInventoryProducts: (query: string) => Promise<InventoryProduct[]>
   getInventoryProductDetail: (itemNumber: number) => Promise<InventoryProductDetail | null>
   saveInventoryItem: (payload: SaveInventoryItemInput) => Promise<InventoryProductDetail>
+  deleteInventoryItem: (itemNumber: number) => Promise<void>
   getInventoryDepartments: () => Promise<string[]>
   getInventoryTaxCodes: () => Promise<InventoryTaxCode[]>
   getDepartments: () => Promise<Department[]>

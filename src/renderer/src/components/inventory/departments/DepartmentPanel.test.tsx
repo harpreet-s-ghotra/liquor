@@ -114,13 +114,11 @@ describe('DepartmentPanel', () => {
   })
 
   it('filters departments by search', async () => {
-    render(<DepartmentPanel />)
+    const { rerender } = render(<DepartmentPanel searchFilter="" />)
 
     await screen.findByText('Wine')
 
-    fireEvent.change(screen.getByLabelText('Search Departments'), {
-      target: { value: 'wine' }
-    })
+    rerender(<DepartmentPanel searchFilter="wine" />)
 
     expect(screen.getByText('Wine')).toBeInTheDocument()
     expect(screen.queryByText('Beer')).not.toBeInTheDocument()
@@ -224,6 +222,7 @@ describe('DepartmentPanel', () => {
     fireEvent.click(wineRow.closest('tr')!)
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Delete' }))
 
     await waitFor(() => {
       expect(api.deleteDepartment).toHaveBeenCalledWith(1)
@@ -282,6 +281,7 @@ describe('DepartmentPanel', () => {
     fireEvent.click(wineRow.closest('tr')!)
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Delete' }))
 
     expect(await screen.findByText('In use')).toBeInTheDocument()
   })
@@ -646,6 +646,7 @@ describe('DepartmentPanel', () => {
     fireEvent.click(wineRow.closest('tr')!)
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Delete' }))
 
     await waitFor(() => {
       expect(screen.getByText('Department deleted')).toBeInTheDocument()

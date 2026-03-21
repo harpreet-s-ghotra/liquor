@@ -107,7 +107,7 @@ describe('ActionPanel', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: 'Pay' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Pay Now' })).toBeEnabled()
   })
 
   it('shows size toggle and product items with correct layout', () => {
@@ -129,9 +129,11 @@ describe('ActionPanel', () => {
     expect(smallBtn).toBeInTheDocument()
     expect(largeBtn).toBeInTheDocument()
 
-    // Small is active by default (uses btn-bg token for active state)
-    expect(smallBtn.className).toContain('btn-bg')
-    expect(largeBtn.className).toContain('bg-surface-soft')
+    // Small is active by default (uses surface-soft token for active state)
+    expect(smallBtn.className).toContain('bg-surface-soft')
+    expect(smallBtn.className).toContain('text-primary')
+    expect(largeBtn.className).toContain('bg-surface')
+    expect(largeBtn.className).toContain('text-muted')
 
     // Product button is present and clickable
     fireEvent.click(screen.getByRole('button', { name: /Cabernet Sauvignon/i }))
@@ -139,8 +141,8 @@ describe('ActionPanel', () => {
 
     // Switch to large
     fireEvent.click(largeBtn)
-    expect(largeBtn.className).toContain('btn-bg')
-    expect(smallBtn.className).toContain('bg-surface-soft')
+    expect(largeBtn.className).toContain('bg-surface-soft')
+    expect(smallBtn.className).toContain('bg-surface')
   })
 
   it('shows discount amount in totals', () => {

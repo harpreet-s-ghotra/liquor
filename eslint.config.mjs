@@ -25,7 +25,14 @@ export default defineConfig(
     },
     rules: {
       ...eslintPluginReactHooks.configs.recommended.rules,
-      ...eslintPluginReactRefresh.configs.vite.rules
+      ...eslintPluginReactRefresh.configs.vite.rules,
+      // TypeScript handles prop types; this rule is redundant in TS projects
+      'react/prop-types': 'off',
+      // Allow _-prefixed vars to signal intentionally unused (e.g. destructuring to omit fields)
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }
+      ]
     }
   },
   eslintConfigPrettier

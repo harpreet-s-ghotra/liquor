@@ -5,19 +5,10 @@ import { ensureColumn, setDatabase } from './connection'
 import { seedData } from './seed'
 
 /**
- * Create (or open) the SQLite database, run DDL migrations, and seed initial
- * data when the tables are empty.
+ * Apply schema DDL and column migrations to any Database instance.
+ * Used by initializeDatabase (production) and test helpers (in-memory).
  */
-export function initializeDatabase(userDataPath: string): void {
-  const dataDir = join(userDataPath, 'data')
-  mkdirSync(dataDir, { recursive: true })
-
-  const dbPath = join(dataDir, 'liquor-pos.db')
-  const database = new Database(dbPath)
-
-  // Publish the instance so every repository can access it via getDb()
-  setDatabase(database)
-
+export function applySchema(database: InstanceType<typeof Database>): void {
   // ── Tables ──
 
   database.exec(`
@@ -160,6 +151,7 @@ export function initializeDatabase(userDataPath: string): void {
   ensureColumn('products', 'case_discount_price', 'case_discount_price REAL')
   ensureColumn('products', 'special_pricing_enabled', 'special_pricing_enabled INTEGER DEFAULT 0')
   ensureColumn('products', 'special_price', 'special_price REAL')
+  ensureColumn('products', 'is_active', 'is_active INTEGER NOT NULL DEFAULT 1')
 
   // Special pricing column migrations
   ensureColumn('special_pricing', 'pricing_type', "pricing_type TEXT DEFAULT 'group'")
@@ -191,6 +183,23 @@ export function initializeDatabase(userDataPath: string): void {
       category_name = COALESCE(category_name, category),
       bottles_per_case = COALESCE(bottles_per_case, 12)
   `)
+}
+
+/**
+ * Create (or open) the SQLite database, run DDL migrations, and seed initial
+ * data when the tables are empty.
+ */
+export function initializeDatabase(userDataPath: string): void {
+  const dataDir = join(userDataPath, 'data')
+  mkdirSync(dataDir, { recursive: true })
+
+  const dbPath = join(dataDir, 'liquor-pos.db')
+  const database = new Database(dbPath)
+
+  // Publish the instance so every repository can access it via getDb()
+  setDatabase(database)
+
+  applySchema(database)
 
   // ── Seed initial data ──
 

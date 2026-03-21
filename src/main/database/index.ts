@@ -25,6 +25,7 @@ export {
   searchInventoryProducts,
   getInventoryProductDetail,
   saveInventoryItem,
+  deleteInventoryItem,
   getActiveSpecialPricing
 } from './products.repo'
 

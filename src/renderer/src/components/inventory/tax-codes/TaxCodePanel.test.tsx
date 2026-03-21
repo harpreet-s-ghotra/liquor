@@ -155,6 +155,7 @@ describe('TaxCodePanel', () => {
 
     await selectRow('GST')
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Delete' }))
 
     await waitFor(() => {
       expect(api.deleteTaxCode).toHaveBeenCalledWith(1)
@@ -208,6 +209,7 @@ describe('TaxCodePanel', () => {
 
     await selectRow('GST')
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Delete' }))
 
     expect(await screen.findByText('In use by products')).toBeInTheDocument()
   })
@@ -299,25 +301,23 @@ describe('TaxCodePanel', () => {
     })
   })
 
-  it('filters tax codes via bottom search bar', async () => {
-    render(<TaxCodePanel />)
+  it('filters tax codes via searchFilter prop', async () => {
+    const { rerender } = render(<TaxCodePanel searchFilter="" />)
 
     await screen.findByText('GST')
 
-    const searchInput = screen.getByLabelText('Search Tax Codes')
-    fireEvent.change(searchInput, { target: { value: 'hst' } })
+    rerender(<TaxCodePanel searchFilter="hst" />)
 
     expect(screen.queryByText('GST')).not.toBeInTheDocument()
     expect(screen.getByText('HST')).toBeInTheDocument()
   })
 
   it('shows no-match message when search yields no results', async () => {
-    render(<TaxCodePanel />)
+    const { rerender } = render(<TaxCodePanel searchFilter="" />)
 
     await screen.findByText('GST')
 
-    const searchInput = screen.getByLabelText('Search Tax Codes')
-    fireEvent.change(searchInput, { target: { value: 'XYZ' } })
+    rerender(<TaxCodePanel searchFilter="XYZ" />)
 
     expect(screen.getByText('No tax codes match your search.')).toBeInTheDocument()
   })

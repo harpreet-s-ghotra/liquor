@@ -1,14 +1,18 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { FormField } from '@renderer/components/common/FormField'
 import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
-import { Input } from '@renderer/components/ui/input'
+import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { validateField } from '@renderer/components/common/validation'
 import { useCrudPanel } from '@renderer/hooks/useCrudPanel'
 import type { Vendor } from '@renderer/types/pos'
 import '../crud-panel.css'
 
-export function VendorPanel(): React.JSX.Element {
+type VendorPanelProps = {
+  searchFilter?: string
+}
+
+export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.Element {
   const api = typeof window !== 'undefined' ? window.api : undefined
   const hasApi = typeof api?.getVendors === 'function'
 
@@ -23,8 +27,8 @@ export function VendorPanel(): React.JSX.Element {
     loadFn: hasApi ? loadVendors : undefined
   })
 
-  const [searchFilter, setSearchFilter] = useState('')
   const [selectedVendorNum, setSelectedVendorNum] = useState<number | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // New entry form
   const [newName, setNewName] = useState('')
@@ -65,6 +69,24 @@ export function VendorPanel(): React.JSX.Element {
       editEmail !== (selectedVendor.email ?? '')
     )
   }, [selectedVendor, editName, editContact, editPhone, editEmail])
+
+  const clearSelection = (): void => {
+    setSelectedVendorNum(null)
+    setEditName('')
+    setEditContact('')
+    setEditPhone('')
+    setEditEmail('')
+    setShowEditValidation(false)
+    crud.clearMessages()
+  }
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && selectedVendorNum !== null) clearSelection()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [selectedVendorNum])
 
   const selectVendor = (v: Vendor): void => {
     crud.clearMessages()
@@ -162,9 +184,13 @@ export function VendorPanel(): React.JSX.Element {
     }
   }
 
-  const handleDelete = async (): Promise<void> => {
-    crud.clearMessages()
+  const handleDelete = (): void => {
+    if (!hasApi || !selectedVendorNum) return
+    setShowDeleteConfirm(true)
+  }
 
+  const handleDeleteConfirmed = async (): Promise<void> => {
+    setShowDeleteConfirm(false)
     if (!hasApi || !selectedVendorNum) return
 
     const freshItems = await crud.runAction(
@@ -186,10 +212,7 @@ export function VendorPanel(): React.JSX.Element {
     showEditValidation && !editName.trim() ? 'Vendor name is required' : undefined
 
   return (
-    <div
-      className="grid grid-rows-[auto_1fr_auto_auto] gap-2 h-full min-h-0 p-3"
-      aria-label="Vendors"
-    >
+    <div className="grid grid-rows-[auto_1fr_auto] gap-2 h-full min-h-0 p-3" aria-label="Vendors">
       {/* Section 1: New entry form */}
       <div className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-center">
         <FormField label="Vendor Name" required error={nameError} showError={crud.showValidation}>
@@ -232,9 +255,9 @@ export function VendorPanel(): React.JSX.Element {
           />
         </FormField>
         <AppButton
-          size="lg"
+          size="md"
           variant="success"
-          className="self-center min-w-[6rem]"
+          className="self-end min-w-[6rem]"
           onClick={() => void handleCreate()}
         >
           Add
@@ -284,7 +307,7 @@ export function VendorPanel(): React.JSX.Element {
         {selectedVendor ? (
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-[var(--text-on-dark)]">
+              <span className="font-bold text-sm text-[var(--text-primary)]">
                 Editing: {selectedVendor.vendor_name}
               </span>
               <div className="flex gap-2">
@@ -296,8 +319,11 @@ export function VendorPanel(): React.JSX.Element {
                 >
                   Save
                 </AppButton>
-                <AppButton size="sm" variant="danger" onClick={() => void handleDelete()}>
+                <AppButton size="sm" variant="danger" onClick={handleDelete}>
                   Delete
+                </AppButton>
+                <AppButton size="sm" variant="neutral" onClick={clearSelection}>
+                  Cancel
                 </AppButton>
               </div>
             </div>
@@ -384,18 +410,16 @@ export function VendorPanel(): React.JSX.Element {
         )}
       </div>
 
-      {/* Section 4: Bottom search bar */}
-      <div className="grid grid-cols-[auto_1fr] gap-2 items-center border border-[var(--border-default)] rounded-[var(--radius)] bg-[var(--bg-surface)] px-3 py-2">
-        <span className="text-sm font-semibold text-[var(--text-on-dark)] whitespace-nowrap">
-          Search
-        </span>
-        <Input
-          aria-label="Search Vendors"
-          placeholder="Filter by name, contact, phone, or email..."
-          value={searchFilter}
-          onChange={(e) => setSearchFilter(e.target.value)}
-        />
-      </div>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Vendor"
+        message={`Are you sure you want to delete "${selectedVendor?.vendor_name}"? This cannot be undone.`}
+        confirmLabel="Yes, Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => void handleDeleteConfirmed()}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </div>
   )
 }

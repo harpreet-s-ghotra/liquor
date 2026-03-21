@@ -6,7 +6,7 @@ body {
   margin: 0;
   background: var(--bg-app);
   user-select: none;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
 }
 
 #root {

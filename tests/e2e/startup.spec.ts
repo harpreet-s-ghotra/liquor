@@ -163,6 +163,11 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
       }),
 
       getProducts: async () => products,
+      getActiveSpecialPricing: async () => [],
+      getDepartments: async () => [],
+      getVendors: async () => [],
+      getTaxCodes: async () => [],
+      getInventoryTaxCodes: async () => [],
       searchInventoryProducts: async () => [],
       getInventoryProductDetail: async () => null,
       saveInventoryItem: async () => {
@@ -194,7 +199,7 @@ test.describe('Startup', () => {
 
     await expect(page.locator('.ticket-panel')).toBeVisible()
     await expect(page.locator('.action-panel')).toBeVisible()
-    await expect(page.locator('.shortcut-bar')).toBeVisible()
+    await expect(page.getByTestId('bottom-bar')).toBeVisible()
 
     // Category dropdown defaults to "Favorites"
     const categoryTrigger = page.locator('.category-dropdown-trigger')
@@ -213,7 +218,7 @@ test.describe('Startup', () => {
     await expect(page.getByRole('button', { name: 'Cash', exact: true })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Credit' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Debit' })).toBeDisabled()
-    await expect(page.getByRole('button', { name: 'Pay' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Pay Now' })).toBeDisabled()
   })
 
   test('latest added item is selected, and clicking another item selects it', async ({ page }) => {

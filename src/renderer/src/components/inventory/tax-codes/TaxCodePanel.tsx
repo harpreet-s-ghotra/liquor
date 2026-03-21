@@ -1,13 +1,17 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { FormField } from '@renderer/components/common/FormField'
 import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
-import { Input } from '@renderer/components/ui/input'
+import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { useCrudPanel } from '@renderer/hooks/useCrudPanel'
 import type { TaxCode } from '@renderer/types/pos'
 import '../crud-panel.css'
 
-export function TaxCodePanel(): React.JSX.Element {
+type TaxCodePanelProps = {
+  searchFilter?: string
+}
+
+export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JSX.Element {
   const api = typeof window !== 'undefined' ? window.api : undefined
   const hasApi = typeof api?.getTaxCodes === 'function'
 
@@ -22,8 +26,8 @@ export function TaxCodePanel(): React.JSX.Element {
     loadFn: hasApi ? loadTaxCodes : undefined
   })
 
-  const [searchFilter, setSearchFilter] = useState('')
   const [selectedTcId, setSelectedTcId] = useState<number | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // New entry form
   const [newCode, setNewCode] = useState('')
@@ -56,6 +60,22 @@ export function TaxCodePanel(): React.JSX.Element {
       editRate !== String(parseFloat((selectedTc.rate * 100).toFixed(4)))
     )
   }, [selectedTc, editCode, editRate])
+
+  const clearSelection = (): void => {
+    setSelectedTcId(null)
+    setEditCode('')
+    setEditRate('')
+    setShowEditValidation(false)
+    crud.clearMessages()
+  }
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && selectedTcId !== null) clearSelection()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [selectedTcId])
 
   const selectTaxCode = (tc: TaxCode): void => {
     crud.clearMessages()
@@ -129,9 +149,13 @@ export function TaxCodePanel(): React.JSX.Element {
     }
   }
 
-  const handleDelete = async (): Promise<void> => {
-    crud.clearMessages()
+  const handleDelete = (): void => {
+    if (!hasApi || !selectedTcId) return
+    setShowDeleteConfirm(true)
+  }
 
+  const handleDeleteConfirmed = async (): Promise<void> => {
+    setShowDeleteConfirm(false)
     if (!hasApi || !selectedTcId) return
 
     const freshItems = await crud.runAction(
@@ -155,10 +179,7 @@ export function TaxCodePanel(): React.JSX.Element {
   const editCodeError = showEditValidation && !editCode.trim() ? 'Code is required' : undefined
 
   return (
-    <div
-      className="grid grid-rows-[auto_1fr_auto_auto] gap-2 h-full min-h-0 p-3"
-      aria-label="Tax Codes"
-    >
+    <div className="grid grid-rows-[auto_1fr_auto] gap-2 h-full min-h-0 p-3" aria-label="Tax Codes">
       {/* Section 1: New entry form */}
       <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
         <FormField label="Code" required error={codeError} showError={crud.showValidation}>
@@ -183,9 +204,9 @@ export function TaxCodePanel(): React.JSX.Element {
           />
         </FormField>
         <AppButton
-          size="lg"
+          size="md"
           variant="success"
-          className="self-center min-w-[6rem]"
+          className="self-end min-w-[6rem]"
           onClick={() => void handleCreate()}
         >
           Add
@@ -229,7 +250,7 @@ export function TaxCodePanel(): React.JSX.Element {
         {selectedTc ? (
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-[var(--text-on-dark)]">
+              <span className="font-bold text-sm text-[var(--text-primary)]">
                 Editing: {selectedTc.code}
               </span>
               <div className="flex gap-2">
@@ -241,8 +262,11 @@ export function TaxCodePanel(): React.JSX.Element {
                 >
                   Save
                 </AppButton>
-                <AppButton size="sm" variant="danger" onClick={() => void handleDelete()}>
+                <AppButton size="sm" variant="danger" onClick={handleDelete}>
                   Delete
+                </AppButton>
+                <AppButton size="sm" variant="neutral" onClick={clearSelection}>
+                  Cancel
                 </AppButton>
               </div>
             </div>
@@ -305,18 +329,16 @@ export function TaxCodePanel(): React.JSX.Element {
         )}
       </div>
 
-      {/* Section 4: Bottom search bar */}
-      <div className="grid grid-cols-[auto_1fr] gap-2 items-center border border-[var(--border-default)] rounded-[var(--radius)] bg-[var(--bg-surface)] px-3 py-2">
-        <span className="text-sm font-semibold text-[var(--text-on-dark)] whitespace-nowrap">
-          Search
-        </span>
-        <Input
-          aria-label="Search Tax Codes"
-          placeholder="Filter by code or rate..."
-          value={searchFilter}
-          onChange={(e) => setSearchFilter(e.target.value)}
-        />
-      </div>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Tax Code"
+        message={`Are you sure you want to delete tax code "${selectedTc?.code}"? This cannot be undone.`}
+        confirmLabel="Yes, Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => void handleDeleteConfirmed()}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </div>
   )
 }

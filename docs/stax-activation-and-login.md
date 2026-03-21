@@ -4,10 +4,10 @@
 
 This document covers two features that gate access to the POS:
 
-| Phase | Feature | Description |
-|-------|---------|-------------|
+| Phase | Feature                 | Description                                                                                                                                                                            |
+| ----- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1** | **Merchant Activation** | First-launch screen where the merchant enters their Stax API key (you onboard merchants manually via the Stax dashboard). The key is validated against `GET /self` and stored locally. |
-| **2** | **Cashier PIN Login** | After activation, cashiers log in with a 4-digit PIN. Supports multiple cashiers per merchant. |
+| **2** | **Cashier PIN Login**   | After activation, cashiers log in with a 4-digit PIN. Supports multiple cashiers per merchant.                                                                                         |
 
 ### Business Flow
 
@@ -234,7 +234,7 @@ type AuthState = {
   lockoutUntil: number | null
 
   // Actions
-  initialize: () => Promise<void>          // check activation on app start
+  initialize: () => Promise<void> // check activation on app start
   activate: (apiKey: string) => Promise<void>
   deactivate: () => Promise<void>
   login: (pin: string) => Promise<boolean>
@@ -272,14 +272,14 @@ export type Cashier = {
 
 export type CreateCashierInput = {
   name: string
-  pin: string           // plain 4-digit PIN, hashed before storage
+  pin: string // plain 4-digit PIN, hashed before storage
   role?: 'admin' | 'cashier'
 }
 
 export type UpdateCashierInput = {
   id: number
   name?: string
-  pin?: string          // optional, only if changing PIN
+  pin?: string // optional, only if changing PIN
   role?: 'admin' | 'cashier'
   is_active?: number
 }
@@ -290,12 +290,14 @@ export type UpdateCashierInput = {
 ## How to Test Locally on macOS
 
 ### Prerequisites
+
 ```bash
 cd /Users/harpreetghotra/liquor-pos
 npm install
 ```
 
 ### 1. Unit Tests (TDD — write these FIRST)
+
 ```bash
 # Run all unit tests with coverage
 npm run test:coverage
@@ -308,6 +310,7 @@ npx vitest run src/renderer/src/pages/ActivationScreen.test.tsx
 ```
 
 ### 2. Manual Testing with Dev Server
+
 ```bash
 # Start the Electron app in dev mode
 npm run dev
@@ -317,6 +320,7 @@ npm run dev
 ```
 
 ### 3. Test Stax API Key Validation
+
 ```bash
 # Verify your sandbox key still works:
 curl -s -H "Authorization: Bearer $(grep STAX_API_KEY .env | cut -d= -f2-)" \
@@ -324,6 +328,7 @@ curl -s -H "Authorization: Bearer $(grep STAX_API_KEY .env | cut -d= -f2-)" \
 ```
 
 ### 4. Reset Activation (start fresh)
+
 ```bash
 # Delete the SQLite database to reset all local state:
 rm -rf ~/Library/Application\ Support/liquor-pos/data/liquor-pos.db
@@ -332,6 +337,7 @@ rm -rf ~/Library/Application\ Support/liquor-pos/data/liquor-pos.db
 ```
 
 ### 5. E2E Tests
+
 ```bash
 # Run Playwright tests
 npm run test:e2e
@@ -341,6 +347,7 @@ npm run test:e2e:ui
 ```
 
 ### 6. Quality Gate (must pass before committing)
+
 ```bash
 npm run lint && npm run typecheck && npm run test:coverage
 ```
@@ -350,37 +357,44 @@ npm run lint && npm run typecheck && npm run test:coverage
 ## Implementation Order (Step by Step)
 
 ### Step 1 — Database & Types
+
 1. Add `MerchantConfig`, `Cashier` types to `src/shared/types/index.ts`
 2. Add constants to `src/shared/constants.ts`
 3. Add `merchant_config` and `cashiers` tables to `src/main/database/schema.ts`
 4. Create `merchant-config.repo.ts` and `cashiers.repo.ts`
 
 ### Step 2 — Stax Service
+
 1. Create `src/main/services/stax.ts` with `validateApiKey()`
 2. Test with sandbox key via a simple script or unit test
 
 ### Step 3 — IPC + Preload
+
 1. Add IPC handlers to `src/main/index.ts`
 2. Expose through `src/preload/index.ts`
 3. Update type definitions in `src/preload/index.d.ts`
 
 ### Step 4 — Auth Store (TDD)
+
 1. Write tests for `useAuthStore` first
 2. Implement the Zustand store
 3. Verify tests pass
 
 ### Step 5 — Activation Screen (TDD)
+
 1. Write tests for `ActivationScreen` first
 2. Implement the component
 3. Update `App.tsx` to route based on auth state
 4. **CHECKPOINT**: Run `npm run dev`, verify activation flow works visually
 
 ### Step 6 — Login Screen (TDD)
+
 1. Write tests for `LoginScreen` and `PinPad` first
 2. Implement components
 3. **CHECKPOINT**: Run `npm run dev`, verify full flow: activation → first cashier → PIN login → POS
 
 ### Step 7 — Quality Gate
+
 1. `npm run lint`
 2. `npm run typecheck`
 3. `npm run test:coverage` (must be >= 80%)

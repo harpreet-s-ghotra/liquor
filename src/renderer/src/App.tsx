@@ -3,6 +3,7 @@ import { POSScreen } from './pages/POSScreen'
 import { ActivationScreen } from './pages/ActivationScreen'
 import { LoginScreen } from './pages/LoginScreen'
 import { useAuthStore } from './store/useAuthStore'
+import { useThemeStore } from './store/useThemeStore'
 
 /**
  * When running in the browser (not Electron), skip auth and go straight to POS.
@@ -16,6 +17,11 @@ function App(): React.JSX.Element {
   const appState = useAuthStore((s) => s.appState)
   const initialize = useAuthStore((s) => s.initialize)
   const isDevBrowser = useIsDevBrowser()
+  const theme = useThemeStore((s) => s.theme)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
 
   useEffect(() => {
     if (isDevBrowser) return // skip backend-dependent init

@@ -307,17 +307,6 @@ const clickEl = async (locator: Locator): Promise<void> => {
   await locator.dispatchEvent('click')
 }
 
-/** Check a Radix checkbox inside the modal via DOM click (avoids CDP hang). */
-const checkBox = async (locator: Locator): Promise<void> => {
-  await locator.evaluate((el) => {
-    const btn = el as HTMLElement
-    // Support both native <input> and Radix <button role="checkbox">
-    if ('checked' in btn && (btn as HTMLInputElement).checked) return
-    if (btn.getAttribute('aria-checked') === 'true') return
-    btn.click()
-  })
-}
-
 test.describe('Inventory Management – Full Workflow', () => {
   test.beforeEach(async ({ page }) => {
     await attachFullApiMock(page)
@@ -329,7 +318,7 @@ test.describe('Inventory Management – Full Workflow', () => {
   }) => {
     test.setTimeout(60_000)
     /* ── Step 1: Open Inventory Modal ── */
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
     const dialog = page.getByRole('dialog', { name: 'Inventory Management' })
     await expect(dialog).toBeVisible()
 
@@ -372,27 +361,21 @@ test.describe('Inventory Management – Full Workflow', () => {
     await fillInput(page.getByRole('textbox', { name: 'SKU', exact: true }), sku)
     await fillInput(page.getByLabel('Name'), itemName)
 
-    // Department dropdown
-    const deptTrigger = page.getByRole('button', { name: 'Department' })
-    await clickEl(deptTrigger)
-    const deptListbox = page.getByRole('listbox', { name: 'Department options' })
-    await checkBox(deptListbox.locator('li', { hasText: '1' }).getByRole('checkbox'))
-    await clickEl(deptTrigger)
+    // Department dropdown (scoped inside Items tabpanel)
+    const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
+    await itemsPanel.getByLabel('Department').selectOption({ label: 'Wine' })
 
     await fillInput(page.getByLabel('Cost'), '12.50')
     await fillInput(page.getByLabel('Price Charged'), '24.99')
     await fillInput(page.getByLabel('In Stock'), '30')
 
-    // Tax code dropdown
-    const taxTrigger = page.getByRole('button', { name: 'Tax Codes' })
-    await clickEl(taxTrigger)
-    const taxListbox = page.getByRole('listbox', { name: 'Tax code options' })
-    for (const opt of await taxListbox.locator('li').all()) {
-      await checkBox(opt.getByRole('checkbox'))
-    }
-    await clickEl(taxTrigger)
+    // Tax code dropdown (scoped inside Items tabpanel)
+    const taxSelect = itemsPanel.getByLabel('Tax Codes')
+    const taxOptions = await taxSelect.locator('option').allTextContents()
+    const hstOption = taxOptions.find((t) => t.includes('HST'))
+    if (hstOption) await taxSelect.selectOption({ label: hstOption })
 
-    await clickEl(page.getByRole('button', { name: 'Save Item' }))
+    await clickEl(page.getByRole('button', { name: 'Save' }))
     await expect(page.getByText('Item saved')).toBeVisible()
 
     /* ── Step 6: Close inventory modal ── */
@@ -410,7 +393,7 @@ test.describe('Inventory Management – Full Workflow', () => {
   })
 
   test('edits and deletes a department', async ({ page }) => {
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
     await clickTab(page, 'Departments')
 
     // Create
@@ -432,12 +415,13 @@ test.describe('Inventory Management – Full Workflow', () => {
 
     // Delete
     await clickEl(page.getByRole('button', { name: 'Delete' }))
+    await clickEl(page.getByRole('button', { name: 'Yes, Delete' }))
     await expect(page.getByText('Department deleted')).toBeVisible()
     await expect(page.getByText('No departments yet')).toBeVisible()
   })
 
   test('saves department with description, margin, and tax rate', async ({ page }) => {
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
 
     // First create a tax code so the dropdown has options
     await clickTab(page, 'Tax Codes')
@@ -479,7 +463,7 @@ test.describe('Inventory Management – Full Workflow', () => {
   })
 
   test('validates required fields on CRUD panels', async ({ page }) => {
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
 
     // Department: empty name
     await clickTab(page, 'Departments')
@@ -499,7 +483,7 @@ test.describe('Inventory Management – Full Workflow', () => {
   })
 
   test('edits and deletes a tax code', async ({ page }) => {
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
     await clickTab(page, 'Tax Codes')
 
     // Create
@@ -522,12 +506,13 @@ test.describe('Inventory Management – Full Workflow', () => {
 
     // Delete via bottom panel
     await clickEl(page.getByRole('button', { name: 'Delete' }))
+    await clickEl(page.getByRole('button', { name: 'Yes, Delete' }))
     await expect(page.getByText('Tax code deleted')).toBeVisible()
     await expect(page.getByText('No tax codes yet')).toBeVisible()
   })
 
   test('edits and deletes a vendor', async ({ page }) => {
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
     await clickTab(page, 'Vendors')
 
     // Create
@@ -548,12 +533,13 @@ test.describe('Inventory Management – Full Workflow', () => {
 
     // Delete via bottom panel
     await clickEl(page.getByRole('button', { name: 'Delete' }))
+    await clickEl(page.getByRole('button', { name: 'Yes, Delete' }))
     await expect(page.getByText('Vendor deleted')).toBeVisible()
     await expect(page.getByText('No vendors yet')).toBeVisible()
   })
 
   test('items tab defaults to Case & Quantity sub-tab', async ({ page }) => {
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
     const dialog = page.getByRole('dialog', { name: 'Inventory Management' })
     await expect(dialog).toBeVisible()
 
@@ -573,7 +559,7 @@ test.describe('Inventory Management – Full Workflow', () => {
 
   test('case discount supports percent and dollar toggle', async ({ page }) => {
     test.setTimeout(60_000)
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
     await clickTab(page, 'Items')
 
     // Initially in percent mode
@@ -594,7 +580,7 @@ test.describe('Inventory Management – Full Workflow', () => {
 
   test('editing item with tax code does not show validation error', async ({ page }) => {
     test.setTimeout(60_000)
-    await page.getByRole('button', { name: 'F2 - Inventory' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
     const dialog = page.getByRole('dialog', { name: 'Inventory Management' })
     await expect(dialog).toBeVisible()
 
@@ -616,23 +602,21 @@ test.describe('Inventory Management – Full Workflow', () => {
     await fillInput(page.getByRole('textbox', { name: 'SKU', exact: true }), 'TAX-TEST')
     await fillInput(page.getByLabel('Name'), 'Tax Test Item')
 
-    const deptTrigger2 = page.getByRole('button', { name: 'Department' })
-    await clickEl(deptTrigger2)
-    const deptListbox2 = page.getByRole('listbox', { name: 'Department options' })
-    await checkBox(deptListbox2.locator('li').first().getByRole('checkbox'))
-    await clickEl(deptTrigger2)
+    // Department dropdown (scoped inside Items tabpanel)
+    const itemsPanel2 = page.getByRole('tabpanel', { name: 'Items' })
+    await itemsPanel2.getByLabel('Department').selectOption({ label: 'Wine' })
 
     await fillInput(page.getByLabel('Cost'), '10.00')
     await fillInput(page.getByLabel('Price Charged'), '20.00')
     await fillInput(page.getByLabel('In Stock'), '10')
 
-    const taxTrigger2 = page.getByRole('button', { name: 'Tax Codes' })
-    await clickEl(taxTrigger2)
-    const taxListbox2 = page.getByRole('listbox', { name: 'Tax code options' })
-    await checkBox(taxListbox2.locator('li').first().getByRole('checkbox'))
-    await clickEl(taxTrigger2)
+    // Tax code dropdown (scoped inside Items tabpanel)
+    const taxSelect2 = itemsPanel2.getByLabel('Tax Codes')
+    const taxOptions2 = await taxSelect2.locator('option').allTextContents()
+    const hstOption2 = taxOptions2.find((t) => t.includes('HST'))
+    if (hstOption2) await taxSelect2.selectOption({ label: hstOption2 })
 
-    await clickEl(page.getByRole('button', { name: 'Save Item' }))
+    await clickEl(page.getByRole('button', { name: 'Save' }))
     await expect(page.getByText('Item saved')).toBeVisible()
 
     /* Now search for the saved item to edit it */
@@ -643,7 +627,7 @@ test.describe('Inventory Management – Full Workflow', () => {
     await expect(page.getByLabel('SKU', { exact: true })).toHaveValue('TAX-TEST', { timeout: 5000 })
 
     /* Save again without changes — no validation error should appear */
-    await clickEl(page.getByRole('button', { name: 'Save Item' }))
+    await clickEl(page.getByRole('button', { name: 'Save' }))
     await expect(page.getByText('Item saved')).toBeVisible()
 
     // The tax code validation error should NOT appear

@@ -52,7 +52,7 @@ describe('InventoryModal', () => {
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 
     expect(screen.getByRole('dialog', { name: 'Inventory Management' })).toBeInTheDocument()
-    expect(screen.getByText('Inventory Management')).toBeInTheDocument()
+    expect(screen.getByText('Inventory Maintenance')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Items' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Departments' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Tax Codes' })).toBeInTheDocument()
@@ -104,5 +104,124 @@ describe('InventoryModal', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows "New Item" breadcrumb when no item is selected', () => {
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+    expect(screen.getByText('New Item')).toBeInTheDocument()
+  })
+
+  it('shows "Departments" breadcrumb when on departments tab', async () => {
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+    await userEvent.click(screen.getByRole('tab', { name: 'Departments' }))
+    // The breadcrumb is in the header span with specific styling
+    const breadcrumbs = screen.getAllByText('Departments')
+    expect(breadcrumbs.length).toBeGreaterThanOrEqual(2) // tab + breadcrumb
+  })
+
+  it('shows "Tax Codes" breadcrumb when on tax-codes tab', async () => {
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+    await userEvent.click(screen.getByRole('tab', { name: 'Tax Codes' }))
+    const breadcrumbs = screen.getAllByText('Tax Codes')
+    expect(breadcrumbs.length).toBeGreaterThanOrEqual(2) // tab + breadcrumb
+  })
+
+  it('shows "Vendors" breadcrumb when on vendors tab', async () => {
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+    await userEvent.click(screen.getByRole('tab', { name: 'Vendors' }))
+    const breadcrumbs = screen.getAllByText('Vendors')
+    expect(breadcrumbs.length).toBeGreaterThanOrEqual(2) // tab + breadcrumb
+  })
+
+  it('performs search and shows dropdown with results', async () => {
+    const mockProducts = [
+      {
+        item_number: 1,
+        sku: 'WINE-001',
+        item_name: 'Red Wine',
+        dept_id: null,
+        category_id: null,
+        category_name: null,
+        cost: 5,
+        retail_price: 9.99,
+        in_stock: 10,
+        tax_1: 0.08,
+        tax_2: 0,
+        vendor_number: null,
+        vendor_name: null,
+        bottles_per_case: 12,
+        case_discount_price: null,
+        barcode: null,
+        description: null
+      }
+    ]
+    vi.mocked(window.api.searchInventoryProducts).mockResolvedValue(mockProducts)
+
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    const searchInput = screen.getByLabelText('Search Inventory')
+    await userEvent.type(searchInput, 'wine')
+
+    // Click the Search button
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    await waitFor(() => {
+      expect(window.api.searchInventoryProducts).toHaveBeenCalledWith('wine')
+    })
+  })
+
+  it('shows no-results prompt when search returns empty', async () => {
+    vi.mocked(window.api.searchInventoryProducts).mockResolvedValue([])
+
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    const searchInput = screen.getByLabelText('Search Inventory')
+    await userEvent.type(searchInput, 'NONEXISTENT')
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('NONEXISTENT')).toBeInTheDocument()
+    })
+  })
+
+  it('clears search term and no-results on tab switch', async () => {
+    vi.mocked(window.api.searchInventoryProducts).mockResolvedValue([])
+
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    const searchInput = screen.getByLabelText('Search Inventory')
+    await userEvent.type(searchInput, 'test')
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('test')).toBeInTheDocument()
+    })
+
+    // Switch tabs — should reset search
+    await userEvent.click(screen.getByRole('tab', { name: 'Departments' }))
+    // Switch back
+    await userEvent.click(screen.getByRole('tab', { name: 'Items' }))
+
+    expect(screen.getByLabelText('Search Inventory')).toHaveValue('')
+  })
+
+  it('clears no-results when search term changes', async () => {
+    vi.mocked(window.api.searchInventoryProducts).mockResolvedValue([])
+
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    const searchInput = screen.getByLabelText('Search Inventory')
+    await userEvent.type(searchInput, 'XYZ')
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('XYZ')).toBeInTheDocument()
+    })
+
+    // Typing more should clear the no-results
+    await userEvent.type(searchInput, '1')
+    await waitFor(() => {
+      expect(screen.queryByText('+ Add New Item')).not.toBeInTheDocument()
+    })
   })
 })

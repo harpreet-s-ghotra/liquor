@@ -1,22 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import React, { useRef } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ItemForm, type ItemFormHandle } from './ItemForm'
+import type { InventoryProduct } from '@renderer/types/pos'
 
-/** Test wrapper that exposes New Item / Save Item buttons via the ref */
-function ItemFormWithButtons(): React.JSX.Element {
-  const ref = useRef<ItemFormHandle>(null)
-  return (
-    <>
-      <button onClick={() => ref.current?.handleNewItem()}>New Item</button>
-      <button onClick={() => ref.current?.handleSave()}>Save Item</button>
-      <ItemForm ref={ref} />
-    </>
-  )
-}
-
-const baseInventoryItem = {
+const baseInventoryItem: InventoryProduct = {
   item_number: 1,
   sku: 'SKU-001',
   item_name: 'Inventory Item',
@@ -60,67 +49,41 @@ const baseDetail = {
   ]
 }
 
+/** Wrapper that exposes all imperative handle methods as buttons */
+function ItemFormWithButtons(): React.JSX.Element {
+  const ref = useRef<ItemFormHandle>(null)
+  return (
+    <>
+      <button onClick={() => ref.current?.handleNewItem()}>New Item</button>
+      <button onClick={() => ref.current?.handleSave()}>Save Item</button>
+      <button onClick={() => ref.current?.handleDiscard()}>Discard</button>
+      <button onClick={() => ref.current?.handleDelete()}>Delete Item</button>
+      <button onClick={() => ref.current?.selectItem(baseInventoryItem)}>Load Item</button>
+      <ItemForm ref={ref} />
+    </>
+  )
+}
+
+/** Set the Department select to a given value */
+const setDept = (value: string): void => {
+  fireEvent.change(screen.getByLabelText('Department'), { target: { value } })
+}
+
+/** Set the Tax Codes select to a given rate value string */
+const setTaxRate = (value: string): void => {
+  fireEvent.change(screen.getByLabelText('Tax Codes'), { target: { value } })
+}
+
 describe('ItemForm', () => {
-  /** Find the dropdown trigger button by its aria-label */
-  const getDeptDropdown = (): HTMLElement => {
-    return screen.getByRole('button', { name: 'Department' })
-  }
-
-  const getTaxDropdown = (): HTMLElement => {
-    return screen.getByRole('button', { name: 'Tax Codes' })
-  }
-
-  /** Open the tax dropdown and toggle rate checkboxes */
-  const setTaxCodes = (rates: string[]): void => {
-    const toggle = getTaxDropdown()
-    if (toggle.getAttribute('aria-expanded') !== 'true') {
-      fireEvent.click(toggle)
-    }
-
-    const listbox = screen.getByRole('listbox', { name: 'Tax code options' })
-    const options = within(listbox).getAllByRole('option')
-    for (const opt of options) {
-      const cb = within(opt).queryByRole('checkbox')
-      if (!cb) continue
-      const labelText = opt.textContent || ''
-      const pctMatch = labelText.match(/([\d.]+)%/)
-      if (!pctMatch) continue
-      const rateValue = String(Number(pctMatch[1]) / 100)
-      const shouldBeChecked = rates.includes(rateValue)
-      const isChecked = cb.getAttribute('data-state') === 'checked'
-      if (isChecked !== shouldBeChecked) {
-        fireEvent.click(cb)
-      }
-    }
-  }
-
-  /** Open the department dropdown and toggle department checkboxes */
-  const setDepartments = (depts: string[]): void => {
-    const toggle = getDeptDropdown()
-    if (toggle.getAttribute('aria-expanded') !== 'true') {
-      fireEvent.click(toggle)
-    }
-
-    const listbox = screen.getByRole('listbox', { name: 'Department options' })
-    const options = within(listbox).getAllByRole('option')
-    for (const opt of options) {
-      const cb = within(opt).queryByRole('checkbox')
-      if (!cb) continue
-      const labelText = (opt.textContent || '').trim()
-      const shouldBeChecked = depts.includes(labelText)
-      const isChecked = cb.getAttribute('data-state') === 'checked'
-      if (isChecked !== shouldBeChecked) {
-        fireEvent.click(cb)
-      }
-    }
-  }
-
   beforeEach(() => {
     const api = {
       searchInventoryProducts: vi.fn(async () => [baseInventoryItem]),
       getInventoryProductDetail: vi.fn(async () => baseDetail),
       saveInventoryItem: vi.fn(async () => baseDetail),
-      getInventoryDepartments: vi.fn(async () => ['11', '02']),
+      getDepartments: vi.fn(async () => [
+        { id: 1, name: '11', description: null, default_profit_margin: 0, default_tax_rate: 0 },
+        { id: 2, name: '02', description: null, default_profit_margin: 0, default_tax_rate: 0 }
+      ]),
       getInventoryTaxCodes: vi.fn(async () => [
         { code: 'RATE_0', rate: 0 },
         { code: 'RATE_0_13', rate: 0.13 }
@@ -140,22 +103,19 @@ describe('ItemForm', () => {
     ;(window as any).api = api
   })
 
-  it('renders form fields and search bar', async () => {
+  it('renders core form fields', () => {
     render(<ItemForm />)
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
-    })
     expect(screen.getByLabelText('SKU')).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toBeInTheDocument()
+    expect(screen.getByLabelText('Cost')).toBeInTheDocument()
+    expect(screen.getByLabelText('Price Charged')).toBeInTheDocument()
+    expect(screen.getByLabelText('In Stock')).toBeInTheDocument()
+    expect(screen.getByLabelText('Department')).toBeInTheDocument()
+    expect(screen.getByLabelText('Tax Codes')).toBeInTheDocument()
   })
 
   it('shows required-field validation errors on empty save', async () => {
     render(<ItemFormWithButtons />)
-
-    await waitFor(() => {
-      expect(getDeptDropdown()).toBeInTheDocument()
-    })
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
@@ -164,26 +124,17 @@ describe('ItemForm', () => {
     expect(screen.getByText('Cost is required')).toBeInTheDocument()
     expect(screen.getByText('Price is required')).toBeInTheDocument()
     expect(screen.getByText('In stock is required')).toBeInTheDocument()
-    // Department and Tax Codes are optional, so no validation errors for them
-    expect(screen.queryByText('At least one department is required')).not.toBeInTheDocument()
-    expect(
-      screen.queryByText('At least one tax code must be selected from backend values')
-    ).not.toBeInTheDocument()
   })
 
   it('shows validation when in stock is not an integer', async () => {
     render(<ItemFormWithButtons />)
-
-    await waitFor(() => {
-      expect(getDeptDropdown()).toBeInTheDocument()
-    })
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NEW' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Item' } })
     fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '850' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: 'abc' } })
-    setTaxCodes(['0.13'])
+    setTaxRate('0.13')
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
@@ -193,13 +144,7 @@ describe('ItemForm', () => {
   it('auto-formats price fields from cents-style numeric entry', async () => {
     render(<ItemForm />)
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('Cost')).toBeInTheDocument()
-    })
-
-    // Fill in SKU so sub-tabs are enabled
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST' } })
-
     fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '999' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1234' } })
 
@@ -218,19 +163,14 @@ describe('ItemForm', () => {
 
     render(<ItemFormWithButtons />)
 
-    await waitFor(() => {
-      expect(getDeptDropdown()).toBeInTheDocument()
-    })
-
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NEW' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Item' } })
-    setDepartments(['02'])
+    setDept('02')
     fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '850' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
-    setTaxCodes(['0', '0.13'])
+    setTaxRate('0.13')
 
-    // Navigate to Additional SKUs tab (default is now Case & Quantity)
     await userEvent.click(screen.getByRole('tab', { name: 'Additional SKUs' }))
     fireEvent.change(await screen.findByLabelText('Additional SKU Input'), {
       target: { value: 'SKU-NEW-ALT' }
@@ -258,61 +198,38 @@ describe('ItemForm', () => {
     expect(await screen.findByText('Item saved')).toBeInTheDocument()
   })
 
-  it('searches inventory using bottom search bar', async () => {
+  it('loads item detail and populates form via selectItem', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const api = (window as any).api
 
-    render(<ItemForm />)
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
-    })
-
-    fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
-
-    await waitFor(() => {
-      expect(api.searchInventoryProducts).toHaveBeenCalledWith('SKU-001')
-    })
-
-    // Click the dropdown result to load item detail
-    const option = await screen.findByRole('option', { name: /Inventory Item/i })
-    fireEvent.mouseDown(option)
+    render(<ItemFormWithButtons />)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
 
     await waitFor(() => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
     })
-  })
-
-  it('loads searched item details and sales history', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const api = (window as any).api
-
-    render(<ItemForm />)
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
-    })
-
-    fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
-
-    // Click the dropdown result to load item detail
-    const option = await screen.findByRole('option', { name: /Inventory Item/i })
-    fireEvent.mouseDown(option)
-
-    await waitFor(() => {
-      expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
-    })
-
     await waitFor(() => {
       expect(screen.getByLabelText('SKU')).toHaveValue('SKU-001')
     })
     expect(screen.getByLabelText('Name')).toHaveValue('Inventory Item')
+  })
+
+  it('loads item detail and shows sales history tab', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (window as any).api
+
+    render(<ItemFormWithButtons />)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
+
+    await waitFor(() => {
+      expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('SKU')).toHaveValue('SKU-001')
+    })
 
     await userEvent.click(screen.getByRole('tab', { name: 'Sales History' }))
 
-    // Sales history now renders as a table with payment info
     const table = await screen.findByRole('table')
     expect(table).toBeInTheDocument()
     expect(table).toHaveTextContent('TXN-001')
@@ -331,46 +248,24 @@ describe('ItemForm', () => {
       return detailWithoutTaxRates
     })
 
-    render(<ItemForm />)
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
-    })
-
-    fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
-
-    // Click dropdown result
-    const option = await screen.findByRole('option', { name: /Inventory Item/i })
-    fireEvent.mouseDown(option)
+    render(<ItemFormWithButtons />)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
 
     await waitFor(() => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
     })
 
-    const toggle = getTaxDropdown()
-    await userEvent.click(toggle)
-
-    const listbox = await screen.findByRole('listbox', { name: 'Tax code options' })
-    const options = within(listbox).getAllByRole('option')
-    const checkboxes = options
-      .map((opt) => within(opt).queryByRole('checkbox'))
-      .filter(Boolean) as HTMLElement[]
-    const checked = checkboxes.filter((cb) => cb.getAttribute('data-state') === 'checked')
-    expect(checked.length).toBe(2)
+    // tax_1 = 0.13 should be selected as single tax_rate
+    await waitFor(() => {
+      expect(screen.getByLabelText('Tax Codes')).toHaveValue('0.13')
+    })
   })
 
   it('supports adding and removing additional SKU entries', async () => {
     render(<ItemForm />)
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('Bottles Per Case')).toBeInTheDocument()
-    })
-
-    // Fill in SKU so sub-tabs are enabled
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST' } })
 
-    // Navigate to Additional SKUs tab (default is now Case & Quantity)
     await userEvent.click(screen.getByRole('tab', { name: 'Additional SKUs' }))
 
     fireEvent.change(await screen.findByLabelText('Additional SKU Input'), {
@@ -386,36 +281,20 @@ describe('ItemForm', () => {
     })
   })
 
-  it('strips invalid characters from SKU and auto-uppercases', async () => {
+  it('strips invalid characters from SKU and auto-uppercases', () => {
     render(<ItemForm />)
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('SKU')).toBeInTheDocument()
-    })
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'abc@#123-def' } })
 
-    // Should strip @# and uppercase
     expect(screen.getByLabelText('SKU')).toHaveValue('ABC123-DEF')
   })
 
-  it('resets form when New Item is clicked', async () => {
+  it('resets form when New Item is clicked after loading an item', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const api = (window as any).api
 
     render(<ItemFormWithButtons />)
-
-    // Search to load an existing item
-    await waitFor(() => {
-      expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
-    })
-
-    fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
-
-    // Click dropdown result
-    const option = await screen.findByRole('option', { name: /Inventory Item/i })
-    fireEvent.mouseDown(option)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
 
     await waitFor(() => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
@@ -424,70 +303,84 @@ describe('ItemForm', () => {
       expect(screen.getByLabelText('SKU')).toHaveValue('SKU-001')
     })
 
-    // Click New Item to reset
     fireEvent.click(screen.getByRole('button', { name: 'New Item' }))
 
     expect(screen.getByLabelText('SKU')).toHaveValue('')
     expect(screen.getByLabelText('Name')).toHaveValue('')
   })
 
-  it('shows no items found message when search returns empty', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).api.searchInventoryProducts = vi.fn(async () => [])
-
-    render(<ItemForm />)
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
-    })
-
-    fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'NONE' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
-
-    expect(
-      await screen.findByText('No items found. You can enter a new item above.')
-    ).toBeInTheDocument()
-  })
-
-  it('searches via Enter key', async () => {
+  it('handleDiscard restores form to last loaded state', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const api = (window as any).api
 
-    render(<ItemForm />)
+    render(<ItemFormWithButtons />)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
+      expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('SKU')).toHaveValue('SKU-001')
     })
 
-    fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
-    fireEvent.keyDown(screen.getByLabelText('Search Inventory'), { key: 'Enter' })
+    // Modify a field
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Changed Name' } })
+    expect(screen.getByLabelText('Name')).toHaveValue('Changed Name')
+
+    // Discard should restore
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(screen.getByLabelText('Name')).toHaveValue('Inventory Item')
+  })
+
+  it('handleDelete calls deleteInventoryItem and resets form', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (window as any).api
+    api.deleteInventoryItem = vi.fn(async () => {})
+
+    render(<ItemFormWithButtons />)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
 
     await waitFor(() => {
-      expect(api.searchInventoryProducts).toHaveBeenCalledWith('SKU-001')
+      expect(screen.getByLabelText('SKU')).toHaveValue('SKU-001')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Item' }))
+    // Confirm the dialog
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Delete' }))
+
+    await waitFor(() => {
+      expect(api.deleteInventoryItem).toHaveBeenCalledWith(1)
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('SKU')).toHaveValue('')
     })
   })
 
-  it('removes a special pricing rule', async () => {
-    render(<ItemForm />)
+  it('shows error when deleteInventoryItem is not available', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (window as any).api
+    // deleteInventoryItem not present
+
+    render(<ItemFormWithButtons />)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
 
     await waitFor(() => {
-      expect(screen.getByLabelText('SKU')).toBeInTheDocument()
+      expect(screen.getByLabelText('SKU')).toHaveValue('SKU-001')
     })
 
-    // Fill in SKU so sub-tabs are enabled
-    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Item' }))
+    // Confirm the dialog
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Delete' }))
 
-    await userEvent.click(screen.getByRole('tab', { name: 'Special Pricing' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Rule' }))
-
-    expect(screen.getByLabelText('Rule 1 Quantity')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
-
-    expect(screen.queryByLabelText('Rule 1 Quantity')).not.toBeInTheDocument()
+    expect(
+      await screen.findByText('Delete is not available in this environment.')
+    ).toBeInTheDocument()
+    // Form should NOT be reset
+    expect(screen.getByLabelText('SKU')).toHaveValue('SKU-001')
+    expect(api.deleteInventoryItem).toBeUndefined()
   })
 
-  it('shows save error when API fails', async () => {
+  it('shows error when API fails', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api.saveInventoryItem = vi.fn(async () => {
       throw new Error('Save failed')
@@ -495,17 +388,13 @@ describe('ItemForm', () => {
 
     render(<ItemFormWithButtons />)
 
-    await waitFor(() => {
-      expect(getDeptDropdown()).toBeInTheDocument()
-    })
-
-    setDepartments(['11'])
+    setDept('11')
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-ERR' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Error Item' } })
     fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '500' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '1' } })
-    setTaxCodes(['0.13'])
+    setTaxRate('0.13')
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
@@ -519,7 +408,6 @@ describe('ItemForm', () => {
       expect(screen.getByLabelText('Bottles Per Case')).toBeInTheDocument()
     })
 
-    // Case & Quantity tab panel is visible by default
     expect(screen.getByRole('tab', { name: 'Case & Quantity' })).toHaveAttribute(
       'aria-selected',
       'true'
@@ -559,24 +447,13 @@ describe('ItemForm', () => {
       case_discount_price: 149.99
     }))
 
-    render(<ItemForm />)
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
-    })
-
-    fireEvent.change(screen.getByLabelText('Search Inventory'), { target: { value: 'SKU-001' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
-
-    // Click dropdown result
-    const option = await screen.findByRole('option', { name: /Inventory Item/i })
-    fireEvent.mouseDown(option)
+    render(<ItemFormWithButtons />)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
 
     await waitFor(() => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
     })
 
-    // Should show dollar mode when loading existing case discount price
     await waitFor(() => {
       expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute('data-state', 'on')
     })
@@ -589,29 +466,22 @@ describe('ItemForm', () => {
 
     render(<ItemFormWithButtons />)
 
-    await waitFor(() => {
-      expect(getDeptDropdown()).toBeInTheDocument()
-    })
-
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-CASE' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Case Item' } })
-    setDepartments(['11'])
+    setDept('11')
     fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '850' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
-    setTaxCodes(['0.13'])
+    setTaxRate('0.13')
 
-    // Enter 10% discount on a $10 x 12 = $120 full case price
-    fireEvent.change(screen.getByLabelText('Case Discount Percent'), {
-      target: { value: '10' }
-    })
+    // Enter 10% discount on a $10 x 12 = $120 full case price → $108
+    fireEvent.change(screen.getByLabelText('Case Discount Percent'), { target: { value: '10' } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
     await waitFor(() => {
       expect(api.saveInventoryItem).toHaveBeenCalled()
     })
-    // Full case price: 10 * 12 = $120, 10% off → $108
     expect(api.saveInventoryItem).toHaveBeenCalledWith(
       expect.objectContaining({
         case_discount_price: 108
@@ -619,14 +489,9 @@ describe('ItemForm', () => {
     )
   })
 
-  it('does not show tax validation error when no tax codes selected', async () => {
+  it('does not show tax validation error when no tax rate is selected', async () => {
     render(<ItemFormWithButtons />)
 
-    await waitFor(() => {
-      expect(getDeptDropdown()).toBeInTheDocument()
-    })
-
-    // Fill required fields but select no tax codes
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NOTAX' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'No Tax Item' } })
     fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '500' } })
@@ -635,9 +500,174 @@ describe('ItemForm', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
-    // Should NOT show "tax code must be selected from backend values" error
     expect(
-      screen.queryByText('At least one tax code must be selected from backend values')
+      screen.queryByText('Tax code must be selected from available values')
     ).not.toBeInTheDocument()
+  })
+
+  it('removes a special pricing rule', async () => {
+    render(<ItemForm />)
+
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST' } })
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Special Pricing' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add Rule' }))
+
+    expect(screen.getByLabelText('Rule 1 Quantity')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(screen.queryByLabelText('Rule 1 Quantity')).not.toBeInTheDocument()
+  })
+
+  it('displays computed profit margin', () => {
+    render(<ItemForm />)
+
+    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '1000' } }) // $10
+    fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '2000' } }) // $20
+
+    // profit = (20-10)/20 * 100 = 50%
+    expect(screen.getByLabelText('Profit Margin')).toHaveTextContent('50.0%')
+  })
+
+  it('displays — for profit margin when fields are empty', () => {
+    render(<ItemForm />)
+
+    expect(screen.getByLabelText('Profit Margin')).toHaveTextContent('—')
+  })
+
+  it('displays computed final price with tax', async () => {
+    render(<ItemForm />)
+
+    // Wait for tax code options to load so the select value can be set
+    await waitFor(() => {
+      const sel = screen.getByLabelText('Tax Codes') as HTMLSelectElement
+      expect(sel.options.length).toBeGreaterThan(1)
+    })
+
+    fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } }) // $10
+    fireEvent.change(screen.getByLabelText('Tax Codes'), { target: { value: '0.13' } }) // 13%
+
+    // final = 10 * 1.13 = $11.30
+    expect(screen.getByLabelText('Final Price with Tax')).toHaveValue('$11.30')
+  })
+
+  it('auto-fills tax code when department with default_tax_rate is selected', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.getDepartments = vi.fn(async () => [
+      {
+        id: 1,
+        name: 'Wine',
+        description: null,
+        default_profit_margin: 0,
+        default_tax_rate: 13 // 13% stored as percentage
+      }
+    ])
+
+    render(<ItemForm />)
+
+    // Wait for dept options to load
+    await waitFor(() => {
+      const sel = screen.getByLabelText('Department') as HTMLSelectElement
+      expect(sel.options.length).toBeGreaterThan(1)
+    })
+
+    fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Wine' } })
+
+    // default_tax_rate = 13 → rate = 0.13
+    await waitFor(() => {
+      expect(screen.getByLabelText('Tax Codes')).toHaveValue('0.13')
+    })
+  })
+
+  it('auto-calculates retail price when cost is entered with a dept that has a margin', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.getDepartments = vi.fn(async () => [
+      {
+        id: 1,
+        name: 'Spirits',
+        description: null,
+        default_profit_margin: 25, // 25%
+        default_tax_rate: 0
+      }
+    ])
+
+    render(<ItemForm />)
+
+    await waitFor(() => {
+      const sel = screen.getByLabelText('Department') as HTMLSelectElement
+      expect(sel.options.length).toBeGreaterThan(1)
+    })
+
+    fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Spirits' } })
+    // Enter cost $10.00 → price = 10 / (1 - 0.25) = $13.33
+    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '1000' } })
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Price Charged')).toHaveValue('$13.33')
+    })
+  })
+
+  it('auto-calculates retail price when dept is changed after cost is already entered', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.getDepartments = vi.fn(async () => [
+      { id: 1, name: 'Beer', description: null, default_profit_margin: 0, default_tax_rate: 0 },
+      {
+        id: 2,
+        name: 'Whiskey',
+        description: null,
+        default_profit_margin: 40, // 40%
+        default_tax_rate: 0
+      }
+    ])
+
+    render(<ItemForm />)
+
+    await waitFor(() => {
+      const sel = screen.getByLabelText('Department') as HTMLSelectElement
+      expect(sel.options.length).toBeGreaterThan(2)
+    })
+
+    // Enter cost first
+    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '2000' } }) // $20
+
+    // Change dept to one with a margin — price = 20 / (1 - 0.40) = $33.33
+    fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Whiskey' } })
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Price Charged')).toHaveValue('$33.33')
+    })
+  })
+
+  it('clears auto indicator when price is manually edited', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.getDepartments = vi.fn(async () => [
+      {
+        id: 1,
+        name: 'Wine',
+        description: null,
+        default_profit_margin: 30,
+        default_tax_rate: 0
+      }
+    ])
+
+    render(<ItemForm />)
+
+    await waitFor(() => {
+      const sel = screen.getByLabelText('Department') as HTMLSelectElement
+      expect(sel.options.length).toBeGreaterThan(1)
+    })
+
+    fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Wine' } })
+    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '1000' } })
+
+    // Auto label should appear
+    await waitFor(() => {
+      expect(screen.getByText('auto')).toBeInTheDocument()
+    })
+
+    // Manual price edit clears it
+    fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1500' } })
+    expect(screen.queryByText('auto')).not.toBeInTheDocument()
   })
 })

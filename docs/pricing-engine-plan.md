@@ -52,16 +52,16 @@ Both features require a unified **Pricing Engine** so the cart correctly applies
 
 ### What exists today
 
-| Layer | State |
-|-------|-------|
-| DB table `special_pricing` | ✅ Has `product_id`, `quantity`, `price`, `duration_days` |
-| DB table `products` | ✅ Has `special_pricing_enabled`, `special_price` columns |
-| Inventory Form (ItemForm.tsx) | ✅ Allows adding/editing rules |
-| Shared type `SpecialPricingRule` | ✅ `{ quantity, price, duration_days }` |
-| `getProducts()` query | ❌ Does NOT load special pricing data |
-| `Product` type | ❌ Does NOT include special pricing fields |
-| `deriveCartTotals()` | ❌ No promo logic |
-| TicketPanel rendering | ❌ No promo display |
+| Layer                            | State                                                     |
+| -------------------------------- | --------------------------------------------------------- |
+| DB table `special_pricing`       | ✅ Has `product_id`, `quantity`, `price`, `duration_days` |
+| DB table `products`              | ✅ Has `special_pricing_enabled`, `special_price` columns |
+| Inventory Form (ItemForm.tsx)    | ✅ Allows adding/editing rules                            |
+| Shared type `SpecialPricingRule` | ✅ `{ quantity, price, duration_days }`                   |
+| `getProducts()` query            | ❌ Does NOT load special pricing data                     |
+| `Product` type                   | ❌ Does NOT include special pricing fields                |
+| `deriveCartTotals()`             | ❌ No promo logic                                         |
+| TicketPanel rendering            | ❌ No promo display                                       |
 
 ### Data Flow Changes
 
@@ -73,8 +73,8 @@ Returns all currently active special pricing rules (where `created_at + duration
 // New shared type
 type ActiveSpecialPricingRule = {
   product_id: number
-  quantity: number    // quantity threshold (buy X or more)
-  price: number       // per-unit price when threshold met
+  quantity: number // quantity threshold (buy X or more)
+  price: number // per-unit price when threshold met
 }
 
 // IPC: returns Map-friendly array grouped by product_id
@@ -101,11 +101,11 @@ Extend the `CartItem` type or create a wrapper:
 // Promotion metadata attached to each line during derivation
 type PromoAnnotation = {
   promoType: 'special-pricing' | 'mix-match'
-  promoLabel: string               // e.g., "Buy 3+ @ $8.99 each"
-  promoUnitPrice: number           // the discounted per-unit price
-  promoLineSavings: number         // (original - promo) × quantity
-  mixMatchGroupId?: number         // for visual grouping (Phase 2)
-  mixMatchGroupName?: string       // for display (Phase 2)
+  promoLabel: string // e.g., "Buy 3+ @ $8.99 each"
+  promoUnitPrice: number // the discounted per-unit price
+  promoLineSavings: number // (original - promo) × quantity
+  mixMatchGroupId?: number // for visual grouping (Phase 2)
+  mixMatchGroupName?: string // for display (Phase 2)
 }
 ```
 
@@ -117,7 +117,7 @@ Pure function (no hooks, fully testable):
 function applyPromotions(
   cart: CartItem[],
   specialPricingMap: Map<number, ActiveSpecialPricingRule[]>,
-  mixMatchGroups: MixMatchGroup[]         // empty [] for Phase 1
+  mixMatchGroups: MixMatchGroup[] // empty [] for Phase 1
 ): { lines: AnnotatedCartLine[]; promoSavings: number }
 ```
 
@@ -127,15 +127,15 @@ function applyPromotions(
 for each cartItem:
   if cartItem has manual price override (price !== basePrice) → skip
   if cartItem has item discount (itemDiscountPercent > 0) → skip
-  
+
   rules = specialPricingMap.get(cartItem.id) ?? []
-  
+
   // Find the best qualifying rule (highest quantity threshold the cart meets)
   bestRule = rules
     .filter(rule => cartItem.lineQuantity >= rule.quantity)
     .sort((a, b) => a.price - b.price)   // lowest price = best deal
     [0]
-  
+
   if bestRule:
     savings = (cartItem.price - bestRule.price) × cartItem.lineQuantity
     annotate line with { promoType: 'special-pricing', promoUnitPrice: bestRule.price, ... }
@@ -154,6 +154,7 @@ When a cart line has a promo annotation, render additional info below the item n
 ```
 
 **Visual treatment:**
+
 - Same peach/orange gradient used for item discounts (`--accent-peach`)
 - Badge with promo label
 - Strikethrough on original price
@@ -165,31 +166,31 @@ The existing `totalSavings` already shows in the totals area. Promo savings will
 
 ### Files to Change (Phase 1)
 
-| File | Change |
-|------|--------|
-| `src/shared/types/index.ts` | Add `ActiveSpecialPricingRule`, `PromoAnnotation` types |
-| `src/main/database/products.repo.ts` | Add `getActiveSpecialPricing()` function |
-| `src/main/index.ts` | Register new IPC handler |
-| `src/preload/index.ts` + `index.d.ts` | Expose `getActiveSpecialPricing` to renderer |
-| `src/renderer/src/store/usePosScreen.ts` | Add pricing map state, call `applyPromotions()` in derivation |
-| `src/renderer/src/utils/pricing-engine.ts` | **New file** — pure `applyPromotions()` function |
-| `src/renderer/src/components/ticket/TicketPanel.tsx` | Render promo annotations on cart lines |
-| `src/renderer/src/types/pos.ts` | Add `AnnotatedCartLine` renderer type |
+| File                                                 | Change                                                        |
+| ---------------------------------------------------- | ------------------------------------------------------------- |
+| `src/shared/types/index.ts`                          | Add `ActiveSpecialPricingRule`, `PromoAnnotation` types       |
+| `src/main/database/products.repo.ts`                 | Add `getActiveSpecialPricing()` function                      |
+| `src/main/index.ts`                                  | Register new IPC handler                                      |
+| `src/preload/index.ts` + `index.d.ts`                | Expose `getActiveSpecialPricing` to renderer                  |
+| `src/renderer/src/store/usePosScreen.ts`             | Add pricing map state, call `applyPromotions()` in derivation |
+| `src/renderer/src/utils/pricing-engine.ts`           | **New file** — pure `applyPromotions()` function              |
+| `src/renderer/src/components/ticket/TicketPanel.tsx` | Render promo annotations on cart lines                        |
+| `src/renderer/src/types/pos.ts`                      | Add `AnnotatedCartLine` renderer type                         |
 
 ### Test Plan (Phase 1)
 
-| Test | Scope |
-|------|-------|
-| `pricing-engine.test.ts` | Unit: `applyPromotions()` with various cart/rule combos |
-| | - No rules → no annotations |
-| | - Quantity below threshold → no discount |
-| | - Quantity meets threshold → discount applied |
-| | - Multiple rules → best deal selected |
-| | - Manual price override → promo skipped |
-| | - Item discount already applied → promo skipped |
-| `usePosScreen.test.ts` | Unit: store loads pricing, cart totals include promo savings |
-| `TicketPanel.test.tsx` | Unit: promo badge renders when annotation present |
-| E2E | Verify promo appears in cart after adding qualifying quantity |
+| Test                     | Scope                                                         |
+| ------------------------ | ------------------------------------------------------------- |
+| `pricing-engine.test.ts` | Unit: `applyPromotions()` with various cart/rule combos       |
+|                          | - No rules → no annotations                                   |
+|                          | - Quantity below threshold → no discount                      |
+|                          | - Quantity meets threshold → discount applied                 |
+|                          | - Multiple rules → best deal selected                         |
+|                          | - Manual price override → promo skipped                       |
+|                          | - Item discount already applied → promo skipped               |
+| `usePosScreen.test.ts`   | Unit: store loads pricing, cart totals include promo savings  |
+| `TicketPanel.test.tsx`   | Unit: promo badge renders when annotation present             |
+| E2E                      | Verify promo appears in cart after adding qualifying quantity |
 
 ---
 
@@ -226,8 +227,8 @@ CREATE TABLE IF NOT EXISTS mix_match_items (
 type MixMatchGroup = {
   id: number
   name: string
-  required_qty: number   // e.g., 2
-  deal_price: number     // e.g., 9.99 per item
+  required_qty: number // e.g., 2
+  deal_price: number // e.g., 9.99 per item
   is_active: boolean
   items: MixMatchGroupItem[]
 }
@@ -235,7 +236,7 @@ type MixMatchGroup = {
 type MixMatchGroupItem = {
   product_id: number
   product_name: string
-  retail_price: number   // for showing the "was" price
+  retail_price: number // for showing the "was" price
 }
 ```
 
@@ -244,17 +245,17 @@ type MixMatchGroupItem = {
 ```
 for each mixMatchGroup:
   eligibleCartItems = cart.filter(item => group.items.includes(item.id))
-  
+
   totalEligibleQty = sum of eligibleCartItems.lineQuantity
-  
+
   // How many complete "sets" can we fill?
   completeSets = floor(totalEligibleQty / group.required_qty)
   discountedUnits = completeSets × group.required_qty
-  
+
   // Distribute discounted units across items (greedy: most expensive first)
   sortedItems = eligibleCartItems.sort(by price DESC)
   remaining = discountedUnits
-  
+
   for each item in sortedItems:
     unitsToDiscount = min(item.lineQuantity, remaining)
     annotate item with mix-match promo for unitsToDiscount
@@ -280,6 +281,7 @@ When a mix-and-match deal is active, items are visually grouped in the ticket:
 ```
 
 **Visual treatment:**
+
 - Left border accent (e.g., `--accent-lavender` or a distinct color from item discounts)
 - Group header bar with deal name
 - Items within the group are indented/bordered together
@@ -339,45 +341,45 @@ The item search in the edit section uses the existing product search backend. Ty
 
 ### Files to Add/Change (Phase 2)
 
-| File | Change |
-|------|--------|
-| `src/main/database/schema.ts` | Add `mix_match_groups` and `mix_match_items` tables |
-| `src/main/database/mix-match.repo.ts` | **New** — CRUD for groups & items |
-| `src/main/index.ts` | Register mix-match IPC handlers |
-| `src/preload/index.ts` + `index.d.ts` | Expose mix-match APIs |
-| `src/shared/types/index.ts` | Add `MixMatchGroup`, `MixMatchGroupItem` types |
-| `src/renderer/src/utils/pricing-engine.ts` | Extend `applyPromotions()` with mix-match logic |
-| `src/renderer/src/components/inventory/mix-match/MixMatchPanel.tsx` | **New** — management panel |
-| `src/renderer/src/components/inventory/InventoryModal.tsx` | Add Mix & Match tab |
-| `src/renderer/src/components/ticket/TicketPanel.tsx` | Render mix-match groups with visual grouping |
-| `src/renderer/src/store/usePosScreen.ts` | Load mix-match groups, pass to pricing engine |
+| File                                                                | Change                                              |
+| ------------------------------------------------------------------- | --------------------------------------------------- |
+| `src/main/database/schema.ts`                                       | Add `mix_match_groups` and `mix_match_items` tables |
+| `src/main/database/mix-match.repo.ts`                               | **New** — CRUD for groups & items                   |
+| `src/main/index.ts`                                                 | Register mix-match IPC handlers                     |
+| `src/preload/index.ts` + `index.d.ts`                               | Expose mix-match APIs                               |
+| `src/shared/types/index.ts`                                         | Add `MixMatchGroup`, `MixMatchGroupItem` types      |
+| `src/renderer/src/utils/pricing-engine.ts`                          | Extend `applyPromotions()` with mix-match logic     |
+| `src/renderer/src/components/inventory/mix-match/MixMatchPanel.tsx` | **New** — management panel                          |
+| `src/renderer/src/components/inventory/InventoryModal.tsx`          | Add Mix & Match tab                                 |
+| `src/renderer/src/components/ticket/TicketPanel.tsx`                | Render mix-match groups with visual grouping        |
+| `src/renderer/src/store/usePosScreen.ts`                            | Load mix-match groups, pass to pricing engine       |
 
 ### Test Plan (Phase 2)
 
-| Test | Scope |
-|------|-------|
+| Test                     | Scope                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
 | `pricing-engine.test.ts` | Unit: mix-match scenarios — partial groups, full groups, multi-set, conflict with special pricing |
-| `MixMatchPanel.test.tsx` | Unit: Create group, add/remove items, edit, delete |
-| `TicketPanel.test.tsx` | Unit: mix-match visual grouping, partial hint display |
-| E2E | Full flow: create group → add items → POS cart reflects deal |
+| `MixMatchPanel.test.tsx` | Unit: Create group, add/remove items, edit, delete                                                |
+| `TicketPanel.test.tsx`   | Unit: mix-match visual grouping, partial hint display                                             |
+| E2E                      | Full flow: create group → add items → POS cart reflects deal                                      |
 
 ---
 
 ## Implementation Order
 
-| Step | Description | Dependency |
-|------|-------------|------------|
-| **1a** | Create `pricing-engine.ts` with `applyPromotions()` — special pricing only | None |
-| **1b** | Add `getActiveSpecialPricing()` backend + IPC | None |
-| **1c** | Wire pricing map into POS store, call engine in `deriveCartTotals()` | 1a + 1b |
-| **1d** | Update TicketPanel to render promo annotations | 1c |
-| **1e** | Tests for Phase 1 | 1a–1d |
-| **2a** | DB schema + repo for mix-match groups | None |
-| **2b** | Mix & Match management panel (inventory tab) | 2a |
-| **2c** | Extend pricing engine with mix-match logic | 1a + 2a |
-| **2d** | TicketPanel visual grouping for mix-match | 2c |
-| **2e** | Partial match hints in cart | 2d |
-| **2f** | Tests for Phase 2 | 2a–2e |
+| Step   | Description                                                                | Dependency |
+| ------ | -------------------------------------------------------------------------- | ---------- |
+| **1a** | Create `pricing-engine.ts` with `applyPromotions()` — special pricing only | None       |
+| **1b** | Add `getActiveSpecialPricing()` backend + IPC                              | None       |
+| **1c** | Wire pricing map into POS store, call engine in `deriveCartTotals()`       | 1a + 1b    |
+| **1d** | Update TicketPanel to render promo annotations                             | 1c         |
+| **1e** | Tests for Phase 1                                                          | 1a–1d      |
+| **2a** | DB schema + repo for mix-match groups                                      | None       |
+| **2b** | Mix & Match management panel (inventory tab)                               | 2a         |
+| **2c** | Extend pricing engine with mix-match logic                                 | 1a + 2a    |
+| **2d** | TicketPanel visual grouping for mix-match                                  | 2c         |
+| **2e** | Partial match hints in cart                                                | 2d         |
+| **2f** | Tests for Phase 2                                                          | 2a–2e      |
 
 ---
 

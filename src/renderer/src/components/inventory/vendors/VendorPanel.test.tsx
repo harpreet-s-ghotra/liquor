@@ -209,6 +209,7 @@ describe('VendorPanel', () => {
 
     await selectRow('Acme Wine Co')
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Delete' }))
 
     await waitFor(() => {
       expect(api.deleteVendor).toHaveBeenCalledWith(1)
@@ -265,6 +266,7 @@ describe('VendorPanel', () => {
 
     await selectRow('Acme Wine Co')
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, Delete' }))
 
     expect(await screen.findByText('In use')).toBeInTheDocument()
   })
@@ -441,25 +443,23 @@ describe('VendorPanel', () => {
     expect(await screen.findByText('Must have at least 7 digits')).toBeInTheDocument()
   })
 
-  it('filters vendors via bottom search bar', async () => {
-    render(<VendorPanel />)
+  it('filters vendors via searchFilter prop', async () => {
+    const { rerender } = render(<VendorPanel searchFilter="" />)
 
     await screen.findByText('Acme Wine Co')
 
-    const searchInput = screen.getByLabelText('Search Vendors')
-    fireEvent.change(searchInput, { target: { value: 'best' } })
+    rerender(<VendorPanel searchFilter="best" />)
 
     expect(screen.queryByText('Acme Wine Co')).not.toBeInTheDocument()
     expect(screen.getByText('Best Spirits')).toBeInTheDocument()
   })
 
   it('shows no-match message when search yields no results', async () => {
-    render(<VendorPanel />)
+    const { rerender } = render(<VendorPanel searchFilter="" />)
 
     await screen.findByText('Acme Wine Co')
 
-    const searchInput = screen.getByLabelText('Search Vendors')
-    fireEvent.change(searchInput, { target: { value: 'zzzzz' } })
+    rerender(<VendorPanel searchFilter="zzzzz" />)
 
     expect(screen.getByText('No vendors match your search.')).toBeInTheDocument()
   })

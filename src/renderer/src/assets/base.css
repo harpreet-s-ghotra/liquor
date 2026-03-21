@@ -11,22 +11,22 @@
   --ev-c-gray-2: #414853;
   --ev-c-gray-3: #32363f;
 
-  --ev-c-text-1: rgba(255, 255, 245, 0.86);
-  --ev-c-text-2: rgba(235, 235, 245, 0.6);
-  --ev-c-text-3: rgba(235, 235, 245, 0.38);
+  --ev-c-text-1: rgba(24, 28, 30, 0.87);
+  --ev-c-text-2: rgba(24, 28, 30, 0.6);
+  --ev-c-text-3: rgba(24, 28, 30, 0.38);
 
   --ev-button-alt-border: transparent;
   --ev-button-alt-text: var(--ev-c-text-1);
-  --ev-button-alt-bg: var(--ev-c-gray-3);
+  --ev-button-alt-bg: var(--ev-c-white-mute);
   --ev-button-alt-hover-border: transparent;
   --ev-button-alt-hover-text: var(--ev-c-text-1);
-  --ev-button-alt-hover-bg: var(--ev-c-gray-2);
+  --ev-button-alt-hover-bg: var(--ev-c-white-soft);
 }
 
 :root {
-  --color-background: var(--ev-c-black);
-  --color-background-soft: var(--ev-c-black-soft);
-  --color-background-mute: var(--ev-c-black-mute);
+  --color-background: var(--ev-c-white);
+  --color-background-soft: var(--ev-c-white-soft);
+  --color-background-mute: var(--ev-c-white-mute);
 
   --color-text: var(--ev-c-text-1);
 }
@@ -48,7 +48,7 @@ body {
   color: var(--color-text);
   background: var(--color-background);
   line-height: 1.6;
-  font-family: var(--font-mono, Menlo, Monaco, Consolas, 'Courier New', monospace);
+  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -56,22 +56,23 @@ body {
 
 /* ── Global button & input resets ── */
 button {
-  border-radius: var(--radius, 0.25rem);
+  border-radius: var(--radius, 0.5rem);
+  font-family: var(--font-display, 'Work Sans', system-ui, sans-serif);
 }
 
 input,
 select,
 textarea {
-  background: var(--bg-surface, #1e242e);
-  color: var(--text-primary, #e2e8f0);
-  border: 1px solid var(--border-default, #677086);
-  border-radius: var(--radius, 0.25rem);
+  background: var(--bg-input, #e0e3e5);
+  color: var(--text-primary, #181c1e);
+  border: 1px solid var(--border-default, #d4d8db);
+  border-radius: var(--radius, 0.5rem);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--btn-border, #3a5c72);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--btn-border, #3a5c72) 35%, transparent);
+  border-color: var(--accent-blue, #3d82c6);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-blue, #3d82c6) 25%, transparent);
 }

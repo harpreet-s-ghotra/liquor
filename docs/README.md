@@ -6,31 +6,33 @@ Build a fast, reliable Point of Sale system for liquor stores. The app should fe
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Desktop Shell | Electron (electron-vite) |
-| UI | React 19 + TypeScript |
-| State | Zustand 5 |
-| Database | SQLite (better-sqlite3) |
-| Payments | Stax Partner API |
-| Testing | Vitest (unit, ≥80% coverage) + Playwright (E2E) |
-| Styling | Custom CSS with design tokens (no Tailwind at runtime) |
+| Layer         | Technology                                             |
+| ------------- | ------------------------------------------------------ |
+| Desktop Shell | Electron (electron-vite)                               |
+| UI            | React 19 + TypeScript                                  |
+| State         | Zustand 5                                              |
+| Database      | SQLite (better-sqlite3)                                |
+| Payments      | Stax Partner API                                       |
+| Testing       | Vitest (unit, ≥80% coverage) + Playwright (E2E)        |
+| Styling       | Custom CSS with design tokens (no Tailwind at runtime) |
 
 ## Current Status
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| **Phase 1** — Core POS | ✅ Complete | Sales interface, cart, payments, transactions, search |
+| Phase                                | Status             | Description                                                                                                 |
+| ------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| **Phase 1** — Core POS               | ✅ Complete        | Sales interface, cart, payments, transactions, search                                                       |
 | **Phase 2** — Inventory & Management | ✅ Mostly Complete | Full CRUD for items, departments, tax codes, vendors, special pricing, alternate SKUs, case/quantity fields |
-| **Phase 3** — Stax Integration | 🟡 In Progress | Activation screen, cashier PIN login done; terminal charges, webhooks, sales history pending |
-| **Phase 4** — Hardware & Polish | ⏳ Planned | Barcode scanner, receipt printer, cloud sync |
+| **Phase 3** — Stax Integration       | 🟡 In Progress     | Activation screen, cashier PIN login done; terminal charges, webhooks, sales history pending                |
+| **Phase 4** — Hardware & Polish      | ⏳ Planned         | Barcode scanner, receipt printer, cloud sync                                                                |
 
 ## Documentation Index
 
 ### Overall Plan
+
 - [PROJECT_PLAN.md](../PROJECT_PLAN.md) — Full project vision, tech stack details, roadmap, database schema, Stax architecture
 
 ### Feature Implementation Docs
+
 - [UI Architecture](UI_ARCHITECTURE.md) — Layout rules, design tokens, component boundaries, CSS strategy
 - [Inventory Management V1](inventory-management-v1.md) — Inventory modal, CRUD operations, search, form fields, data contracts
 - [Pricing Engine Plan](pricing-engine-plan.md) — Special pricing fix, mix-and-match pricing, pricing engine architecture
@@ -39,6 +41,7 @@ Build a fast, reliable Point of Sale system for liquor stores. The app should fe
 - [Product Search Modal](product-search-modal.md) — Search button on POS screen, modal with filters, product lookup flow
 
 ### Developer Guidelines
+
 - [Copilot Instructions](../.github/copilot-instructions.md) — Testing gate, quality commands, coding conventions
 
 ## Key Architectural Decisions

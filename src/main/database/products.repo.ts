@@ -66,6 +66,7 @@ export function getInventoryProducts(): InventoryProduct[] {
         products.is_active
       FROM products
       LEFT JOIN vendors ON vendors.vendor_number = products.vendor_number
+      WHERE products.is_active = 1
       ORDER BY products.id
       `
     )
@@ -170,7 +171,8 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
         products.is_active
       FROM products
       LEFT JOIN vendors ON vendors.vendor_number = products.vendor_number
-      WHERE products.sku LIKE @likeQuery OR products.name LIKE @likeQuery
+      WHERE products.is_active = 1
+        AND (products.sku LIKE @likeQuery OR products.name LIKE @likeQuery)
       ORDER BY products.id
       `
     )
@@ -388,12 +390,14 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     throw new Error('Tax codes must be selected from available backend tax codes')
   }
 
-  const duplicateSku = db
+  // Only block on active duplicates — inactive rows can be reactivated
+  const activeDuplicate = db
     .prepare(
       `
       SELECT id
       FROM products
       WHERE sku = @sku
+        AND is_active = 1
         AND (@item_number IS NULL OR id != @item_number)
       LIMIT 1
       `
@@ -402,10 +406,29 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     | { id: number }
     | undefined
 
-  if (duplicateSku) {
+  if (activeDuplicate) {
     throw new Error('SKU already exists')
   }
 
+  // If creating a new item and an inactive row has the same SKU, reactivate it.
+  // When updating an existing item, prevent assigning a SKU that belongs to a different inactive item.
+  let inactiveMatch: { id: number } | undefined
+
+  if (input.item_number == null) {
+    inactiveMatch = db
+      .prepare(`SELECT id FROM products WHERE sku = @sku AND is_active = 0 LIMIT 1`)
+      .get({ sku: normalizedSku }) as { id: number } | undefined
+  } else {
+    const inactiveDuplicate = db
+      .prepare(
+        `SELECT id FROM products WHERE sku = @sku AND is_active = 0 AND id != @item_number LIMIT 1`
+      )
+      .get({ sku: normalizedSku, item_number: input.item_number }) as { id: number } | undefined
+
+    if (inactiveDuplicate) {
+      throw new Error('SKU already exists')
+    }
+  }
   const normalizedAdditionalSkus = Array.from(
     new Set(
       input.additional_skus.map((sku) => sku.trim()).filter((sku) => sku && sku !== normalizedSku)
@@ -435,7 +458,7 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
       case_discount_price: payload.case_discount_price
     }
 
-    let productId = payload.item_number
+    let productId = payload.item_number ?? inactiveMatch?.id
 
     if (productId) {
       db.prepare(
@@ -459,6 +482,7 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           vendor_number = @vendor_number,
           bottles_per_case = @bottles_per_case,
           case_discount_price = @case_discount_price,
+          is_active = 1,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = @id
         `
@@ -524,4 +548,9 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
   }
 
   return detail
+}
+
+export function deleteInventoryItem(itemNumber: number): void {
+  const db = getDb()
+  db.prepare('UPDATE products SET is_active = 0 WHERE id = ?').run(itemNumber)
 }

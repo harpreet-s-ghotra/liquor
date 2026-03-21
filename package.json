@@ -8,9 +8,9 @@
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
-    "test": "vitest run",
+    "test": "vitest run && npm run test:node",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage && npm run test:node:coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "dev:renderer": "vite --config src/renderer/vite.config.ts --host 127.0.0.1 --port 4173",
@@ -18,14 +18,17 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
-    "dev": "electron-vite dev",
+    "dev": "npx @electron/rebuild -f -w better-sqlite3 2>/dev/null; electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:node": "npm rebuild better-sqlite3 2>/dev/null; vitest run --config vitest.config.node.ts",
+    "test:node:watch": "npm rebuild better-sqlite3 2>/dev/null; vitest --config vitest.config.node.ts",
+    "test:node:coverage": "npm rebuild better-sqlite3 2>/dev/null; vitest run --config vitest.config.node.ts --coverage"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

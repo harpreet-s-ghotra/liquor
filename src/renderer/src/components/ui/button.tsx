@@ -8,14 +8,18 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-[var(--btn-bg)] text-[var(--btn-text)]',
-        success: 'bg-[var(--btn-success-bg)] text-[var(--btn-success-text)]',
-        danger: 'bg-[var(--btn-danger-bg)] text-[var(--btn-danger-text)]',
-        warning: 'bg-[var(--btn-warning-bg)] text-[var(--btn-warning-text)]',
-        neutral: 'bg-[var(--bg-panel)] text-[var(--text-on-dark)]',
-        ghost: 'bg-transparent shadow-none text-[var(--text-primary)]',
+        default: 'bg-[var(--btn-bg)] text-[var(--btn-text)] border border-[var(--btn-border)]',
+        success:
+          'bg-[var(--btn-success-bg)] text-[var(--btn-success-text)] border border-[var(--btn-success-border)]',
+        danger:
+          'bg-[var(--btn-danger-bg)] text-[var(--btn-danger-text)] border border-[var(--btn-danger-border)]',
+        warning:
+          'bg-[var(--btn-warning-bg)] text-[var(--btn-warning-text)] border border-[var(--btn-warning-border)]',
+        neutral:
+          'bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-default)]',
+        ghost: 'bg-transparent shadow-none text-[var(--text-primary)] border-none',
         outline:
-          'border border-[var(--border-default)] bg-transparent text-[var(--text-primary)] shadow-none'
+          'border border-[var(--border-strong)] bg-transparent text-[var(--text-primary)] shadow-none'
       },
       size: {
         sm: 'min-h-[2.25rem] text-[0.95rem] px-3 rounded-[var(--radius)]',

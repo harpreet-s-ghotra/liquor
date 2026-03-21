@@ -215,11 +215,11 @@ export function PaymentModal({
 
   return (
     <div
-      className="absolute inset-0 z-30 grid place-items-center bg-[color-mix(in_srgb,var(--bg-shell)_70%,transparent)] p-3"
+      className="absolute inset-0 z-30 grid place-items-center bg-[color-mix(in_srgb,var(--bg-shell)_60%,transparent)] backdrop-blur-sm p-3"
       data-testid="payment-modal"
     >
       <div
-        className="grid w-[min(60rem,100%)] h-[min(90vh,50rem)] gap-3 rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-3 shadow-lg"
+        className="grid w-[min(60rem,100%)] h-[min(90vh,50rem)] gap-3 rounded-[var(--radius)] bg-[var(--bg-panel)] p-3 shadow-lg"
         style={{ gridTemplateRows: 'auto auto 1fr' }}
         role="dialog"
         aria-modal="true"
@@ -227,7 +227,7 @@ export function PaymentModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
-          <h3 className="m-0 text-2xl font-bold text-[var(--text-on-dark)]">Payment</h3>
+          <h3 className="m-0 text-2xl font-bold text-[var(--text-primary)]">Payment</h3>
           <Button
             variant="danger"
             size="sm"
@@ -283,7 +283,7 @@ export function PaymentModal({
             </div>
 
             {/* Status area */}
-            <div className="flex items-center gap-3 rounded-[var(--radius)] bg-[var(--border-strong)] px-4 py-2.5 text-xl font-semibold text-[var(--text-on-dark)] min-h-12">
+            <div className="flex items-center gap-3 rounded-[var(--radius)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-xl font-semibold text-[var(--text-primary)] min-h-12">
               {/* Card error */}
               {cardError && status !== 'processing-card' && (
                 <div className="text-sm font-semibold text-[var(--error)]" data-testid="card-error">
@@ -312,7 +312,7 @@ export function PaymentModal({
               )}
               {status === 'complete' && (
                 <div
-                  className="flex items-center justify-between gap-4 w-full font-bold text-[var(--semantic-success-on-dark)]"
+                  className="flex items-center justify-between gap-4 w-full font-bold text-[var(--semantic-success-text)]"
                   data-testid="payment-complete"
                 >
                   <span>Payment complete! {change > 0 && `Change: $${change.toFixed(2)}`}</span>
@@ -332,10 +332,7 @@ export function PaymentModal({
                 </div>
               )}
               {(status === 'idle' || status === 'collecting') && isFullyPaid && change > 0 && (
-                <div
-                  className="text-[var(--semantic-success-on-dark)]"
-                  data-testid="payment-change"
-                >
+                <div className="text-[var(--semantic-success-text)]" data-testid="payment-change">
                   Change Due: <strong className="text-2xl">${change.toFixed(2)}</strong>
                 </div>
               )}
@@ -343,7 +340,7 @@ export function PaymentModal({
 
             {/* Tender denomination buttons */}
             <div className="grid gap-2 content-start overflow-auto">
-              <span className="text-base font-bold text-[var(--text-on-dark)] py-1">Tenders</span>
+              <span className="text-base font-bold text-[var(--text-primary)] py-1">Tenders</span>
               <div className="grid grid-cols-4 gap-2">
                 {TENDER_DENOMINATIONS.map((denomination) => (
                   <Button
@@ -363,10 +360,10 @@ export function PaymentModal({
 
           {/* Right panel: paid-so-far log */}
           <div
-            className="grid min-h-0 overflow-hidden rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg-shell)]"
+            className="grid min-h-0 overflow-hidden rounded-[var(--radius)] bg-[var(--bg-shell)] shadow-[var(--shadow-sm)]"
             style={{ gridTemplateRows: 'auto 1fr' }}
           >
-            <div className="flex items-center justify-between rounded-t-[var(--radius)] border-b border-[var(--border-strong)] bg-[var(--totals-bg)] px-3 py-2.5 text-lg font-bold text-[var(--totals-text)]">
+            <div className="flex items-center justify-between rounded-t-[var(--radius)] border-b border-[var(--border-soft)] bg-[var(--totals-bg)] px-3 py-2.5 text-lg font-bold text-[var(--totals-text)]">
               <span>Paid So Far</span>
               <strong className="text-[1.375rem]">${paidSoFar.toFixed(2)}</strong>
             </div>

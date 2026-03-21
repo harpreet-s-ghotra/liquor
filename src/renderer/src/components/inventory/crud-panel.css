@@ -46,9 +46,10 @@
 
 .crud-panel__table th {
   text-align: left;
+  font-family: var(--font-display);
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--text-on-dark);
+  color: var(--text-primary);
   padding: 0.45rem 0.6rem;
   border-bottom: 0.125rem solid var(--border-strong);
   position: sticky;
@@ -59,9 +60,9 @@
 .crud-panel__table td {
   font-size: 0.92rem;
   font-weight: 600;
-  color: var(--text-on-dark);
+  color: var(--text-primary);
   padding: 0.4rem 0.6rem;
-  border-bottom: 0.0625rem solid var(--border-strong);
+  border-bottom: 0.0625rem solid var(--border-soft);
 }
 
 .crud-panel__table .crud-panel__actions {
@@ -87,16 +88,16 @@
 }
 
 .crud-panel__message.error {
-  color: var(--semantic-danger-on-dark);
+  color: var(--semantic-danger-text);
 }
 
 .crud-panel__message.success {
-  color: var(--semantic-success-on-dark);
+  color: var(--semantic-success-text);
 }
 
 .crud-panel__empty {
   margin: 0;
-  color: var(--text-muted-on-dark);
+  color: var(--text-muted);
   font-style: italic;
   padding: 0.75rem;
 }
