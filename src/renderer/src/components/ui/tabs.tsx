@@ -10,10 +10,7 @@ const TabsList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
-    className={cn(
-      'flex gap-1 p-1 bg-[var(--bg-surface)] border-b border-[var(--border-soft)]',
-      className
-    )}
+    className={cn('flex gap-1 p-1 bg-(--bg-surface) border-b border-(--border-soft)', className)}
     {...props}
   />
 ))
@@ -26,9 +23,9 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'px-4 py-2 text-[0.92rem] font-bold rounded-[var(--radius)] cursor-pointer',
-      'text-[var(--text-muted)] bg-transparent border-none',
-      'data-[state=active]:text-[var(--btn-text)] data-[state=active]:bg-[var(--btn-bg)] data-[state=active]:shadow-xs',
+      'px-4 py-2 text-[0.92rem] font-bold rounded-(--radius) cursor-pointer',
+      'text-(--text-muted) bg-transparent border-none',
+      'data-[state=active]:text-(--btn-text) data-[state=active]:bg-(--btn-bg) data-[state=active]:shadow-xs',
       'disabled:opacity-40 disabled:cursor-not-allowed',
       className
     )}

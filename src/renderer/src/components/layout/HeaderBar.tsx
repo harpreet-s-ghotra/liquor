@@ -67,7 +67,7 @@ export function HeaderBar({ cashierName }: HeaderBarProps): React.JSX.Element {
 
           {menuOpen && (
             <div
-              className="absolute right-0 top-full mt-1 z-30 min-w-[12rem] rounded-[var(--radius)] border p-1 shadow-lg"
+              className="absolute right-0 top-full mt-1 z-30 min-w-[12rem] rounded-(--radius) border p-1 shadow-lg"
               style={{
                 background: 'var(--bg-panel)',
                 borderColor: 'var(--border-strong)'
@@ -76,7 +76,7 @@ export function HeaderBar({ cashierName }: HeaderBarProps): React.JSX.Element {
             >
               <button
                 type="button"
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm font-semibold rounded-[var(--radius)] border-none cursor-pointer"
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm font-semibold rounded-(--radius) border-none cursor-pointer"
                 style={{
                   background: 'var(--bg-surface-soft)',
                   color: 'var(--text-primary)',
@@ -96,7 +96,7 @@ export function HeaderBar({ cashierName }: HeaderBarProps): React.JSX.Element {
         </div>
 
         <div
-          className="flex items-center gap-2 px-3 py-1.5 border rounded-[var(--radius)]"
+          className="flex items-center gap-2 px-3 py-1.5 border rounded-(--radius)"
           style={{
             background: 'var(--header-badge-bg)',
             borderColor: 'var(--header-badge-border)',

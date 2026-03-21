@@ -61,13 +61,14 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
     )
   }, [selectedTc, editCode, editRate])
 
-  const clearSelection = (): void => {
+  const { clearMessages } = crud
+  const clearSelection = useCallback((): void => {
     setSelectedTcId(null)
     setEditCode('')
     setEditRate('')
     setShowEditValidation(false)
-    crud.clearMessages()
-  }
+    clearMessages()
+  }, [clearMessages])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
@@ -75,7 +76,7 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [selectedTcId])
+  }, [selectedTcId, clearSelection])
 
   const selectTaxCode = (tc: TaxCode): void => {
     crud.clearMessages()
@@ -214,9 +215,9 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
       </div>
 
       {/* Section 2: Scrollable tax code list */}
-      <div className="min-h-0 overflow-auto rounded-[var(--radius)] border border-[var(--border-default)]">
+      <div className="min-h-0 overflow-auto rounded-(--radius) border border-(--border-default)">
         {filteredTaxCodes.length === 0 ? (
-          <p className="p-4 text-center text-[var(--text-muted)] italic text-sm">
+          <p className="p-4 text-center text-(--text-muted) italic text-sm">
             {crud.items.length === 0
               ? 'No tax codes yet. Add one above to get started.'
               : 'No tax codes match your search.'}
@@ -233,7 +234,7 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
               {filteredTaxCodes.map((tc) => (
                 <tr
                   key={tc.id}
-                  className={`cursor-pointer hover:bg-[var(--bg-hover)] ${selectedTcId === tc.id ? 'bg-[var(--bg-selected)]' : ''}`}
+                  className={`cursor-pointer hover:bg-(--bg-hover) ${selectedTcId === tc.id ? 'bg-(--bg-selected)' : ''}`}
                   onClick={() => selectTaxCode(tc)}
                 >
                   <td className="font-semibold">{tc.code}</td>
@@ -246,11 +247,11 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
       </div>
 
       {/* Section 3: Edit section */}
-      <div className="border border-[var(--border-default)] rounded-[var(--radius)] bg-[var(--bg-surface)] p-3">
+      <div className="border border-(--border-default) rounded-(--radius) bg-(--bg-surface) p-3">
         {selectedTc ? (
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-[var(--text-primary)]">
+              <span className="font-bold text-sm text-(--text-primary)">
                 Editing: {selectedTc.code}
               </span>
               <div className="flex gap-2">
@@ -297,12 +298,12 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
             {/* Status messages */}
             <div className="min-h-[1.25rem]">
               {crud.success && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-success-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
                   {crud.success}
                 </p>
               )}
               {crud.error && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-danger-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
                   {crud.error}
                 </p>
               )}
@@ -310,17 +311,17 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
           </div>
         ) : (
           <div className="text-center py-2">
-            <p className="text-[var(--text-muted)] text-sm italic m-0">
+            <p className="text-(--text-muted) text-sm italic m-0">
               Select a tax code above to view and edit its details.
             </p>
             <div className="min-h-[1.25rem] mt-1">
               {crud.success && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-success-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
                   {crud.success}
                 </p>
               )}
               {crud.error && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-danger-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
                   {crud.error}
                 </p>
               )}

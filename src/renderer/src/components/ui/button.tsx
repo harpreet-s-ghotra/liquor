@@ -8,24 +8,21 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-[var(--btn-bg)] text-[var(--btn-text)] border border-[var(--btn-border)]',
+        default: 'bg-(--btn-bg) text-(--btn-text) border border-(--btn-border)',
         success:
-          'bg-[var(--btn-success-bg)] text-[var(--btn-success-text)] border border-[var(--btn-success-border)]',
-        danger:
-          'bg-[var(--btn-danger-bg)] text-[var(--btn-danger-text)] border border-[var(--btn-danger-border)]',
+          'bg-(--btn-success-bg) text-(--btn-success-text) border border-(--btn-success-border)',
+        danger: 'bg-(--btn-danger-bg) text-(--btn-danger-text) border border-(--btn-danger-border)',
         warning:
-          'bg-[var(--btn-warning-bg)] text-[var(--btn-warning-text)] border border-[var(--btn-warning-border)]',
-        neutral:
-          'bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-default)]',
-        ghost: 'bg-transparent shadow-none text-[var(--text-primary)] border-none',
-        outline:
-          'border border-[var(--border-strong)] bg-transparent text-[var(--text-primary)] shadow-none'
+          'bg-(--btn-warning-bg) text-(--btn-warning-text) border border-(--btn-warning-border)',
+        neutral: 'bg-(--bg-surface) text-(--text-primary) border border-(--border-default)',
+        ghost: 'bg-transparent shadow-none text-(--text-primary) border-none',
+        outline: 'border border-(--border-strong) bg-transparent text-(--text-primary) shadow-none'
       },
       size: {
-        sm: 'min-h-[2.25rem] text-[0.95rem] px-3 rounded-[var(--radius)]',
-        md: 'min-h-[2.75rem] text-[1rem] px-3.5 rounded-[var(--radius)]',
-        lg: 'min-h-[4.5rem] text-[1.3125rem] px-4 rounded-[var(--radius)]',
-        icon: 'h-9 w-9 rounded-[var(--radius)]'
+        sm: 'min-h-[2.25rem] text-[0.95rem] px-3 rounded-(--radius)',
+        md: 'min-h-11 text-[1rem] px-3.5 rounded-(--radius)',
+        lg: 'min-h-18 text-[1.3125rem] px-4 rounded-(--radius)',
+        icon: 'h-9 w-9 rounded-(--radius)'
       }
     },
     defaultVariants: {

@@ -103,15 +103,16 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
     [taxCodes]
   )
 
-  const clearSelection = (): void => {
+  const { clearMessages } = crud
+  const clearSelection = useCallback((): void => {
     setSelectedDeptId(null)
     setEditName('')
     setEditDescription('')
     setEditProfitMargin('')
     setEditTaxRate('')
     setShowEditValidation(false)
-    crud.clearMessages()
-  }
+    clearMessages()
+  }, [clearMessages])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
@@ -119,7 +120,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [selectedDeptId])
+  }, [selectedDeptId, clearSelection])
 
   const selectDepartment = (dept: Department): void => {
     crud.clearMessages()
@@ -288,7 +289,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
         <FormField label="Tax Code">
           <select
             aria-label="Default Tax Rate"
-            className="flex w-full rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-input)] px-2.5 py-2 text-[1.125rem] text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)] focus:ring-2 focus:ring-[var(--accent-blue)]/50"
+            className="flex w-full rounded-(--radius) border border-(--border-default) bg-(--bg-input) px-2.5 py-2 text-[1.125rem] text-(--text-primary) outline-none focus:border-(--accent-blue) focus:ring-2 focus:ring-(--accent-blue)/50"
             value={newTaxRate}
             onChange={(e) => setNewTaxRate(e.target.value)}
           >
@@ -314,9 +315,9 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
       </div>
 
       {/* Section 2: Scrollable department list */}
-      <div className="min-h-0 overflow-auto rounded-[var(--radius)] border border-[var(--border-default)]">
+      <div className="min-h-0 overflow-auto rounded-(--radius) border border-(--border-default)">
         {filteredDepartments.length === 0 ? (
-          <p className="p-4 text-center text-[var(--text-muted)] italic text-sm">
+          <p className="p-4 text-center text-(--text-muted) italic text-sm">
             {crud.items.length === 0
               ? 'No departments yet. Add one above to get started.'
               : 'No departments match your search.'}
@@ -335,13 +336,11 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
               {filteredDepartments.map((dept) => (
                 <tr
                   key={dept.id}
-                  className={`cursor-pointer hover:bg-[var(--bg-hover)] ${selectedDeptId === dept.id ? 'bg-[var(--bg-selected)]' : ''}`}
+                  className={`cursor-pointer hover:bg-(--bg-hover) ${selectedDeptId === dept.id ? 'bg-(--bg-selected)' : ''}`}
                   onClick={() => selectDepartment(dept)}
                 >
                   <td className="font-semibold">{dept.name}</td>
-                  <td className="text-[var(--text-muted)] text-[0.85rem]">
-                    {dept.description || '—'}
-                  </td>
+                  <td className="text-(--text-muted) text-[0.85rem]">{dept.description || '—'}</td>
                   <td>{dept.default_profit_margin ? `${dept.default_profit_margin}%` : '—'}</td>
                   <td>{taxRateLabel(dept.default_tax_rate)}</td>
                 </tr>
@@ -352,11 +351,11 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
       </div>
 
       {/* Section 3: Edit section */}
-      <div className="border border-[var(--border-default)] rounded-[var(--radius)] bg-[var(--bg-surface)] p-3">
+      <div className="border border-(--border-default) rounded-(--radius) bg-(--bg-surface) p-3">
         {selectedDept ? (
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-[var(--text-primary)]">
+              <span className="font-bold text-sm text-(--text-primary)">
                 Editing: {selectedDept.name}
               </span>
               <div className="flex gap-2">
@@ -412,7 +411,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
               <FormField label="Default Tax Rate" error={undefined} showError={false}>
                 <select
                   aria-label="Edit Default Tax Rate"
-                  className="flex w-full rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-input)] px-2.5 py-2 text-[1.125rem] text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)] focus:ring-2 focus:ring-[var(--accent-blue)]/50"
+                  className="flex w-full rounded-(--radius) border border-(--border-default) bg-(--bg-input) px-2.5 py-2 text-[1.125rem] text-(--text-primary) outline-none focus:border-(--accent-blue) focus:ring-2 focus:ring-(--accent-blue)/50"
                   value={editTaxRate}
                   onChange={(e) => setEditTaxRate(e.target.value)}
                 >
@@ -431,12 +430,12 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
             {/* Status messages */}
             <div className="min-h-[1.25rem]">
               {crud.success && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-success-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
                   {crud.success}
                 </p>
               )}
               {crud.error && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-danger-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
                   {crud.error}
                 </p>
               )}
@@ -444,18 +443,18 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
           </div>
         ) : (
           <div className="text-center py-2">
-            <p className="text-[var(--text-muted)] text-sm italic m-0">
+            <p className="text-(--text-muted) text-sm italic m-0">
               Select a department above to view and edit its details.
             </p>
             {/* Status messages when no dept selected */}
             <div className="min-h-[1.25rem] mt-1">
               {crud.success && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-success-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
                   {crud.success}
                 </p>
               )}
               {crud.error && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-danger-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
                   {crud.error}
                 </p>
               )}

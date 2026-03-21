@@ -84,30 +84,28 @@ export function ActionPanel({
 
   return (
     <aside
-      className="action-panel grid gap-2 overflow-hidden rounded-[var(--radius)] border p-1.5"
+      className="action-panel grid gap∏-2 overflow-hidden rounded-(--radius) border p-1.5"
       style={{
-        gridTemplateRows: 'minmax(7rem, auto) auto minmax(12rem, 1fr) auto',
+        gridTemplateRows: 'minmax(7rem, auto) au∏to minmax(12rem, 1fr) auto',
         background: 'var(--bg-surface)',
         borderColor: 'var(--ledger-border)'
       }}
     >
       {/* ── Totals ── */}
       <div
-        className="totals-box grid gap-1 content-center overflow-hidden rounded-[var(--radius)] border p-3 text-[var(--totals-text)]"
+        className="totals-box grid gap-1 content-center overflow-hidden rounded-(--radius) border p-3 text-(--totals-text)"
         style={{ background: 'var(--totals-bg)', borderColor: 'var(--totals-border)' }}
       >
         <div className="flex items-center justify-between text-[clamp(0.9rem,1.4vw,1.125rem)] font-semibold leading-tight">
           <span
-            className="uppercase tracking-[0.05rem] font-bold text-[var(--text-muted)]"
+            className="uppercase tracking-[0.05rem] font-bold text-(--text-muted)"
             style={{ fontSize: '0.75rem' }}
           >
             Sub-Total
           </span>
-          <strong className="text-[var(--text-primary)]">
-            ${subtotalBeforeDiscount.toFixed(2)}
-          </strong>
+          <strong className="text-(--text-primary)">${subtotalBeforeDiscount.toFixed(2)}</strong>
         </div>
-        <div className="totals-discount flex items-center justify-between text-[clamp(0.9rem,1.4vw,1.125rem)] font-semibold leading-tight text-[var(--accent-peach)]">
+        <div className="totals-discount flex items-center justify-between text-[clamp(0.9rem,1.4vw,1.125rem)] font-semibold leading-tight text-(--accent-peach)">
           <span className="uppercase tracking-[0.05rem] font-bold" style={{ fontSize: '0.75rem' }}>
             Discount
           </span>
@@ -115,18 +113,18 @@ export function ActionPanel({
         </div>
         <div className="flex items-center justify-between text-[clamp(0.9rem,1.4vw,1.125rem)] font-semibold leading-tight">
           <span
-            className="uppercase tracking-[0.05rem] font-bold text-[var(--text-muted)]"
+            className="uppercase tracking-[0.05rem] font-bold text-(--text-muted)"
             style={{ fontSize: '0.75rem' }}
           >
             Tax
           </span>
-          <strong className="text-[var(--text-primary)]">${tax.toFixed(2)}</strong>
+          <strong className="text-(--text-primary)">${tax.toFixed(2)}</strong>
         </div>
         <div
           className="grand-total flex items-baseline justify-between pt-1 border-t"
           style={{ borderColor: 'var(--totals-border)' }}
         >
-          <span className="uppercase tracking-[-0.05rem] text-[var(--text-label)] text-[clamp(1.2rem,2.5vw,1.875rem)] font-black">
+          <span className="uppercase tracking-[-0.05rem] text-(--text-label) text-[clamp(1.2rem,2.5vw,1.875rem)] font-black">
             Total
           </span>
           <strong className="text-[clamp(2rem,4vw,3rem)] leading-none">${total.toFixed(2)}</strong>
@@ -176,7 +174,7 @@ export function ActionPanel({
                   }}
                   tabIndex={0}
                 >
-                  <span className="w-[1.125rem] text-center font-extrabold text-sm">
+                  <span className="w-4.5 text-center font-extrabold text-sm">
                     {activeCategory === category ? '✓' : ''}
                   </span>
                   {category}
@@ -275,7 +273,7 @@ export function ActionPanel({
       >
         <button
           type="button"
-          className="rounded-[var(--radius)] min-h-19 text-[1.125rem] font-black cursor-pointer uppercase tracking-wider border disabled:opacity-55 disabled:cursor-not-allowed"
+          className="rounded-(--radius) min-h-19 text-[1.125rem] font-black cursor-pointer uppercase tracking-wider border disabled:opacity-55 disabled:cursor-not-allowed"
           style={{
             background: 'var(--pay-cash-bg)',
             borderColor: 'var(--pay-cash-border)',
@@ -289,7 +287,7 @@ export function ActionPanel({
         </button>
         <button
           type="button"
-          className="rounded-[var(--radius)] min-h-19 text-[1.125rem] font-black cursor-pointer uppercase tracking-wider border disabled:opacity-55 disabled:cursor-not-allowed"
+          className="rounded-(--radius) min-h-19 text-[1.125rem] font-black cursor-pointer uppercase tracking-wider border disabled:opacity-55 disabled:cursor-not-allowed"
           style={{
             background: 'var(--pay-credit-bg)',
             borderColor: 'var(--pay-credit-border)',
@@ -303,7 +301,7 @@ export function ActionPanel({
         </button>
         <button
           type="button"
-          className="rounded-[var(--radius)] min-h-19 text-[1.125rem] font-black cursor-pointer uppercase tracking-wider border disabled:opacity-55 disabled:cursor-not-allowed"
+          className="rounded-(--radius) min-h-19 text-[1.125rem] font-black cursor-pointer uppercase tracking-wider border disabled:opacity-55 disabled:cursor-not-allowed"
           style={{
             background: 'var(--pay-debit-bg)',
             borderColor: 'var(--pay-debit-border)',
@@ -317,7 +315,7 @@ export function ActionPanel({
         </button>
         <button
           type="button"
-          className="col-span-3 w-full rounded-[var(--radius)] min-h-[5.375rem] text-[2.25rem] font-black cursor-pointer uppercase tracking-wider border shadow-md disabled:opacity-55 disabled:cursor-not-allowed"
+          className="col-span-3 w-full rounded-(--radius) min-h-21.5 text-[2.25rem] font-black cursor-pointer uppercase tracking-wider border shadow-md disabled:opacity-55 disabled:cursor-not-allowed"
           style={{
             background: 'var(--btn-success-bg)',
             borderColor: 'var(--btn-success-border)',

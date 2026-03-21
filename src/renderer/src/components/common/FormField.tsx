@@ -26,11 +26,11 @@ export function FormField({
       <Label asChild>
         <span>
           {label}
-          {required && <span className="text-[var(--semantic-danger-text)] font-bold"> *</span>}
+          {required && <span className="text-(--semantic-danger-text) font-bold"> *</span>}
         </span>
       </Label>
       {children}
-      <span className="min-h-[1.1rem] text-[0.78rem] text-[var(--semantic-danger-text)] font-semibold">
+      <span className="min-h-[1.1rem] text-[0.78rem] text-(--semantic-danger-text) font-semibold">
         {hasError ? error : ''}
       </span>
     </label>

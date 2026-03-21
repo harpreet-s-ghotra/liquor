@@ -250,7 +250,7 @@ export function TicketPanel({
 
   return (
     <section
-      className="ticket-panel grid gap-2 overflow-hidden rounded-[var(--radius)] border p-1.5 relative"
+      className="ticket-panel grid gap-2 overflow-hidden rounded-(--radius) border p-1.5 relative"
       style={{
         gridTemplateRows: '3rem 1fr 5.25rem',
         background: 'var(--bg-surface)',
@@ -291,7 +291,7 @@ export function TicketPanel({
 
       {/* ── Ticket table ── */}
       <div
-        className="grid overflow-hidden rounded-[var(--radius)] border"
+        className="grid overflow-hidden rounded-(--radius) border"
         style={{
           gridTemplateRows: '2.5rem 1fr',
           background: 'var(--ledger-bg)',
@@ -310,9 +310,7 @@ export function TicketPanel({
 
         <div className="overflow-auto" data-testid="ticket-lines">
           {cart.length === 0 ? (
-            <div className="p-4 text-base text-[var(--text-muted)]">
-              No items in current transaction
-            </div>
+            <div className="p-4 text-base text-(--text-muted)">No items in current transaction</div>
           ) : (
             productLines.map((item, index) => {
               const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
@@ -335,7 +333,7 @@ export function TicketPanel({
                   }}
                   type="button"
                   className={cn(
-                    'ticket-line w-full grid grid-cols-12 items-center min-h-[4.5rem] px-6 py-4 cursor-pointer text-left border-b',
+                    'ticket-line w-full grid grid-cols-12 items-center min-h-18 px-6 py-4 cursor-pointer text-left border-b',
                     selectedCartId === item.id ? 'active' : '',
                     index % 2 === 1 && selectedCartId !== item.id && 'ticket-line-alt',
                     hasPromo && !isDiscountedLine && 'promo border-l-4',
@@ -394,7 +392,7 @@ export function TicketPanel({
                         className="inline-flex flex-wrap items-center gap-1.5 text-xs font-bold"
                         style={{ color: 'var(--semantic-success-text)' }}
                       >
-                        <span className="rounded-[var(--radius)] bg-[var(--accent-mint)] px-1.5 py-px text-xs font-extrabold text-[var(--btn-success-text)]">
+                        <span className="rounded-(--radius) bg-(--accent-mint) px-1.5 py-px text-xs font-extrabold text-(--btn-success-text)">
                           PROMO
                         </span>
                         <span>
@@ -407,7 +405,7 @@ export function TicketPanel({
                         className="inline-flex flex-wrap items-center gap-1.5 text-xs font-bold"
                         style={{ color: 'var(--semantic-warning-text)' }}
                       >
-                        <span className="rounded-[var(--radius)] bg-[var(--accent-peach)] px-1.5 py-px text-xs font-extrabold text-white">
+                        <span className="rounded-(--radius) bg-(--accent-peach) px-1.5 py-px text-xs font-extrabold text-white">
                           DISCOUNT {(item.itemDiscountPercent ?? 0).toFixed(2)}%
                         </span>
                         <span>
@@ -430,7 +428,7 @@ export function TicketPanel({
             <button
               type="button"
               className={cn(
-                'ticket-line w-full grid grid-cols-12 items-center min-h-[4.5rem] px-6 py-4 cursor-pointer text-left sticky bottom-0 z-[2] border-t-2',
+                'ticket-line w-full grid grid-cols-12 items-center min-h-18 px-6 py-4 cursor-pointer text-left sticky bottom-0 z-[2] border-t-2',
                 selectedCartId === transactionDiscountLine.id && 'active'
               )}
               style={{
@@ -467,7 +465,7 @@ export function TicketPanel({
       <div className="grid grid-cols-5 gap-2">
         <Button
           variant="danger"
-          className="min-h-[4.5rem] text-xl font-bold"
+          className="min-h-18 text-xl font-bold"
           onClick={() => {
             removeSelectedLine()
             onFocusSearch?.()
@@ -477,7 +475,7 @@ export function TicketPanel({
         </Button>
         <Button
           variant="warning"
-          className="min-h-[4.5rem] text-xl font-bold"
+          className="min-h-18 text-xl font-bold"
           onClick={() => {
             clearTransaction()
             onFocusSearch?.()
@@ -486,21 +484,21 @@ export function TicketPanel({
           Void
         </Button>
         <Button
-          className="min-h-[4.5rem] text-xl font-bold"
+          className="min-h-18 text-xl font-bold"
           disabled={!selectedCartId || isTransactionDiscountSelected}
           onClick={() => openEditModal('quantity')}
         >
           Qty Change
         </Button>
         <Button
-          className="min-h-[4.5rem] text-xl font-bold"
+          className="min-h-18 text-xl font-bold"
           disabled={!selectedCartId || isTransactionDiscountSelected}
           onClick={() => openEditModal('price')}
         >
           Price Change
         </Button>
         <Button
-          className="min-h-[4.5rem] text-xl font-bold"
+          className="min-h-18 text-xl font-bold"
           disabled={!selectedCartId && cart.length === 0}
           onClick={() => openEditModal('discount')}
         >
@@ -515,16 +513,16 @@ export function TicketPanel({
           data-testid="edit-modal"
         >
           <div
-            className="w-[min(34rem,calc(100%-2rem))] grid gap-4 rounded-[var(--radius)] bg-[var(--bg-panel)] p-4 shadow-lg"
+            className="w-[min(34rem,calc(100%-2rem))] grid gap-4 rounded-(--radius) bg-(--bg-panel) p-4 shadow-lg"
             role="dialog"
             aria-modal="true"
           >
-            <h3 className="m-0 rounded-[var(--radius)] bg-[var(--bg-shell)] px-4 py-3 text-2xl font-bold text-[var(--text-on-dark)]">
+            <h3 className="m-0 rounded-(--radius) bg-(--bg-shell) px-4 py-3 text-2xl font-bold text-(--text-on-dark)">
               {editMode === 'quantity' && 'Qty Change'}
               {editMode === 'price' && 'Price Change'}
               {editMode === 'discount' && 'Discount'}
             </h3>
-            <p className="m-0 rounded-[var(--radius)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-lg font-semibold text-[var(--text-primary)]">
+            <p className="m-0 rounded-(--radius) bg-(--bg-surface-soft) px-4 py-2.5 text-lg font-semibold text-(--text-primary)">
               {editMode === 'quantity' && `Original Qty: ${selectedCartItem?.lineQuantity ?? 0}`}
               {editMode === 'price' && (
                 <button
@@ -553,16 +551,13 @@ export function TicketPanel({
                 >
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="item" id="scope-item" disabled={!selectedCartId} />
-                    <Label htmlFor="scope-item" className="text-lg text-[var(--text-primary)]">
+                    <Label htmlFor="scope-item" className="text-lg text-(--text-primary)">
                       Selected Item
                     </Label>
                   </div>
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="transaction" id="scope-transaction" />
-                    <Label
-                      htmlFor="scope-transaction"
-                      className="text-lg text-[var(--text-primary)]"
-                    >
+                    <Label htmlFor="scope-transaction" className="text-lg text-(--text-primary)">
                       Entire Transaction
                     </Label>
                   </div>
@@ -589,7 +584,7 @@ export function TicketPanel({
                     <Button
                       key={key}
                       type="button"
-                      className="min-h-[4.5rem] text-[1.75rem] font-bold"
+                      className="min-h-18 text-[1.75rem] font-bold"
                       onClick={() => handleKeypadInput(key)}
                     >
                       {key}
@@ -598,7 +593,7 @@ export function TicketPanel({
                   {editMode === 'discount' && (
                     <Button
                       type="button"
-                      className="col-span-3 min-h-[4.5rem] text-[1.75rem] font-bold"
+                      className="col-span-3 min-h-18 text-[1.75rem] font-bold"
                       onClick={() => handleKeypadInput('.')}
                     >
                       .

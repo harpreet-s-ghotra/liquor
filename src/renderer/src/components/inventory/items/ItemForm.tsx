@@ -535,23 +535,23 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
 
   /* ── Shared style helpers ── */
   const labelCls =
-    'block text-[10px] font-black uppercase tracking-[1px] text-[var(--text-primary)] mb-1'
+    'block text-[10px] font-black uppercase tracking-[1px] text-(--text-primary) mb-1'
 
-  const errCls = 'text-[10px] text-[var(--error)] mt-0.5'
+  const errCls = 'text-[10px] text-(--error) mt-0.5'
 
-  const requiredStar = <span className="text-[var(--error)]">*</span>
+  const requiredStar = <span className="text-(--error)">*</span>
 
   /* ── Tab trigger shared class ── */
   const tabTriggerCls =
-    'rounded-none border-b-[3px] border-transparent min-h-[44px] px-5 py-3 text-[13px] font-bold uppercase tracking-[0.5px] text-[var(--text-muted)] bg-transparent data-[state=active]:border-[var(--btn-success-bg)] data-[state=active]:text-[var(--text-primary)] data-[state=active]:bg-transparent data-[state=active]:shadow-none disabled:opacity-40 disabled:cursor-not-allowed'
+    'rounded-none border-b-[3px] border-transparent min-h-[44px] px-5 py-3 text-[13px] font-bold uppercase tracking-[0.5px] text-(--text-muted) bg-transparent data-[state=active]:border-(--btn-success-bg) data-[state=active]:text-(--text-primary) data-[state=active]:bg-transparent data-[state=active]:shadow-none disabled:opacity-40 disabled:cursor-not-allowed'
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-[var(--bg-panel)]">
+    <div className="h-full flex flex-col overflow-hidden bg-(--bg-panel)">
       {/* ── General Information ── */}
       <section aria-label="General Information" className="shrink-0">
         {/* Section header band */}
-        <div className="px-4 py-1.5 bg-[var(--bg-surface-soft)] border-b border-[var(--border-default)]">
-          <span className="text-[10px] font-black uppercase tracking-[1.5px] text-[var(--text-label)]">
+        <div className="px-4 py-1.5 bg-(--bg-surface-soft) border-b border-(--border-default)">
+          <span className="text-[10px] font-black uppercase tracking-[1.5px] text-(--text-label)">
             General Information
           </span>
         </div>
@@ -621,7 +621,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               aria-label="Cost"
               inputMode="numeric"
               hasError={showValidation && !!fieldErrors.cost}
-              className="font-bold text-[var(--semantic-danger-text)]"
+              className="font-bold text-(--semantic-danger-text)"
               value={formState.cost}
               onChange={(e) => handleCostChange(e.target.value)}
               placeholder="$0.00"
@@ -653,7 +653,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             <label className={labelCls}>
               Price You Charge {requiredStar}
               {priceAutoCalc && (
-                <span className="ml-1.5 text-[9px] font-bold normal-case tracking-normal text-[var(--accent-mint)] opacity-80">
+                <span className="ml-1.5 text-[9px] font-bold normal-case tracking-normal text-(--accent-mint) opacity-80">
                   auto
                 </span>
               )}
@@ -663,7 +663,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               aria-label="Price Charged"
               inputMode="numeric"
               hasError={showValidation && !!fieldErrors.retail_price}
-              className="bg-[var(--accent-mint-soft)] font-bold text-[var(--accent-mint)]"
+              className="bg-(--accent-mint-soft) font-bold text-(--accent-mint)"
               value={formState.retail_price}
               onChange={(e) => {
                 updateCurrencyField('retail_price', e.target.value)
@@ -684,7 +684,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               aria-label="In Stock"
               inputMode="numeric"
               hasError={showValidation && !!fieldErrors.in_stock}
-              className="font-bold text-[var(--accent-blue)]"
+              className="font-bold text-(--accent-blue)"
               value={formState.in_stock}
               onChange={(e) => setFormState((c) => ({ ...c, in_stock: e.target.value }))}
               placeholder="0"
@@ -724,7 +724,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               type="text"
               aria-label="Final Price with Tax"
               readOnly
-              className="bg-[var(--bg-surface-soft)] font-bold text-[var(--text-muted)] cursor-default"
+              className="bg-(--bg-surface-soft) font-bold text-(--text-muted) cursor-default"
               value={finalPriceWithTax != null ? formatCurrency(finalPriceWithTax) : '—'}
             />
           </div>
@@ -734,14 +734,14 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             <label className={labelCls}>Profit Margin</label>
             <div
               aria-label="Profit Margin"
-              className={`h-9 bg-[var(--bg-input)] rounded-[var(--radius)] px-2.5 flex items-center text-[14px] font-black border border-[var(--border-default)] ${
+              className={`h-9 bg-(--bg-input) rounded-(--radius) px-2.5 flex items-center text-[14px] font-black border border-(--border-default) ${
                 profitMargin == null
-                  ? 'text-[var(--text-muted)]'
+                  ? 'text-(--text-muted)'
                   : profitMargin > 20
-                    ? 'text-[var(--semantic-success-text)]'
+                    ? 'text-(--semantic-success-text)'
                     : profitMargin >= 10
-                      ? 'text-[var(--semantic-warning-text)]'
-                      : 'text-[var(--semantic-danger-text)]'
+                      ? 'text-(--semantic-warning-text)'
+                      : 'text-(--semantic-danger-text)'
               }`}
             >
               {profitMargin != null ? `${profitMargin.toFixed(1)}%` : '—'}
@@ -754,9 +754,9 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="flex-1 min-h-0 flex flex-col overflow-hidden border-t border-[var(--border-default)]"
+        className="flex-1 min-h-0 flex flex-col overflow-hidden border-t border-(--border-default)"
       >
-        <TabsList className="gap-0 bg-[var(--bg-surface)] border-b border-[var(--border-default)] rounded-none p-0 h-auto justify-start w-full shrink-0">
+        <TabsList className="gap-0 bg-(--bg-surface) border-b border-(--border-default) rounded-none p-0 h-auto justify-start w-full shrink-0">
           <TabsTrigger value="case-settings" disabled={isFormEmpty} className={tabTriggerCls}>
             Case &amp; Quantity
           </TabsTrigger>
@@ -836,7 +836,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               </FormField>
               <FormField label="Vendor">
                 <select
-                  className="flex w-full rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-input)] px-2.5 py-2 text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)] focus:ring-1 focus:ring-[var(--accent-blue)]"
+                  className="flex w-full rounded-(--radius) border border-(--border-default) bg-(--bg-input) px-2.5 py-2 text-(--text-primary) outline-none focus:border-(--accent-blue) focus:ring-1 focus:ring-(--accent-blue)"
                   aria-label="Vendor"
                   value={formState.vendor_number}
                   onChange={(event) =>
@@ -852,7 +852,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                 </select>
               </FormField>
             </div>
-            <p className="m-0 text-[0.82rem] text-[var(--text-muted)] italic">
+            <p className="m-0 text-[0.82rem] text-(--text-muted) italic">
               Set the number of bottles in a case to enable case-level inventory and pricing.
               {formState.case_discount_mode === 'percent'
                 ? ' Enter the discount percentage off the full case price.'
@@ -878,7 +878,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                 {formState.additional_skus.map((sku) => (
                   <li
                     key={sku}
-                    className="flex justify-between items-center gap-1.5 py-1 border-b border-[var(--border-soft)] text-[var(--text-primary)] font-semibold text-[0.92rem]"
+                    className="flex justify-between items-center gap-1.5 py-1 border-b border-(--border-soft) text-(--text-primary) font-semibold text-[0.92rem]"
                   >
                     <span>{sku}</span>
                     <Button size="sm" variant="neutral" onClick={() => removeAdditionalSku(sku)}>
@@ -901,23 +901,23 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               </Button>
             </div>
             {formState.special_pricing.length === 0 ? (
-              <p className="m-0 text-[var(--text-muted)] italic">
+              <p className="m-0 text-(--text-muted) italic">
                 No special pricing rules. Click &quot;Add Rule&quot; to create one.
               </p>
             ) : (
               <table className="w-full border-collapse" aria-label="Special Pricing Rules">
                 <thead>
                   <tr>
-                    <th className="text-left text-[0.85rem] font-bold text-[var(--text-primary)] px-2 py-1.5 border-b border-[var(--border-soft)]">
+                    <th className="text-left text-[0.85rem] font-bold text-(--text-primary) px-2 py-1.5 border-b border-(--border-soft)">
                       Quantity
                     </th>
-                    <th className="text-left text-[0.85rem] font-bold text-[var(--text-primary)] px-2 py-1.5 border-b border-[var(--border-soft)]">
+                    <th className="text-left text-[0.85rem] font-bold text-(--text-primary) px-2 py-1.5 border-b border-(--border-soft)">
                       Price
                     </th>
-                    <th className="text-left text-[0.85rem] font-bold text-[var(--text-primary)] px-2 py-1.5 border-b border-[var(--border-soft)]">
+                    <th className="text-left text-[0.85rem] font-bold text-(--text-primary) px-2 py-1.5 border-b border-(--border-soft)">
                       Duration (days)
                     </th>
-                    <th className="px-2 py-1.5 border-b border-[var(--border-soft)]"></th>
+                    <th className="px-2 py-1.5 border-b border-(--border-soft)"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -973,27 +973,27 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           {/* Sales History */}
           <TabsContent value="sales-history" className="p-3 grid gap-2 content-start">
             {!selectedItem || selectedItem.sales_history.length === 0 ? (
-              <p className="m-0 text-[var(--text-muted)] italic">No sales history found</p>
+              <p className="m-0 text-(--text-muted) italic">No sales history found</p>
             ) : (
-              <table className="w-full border-collapse text-[0.85rem] text-[var(--text-primary)]">
+              <table className="w-full border-collapse text-[0.85rem] text-(--text-primary)">
                 <thead>
                   <tr>
-                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
                       Date
                     </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
                       Txn #
                     </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
                       Qty
                     </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
                       Price
                     </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
                       Total
                     </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-[var(--text-muted)] text-[0.8rem] uppercase tracking-wide border-b border-[var(--border-default)]">
+                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
                       Payment
                     </th>
                   </tr>
@@ -1001,25 +1001,25 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                 <tbody>
                   {selectedItem.sales_history.map((h) => (
                     <tr key={`${h.transaction_id}-${h.created_at}`}>
-                      <td className="px-2 py-1.5 border-b border-[var(--border-default)]">
+                      <td className="px-2 py-1.5 border-b border-(--border-default)">
                         {new Date(h.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-2 py-1.5 border-b border-[var(--border-default)] font-mono text-[0.8rem]">
+                      <td className="px-2 py-1.5 border-b border-(--border-default) font-mono text-[0.8rem]">
                         {h.transaction_number ?? `#${h.transaction_id}`}
                       </td>
-                      <td className="px-2 py-1.5 border-b border-[var(--border-default)]">
+                      <td className="px-2 py-1.5 border-b border-(--border-default)">
                         {h.quantity}
                       </td>
-                      <td className="px-2 py-1.5 border-b border-[var(--border-default)]">
+                      <td className="px-2 py-1.5 border-b border-(--border-default)">
                         {formatCurrency(h.unit_price)}
                       </td>
-                      <td className="px-2 py-1.5 border-b border-[var(--border-default)]">
+                      <td className="px-2 py-1.5 border-b border-(--border-default)">
                         {formatCurrency(h.total_price)}
                       </td>
-                      <td className="px-2 py-1.5 border-b border-[var(--border-default)]">
+                      <td className="px-2 py-1.5 border-b border-(--border-default)">
                         {h.payment_method ?? '—'}
                         {h.card_type && h.card_last_four && (
-                          <span className="text-[var(--text-muted)] text-[0.8rem]">
+                          <span className="text-(--text-muted) text-[0.8rem]">
                             {' '}
                             ({h.card_type} ****{h.card_last_four})
                           </span>
@@ -1036,14 +1036,14 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
 
       {/* Status messages */}
       {(saveMessage || errorMessage) && (
-        <div className="shrink-0 px-4 py-2 bg-[var(--bg-panel)] border-t border-[var(--border-default)] grid gap-0.5">
+        <div className="shrink-0 px-4 py-2 bg-(--bg-panel) border-t border-(--border-default) grid gap-0.5">
           {saveMessage && (
-            <p className="m-0 text-[0.9rem] font-semibold text-[var(--semantic-success-text)]">
+            <p className="m-0 text-[0.9rem] font-semibold text-(--semantic-success-text)">
               {saveMessage}
             </p>
           )}
           {errorMessage && (
-            <p className="m-0 text-[0.9rem] font-semibold text-[var(--semantic-danger-text)]">
+            <p className="m-0 text-[0.9rem] font-semibold text-(--semantic-danger-text)">
               {errorMessage}
             </p>
           )}

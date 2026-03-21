@@ -77,7 +77,7 @@ export function FooterActionBar({
               if (e.key === 'Escape') onCloseDropdown()
             }}
             placeholder={SEARCH_PLACEHOLDER[activeTab] ?? 'Search...'}
-            className="h-9 w-[280px] bg-[var(--bg-input)] rounded-[var(--radius)] px-3 text-[13px] font-bold text-[var(--text-primary)] placeholder:text-[var(--text-muted)] placeholder:font-normal outline-none border border-[var(--border-default)] focus:ring-1 focus:ring-[var(--accent-blue)]"
+            className="h-9 w-[280px] bg-(--bg-input) rounded-(--radius) px-3 text-[13px] font-bold text-(--text-primary) placeholder:text-(--text-muted) placeholder:font-normal outline-none border border-(--border-default) focus:ring-1 focus:ring-(--accent-blue)"
           />
 
           {/* Autocomplete dropdown — Items tab only */}
@@ -88,20 +88,20 @@ export function FooterActionBar({
               <ul
                 role="listbox"
                 aria-label="Search results"
-                className="absolute bottom-full left-0 right-0 z-50 max-h-48 overflow-y-auto rounded-[var(--radius)] bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-lg mb-1"
+                className="absolute bottom-full left-0 right-0 z-50 max-h-48 overflow-y-auto rounded-(--radius) bg-(--bg-surface) border border-(--border-default) shadow-lg mb-1"
               >
                 {searchResults.map((item) => (
                   <li
                     key={item.item_number}
                     role="option"
                     aria-selected={false}
-                    className="px-3 py-1.5 cursor-pointer flex justify-between items-center hover:bg-[var(--bg-surface-soft)]"
+                    className="px-3 py-1.5 cursor-pointer flex justify-between items-center hover:bg-(--bg-surface-soft)"
                     onMouseDown={() => onSelectSearchResult(item)}
                   >
-                    <span className="truncate text-[13px] font-bold text-[var(--text-primary)]">
+                    <span className="truncate text-[13px] font-bold text-(--text-primary)">
                       {item.item_name}
                     </span>
-                    <span className="ml-2 text-[11px] text-[var(--text-muted)] shrink-0">
+                    <span className="ml-2 text-[11px] text-(--text-muted) shrink-0">
                       {item.sku} · {formatCurrency(item.retail_price)}
                     </span>
                   </li>
@@ -111,10 +111,10 @@ export function FooterActionBar({
 
           {/* No-results prompt — Items tab only */}
           {activeTab === 'items' && noResultsSku && (
-            <div className="absolute bottom-full left-0 right-0 z-50 mb-1 rounded-[var(--radius)] bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-lg px-3 py-2.5 flex items-center justify-between gap-3">
-              <span className="text-[12px] text-[var(--text-muted)]">
+            <div className="absolute bottom-full left-0 right-0 z-50 mb-1 rounded-(--radius) bg-(--bg-surface) border border-(--border-default) shadow-lg px-3 py-2.5 flex items-center justify-between gap-3">
+              <span className="text-[12px] text-(--text-muted)">
                 No item found for{' '}
-                <span className="font-bold text-[var(--text-primary)]">{noResultsSku}</span>
+                <span className="font-bold text-(--text-primary)">{noResultsSku}</span>
               </span>
               <AppButton
                 size="sm"

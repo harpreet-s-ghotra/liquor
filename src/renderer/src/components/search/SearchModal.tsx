@@ -149,7 +149,7 @@ export function SearchModal({
             onChange={(e) =>
               handleDepartmentChange(e.target.value ? Number(e.target.value) : undefined)
             }
-            className="h-10 rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-input)] px-3 text-base text-[var(--text-primary)]"
+            className="h-10 rounded-(--radius) border border-(--border-default) bg-(--bg-input) px-3 text-base text-(--text-primary)"
             aria-label="Filter by department"
           >
             <option value="">All Departments</option>
@@ -165,7 +165,7 @@ export function SearchModal({
             onChange={(e) =>
               handleVendorChange(e.target.value ? Number(e.target.value) : undefined)
             }
-            className="h-10 rounded-[var(--radius)] border border-[var(--border-default)] bg-[var(--bg-input)] px-3 text-base text-[var(--text-primary)]"
+            className="h-10 rounded-(--radius) border border-(--border-default) bg-(--bg-input) px-3 text-base text-(--text-primary)"
             aria-label="Filter by vendor"
           >
             <option value="">All Vendors</option>
@@ -179,11 +179,11 @@ export function SearchModal({
 
         {/* Results table */}
         <div
-          className="grid overflow-hidden rounded-[var(--radius)] bg-[var(--bg-surface)]"
+          className="grid overflow-hidden rounded-(--radius) bg-(--bg-surface)"
           style={{ gridTemplateRows: '2.25rem 1fr' }}
         >
           <div
-            className="grid items-center gap-x-4 border-b border-[var(--border-soft)] bg-[var(--bg-surface-soft)] px-3 text-base font-bold text-[var(--text-primary)]"
+            className="grid items-center gap-x-4 border-b border-(--border-soft) bg-(--bg-surface-soft) px-3 text-base font-bold text-(--text-primary)"
             style={{ gridTemplateColumns: '1fr 6rem 7rem' }}
           >
             <span>Name</span>
@@ -193,11 +193,11 @@ export function SearchModal({
 
           <div className="overflow-auto" data-testid="search-results">
             {!hasSearched ? (
-              <div className="p-4 text-base text-[var(--text-muted)]">
+              <div className="p-4 text-base text-(--text-muted)">
                 Type a search term to find items.
               </div>
             ) : results.length === 0 ? (
-              <div className="p-4 text-base text-[var(--text-muted)]">
+              <div className="p-4 text-base text-(--text-muted)">
                 No items found. Try a different search.
               </div>
             ) : (
@@ -205,8 +205,8 @@ export function SearchModal({
                 <button
                   key={product.id}
                   type="button"
-                  className={`w-full grid items-center gap-x-4 border-b border-[var(--border-soft)] bg-[var(--bg-surface)] min-h-11 px-3 text-base text-[var(--text-primary)] cursor-pointer text-left hover:bg-[var(--bg-surface-soft)] ${
-                    selectedProduct?.id === product.id ? 'bg-[var(--accent-blue-soft)]' : ''
+                  className={`w-full grid items-center gap-x-4 border-b border-(--border-soft) bg-(--bg-surface) min-h-11 px-3 text-base text-(--text-primary) cursor-pointer text-left hover:bg-(--bg-surface-soft) ${
+                    selectedProduct?.id === product.id ? 'bg-(--accent-blue-soft)' : ''
                   }`}
                   style={{ gridTemplateColumns: '1fr 6rem 7rem' }}
                   onClick={() => handleRowClick(product)}

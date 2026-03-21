@@ -70,15 +70,16 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
     )
   }, [selectedVendor, editName, editContact, editPhone, editEmail])
 
-  const clearSelection = (): void => {
+  const { clearMessages } = crud
+  const clearSelection = useCallback((): void => {
     setSelectedVendorNum(null)
     setEditName('')
     setEditContact('')
     setEditPhone('')
     setEditEmail('')
     setShowEditValidation(false)
-    crud.clearMessages()
-  }
+    clearMessages()
+  }, [clearMessages])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
@@ -86,7 +87,7 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [selectedVendorNum])
+  }, [selectedVendorNum, clearSelection])
 
   const selectVendor = (v: Vendor): void => {
     crud.clearMessages()
@@ -265,9 +266,9 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
       </div>
 
       {/* Section 2: Scrollable vendor list */}
-      <div className="min-h-0 overflow-auto rounded-[var(--radius)] border border-[var(--border-default)]">
+      <div className="min-h-0 overflow-auto rounded-(--radius) border border-(--border-default)">
         {filteredVendors.length === 0 ? (
-          <p className="p-4 text-center text-[var(--text-muted)] italic text-sm">
+          <p className="p-4 text-center text-(--text-muted) italic text-sm">
             {crud.items.length === 0
               ? 'No vendors yet. Add one above to get started.'
               : 'No vendors match your search.'}
@@ -286,13 +287,11 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
               {filteredVendors.map((v) => (
                 <tr
                   key={v.vendor_number}
-                  className={`cursor-pointer hover:bg-[var(--bg-hover)] ${selectedVendorNum === v.vendor_number ? 'bg-[var(--bg-selected)]' : ''}`}
+                  className={`cursor-pointer hover:bg-(--bg-hover) ${selectedVendorNum === v.vendor_number ? 'bg-(--bg-selected)' : ''}`}
                   onClick={() => selectVendor(v)}
                 >
                   <td className="font-semibold">{v.vendor_name}</td>
-                  <td className="text-[var(--text-muted)] text-[0.85rem]">
-                    {v.contact_name ?? '—'}
-                  </td>
+                  <td className="text-(--text-muted) text-[0.85rem]">{v.contact_name ?? '—'}</td>
                   <td>{v.phone ?? '—'}</td>
                   <td>{v.email ?? '—'}</td>
                 </tr>
@@ -303,11 +302,11 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
       </div>
 
       {/* Section 3: Edit section */}
-      <div className="border border-[var(--border-default)] rounded-[var(--radius)] bg-[var(--bg-surface)] p-3">
+      <div className="border border-(--border-default) rounded-(--radius) bg-(--bg-surface) p-3">
         {selectedVendor ? (
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-[var(--text-primary)]">
+              <span className="font-bold text-sm text-(--text-primary)">
                 Editing: {selectedVendor.vendor_name}
               </span>
               <div className="flex gap-2">
@@ -378,12 +377,12 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
             {/* Status messages */}
             <div className="min-h-[1.25rem]">
               {crud.success && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-success-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
                   {crud.success}
                 </p>
               )}
               {crud.error && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-danger-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
                   {crud.error}
                 </p>
               )}
@@ -391,17 +390,17 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
           </div>
         ) : (
           <div className="text-center py-2">
-            <p className="text-[var(--text-muted)] text-sm italic m-0">
+            <p className="text-(--text-muted) text-sm italic m-0">
               Select a vendor above to view and edit its details.
             </p>
             <div className="min-h-[1.25rem] mt-1">
               {crud.success && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-success-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
                   {crud.success}
                 </p>
               )}
               {crud.error && (
-                <p className="m-0 text-sm font-semibold text-[var(--semantic-danger-text)]">
+                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
                   {crud.error}
                 </p>
               )}

@@ -46,18 +46,16 @@ export function InventoryModal({
   // Reset to Items tab and focus the search input every time the modal opens
   useEffect(() => {
     if (isOpen) {
-      setActiveTab('items')
-      setSearchTerm('')
-      setNoResultsSku(null)
-      if (openItemNumber != null) {
-        requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setActiveTab('items')
+        setSearchTerm('')
+        setNoResultsSku(null)
+        if (openItemNumber != null) {
           void itemFormRef.current?.selectItem({ item_number: openItemNumber } as InventoryProduct)
-        })
-      } else {
-        requestAnimationFrame(() => {
+        } else {
           searchInputRef.current?.focus()
-        })
-      }
+        }
+      })
     }
   }, [isOpen, openItemNumber])
 
@@ -140,7 +138,7 @@ export function InventoryModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="w-[min(1152px,100%)] h-[min(96vh,920px)] flex flex-col p-0 overflow-hidden rounded-2xl bg-[var(--bg-panel)] border border-[var(--border-default)] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]"
+        className="w-[min(1152px,100%)] h-[min(96vh,920px)] flex flex-col p-0 overflow-hidden rounded-2xl bg-(--bg-panel) border border-(--border-default) shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]"
         aria-label="Inventory Management"
         onInteractOutside={(e) => e.preventDefault()}
       >

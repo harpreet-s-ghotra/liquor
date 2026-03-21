@@ -219,7 +219,7 @@ export function PaymentModal({
       data-testid="payment-modal"
     >
       <div
-        className="grid w-[min(60rem,100%)] h-[min(90vh,50rem)] gap-3 rounded-[var(--radius)] bg-[var(--bg-panel)] p-3 shadow-lg"
+        className="grid w-[min(60rem,100%)] h-[min(90vh,50rem)] gap-3 rounded-(--radius) bg-(--bg-panel) p-3 shadow-lg"
         style={{ gridTemplateRows: 'auto auto 1fr' }}
         role="dialog"
         aria-modal="true"
@@ -227,11 +227,11 @@ export function PaymentModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
-          <h3 className="m-0 text-2xl font-bold text-[var(--text-primary)]">Payment</h3>
+          <h3 className="m-0 text-2xl font-bold text-(--text-primary)">Payment</h3>
           <Button
             variant="danger"
             size="sm"
-            className="px-5 min-h-[2.75rem] text-lg"
+            className="px-5 min-h-11 text-lg"
             onClick={handleCancel}
             disabled={status === 'processing-card'}
           >
@@ -240,7 +240,7 @@ export function PaymentModal({
         </div>
 
         {/* Transaction total */}
-        <div className="payment-total-bar flex items-center justify-between rounded-[var(--radius)] bg-[var(--totals-bg)] px-4 py-3 text-[1.375rem] font-bold text-[var(--totals-text)]">
+        <div className="payment-total-bar flex items-center justify-between rounded-(--radius) bg-(--totals-bg) px-4 py-3 text-[1.375rem] font-bold text-(--totals-text)">
           <span>Transaction Total</span>
           <strong className="text-[2rem]">${total.toFixed(2)}</strong>
         </div>
@@ -258,7 +258,7 @@ export function PaymentModal({
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                className="rounded-[var(--radius)] border-none min-h-[4.5rem] text-[1.375rem] font-bold cursor-pointer shadow-[var(--shadow-xs)] bg-[var(--pay-cash-bg)] text-[var(--pay-cash-text)] disabled:opacity-55 disabled:cursor-not-allowed"
+                className="rounded-(--radius) border-none min-h-18 text-[1.375rem] font-bold cursor-pointer shadow-(--shadow-xs) bg-(--pay-cash-bg) text-(--pay-cash-text) disabled:opacity-55 disabled:cursor-not-allowed"
                 onClick={handleCashExact}
                 disabled={status === 'processing-card' || status === 'complete' || remaining <= 0}
               >
@@ -266,7 +266,7 @@ export function PaymentModal({
               </button>
               <button
                 type="button"
-                className="rounded-[var(--radius)] border-none min-h-[4.5rem] text-[1.375rem] font-bold cursor-pointer shadow-[var(--shadow-xs)] bg-[var(--pay-credit-bg)] text-[var(--pay-credit-text)] disabled:opacity-55 disabled:cursor-not-allowed"
+                className="rounded-(--radius) border-none min-h-18 text-[1.375rem] font-bold cursor-pointer shadow-(--shadow-xs) bg-(--pay-credit-bg) text-(--pay-credit-text) disabled:opacity-55 disabled:cursor-not-allowed"
                 onClick={() => handleCardPayment('credit')}
                 disabled={status === 'processing-card' || status === 'complete' || remaining <= 0}
               >
@@ -274,7 +274,7 @@ export function PaymentModal({
               </button>
               <button
                 type="button"
-                className="rounded-[var(--radius)] border-none min-h-[4.5rem] text-[1.375rem] font-bold cursor-pointer shadow-[var(--shadow-xs)] bg-[var(--pay-debit-bg)] text-[var(--pay-debit-text)] disabled:opacity-55 disabled:cursor-not-allowed"
+                className="rounded-(--radius) border-none min-h-18 text-[1.375rem] font-bold cursor-pointer shadow-(--shadow-xs) bg-(--pay-debit-bg) text-(--pay-debit-text) disabled:opacity-55 disabled:cursor-not-allowed"
                 onClick={() => handleCardPayment('debit')}
                 disabled={status === 'processing-card' || status === 'complete' || remaining <= 0}
               >
@@ -283,10 +283,10 @@ export function PaymentModal({
             </div>
 
             {/* Status area */}
-            <div className="flex items-center gap-3 rounded-[var(--radius)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-xl font-semibold text-[var(--text-primary)] min-h-12">
+            <div className="flex items-center gap-3 rounded-(--radius) bg-(--bg-surface-soft) px-4 py-2.5 text-xl font-semibold text-(--text-primary) min-h-12">
               {/* Card error */}
               {cardError && status !== 'processing-card' && (
-                <div className="text-sm font-semibold text-[var(--error)]" data-testid="card-error">
+                <div className="text-sm font-semibold text-(--error)" data-testid="card-error">
                   <span>{cardError}</span>
                   <div className="flex gap-2 mt-1">
                     <Button
@@ -303,22 +303,22 @@ export function PaymentModal({
 
               {status === 'processing-card' && (
                 <div
-                  className="flex items-center gap-2 text-[var(--accent-blue)]"
+                  className="flex items-center gap-2 text-(--accent-blue)"
                   data-testid="payment-processing"
                 >
-                  <span className="inline-block w-[1.125rem] h-[1.125rem] border-[3px] border-[var(--accent-blue)] border-t-transparent rounded-full animate-spin" />
+                  <span className="inline-block w-4.5 h-[1.125rem] border-[3px] border-(--accent-blue) border-t-transparent rounded-full animate-spin" />
                   Waiting for card machine...
                 </div>
               )}
               {status === 'complete' && (
                 <div
-                  className="flex items-center justify-between gap-4 w-full font-bold text-[var(--semantic-success-text)]"
+                  className="flex items-center justify-between gap-4 w-full font-bold text-(--semantic-success-text)"
                   data-testid="payment-complete"
                 >
                   <span>Payment complete! {change > 0 && `Change: $${change.toFixed(2)}`}</span>
                   <Button
                     variant="success"
-                    className="px-8 min-h-[2.75rem] text-xl whitespace-nowrap"
+                    className="px-8 min-h-11 text-xl whitespace-nowrap"
                     data-testid="payment-ok-btn"
                     onClick={handleOk}
                   >
@@ -332,7 +332,7 @@ export function PaymentModal({
                 </div>
               )}
               {(status === 'idle' || status === 'collecting') && isFullyPaid && change > 0 && (
-                <div className="text-[var(--semantic-success-text)]" data-testid="payment-change">
+                <div className="text-(--semantic-success-text)" data-testid="payment-change">
                   Change Due: <strong className="text-2xl">${change.toFixed(2)}</strong>
                 </div>
               )}
@@ -340,7 +340,7 @@ export function PaymentModal({
 
             {/* Tender denomination buttons */}
             <div className="grid gap-2 content-start overflow-auto">
-              <span className="text-base font-bold text-[var(--text-primary)] py-1">Tenders</span>
+              <span className="text-base font-bold text-(--text-primary) py-1">Tenders</span>
               <div className="grid grid-cols-4 gap-2">
                 {TENDER_DENOMINATIONS.map((denomination) => (
                   <Button
@@ -360,10 +360,10 @@ export function PaymentModal({
 
           {/* Right panel: paid-so-far log */}
           <div
-            className="grid min-h-0 overflow-hidden rounded-[var(--radius)] bg-[var(--bg-shell)] shadow-[var(--shadow-sm)]"
+            className="grid min-h-0 overflow-hidden rounded-(--radius) bg-(--bg-shell) shadow-(--shadow-sm)"
             style={{ gridTemplateRows: 'auto 1fr' }}
           >
-            <div className="flex items-center justify-between rounded-t-[var(--radius)] border-b border-[var(--border-soft)] bg-[var(--totals-bg)] px-3 py-2.5 text-lg font-bold text-[var(--totals-text)]">
+            <div className="flex items-center justify-between rounded-t-(--radius) border-b border-(--border-soft) bg-(--totals-bg) px-3 py-2.5 text-lg font-bold text-(--totals-text)">
               <span>Paid So Far</span>
               <strong className="text-[1.375rem]">${paidSoFar.toFixed(2)}</strong>
             </div>
@@ -372,7 +372,7 @@ export function PaymentModal({
               data-testid="paid-so-far-list"
             >
               {payments.length === 0 ? (
-                <div className="p-2 text-[0.9375rem] text-[var(--text-muted-on-dark)]">
+                <div className="p-2 text-[0.9375rem] text-(--text-muted-on-dark)">
                   No payments yet
                 </div>
               ) : (
@@ -380,13 +380,10 @@ export function PaymentModal({
                   <div
                     key={entry.id}
                     className={cn(
-                      'paid-entry rounded-[var(--radius)] border-none px-2.5 py-2 text-base font-semibold',
-                      entry.method === 'cash' &&
-                        'bg-[var(--pay-cash-bg)] text-[var(--pay-cash-text)]',
-                      entry.method === 'credit' &&
-                        'bg-[var(--pay-credit-bg)] text-[var(--pay-credit-text)]',
-                      entry.method === 'debit' &&
-                        'bg-[var(--pay-debit-bg)] text-[var(--pay-debit-text)]'
+                      'paid-entry rounded-(--radius) border-none px-2.5 py-2 text-base font-semibold',
+                      entry.method === 'cash' && 'bg-(--pay-cash-bg) text-(--pay-cash-text)',
+                      entry.method === 'credit' && 'bg-(--pay-credit-bg) text-(--pay-credit-text)',
+                      entry.method === 'debit' && 'bg-(--pay-debit-bg) text-(--pay-debit-text)'
                     )}
                   >
                     <span>{entry.label}</span>

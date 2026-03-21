@@ -11,8 +11,8 @@ export const InventoryInput = React.forwardRef<HTMLInputElement, InventoryInputP
     <input
       ref={ref}
       className={cn(
-        'w-full h-9 bg-[var(--bg-input)] rounded-[var(--radius)] px-2.5 text-[13px] text-[var(--text-primary)] border border-[var(--border-default)] outline-none placeholder:text-[var(--text-muted)] focus:ring-1 focus:ring-[var(--accent-blue)]',
-        hasError && 'ring-1 ring-[var(--error)]',
+        'w-full h-9 bg-(--bg-input) rounded-(--radius) px-2.5 text-[13px] text-(--text-primary) border border-(--border-default) outline-none placeholder:text-(--text-muted) focus:ring-1 focus:ring-(--accent-blue)',
+        hasError && 'ring-1 ring-(--error)',
         className
       )}
       {...props}
@@ -31,8 +31,8 @@ export const InventorySelect = React.forwardRef<HTMLSelectElement, InventorySele
     <select
       ref={ref}
       className={cn(
-        'w-full h-9 bg-[var(--bg-input)] rounded-[var(--radius)] px-2.5 text-[13px] text-[var(--text-primary)] border border-[var(--border-default)] outline-none cursor-pointer focus:ring-1 focus:ring-[var(--accent-blue)]',
-        hasError && 'ring-1 ring-[var(--error)]',
+        'w-full h-9 bg-(--bg-input) rounded-(--radius) px-2.5 text-[13px] text-(--text-primary) border border-(--border-default) outline-none cursor-pointer focus:ring-1 focus:ring-(--accent-blue)',
+        hasError && 'ring-1 ring-(--error)',
         className
       )}
       {...props}

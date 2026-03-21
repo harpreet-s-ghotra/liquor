@@ -25,12 +25,12 @@ export function ConfirmDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent
-        className="w-[420px] flex flex-col p-0 overflow-hidden rounded-2xl bg-[var(--bg-panel)] border border-[var(--border-default)] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.4)]"
+        className="w-[420px] flex flex-col p-0 overflow-hidden rounded-2xl bg-(--bg-panel) border border-(--border-default) shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.4)]"
         aria-label={title}
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--border-default)] bg-[#2d3133]">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-(--border-default) bg-[#2d3133]">
           <div
             className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${variant === 'danger' ? 'bg-[rgba(127,29,29,0.4)]' : 'bg-[rgba(194,65,12,0.4)]'}`}
           >
@@ -54,7 +54,7 @@ export function ConfirmDialog({
 
         {/* Body */}
         <div className="px-5 py-5">
-          <p className="text-[14px] text-[var(--text-primary)] m-0 leading-relaxed">{message}</p>
+          <p className="text-[14px] text-(--text-primary) m-0 leading-relaxed">{message}</p>
         </div>
 
         {/* Footer */}
