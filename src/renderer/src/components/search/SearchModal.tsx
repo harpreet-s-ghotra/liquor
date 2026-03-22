@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
+import { cn } from '@renderer/lib/utils'
 import type { Product, Department, Vendor } from '@renderer/types/pos'
+import './search-modal.css'
 
 type SearchModalProps = {
   isOpen: boolean
@@ -130,7 +132,7 @@ export function SearchModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="w-[min(60rem,95%)] h-[min(80vh,44rem)] grid gap-3 grid-rows-[auto_auto_1fr_auto_auto] p-3"
+        className="search-modal"
         aria-label="Product Search"
         onInteractOutside={(e) => e.preventDefault()}
       >
@@ -143,13 +145,13 @@ export function SearchModal({
         </DialogHeader>
 
         {/* Filters */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="search-modal__filters">
           <select
             value={departmentId ?? ''}
             onChange={(e) =>
               handleDepartmentChange(e.target.value ? Number(e.target.value) : undefined)
             }
-            className="h-10 rounded-(--radius) border border-(--border-default) bg-(--bg-input) px-3 text-base text-(--text-primary)"
+            className="search-modal__filter-select"
             aria-label="Filter by department"
           >
             <option value="">All Departments</option>
@@ -165,7 +167,7 @@ export function SearchModal({
             onChange={(e) =>
               handleVendorChange(e.target.value ? Number(e.target.value) : undefined)
             }
-            className="h-10 rounded-(--radius) border border-(--border-default) bg-(--bg-input) px-3 text-base text-(--text-primary)"
+            className="search-modal__filter-select"
             aria-label="Filter by vendor"
           >
             <option value="">All Vendors</option>
@@ -178,26 +180,23 @@ export function SearchModal({
         </div>
 
         {/* Results table */}
-        <div
-          className="grid overflow-hidden rounded-(--radius) bg-(--bg-surface)"
-          style={{ gridTemplateRows: '2.25rem 1fr' }}
-        >
+        <div className="search-modal__results" style={{ gridTemplateRows: '2.25rem 1fr' }}>
           <div
-            className="grid items-center gap-x-4 border-b border-(--border-soft) bg-(--bg-surface-soft) px-3 text-base font-bold text-(--text-primary)"
+            className="search-modal__results-header"
             style={{ gridTemplateColumns: '1fr 6rem 7rem' }}
           >
             <span>Name</span>
-            <span className="text-right">Qty</span>
-            <span className="text-right">Price</span>
+            <span>Qty</span>
+            <span>Price</span>
           </div>
 
-          <div className="overflow-auto" data-testid="search-results">
+          <div className="search-modal__results-body" data-testid="search-results">
             {!hasSearched ? (
-              <div className="p-4 text-base text-(--text-muted)">
+              <div className="search-modal__result-empty">
                 Type a search term to find items.
               </div>
             ) : results.length === 0 ? (
-              <div className="p-4 text-base text-(--text-muted)">
+              <div className="search-modal__result-empty">
                 No items found. Try a different search.
               </div>
             ) : (
@@ -205,16 +204,17 @@ export function SearchModal({
                 <button
                   key={product.id}
                   type="button"
-                  className={`w-full grid items-center gap-x-4 border-b border-(--border-soft) bg-(--bg-surface) min-h-11 px-3 text-base text-(--text-primary) cursor-pointer text-left hover:bg-(--bg-surface-soft) ${
-                    selectedProduct?.id === product.id ? 'bg-(--accent-blue-soft)' : ''
-                  }`}
+                  className={cn(
+                    'search-modal__result-row',
+                    selectedProduct?.id === product.id && 'search-modal__result-row--selected'
+                  )}
                   style={{ gridTemplateColumns: '1fr 6rem 7rem' }}
                   onClick={() => handleRowClick(product)}
                   data-testid={`search-result-${product.id}`}
                 >
-                  <span className="font-medium truncate">{product.name}</span>
-                  <span className="text-right">{product.quantity}</span>
-                  <span className="text-right font-medium">{formatMoney(product.price)}</span>
+                  <span className="search-modal__result-name">{product.name}</span>
+                  <span className="search-modal__result-qty">{product.quantity}</span>
+                  <span className="search-modal__result-price">{formatMoney(product.price)}</span>
                 </button>
               ))
             )}
@@ -223,18 +223,18 @@ export function SearchModal({
 
         {/* Action buttons for selected item */}
         {selectedProduct && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="search-modal__actions">
             <Button
               size="md"
               variant="success"
-              className="min-h-[3rem] text-base font-bold"
+              className="search-modal__action-btn"
               onClick={handleAddToCart}
             >
               Add to Cart
             </Button>
             <Button
               size="md"
-              className="min-h-[3rem] text-base font-bold"
+              className="search-modal__action-btn"
               onClick={handleOpenInInventory}
             >
               Open in Inventory
@@ -244,7 +244,7 @@ export function SearchModal({
 
         {/* Search bar at bottom */}
         <form
-          className="grid gap-2"
+          className="search-modal__search-form"
           style={{ gridTemplateColumns: '1fr auto' }}
           onSubmit={handleSubmit}
         >
@@ -253,7 +253,7 @@ export function SearchModal({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search items..."
-            className="text-lg"
+            className="search-modal__search-input"
           />
           <Button type="submit" size="md">
             Go

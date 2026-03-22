@@ -5,6 +5,7 @@ import { Input } from '../ui/input'
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
 import { Label } from '../ui/label'
 import { cn } from '../../lib/utils'
+import './ticket-panel.css'
 
 type EditMode = 'quantity' | 'price' | 'discount' | null
 
@@ -277,17 +278,15 @@ export function TicketPanel({
 
   return (
     <section
-      className="ticket-panel grid gap-2 overflow-hidden rounded-(--radius) border p-1.5 relative"
+      className={cn('ticket-panel', isViewingTransaction && 'ticket-panel--viewing')}
       style={{
-        gridTemplateRows: isViewingTransaction ? 'auto 3rem 1fr 5.25rem' : '3rem 1fr 5.25rem',
-        background: 'var(--bg-surface)',
-        borderColor: isViewingTransaction ? 'var(--semantic-warning-text)' : 'var(--ledger-border)'
+        gridTemplateRows: isViewingTransaction ? 'auto 3rem 1fr 5.25rem' : '3rem 1fr 5.25rem'
       }}
     >
       {/* ── Recall banner ── */}
       {isViewingTransaction && viewingTransaction && (
         <div
-          className="flex items-center justify-between gap-2 px-3 py-2 rounded-(--radius) text-[0.875rem] font-bold"
+          className="ticket-panel__recall-banner"
           style={{
             background: returnCount > 0 ? 'var(--semantic-danger-text)' : 'var(--accent-peach)',
             color: returnCount > 0 ? '#fff' : '#000'
@@ -311,8 +310,7 @@ export function TicketPanel({
           </span>
           <button
             type="button"
-            className="px-3 py-1 rounded-(--radius) text-[0.8125rem] font-bold cursor-pointer border-none"
-            style={{ background: 'rgba(0,0,0,0.15)', color: returnCount > 0 ? '#fff' : '#000' }}
+            className="ticket-panel__recall-dismiss"
             onClick={onDismissRecall}
             data-testid="dismiss-recall-btn"
           >
@@ -321,7 +319,7 @@ export function TicketPanel({
         </div>
       )}
       {/* ── Search & Qty controls ── */}
-      <div className="grid gap-2" style={{ gridTemplateColumns: '1fr 5.5rem 5.5rem' }}>
+      <div className="ticket-panel__search-row">
         <Input
           ref={searchRef}
           value={search}
@@ -333,7 +331,7 @@ export function TicketPanel({
             }
           }}
           placeholder="Search item"
-          className="text-lg"
+          className="ticket-panel__search-input"
           autoFocus
         />
         <Input
@@ -342,38 +340,37 @@ export function TicketPanel({
           inputMode="numeric"
           placeholder="Qty"
         />
-        <Button
-          size="md"
-          variant="outline"
-          className="text-base font-semibold"
-          onClick={onSearchClick}
-        >
+        <Button size="md" variant="outline" className="ticket-panel__search-btn" onClick={onSearchClick}>
           Search
         </Button>
       </div>
 
       {/* ── Ticket table ── */}
-      <div
-        className="grid overflow-hidden rounded-(--radius) border"
-        style={{
-          gridTemplateRows: '2.5rem 1fr',
-          background: 'var(--ledger-bg)',
-          borderColor: 'var(--ledger-border)'
-        }}
-      >
-        <div
-          className="grid grid-cols-12 items-center px-6 text-[10px] font-black uppercase tracking-[2px]"
-          style={{ background: 'var(--ledger-header-bg)', color: 'var(--ledger-header-text)' }}
-        >
-          <span className="col-span-1">#</span>
-          <span className="col-span-6">Item Description</span>
-          <span className="col-span-2 text-right">Qty</span>
-          <span className="col-span-3 text-right">Price</span>
+      <div className="ticket-panel__table">
+        <div className="ticket-panel__table-header">
+          <span className="ticket-panel__table-header-cell" style={{ gridColumn: 'span 1' }}>
+            #
+          </span>
+          <span className="ticket-panel__table-header-cell" style={{ gridColumn: 'span 6' }}>
+            Item Description
+          </span>
+          <span
+            className="ticket-panel__table-header-cell ticket-panel__table-header-cell--right"
+            style={{ gridColumn: 'span 2' }}
+          >
+            Qty
+          </span>
+          <span
+            className="ticket-panel__table-header-cell ticket-panel__table-header-cell--right"
+            style={{ gridColumn: 'span 3' }}
+          >
+            Price
+          </span>
         </div>
 
-        <div className="overflow-auto" data-testid="ticket-lines">
+        <div className="ticket-panel__lines" data-testid="ticket-lines">
           {cart.length === 0 ? (
-            <div className="p-4 text-base text-(--text-muted)">No items in current transaction</div>
+            <div className="ticket-panel__empty">No items in current transaction</div>
           ) : (
             productLines.map((item, index) => {
               const itemDiscountRate = (item.itemDiscountPercent ?? 0) / 100
@@ -398,12 +395,9 @@ export function TicketPanel({
                   }}
                   type="button"
                   className={cn(
-                    'ticket-line w-full grid grid-cols-12 items-center min-h-18 px-6 py-4 cursor-pointer text-left border-b',
-                    selectedCartId === item.id ? 'active' : '',
-                    index % 2 === 1 && selectedCartId !== item.id && 'ticket-line-alt',
-                    hasPromo && !isDiscountedLine && 'promo border-l-4',
-                    isDiscountedLine && 'discounted border-l-4',
-                    isMarkedForReturn && 'border-l-4'
+                    'ticket-panel__line',
+                    (hasPromo || isDiscountedLine || isMarkedForReturn) &&
+                      'ticket-panel__line--border-left'
                   )}
                   style={{
                     background:
@@ -429,7 +423,7 @@ export function TicketPanel({
                   onClick={() => setSelectedCartId(item.id)}
                 >
                   <span
-                    className="col-span-1 text-base font-bold"
+                    className="ticket-panel__line-num"
                     style={{
                       color:
                         selectedCartId === item.id
@@ -439,11 +433,11 @@ export function TicketPanel({
                   >
                     {index + 1}
                   </span>
-                  <span className="col-span-6 grid gap-0">
-                    <span className="text-base font-extrabold uppercase">{item.name}</span>
+                  <span className="ticket-panel__line-desc">
+                    <span className="ticket-panel__line-name">{item.name}</span>
                     {item.sku && (
                       <span
-                        className="text-xs font-medium opacity-70"
+                        className="ticket-panel__line-sku"
                         style={{
                           color:
                             selectedCartId === item.id
@@ -456,12 +450,10 @@ export function TicketPanel({
                     )}
                     {hasPromo && (
                       <span
-                        className="inline-flex flex-wrap items-center gap-1.5 text-xs font-bold"
+                        className="ticket-panel__badge-row"
                         style={{ color: 'var(--semantic-success-text)' }}
                       >
-                        <span className="rounded-(--radius) bg-(--accent-mint) px-1.5 py-px text-xs font-extrabold text-(--btn-success-text)">
-                          PROMO
-                        </span>
+                        <span className="ticket-panel__promo-badge">PROMO</span>
                         <span>
                           {item.promo!.promoLabel} — Save ${item.promo!.promoLineSavings.toFixed(2)}
                         </span>
@@ -469,10 +461,10 @@ export function TicketPanel({
                     )}
                     {isDiscountedLine && (
                       <span
-                        className="inline-flex flex-wrap items-center gap-1.5 text-xs font-bold"
+                        className="ticket-panel__badge-row"
                         style={{ color: 'var(--semantic-warning-text)' }}
                       >
-                        <span className="rounded-(--radius) bg-(--accent-peach) px-1.5 py-px text-xs font-extrabold text-white">
+                        <span className="ticket-panel__discount-badge">
                           DISCOUNT {(item.itemDiscountPercent ?? 0).toFixed(2)}%
                         </span>
                         <span>
@@ -482,23 +474,18 @@ export function TicketPanel({
                     )}
                     {isMarkedForReturn && (
                       <span
-                        className="inline-flex flex-wrap items-center gap-1.5 text-xs font-bold"
+                        className="ticket-panel__badge-row"
                         style={{ color: 'var(--semantic-danger-text)' }}
                         data-testid="return-badge"
                       >
-                        <span
-                          className="rounded-(--radius) px-1.5 py-px text-xs font-extrabold text-white"
-                          style={{ background: 'var(--semantic-danger-text)' }}
-                        >
-                          RETURN
-                        </span>
+                        <span className="ticket-panel__return-badge">RETURN</span>
                         <span>
                           Returning {markedReturnQty} of {item.lineQuantity}
                         </span>
                       </span>
                     )}
                   </span>
-                  <span className="ticket-line-qty col-span-2 text-right text-lg font-black">
+                  <span className="ticket-panel__line-qty">
                     {isMarkedForReturn ? (
                       <span style={{ color: 'var(--semantic-danger-text)' }}>
                         -{markedReturnQty}
@@ -511,7 +498,7 @@ export function TicketPanel({
                       item.lineQuantity
                     )}
                   </span>
-                  <span className="ticket-line-price col-span-3 text-right text-lg font-black">
+                  <span className="ticket-panel__line-price">
                     {isMarkedForReturn ? (
                       <span style={{ color: 'var(--semantic-danger-text)' }}>
                         (
@@ -533,10 +520,7 @@ export function TicketPanel({
           {transactionDiscountLine && (
             <button
               type="button"
-              className={cn(
-                'ticket-line w-full grid grid-cols-12 items-center min-h-18 px-6 py-4 cursor-pointer text-left sticky bottom-0 z-[2] border-t-2',
-                selectedCartId === transactionDiscountLine.id && 'active'
-              )}
+              className="ticket-panel__tx-discount-line"
               style={{
                 background:
                   selectedCartId === transactionDiscountLine.id
@@ -548,18 +532,18 @@ export function TicketPanel({
               onClick={() => setSelectedCartId(transactionDiscountLine.id)}
             >
               <span
-                className="col-span-1 text-base font-bold"
+                className="ticket-panel__line-num"
                 style={{ color: 'var(--ledger-line-muted)' }}
               >
                 #
               </span>
-              <span className="col-span-6 grid gap-0">
-                <span className="text-base font-extrabold uppercase">
+              <span className="ticket-panel__line-desc">
+                <span className="ticket-panel__line-name">
                   {transactionDiscountLine.name}
                 </span>
               </span>
-              <span className="ticket-line-qty col-span-2 text-right text-lg font-black">1</span>
-              <span className="ticket-line-price col-span-3 text-right text-lg font-black">
+              <span className="ticket-panel__line-qty">1</span>
+              <span className="ticket-panel__line-price">
                 {formatMoney(transactionDiscountLine.price)}
               </span>
             </button>
@@ -568,11 +552,11 @@ export function TicketPanel({
       </div>
 
       {/* ── Action buttons ── */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="ticket-panel__actions">
         {canReturn ? (
           <Button
             variant={isSelectedMarkedForReturn ? 'neutral' : 'danger'}
-            className="min-h-18 text-xl font-bold"
+            className="ticket-panel__action-btn"
             disabled={!selectedCartId || isTransactionDiscountSelected}
             onClick={() => {
               if (selectedCartId != null && onToggleReturnItem) onToggleReturnItem(selectedCartId)
@@ -584,7 +568,7 @@ export function TicketPanel({
         ) : (
           <Button
             variant="danger"
-            className="min-h-18 text-xl font-bold"
+            className="ticket-panel__action-btn"
             disabled={!!isViewingTransaction}
             onClick={() => {
               removeSelectedLine()
@@ -597,7 +581,7 @@ export function TicketPanel({
         {canReturn ? (
           <Button
             variant="warning"
-            className="min-h-18 text-xl font-bold"
+            className="ticket-panel__action-btn"
             onClick={() => onToggleReturnAll?.()}
             data-testid="return-all-btn"
           >
@@ -606,7 +590,7 @@ export function TicketPanel({
         ) : (
           <Button
             variant="warning"
-            className="min-h-18 text-xl font-bold"
+            className="ticket-panel__action-btn"
             disabled={!!isViewingTransaction}
             onClick={() => {
               clearTransaction()
@@ -617,7 +601,7 @@ export function TicketPanel({
           </Button>
         )}
         <Button
-          className="min-h-18 text-xl font-bold"
+          className="ticket-panel__action-btn"
           disabled={
             canReturn
               ? !isSelectedMarkedForReturn
@@ -628,14 +612,14 @@ export function TicketPanel({
           Qty Change
         </Button>
         <Button
-          className="min-h-18 text-xl font-bold"
+          className="ticket-panel__action-btn"
           disabled={!!isViewingTransaction || !selectedCartId || isTransactionDiscountSelected}
           onClick={() => openEditModal('price')}
         >
           Price Change
         </Button>
         <Button
-          className="min-h-18 text-xl font-bold"
+          className="ticket-panel__action-btn"
           disabled={!!isViewingTransaction || (!selectedCartId && cart.length === 0)}
           onClick={() => openEditModal('discount')}
         >
@@ -645,26 +629,19 @@ export function TicketPanel({
 
       {/* ── Edit keypad modal ── */}
       {editMode && (
-        <div
-          className="absolute inset-0 z-10 grid place-items-center bg-[color-mix(in_srgb,var(--bg-shell)_55%,transparent)]"
-          data-testid="edit-modal"
-        >
-          <div
-            className="w-[min(34rem,calc(100%-2rem))] grid gap-4 rounded-(--radius) bg-(--bg-panel) p-4 shadow-lg"
-            role="dialog"
-            aria-modal="true"
-          >
-            <h3 className="m-0 rounded-(--radius) bg-(--bg-shell) px-4 py-3 text-2xl font-bold text-(--text-on-dark)">
+        <div className="ticket-panel__edit-overlay" data-testid="edit-modal">
+          <div className="ticket-panel__edit-dialog" role="dialog" aria-modal="true">
+            <h3 className="ticket-panel__edit-title">
               {editMode === 'quantity' && 'Qty Change'}
               {editMode === 'price' && 'Price Change'}
               {editMode === 'discount' && 'Discount'}
             </h3>
-            <p className="m-0 rounded-(--radius) bg-(--bg-surface-soft) px-4 py-2.5 text-lg font-semibold text-(--text-primary)">
+            <p className="ticket-panel__edit-info">
               {editMode === 'quantity' && `Original Qty: ${selectedCartItem?.lineQuantity ?? 0}`}
               {editMode === 'price' && (
                 <button
                   type="button"
-                  className="appearance-none border-none bg-transparent text-inherit font-inherit underline cursor-pointer p-0"
+                  className="ticket-panel__edit-restore-btn"
                   onClick={restoreOriginalPrice}
                 >
                   Original Price: ${getPriceOriginalValue().toFixed(2)}
@@ -674,7 +651,7 @@ export function TicketPanel({
                 `Original Discount: ${getDiscountOriginalValue(discountScope).toFixed(2)}%`}
             </p>
             <form
-              className="grid gap-4"
+              className="ticket-panel__edit-form"
               onSubmit={(event) => {
                 event.preventDefault()
                 submitEdit()
@@ -684,17 +661,17 @@ export function TicketPanel({
                 <RadioGroup
                   value={discountScope}
                   onValueChange={(v) => updateDiscountScope(v as 'item' | 'transaction')}
-                  className="flex gap-4"
+                  className="ticket-panel__edit-radio-row"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="ticket-panel__edit-radio-item">
                     <RadioGroupItem value="item" id="scope-item" disabled={!selectedCartId} />
-                    <Label htmlFor="scope-item" className="text-lg text-(--text-primary)">
+                    <Label htmlFor="scope-item" className="ticket-panel__edit-radio-label">
                       Selected Item
                     </Label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="ticket-panel__edit-radio-item">
                     <RadioGroupItem value="transaction" id="scope-transaction" />
-                    <Label htmlFor="scope-transaction" className="text-lg text-(--text-primary)">
+                    <Label htmlFor="scope-transaction" className="ticket-panel__edit-radio-label">
                       Entire Transaction
                     </Label>
                   </div>
@@ -712,16 +689,16 @@ export function TicketPanel({
                       : 'Discount %'
                 }
                 readOnly={isKeypadMode}
-                className="text-[1.75rem] min-h-16 px-4 py-3"
+                className="ticket-panel__edit-input"
                 autoFocus
               />
               {isKeypadMode && (
-                <div className="grid grid-cols-3 gap-3" aria-label="POS Keypad">
+                <div className="ticket-panel__keypad" aria-label="POS Keypad">
                   {['7', '8', '9', '4', '5', '6', '1', '2', '3', 'C', '0', '⌫'].map((key) => (
                     <Button
                       key={key}
                       type="button"
-                      className="min-h-18 text-[1.75rem] font-bold"
+                      className="ticket-panel__keypad-btn"
                       onClick={() => handleKeypadInput(key)}
                     >
                       {key}
@@ -730,7 +707,7 @@ export function TicketPanel({
                   {editMode === 'discount' && (
                     <Button
                       type="button"
-                      className="col-span-3 min-h-18 text-[1.75rem] font-bold"
+                      className="ticket-panel__keypad-btn ticket-panel__keypad-btn--wide"
                       onClick={() => handleKeypadInput('.')}
                     >
                       .
@@ -738,15 +715,15 @@ export function TicketPanel({
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="ticket-panel__edit-footer">
                 <Button
                   type="button"
-                  className="min-h-[4.75rem] text-2xl font-bold"
+                  className="ticket-panel__edit-footer-btn"
                   onClick={closeEditModal}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" className="min-h-[4.75rem] text-2xl font-bold">
+                <Button type="submit" className="ticket-panel__edit-footer-btn">
                   Save
                 </Button>
               </div>

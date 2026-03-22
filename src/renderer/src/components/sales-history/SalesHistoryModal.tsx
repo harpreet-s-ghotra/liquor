@@ -1,12 +1,14 @@
 import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { formatCurrency } from '@renderer/utils/currency'
+import { cn } from '@renderer/lib/utils'
 import { useState, useEffect, useCallback } from 'react'
 import type {
   TransactionListFilter,
   TransactionSummary,
   TransactionDetail
 } from '../../../../shared/types'
+import './sales-history-modal.css'
 
 type SalesHistoryModalProps = {
   isOpen: boolean
@@ -130,37 +132,21 @@ export function SalesHistoryModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="w-[800px] max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-2xl border shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.4)]"
-        style={{
-          background: 'var(--bg-panel)',
-          borderColor: 'var(--border-default)'
-        }}
+        className="sales-history"
         aria-label="Sales History"
       >
         {/* Header */}
-        <div
-          className="flex items-center gap-3 px-5 py-4 border-b"
-          style={{ background: '#2d3133', borderColor: 'var(--border-default)' }}
-        >
-          <h2 className="text-[15px] font-black text-[#e8ecf0] m-0">Sales History</h2>
-          <span className="ml-auto text-[0.75rem] font-bold" style={{ color: 'var(--text-muted)' }}>
+        <div className="sales-history__header">
+          <h2 className="sales-history__title">Sales History</h2>
+          <span className="sales-history__count">
             {totalCount} transaction{totalCount !== 1 ? 's' : ''}
           </span>
         </div>
 
         {/* Filters */}
-        <div
-          className="flex items-center gap-2 px-4 py-3 border-b flex-wrap"
-          style={{ borderColor: 'var(--border-default)' }}
-        >
+        <div className="sales-history__filters">
           <select
-            className="px-3 py-2 border text-sm cursor-pointer"
-            style={{
-              background: 'var(--bg-input)',
-              borderColor: 'var(--border-default)',
-              color: 'var(--text-primary)',
-              fontFamily: 'var(--font-body)'
-            }}
+            className="sales-history__filter"
             value={datePreset}
             onChange={(e) => setDatePreset(e.target.value as DatePreset)}
             data-testid="sales-history-date-filter"
@@ -172,13 +158,7 @@ export function SalesHistoryModal({
           </select>
 
           <select
-            className="px-3 py-2 border text-sm cursor-pointer"
-            style={{
-              background: 'var(--bg-input)',
-              borderColor: 'var(--border-default)',
-              color: 'var(--text-primary)',
-              fontFamily: 'var(--font-body)'
-            }}
+            className="sales-history__filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'completed' | 'refund' | '')}
             data-testid="sales-history-status-filter"
@@ -189,13 +169,7 @@ export function SalesHistoryModal({
           </select>
 
           <select
-            className="px-3 py-2 border text-sm cursor-pointer"
-            style={{
-              background: 'var(--bg-input)',
-              borderColor: 'var(--border-default)',
-              color: 'var(--text-primary)',
-              fontFamily: 'var(--font-body)'
-            }}
+            className="sales-history__filter"
             value={paymentFilter}
             onChange={(e) => setPaymentFilter(e.target.value)}
             data-testid="sales-history-payment-filter"
@@ -209,13 +183,7 @@ export function SalesHistoryModal({
           <input
             type="text"
             placeholder="Search TXN # or product..."
-            className="flex-1 px-3 py-2 border text-sm min-w-[180px]"
-            style={{
-              background: 'var(--bg-input)',
-              borderColor: 'var(--border-default)',
-              color: 'var(--text-primary)',
-              fontFamily: 'var(--font-body)'
-            }}
+            className="sales-history__search"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             data-testid="sales-history-search"
@@ -223,66 +191,25 @@ export function SalesHistoryModal({
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="sales-history__table-wrap">
           {loading ? (
-            <p
-              className="text-center py-12 m-0 text-sm"
-              style={{ color: 'var(--text-muted)' }}
-              data-testid="sales-history-loading"
-            >
+            <p className="sales-history__loading" data-testid="sales-history-loading">
               Loading...
             </p>
           ) : transactions.length === 0 ? (
-            <p
-              className="text-center py-12 m-0 text-sm"
-              style={{ color: 'var(--text-muted)' }}
-              data-testid="sales-history-empty"
-            >
+            <p className="sales-history__empty" data-testid="sales-history-empty">
               No transactions found.
             </p>
           ) : (
-            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+            <table className="sales-history__table">
               <thead>
-                <tr
-                  className="border-b"
-                  style={{ borderColor: 'var(--border-default)', background: 'var(--bg-surface)' }}
-                >
-                  <th
-                    className="text-left px-4 py-2 font-bold"
-                    style={{ color: 'var(--text-label)' }}
-                  >
-                    TXN #
-                  </th>
-                  <th
-                    className="text-left px-4 py-2 font-bold"
-                    style={{ color: 'var(--text-label)' }}
-                  >
-                    Date/Time
-                  </th>
-                  <th
-                    className="text-center px-4 py-2 font-bold"
-                    style={{ color: 'var(--text-label)' }}
-                  >
-                    Items
-                  </th>
-                  <th
-                    className="text-right px-4 py-2 font-bold"
-                    style={{ color: 'var(--text-label)' }}
-                  >
-                    Total
-                  </th>
-                  <th
-                    className="text-left px-4 py-2 font-bold"
-                    style={{ color: 'var(--text-label)' }}
-                  >
-                    Payment
-                  </th>
-                  <th
-                    className="text-center px-4 py-2 font-bold"
-                    style={{ color: 'var(--text-label)' }}
-                  >
-                    Status
-                  </th>
+                <tr>
+                  <th>TXN #</th>
+                  <th>Date/Time</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                  <th>Payment</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -308,14 +235,11 @@ export function SalesHistoryModal({
 
         {/* Footer / Pagination */}
         {totalCount > 0 && (
-          <div
-            className="flex items-center justify-between px-4 py-3 border-t"
-            style={{ borderColor: 'var(--border-default)', background: '#2d3133' }}
-          >
-            <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>
+          <div className="sales-history__footer">
+            <span className="sales-history__footer-info">
               Showing {startIdx}-{endIdx} of {totalCount}
             </span>
-            <div className="flex gap-2">
+            <div className="sales-history__footer-nav">
               <AppButton
                 variant="neutral"
                 size="sm"
@@ -366,49 +290,40 @@ function TransactionRow({
   return (
     <>
       <tr
-        className="border-b cursor-pointer"
-        style={{
-          borderColor: 'var(--border-soft)',
-          background: isRefund
-            ? isExpanded
-              ? 'rgba(127, 29, 29, 0.25)'
-              : 'rgba(127, 29, 29, 0.1)'
-            : isExpanded
-              ? 'var(--bg-surface-soft)'
-              : 'transparent'
-        }}
+        className={cn(
+          'sales-history__row',
+          isRefund && 'sales-history__row--refund',
+          isExpanded && 'sales-history__row--expanded'
+        )}
         onClick={onExpand}
         data-testid={`sales-history-row-${txn.id}`}
       >
-        <td className="px-4 py-2.5 font-mono text-xs" style={{ color: 'var(--accent-blue)' }}>
+        <td className="sales-history__txn-number">
           {txn.transaction_number}
         </td>
-        <td className="px-4 py-2.5" style={{ color: 'var(--text-primary)' }}>
+        <td style={{ color: 'var(--text-primary)' }}>
           {formatDateTime(txn.created_at)}
         </td>
         <td
-          className="px-4 py-2.5 text-center font-bold"
           style={{ color: isRefund ? 'var(--semantic-danger-text)' : 'var(--text-primary)' }}
         >
           {isRefund ? `-${txn.item_count}` : txn.item_count}
         </td>
         <td
-          className="px-4 py-2.5 text-right font-bold"
           style={{ color: isRefund ? 'var(--semantic-danger-text)' : 'var(--text-primary)' }}
         >
           {isRefund ? `(${formatCurrency(txn.total)})` : formatCurrency(txn.total)}
         </td>
-        <td className="px-4 py-2.5" style={{ color: 'var(--text-primary)' }}>
+        <td style={{ color: 'var(--text-primary)' }}>
           {paymentLabel}
           {cardInfo}
         </td>
-        <td className="px-4 py-2.5 text-center">
+        <td style={{ textAlign: 'center' }}>
           <span
-            className="inline-block px-2 py-0.5 text-xs font-bold rounded"
-            style={{
-              background: isRefund ? 'rgba(127, 29, 29, 0.4)' : 'rgba(6, 78, 59, 0.4)',
-              color: isRefund ? '#fca5a5' : '#86efac'
-            }}
+            className={cn(
+              'sales-history__badge',
+              isRefund ? 'sales-history__badge--refund' : 'sales-history__badge--sale'
+            )}
           >
             {isRefund ? 'Refund' : 'Sale'}
           </span>
@@ -418,48 +333,20 @@ function TransactionRow({
       {/* Expanded detail row */}
       {isExpanded && (
         <tr>
-          <td
-            colSpan={6}
-            className="px-6 py-3 border-b"
-            style={{
-              background: 'var(--bg-surface)',
-              borderColor: 'var(--border-soft)'
-            }}
-          >
+          <td colSpan={6} className="sales-history__detail">
             {expandedDetail ? (
-              <div className="flex flex-col gap-2">
+              <div className="sales-history__detail-inner">
                 {/* Line items */}
                 <table
-                  className="w-full text-xs"
-                  style={{ borderCollapse: 'collapse' }}
+                  className="sales-history__detail-table"
                   data-testid="sales-history-detail-items"
                 >
                   <thead>
                     <tr>
-                      <th
-                        className="text-left pb-1 font-bold"
-                        style={{ color: 'var(--text-muted)' }}
-                      >
-                        Product
-                      </th>
-                      <th
-                        className="text-center pb-1 font-bold"
-                        style={{ color: 'var(--text-muted)' }}
-                      >
-                        Qty
-                      </th>
-                      <th
-                        className="text-right pb-1 font-bold"
-                        style={{ color: 'var(--text-muted)' }}
-                      >
-                        Unit Price
-                      </th>
-                      <th
-                        className="text-right pb-1 font-bold"
-                        style={{ color: 'var(--text-muted)' }}
-                      >
-                        Total
-                      </th>
+                      <th>Product</th>
+                      <th>Qty</th>
+                      <th>Unit Price</th>
+                      <th>Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -467,17 +354,15 @@ function TransactionRow({
                       const refundColor = 'var(--semantic-danger-text)'
                       return (
                         <tr key={item.id}>
-                          <td className="py-1" style={{ color: 'var(--text-primary)' }}>
+                          <td style={{ color: 'var(--text-primary)' }}>
                             {item.product_name}
                           </td>
                           <td
-                            className="py-1 text-center font-bold"
                             style={isRefund ? { color: refundColor } : { color: 'var(--text-primary)' }}
                           >
                             {isRefund ? `-${item.quantity}` : item.quantity}
                           </td>
                           <td
-                            className="py-1 text-right"
                             style={isRefund ? { color: refundColor } : { color: 'var(--text-primary)' }}
                           >
                             {isRefund
@@ -485,7 +370,6 @@ function TransactionRow({
                               : formatCurrency(item.unit_price)}
                           </td>
                           <td
-                            className="py-1 text-right font-bold"
                             style={isRefund ? { color: refundColor } : { color: 'var(--text-primary)' }}
                           >
                             {isRefund
@@ -499,10 +383,7 @@ function TransactionRow({
                 </table>
 
                 {/* Totals summary */}
-                <div
-                  className="flex items-center gap-4 pt-2 border-t text-xs"
-                  style={{ borderColor: 'var(--border-soft)' }}
-                >
+                <div className="sales-history__totals-row">
                   <span
                     style={{
                       color: isRefund ? 'var(--semantic-danger-text)' : 'var(--text-muted)'
@@ -524,7 +405,7 @@ function TransactionRow({
                       : formatCurrency(expandedDetail.tax_amount)}
                   </span>
                   <span
-                    className="font-bold"
+                    className="sales-history__totals-total"
                     style={{
                       color: isRefund ? 'var(--semantic-danger-text)' : 'var(--text-primary)'
                     }}
@@ -538,13 +419,13 @@ function TransactionRow({
 
                 {/* Notes / linked transaction */}
                 {txn.notes && (
-                  <p className="text-xs m-0 pt-1" style={{ color: 'var(--text-muted)' }}>
+                  <p className="sales-history__notes">
                     {txn.notes}
                   </p>
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-2">
+                <div className="sales-history__detail-actions">
                   {!isRefund && (
                     <AppButton
                       variant="warning"
@@ -561,7 +442,7 @@ function TransactionRow({
                 </div>
               </div>
             ) : (
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <span className="sales-history__detail-loading">
                 Loading details...
               </span>
             )}

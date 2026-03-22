@@ -1,0 +1,28 @@
+.pos-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.pos-screen__main {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.pos-screen__error {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 4.625rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-surface-soft);
+  padding: 0.25rem 0.5rem;
+  box-shadow: var(--shadow-sm);
+  font-size: 0.8125rem;
+  color: var(--semantic-danger-text);
+}

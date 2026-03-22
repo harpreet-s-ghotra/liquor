@@ -1,47 +1,43 @@
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
-import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@renderer/lib/utils'
+import './button.css'
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap font-bold cursor-pointer shadow-xs disabled:opacity-55 disabled:cursor-not-allowed',
-  {
-    variants: {
-      variant: {
-        default: 'bg-(--btn-bg) text-(--btn-text) border border-(--btn-border)',
-        success:
-          'bg-(--btn-success-bg) text-(--btn-success-text) border border-(--btn-success-border)',
-        danger: 'bg-(--btn-danger-bg) text-(--btn-danger-text) border border-(--btn-danger-border)',
-        warning:
-          'bg-(--btn-warning-bg) text-(--btn-warning-text) border border-(--btn-warning-border)',
-        neutral: 'bg-(--bg-surface) text-(--text-primary) border border-(--border-default)',
-        ghost: 'bg-transparent shadow-none text-(--text-primary) border-none',
-        outline: 'border border-(--border-strong) bg-transparent text-(--text-primary) shadow-none'
-      },
-      size: {
-        sm: 'min-h-[2.25rem] text-[0.95rem] px-3 rounded-(--radius)',
-        md: 'min-h-11 text-[1rem] px-3.5 rounded-(--radius)',
-        lg: 'min-h-18 text-[1.3125rem] px-4 rounded-(--radius)',
-        icon: 'h-9 w-9 rounded-(--radius)'
-      }
-    },
-    defaultVariants: {
-      variant: 'default',
-      size: 'md'
-    }
-  }
-)
+type ButtonVariant = 'default' | 'success' | 'danger' | 'warning' | 'neutral' | 'ghost' | 'outline'
+type ButtonSize = 'sm' | 'md' | 'lg' | 'icon'
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant
+  size?: ButtonSize
   asChild?: boolean
 }
 
+const variantMap: Record<ButtonVariant, string> = {
+  default: 'btn--default',
+  success: 'btn--success',
+  danger: 'btn--danger',
+  warning: 'btn--warning',
+  neutral: 'btn--neutral',
+  ghost: 'btn--ghost',
+  outline: 'btn--outline'
+}
+
+const sizeMap: Record<ButtonSize, string> = {
+  sm: 'btn--sm',
+  md: 'btn--md',
+  lg: 'btn--lg',
+  icon: 'btn--icon'
+}
+
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant = 'default', size = 'md', asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button'
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <Comp
+        className={cn('btn', variantMap[variant], sizeMap[size], className)}
+        ref={ref}
+        {...props}
+      />
     )
   }
 )

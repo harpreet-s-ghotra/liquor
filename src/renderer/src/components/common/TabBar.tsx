@@ -1,4 +1,5 @@
 import { cn } from '@renderer/lib/utils'
+import './tab-bar.css'
 
 export type TabItem = {
   id: string
@@ -13,21 +14,13 @@ type TabBarProps = {
 
 export function TabBar({ tabs, activeTab, onTabChange }: TabBarProps): React.JSX.Element {
   return (
-    <div
-      className="flex gap-1 p-1 bg-(--bg-surface) border-b border-(--border-soft)"
-      role="tablist"
-    >
+    <div className="tab-bar" role="tablist">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
           role="tab"
-          className={cn(
-            'px-4 py-2 text-[0.92rem] font-bold rounded-(--radius) cursor-pointer border-none',
-            activeTab === tab.id
-              ? 'text-(--btn-text) bg-(--btn-bg) shadow-xs'
-              : 'text-(--text-muted) bg-transparent'
-          )}
+          className={cn('tab-bar__tab', activeTab === tab.id && 'tab-bar__tab--active')}
           aria-selected={activeTab === tab.id}
           onClick={() => onTabChange(tab.id)}
         >

@@ -9,6 +9,7 @@ import { FooterActionBar } from './FooterActionBar'
 import { useDebounce } from '@renderer/hooks/useDebounce'
 import type { InventoryProduct } from '@renderer/types/pos'
 import { type InventoryTab, INVENTORY_TABS } from './tabs'
+import './inventory-modal.css'
 
 type InventoryModalProps = {
   isOpen: boolean
@@ -140,13 +141,13 @@ export function InventoryModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="w-[min(1152px,100%)] h-[min(96vh,920px)] flex flex-col p-0 overflow-hidden rounded-2xl bg-(--bg-panel) border border-(--border-default) shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]"
+        className="inventory-modal"
         aria-label="Inventory Management"
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="flex items-center gap-4 px-6 py-4 bg-[#2d3133] shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-[#004b0f] flex items-center justify-center shrink-0">
+        <div className="inventory-modal__header">
+          <div className="inventory-modal__header-icon">
             <svg
               width="18"
               height="18"
@@ -160,12 +161,10 @@ export function InventoryModal({
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
             </svg>
           </div>
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            <span className="text-[14px] uppercase tracking-[2px] text-[#94a3b8] shrink-0 font-bold">
-              Inventory Maintenance
-            </span>
-            <span className="text-[#475569] shrink-0 text-[13px]">/</span>
-            <span className="text-[14px] font-bold text-[#e8ecf0] truncate">
+          <div className="inventory-modal__header-breadcrumb">
+            <span className="inventory-modal__header-label">Inventory Maintenance</span>
+            <span className="inventory-modal__header-separator">/</span>
+            <span className="inventory-modal__header-title">
               {activeTab === 'items'
                 ? itemBtnState.selectedSku
                   ? `Edit Record: ${itemBtnState.selectedSku}`
@@ -179,11 +178,7 @@ export function InventoryModal({
                       : activeTab}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-11 px-5 rounded-lg bg-[rgba(255,255,255,0.08)] text-[#94a3b8] text-[13px] font-bold cursor-pointer border border-[rgba(255,255,255,0.12)] outline-none hover:bg-[rgba(255,255,255,0.14)]"
-          >
+          <button type="button" onClick={onClose} className="inventory-modal__close-btn">
             Close
           </button>
         </div>
@@ -196,11 +191,11 @@ export function InventoryModal({
             setSearchTerm('')
             setNoResultsSku(null)
           }}
-          className="flex flex-col flex-1 min-h-0 overflow-hidden"
+          className="inventory-modal__tabs"
         >
           {/* Outer tab bar */}
-          <div className="bg-[#2d3133] shrink-0 px-2">
-            <TabsList className="gap-0 bg-transparent border-b border-[rgba(194,199,202,0.15)] rounded-none p-0 h-auto justify-start w-full">
+          <div className="inventory-modal__tab-bar">
+            <TabsList className="inventory-modal__tab-list">
               {(
                 [
                   { value: INVENTORY_TABS[0], label: 'Items' },
@@ -209,11 +204,7 @@ export function InventoryModal({
                   { value: INVENTORY_TABS[3], label: 'Vendors' }
                 ] as const
               ).map(({ value, label }) => (
-                <TabsTrigger
-                  key={value}
-                  value={value}
-                  className="rounded-none border-b-[3px] border-transparent min-h-12 px-6 py-3 text-[14px] font-black uppercase tracking-[1px] text-[#6b7280] bg-transparent data-[state=active]:border-[#a3f69c] data-[state=active]:text-[#e8ecf0] data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
+                <TabsTrigger key={value} value={value} className="inventory-modal__tab-trigger">
                   {label}
                 </TabsTrigger>
               ))}
@@ -221,7 +212,10 @@ export function InventoryModal({
           </div>
 
           {/* Content */}
-          <TabsContent value="items" className="flex-1 min-h-0 overflow-hidden m-0">
+          <TabsContent
+            value="items"
+            className="inventory-modal__tab-content inventory-modal__tab-content--items"
+          >
             <ItemForm
               ref={itemFormRef}
               onButtonStateChange={handleItemButtonState}
@@ -232,13 +226,22 @@ export function InventoryModal({
               }}
             />
           </TabsContent>
-          <TabsContent value="departments" className="flex-1 overflow-auto m-0 p-4">
+          <TabsContent
+            value="departments"
+            className="inventory-modal__tab-content inventory-modal__tab-content--panel"
+          >
             <DepartmentPanel searchFilter={searchTerm} />
           </TabsContent>
-          <TabsContent value="tax-codes" className="flex-1 overflow-auto m-0 p-4">
+          <TabsContent
+            value="tax-codes"
+            className="inventory-modal__tab-content inventory-modal__tab-content--panel"
+          >
             <TaxCodePanel searchFilter={searchTerm} />
           </TabsContent>
-          <TabsContent value="vendors" className="flex-1 overflow-auto m-0 p-4">
+          <TabsContent
+            value="vendors"
+            className="inventory-modal__tab-content inventory-modal__tab-content--panel"
+          >
             <VendorPanel searchFilter={searchTerm} />
           </TabsContent>
         </Tabs>

@@ -1,5 +1,6 @@
 import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
 import type { HeldTransaction } from '../../../../shared/types'
+import './hold-lookup-modal.css'
 
 type HoldLookupModalProps = {
   isOpen: boolean
@@ -26,21 +27,20 @@ export function HoldLookupModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="w-[480px] flex flex-col p-0 overflow-hidden rounded-2xl bg-(--bg-panel) border border-(--border-default) shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.4)]"
+        className="hold-lookup"
         aria-label="Transaction Hold Lookup"
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-(--border-default) bg-[#2d3133]">
-          <h2 className="text-[15px] font-black text-[#e8ecf0] m-0">Transaction Hold Lookup</h2>
+        <div className="hold-lookup__header">
+          <h2 className="hold-lookup__title">Transaction Hold Lookup</h2>
           {heldTransactions.length > 0 && (
             <>
-              <span className="ml-auto text-[0.75rem] font-bold text-(--text-muted)">
+              <span className="hold-lookup__count">
                 {heldTransactions.length} on hold
               </span>
               <button
                 type="button"
-                className="text-[0.75rem] font-bold px-2.5 py-1 rounded-(--radius) border border-[#dc2626] text-[#dc2626] bg-transparent cursor-pointer"
-                style={{ minHeight: 28 }}
+                className="hold-lookup__clear-all"
                 onClick={onClearAll}
                 data-testid="hold-clear-all-btn"
               >
@@ -51,44 +51,39 @@ export function HoldLookupModal({
         </div>
 
         {/* Body */}
-        <div className="flex flex-col gap-1.5 p-3 max-h-[480px] overflow-y-auto">
+        <div className="hold-lookup__body">
           {heldTransactions.length === 0 ? (
-            <p
-              className="text-[0.9375rem] text-(--text-muted) text-center py-8 m-0"
-              data-testid="hold-lookup-empty"
-            >
+            <p className="hold-lookup__empty" data-testid="hold-lookup-empty">
               No transactions on hold.
             </p>
           ) : (
             heldTransactions.map((held) => (
               <div
                 key={held.id}
-                className="flex items-center gap-0 w-full min-h-14 rounded-(--radius) border border-(--border-soft) overflow-hidden"
-                style={{ background: 'var(--bg-surface-soft)' }}
+                className="hold-lookup__item"
                 data-testid={`hold-row-${held.hold_number}`}
               >
                 <button
                   type="button"
-                  className="flex items-center gap-4 flex-1 min-h-14 px-4 bg-transparent border-0 cursor-pointer text-left"
+                  className="hold-lookup__item-btn"
                   onClick={() => onRecall(held)}
                 >
-                  <span className="text-[1.0625rem] font-black text-(--text-primary) min-w-[5rem]">
+                  <span className="hold-lookup__item-number">
                     Hold #{held.hold_number}
                   </span>
-                  <span className="text-[0.875rem] text-(--text-muted)">
+                  <span className="hold-lookup__item-count">
                     {held.item_count} item{held.item_count !== 1 ? 's' : ''}
                   </span>
-                  <span className="text-[0.875rem] font-bold text-(--text-primary) ml-auto">
+                  <span className="hold-lookup__item-total">
                     ${held.total.toFixed(2)}
                   </span>
-                  <span className="text-[0.8125rem] text-(--text-muted) min-w-[3.5rem] text-right">
+                  <span className="hold-lookup__item-time">
                     {formatTime(held.held_at)}
                   </span>
                 </button>
                 <button
                   type="button"
-                  className="flex items-center justify-center w-10 min-h-14 bg-transparent border-0 border-l border-l-(--border-soft) cursor-pointer text-(--text-muted)"
-                  style={{ flexShrink: 0 }}
+                  className="hold-lookup__delete-btn"
                   onClick={() => onDelete(held)}
                   data-testid={`hold-delete-${held.hold_number}`}
                   aria-label={`Delete Hold #${held.hold_number}`}

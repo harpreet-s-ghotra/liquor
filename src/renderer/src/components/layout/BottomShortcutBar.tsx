@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@renderer/store/useAuthStore'
+import './bottom-shortcut-bar.css'
 
 type BottomShortcutBarProps = {
   onInventoryClick: () => void
@@ -7,7 +8,6 @@ type BottomShortcutBarProps = {
 }
 
 const F_KEYS = [
-  { key: 'F1', label: 'Help' },
   { key: 'F2', label: 'Inventory', action: 'inventory' },
   { key: 'F3', label: 'Clock In/Out' },
   { key: 'F4', label: 'Customers' },
@@ -40,28 +40,13 @@ export function BottomShortcutBar({
   const [datePart, timePart] = datetime.split('\n')
 
   return (
-    <footer
-      className="flex items-center gap-2 h-14 px-4 overflow-hidden border-t"
-      style={{
-        background: 'var(--bottom-bg)',
-        borderColor: 'var(--bottom-border)'
-      }}
-      data-testid="bottom-bar"
-    >
-      {/* F-Key buttons */}
-      <div className="flex gap-1 flex-1 py-2">
+    <footer className="bottom-bar" data-testid="bottom-bar">
+      <div className="bottom-bar__keys">
         {F_KEYS.map(({ key, label, action }) => (
           <button
             key={key}
             type="button"
-            className="flex items-center gap-2 px-3 py-2.5 border-none cursor-pointer"
-            style={{
-              background: 'var(--bottom-key-bg)',
-              borderBottomColor: 'var(--bottom-key-border)',
-              borderBottomStyle: 'solid',
-              borderBottomWidth: '2px',
-              fontFamily: 'var(--font-display)'
-            }}
+            className="bottom-bar__key-btn"
             onClick={
               action === 'inventory'
                 ? onInventoryClick
@@ -70,50 +55,22 @@ export function BottomShortcutBar({
                   : undefined
             }
           >
-            <span
-              className="px-1 text-[10px] font-black text-center text-white"
-              style={{ background: 'var(--bottom-key-badge-bg)' }}
-            >
-              {key}
-            </span>
-            <span
-              className="text-[15px] font-bold uppercase tracking-wider"
-              style={{ color: 'var(--bottom-key-text)' }}
-            >
-              {label}
-            </span>
+            <span className="bottom-bar__key-badge">{key}</span>
+            <span className="bottom-bar__key-label">{label}</span>
           </button>
         ))}
       </div>
 
-      {/* Divider */}
-      <div className="h-8 w-0.5 mx-1" style={{ background: 'var(--bottom-border)' }} />
+      <div className="bottom-bar__divider" />
 
-      {/* Date/time + Exit */}
-      <div className="flex items-center gap-4">
-        <div className="text-right leading-tight" style={{ fontFamily: 'var(--font-display)' }}>
-          <div
-            className="text-[10px] font-black uppercase tracking-wider"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            {datePart}
-          </div>
-          <div
-            className="text-[10px] font-black uppercase tracking-wider"
-            style={{ color: 'var(--text-label)' }}
-          >
-            {timePart}
-          </div>
+      <div className="bottom-bar__right">
+        <div className="bottom-bar__datetime">
+          <div className="bottom-bar__date">{datePart}</div>
+          <div className="bottom-bar__time">{timePart}</div>
         </div>
         <button
           type="button"
-          className="px-4 py-1.5 border cursor-pointer text-[10px] font-black uppercase tracking-wider"
-          style={{
-            background: 'var(--bottom-exit-bg)',
-            borderColor: 'var(--bottom-exit-border)',
-            color: 'var(--bottom-exit-text)',
-            fontFamily: 'var(--font-display)'
-          }}
+          className="bottom-bar__exit"
           onClick={logout}
           data-testid="exit-pos-button"
         >

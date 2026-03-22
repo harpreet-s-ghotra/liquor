@@ -13,6 +13,7 @@ import { useAlertStore } from '@renderer/store/useAlertStore'
 import { useAuthStore } from '@renderer/store/useAuthStore'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import '../styles/auth.css'
+import './pos-screen.css'
 import type { PaymentMethod, PaymentResult } from '@renderer/types/pos'
 
 export function POSScreen(): React.JSX.Element {
@@ -299,13 +300,10 @@ export function POSScreen(): React.JSX.Element {
   }, [addToCartBySku, search, isPaymentComplete, clearTransaction, focusSearch, recallTransaction])
 
   return (
-    <div className="grid h-full overflow-hidden" style={{ gridTemplateRows: 'auto auto 1fr auto' }}>
+    <div className="pos-screen">
       <HeaderBar cashierName={currentCashier?.name} />
       <AlertBar />
-      <main
-        className="grid gap-2 p-2 min-h-0 overflow-hidden"
-        style={{ gridTemplateColumns: '56% 44%' }}
-      >
+      <main className="pos-screen__main" style={{ gridTemplateColumns: '56% 44%' }}>
         <TicketPanel
           cart={cartLines}
           quantity={quantity}
@@ -434,11 +432,7 @@ export function POSScreen(): React.JSX.Element {
         isRefund={isReturning}
       />
 
-      {productsLoadError && (
-        <div className="absolute right-3 bottom-18.5 text-[0.8125rem] text-(--semantic-danger-text) bg-(--bg-surface-soft) border border-(--border-soft) rounded-(--radius) px-2 py-1 shadow-sm">
-          {productsLoadError}
-        </div>
-      )}
+      {productsLoadError && <div className="pos-screen__error">{productsLoadError}</div>}
     </div>
   )
 }

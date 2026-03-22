@@ -1,4 +1,5 @@
 import { useAlertStore, type AlertType } from '@renderer/store/useAlertStore'
+import './alert-bar.css'
 
 const ALERT_STYLES: Record<AlertType, { bg: string; border: string; text: string }> = {
   error: {
@@ -30,31 +31,27 @@ export function AlertBar(): React.JSX.Element | null {
   if (alerts.length === 0) return null
 
   return (
-    <div
-      className="flex flex-col gap-1 px-4 py-1"
-      style={{ position: 'relative', zIndex: 100 }}
-      data-testid="alert-bar"
-    >
+    <div className="alert-bar" data-testid="alert-bar">
       {alerts.map((alert) => {
-        const style = ALERT_STYLES[alert.type]
+        const s = ALERT_STYLES[alert.type]
         return (
           <div
             key={alert.id}
-            className="flex items-center justify-between px-4 py-2 border"
+            className="alert-bar__item"
             style={{
-              background: style.bg,
-              borderColor: style.border,
-              color: style.text,
+              background: s.bg,
+              borderColor: s.border,
+              color: s.text,
               fontFamily: 'var(--font-body)'
             }}
             data-testid={`alert-${alert.type}`}
             role="alert"
           >
-            <span className="text-sm font-medium">{alert.message}</span>
+            <span className="alert-bar__message">{alert.message}</span>
             <button
               type="button"
-              className="ml-4 px-2 py-0.5 border-none cursor-pointer text-sm font-bold"
-              style={{ background: 'transparent', color: style.text }}
+              className="alert-bar__dismiss"
+              style={{ color: s.text }}
               onClick={() => dismissAlert(alert.id)}
               aria-label="Dismiss alert"
             >

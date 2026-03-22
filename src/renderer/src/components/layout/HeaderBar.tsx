@@ -1,6 +1,7 @@
 import { CircleHelp, Settings, Sun, Moon, User } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useThemeStore } from '@renderer/store/useThemeStore'
+import './header-bar.css'
 
 type HeaderBarProps = {
   cashierName?: string
@@ -24,40 +25,20 @@ export function HeaderBar({ cashierName }: HeaderBarProps): React.JSX.Element {
   }, [menuOpen])
 
   return (
-    <header
-      className="flex items-center justify-end gap-4 px-6 h-16 border-b-2"
-      style={{
-        background: 'var(--header-bg)',
-        borderColor: 'var(--header-border)'
-      }}
-      data-testid="header-bar"
-    >
-      {/* Left: status indicator */}
-      <div className="mr-auto flex items-center gap-3">
-        <span
-          className="text-xs font-bold uppercase tracking-widest"
-          style={{ color: 'var(--header-status)', fontFamily: 'var(--font-body)' }}
-        >
-          Register Active
-        </span>
+    <header className="header-bar" data-testid="header-bar">
+      <div className="header-bar__left">
+        <span className="header-bar__status">Register Active</span>
       </div>
 
-      {/* Right: icons + badge */}
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          className="p-2 bg-transparent border-none cursor-pointer"
-          style={{ color: 'var(--text-label)' }}
-          aria-label="Help"
-        >
+      <div className="header-bar__right">
+        <button type="button" className="header-bar__icon-btn" aria-label="Help">
           <CircleHelp size={20} />
         </button>
 
-        <div className="relative" ref={menuRef}>
+        <div className="header-bar__settings-wrapper" ref={menuRef}>
           <button
             type="button"
-            className="p-2 bg-transparent border-none cursor-pointer"
-            style={{ color: 'var(--text-label)' }}
+            className="header-bar__icon-btn"
             aria-label="Settings"
             onClick={() => setMenuOpen((o) => !o)}
             data-testid="settings-button"
@@ -66,22 +47,10 @@ export function HeaderBar({ cashierName }: HeaderBarProps): React.JSX.Element {
           </button>
 
           {menuOpen && (
-            <div
-              className="absolute right-0 top-full mt-1 z-30 min-w-[12rem] rounded-(--radius) border p-1 shadow-lg"
-              style={{
-                background: 'var(--bg-panel)',
-                borderColor: 'var(--border-strong)'
-              }}
-              data-testid="settings-dropdown"
-            >
+            <div className="header-bar__dropdown" data-testid="settings-dropdown">
               <button
                 type="button"
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm font-semibold rounded-(--radius) border-none cursor-pointer"
-                style={{
-                  background: 'var(--bg-surface-soft)',
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-display)'
-                }}
+                className="header-bar__dropdown-item"
                 onClick={() => {
                   toggleTheme()
                   setMenuOpen(false)
@@ -95,19 +64,9 @@ export function HeaderBar({ cashierName }: HeaderBarProps): React.JSX.Element {
           )}
         </div>
 
-        <div
-          className="flex items-center gap-2 px-3 py-1.5 border rounded-(--radius)"
-          style={{
-            background: 'var(--header-badge-bg)',
-            borderColor: 'var(--header-badge-border)',
-            color: 'var(--header-badge-text)',
-            fontFamily: 'var(--font-display)'
-          }}
-        >
+        <div className="header-bar__badge">
           <User size={16} />
-          <span className="text-xs font-bold uppercase tracking-wider">
-            {cashierName ?? 'Admin'}
-          </span>
+          <span className="header-bar__badge-name">{cashierName ?? 'Admin'}</span>
         </div>
       </div>
     </header>

@@ -1,12 +1,13 @@
 import * as React from 'react'
 import * as ToggleGroupPrimitive from '@radix-ui/react-toggle-group'
 import { cn } from '@renderer/lib/utils'
+import './toggle-group.css'
 
 const ToggleGroup = React.forwardRef<
   React.ComponentRef<typeof ToggleGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root>
 >(({ className, ...props }, ref) => (
-  <ToggleGroupPrimitive.Root ref={ref} className={cn('flex shrink-0', className)} {...props} />
+  <ToggleGroupPrimitive.Root ref={ref} className={cn('toggle-group', className)} {...props} />
 ))
 ToggleGroup.displayName = ToggleGroupPrimitive.Root.displayName
 
@@ -16,11 +17,7 @@ const ToggleGroupItem = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToggleGroupPrimitive.Item
     ref={ref}
-    className={cn(
-      'bg-(--bg-surface-soft) text-(--text-primary) border border-(--border-default) px-2.5 py-1.5 text-[0.85rem] font-semibold cursor-pointer min-w-[2rem] text-center border-l-0 first:border-l first:rounded-l-none last:rounded-r-(--radius)',
-      'data-[state=on]:bg-(--btn-bg) data-[state=on]:text-(--btn-text) data-[state=on]:border-(--btn-bg)',
-      className
-    )}
+    className={cn('toggle-group__item', className)}
     {...props}
   />
 ))

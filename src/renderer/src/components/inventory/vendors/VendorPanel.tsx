@@ -5,6 +5,7 @@ import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
 import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { validateField } from '@renderer/components/common/validation'
 import { useCrudPanel } from '@renderer/hooks/useCrudPanel'
+import { cn } from '@renderer/lib/utils'
 import type { Vendor } from '@renderer/types/pos'
 import '../crud-panel.css'
 
@@ -213,9 +214,9 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
     showEditValidation && !editName.trim() ? 'Vendor name is required' : undefined
 
   return (
-    <div className="grid grid-rows-[auto_1fr_auto] gap-2 h-full min-h-0 p-3" aria-label="Vendors">
+    <div className="crud-panel__root" aria-label="Vendors">
       {/* Section 1: New entry form */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-center">
+      <div className="crud-panel__new-form--vendor">
         <FormField label="Vendor Name" required error={nameError} showError={crud.showValidation}>
           <ValidatedInput
             fieldType="name"
@@ -258,7 +259,7 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
         <AppButton
           size="md"
           variant="success"
-          className="self-end min-w-[6rem]"
+          className="crud-panel__add-btn"
           onClick={() => void handleCreate()}
         >
           Add
@@ -266,9 +267,9 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
       </div>
 
       {/* Section 2: Scrollable vendor list */}
-      <div className="min-h-0 overflow-auto rounded-(--radius) border border-(--border-default)">
+      <div className="crud-panel__list-wrap">
         {filteredVendors.length === 0 ? (
-          <p className="p-4 text-center text-(--text-muted) italic text-sm">
+          <p className="crud-panel__empty-text">
             {crud.items.length === 0
               ? 'No vendors yet. Add one above to get started.'
               : 'No vendors match your search.'}
@@ -287,11 +288,14 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
               {filteredVendors.map((v) => (
                 <tr
                   key={v.vendor_number}
-                  className={`cursor-pointer hover:bg-(--bg-hover) ${selectedVendorNum === v.vendor_number ? 'bg-(--bg-selected)' : ''}`}
+                  className={cn(
+                    'crud-panel__row',
+                    selectedVendorNum === v.vendor_number && 'crud-panel__row--selected'
+                  )}
                   onClick={() => selectVendor(v)}
                 >
-                  <td className="font-semibold">{v.vendor_name}</td>
-                  <td className="text-(--text-muted) text-[0.85rem]">{v.contact_name ?? '—'}</td>
+                  <td>{v.vendor_name}</td>
+                  <td className="crud-panel__td--muted">{v.contact_name ?? '—'}</td>
                   <td>{v.phone ?? '—'}</td>
                   <td>{v.email ?? '—'}</td>
                 </tr>
@@ -302,14 +306,12 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
       </div>
 
       {/* Section 3: Edit section */}
-      <div className="border border-(--border-default) rounded-(--radius) bg-(--bg-surface) p-3">
+      <div className="crud-panel__edit-section">
         {selectedVendor ? (
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-(--text-primary)">
-                Editing: {selectedVendor.vendor_name}
-              </span>
-              <div className="flex gap-2">
+          <div className="crud-panel__edit-grid">
+            <div className="crud-panel__edit-header">
+              <span className="crud-panel__edit-title">Editing: {selectedVendor.vendor_name}</span>
+              <div className="crud-panel__edit-actions">
                 <AppButton
                   size="sm"
                   variant="success"
@@ -326,7 +328,7 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
                 </AppButton>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <div className="crud-panel__edit-fields">
               <FormField
                 label="Vendor Name"
                 required
@@ -375,35 +377,19 @@ export function VendorPanel({ searchFilter = '' }: VendorPanelProps): React.JSX.
               </FormField>
             </div>
             {/* Status messages */}
-            <div className="min-h-[1.25rem]">
-              {crud.success && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
-                  {crud.success}
-                </p>
-              )}
-              {crud.error && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
-                  {crud.error}
-                </p>
-              )}
+            <div className="crud-panel__status-area">
+              {crud.success && <p className="crud-panel__msg--success">{crud.success}</p>}
+              {crud.error && <p className="crud-panel__msg--error">{crud.error}</p>}
             </div>
           </div>
         ) : (
-          <div className="text-center py-2">
-            <p className="text-(--text-muted) text-sm italic m-0">
+          <div className="crud-panel__edit-placeholder">
+            <p className="crud-panel__edit-placeholder-text">
               Select a vendor above to view and edit its details.
             </p>
-            <div className="min-h-[1.25rem] mt-1">
-              {crud.success && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
-                  {crud.success}
-                </p>
-              )}
-              {crud.error && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
-                  {crud.error}
-                </p>
-              )}
+            <div className="crud-panel__status-area--mt">
+              {crud.success && <p className="crud-panel__msg--success">{crud.success}</p>}
+              {crud.error && <p className="crud-panel__msg--error">{crud.error}</p>}
             </div>
           </div>
         )}

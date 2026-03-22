@@ -3,6 +3,7 @@ import type { InventoryProduct } from '@renderer/types/pos'
 import { formatCurrency } from '@renderer/utils/currency'
 import { AppButton } from '@renderer/components/common/AppButton'
 import type { InventoryTab } from './tabs'
+import './footer-action-bar.css'
 
 const SEARCH_PLACEHOLDER: Record<InventoryTab, string> = {
   items: 'Scan or enter SKU / name...',
@@ -59,13 +60,11 @@ export function FooterActionBar({
   onDiscard
 }: FooterActionBarProps): React.JSX.Element {
   return (
-    <div className="h-[80px] bg-[#2d3133] flex items-center gap-6 px-6 shrink-0">
+    <div className="footer-action-bar">
       {/* Left: Search */}
-      <div ref={searchWrapperRef} className="relative flex items-center gap-2">
-        <span className="text-[9px] font-bold uppercase tracking-[1.2px] text-[#94a3b8] whitespace-nowrap">
-          Item Lookup
-        </span>
-        <div className="relative">
+      <div ref={searchWrapperRef} className="footer-action-bar__search">
+        <span className="footer-action-bar__search-label">Item Lookup</span>
+        <div className="footer-action-bar__search-wrap">
           <input
             ref={searchInputRef}
             type="text"
@@ -77,7 +76,7 @@ export function FooterActionBar({
               if (e.key === 'Escape') onCloseDropdown()
             }}
             placeholder={SEARCH_PLACEHOLDER[activeTab] ?? 'Search...'}
-            className="h-9 w-[280px] bg-(--bg-input) rounded-(--radius) px-3 text-[13px] font-bold text-(--text-primary) placeholder:text-(--text-muted) placeholder:font-normal outline-none border border-(--border-default) focus:ring-1 focus:ring-(--accent-blue)"
+            className="footer-action-bar__search-input"
           />
 
           {/* Autocomplete dropdown — Items tab only */}
@@ -88,20 +87,18 @@ export function FooterActionBar({
               <ul
                 role="listbox"
                 aria-label="Search results"
-                className="absolute bottom-full left-0 right-0 z-50 max-h-48 overflow-y-auto rounded-(--radius) bg-(--bg-surface) border border-(--border-default) shadow-lg mb-1"
+                className="footer-action-bar__dropdown"
               >
                 {searchResults.map((item) => (
                   <li
                     key={item.item_number}
                     role="option"
                     aria-selected={false}
-                    className="px-3 py-1.5 cursor-pointer flex justify-between items-center hover:bg-(--bg-surface-soft)"
+                    className="footer-action-bar__dropdown-item"
                     onMouseDown={() => onSelectSearchResult(item)}
                   >
-                    <span className="truncate text-[13px] font-bold text-(--text-primary)">
-                      {item.item_name}
-                    </span>
-                    <span className="ml-2 text-[11px] text-(--text-muted) shrink-0">
+                    <span className="footer-action-bar__dropdown-item-name">{item.item_name}</span>
+                    <span className="footer-action-bar__dropdown-item-meta">
                       {item.sku} · {formatCurrency(item.retail_price)}
                     </span>
                   </li>
@@ -111,10 +108,10 @@ export function FooterActionBar({
 
           {/* No-results prompt — Items tab only */}
           {activeTab === 'items' && noResultsSku && (
-            <div className="absolute bottom-full left-0 right-0 z-50 mb-1 rounded-(--radius) bg-(--bg-surface) border border-(--border-default) shadow-lg px-3 py-2.5 flex items-center justify-between gap-3">
-              <span className="text-[12px] text-(--text-muted)">
+            <div className="footer-action-bar__no-results">
+              <span className="footer-action-bar__no-results-text">
                 No item found for{' '}
-                <span className="font-bold text-(--text-primary)">{noResultsSku}</span>
+                <span className="footer-action-bar__no-results-sku">{noResultsSku}</span>
               </span>
               <AppButton
                 size="sm"
@@ -132,11 +129,11 @@ export function FooterActionBar({
       </div>
 
       {/* Spacer */}
-      <div className="flex-1" />
+      <div className="footer-action-bar__spacer" />
 
       {/* Right: Action buttons — only on Items tab */}
       {showItemActions && (
-        <div className="flex items-center gap-3">
+        <div className="footer-action-bar__actions">
           <AppButton size="md" variant="success" disabled={!canNew} onClick={onNew}>
             + New Item
           </AppButton>
@@ -145,7 +142,7 @@ export function FooterActionBar({
             Save
           </AppButton>
 
-          <div className="w-0.5 h-8 bg-[rgba(194,199,202,0.3)]" />
+          <div className="footer-action-bar__divider" />
 
           <AppButton size="md" variant="danger" disabled={!canDelete} onClick={onDelete}>
             Delete Item

@@ -1,0 +1,16 @@
+.form-field {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.form-field__label-required {
+  color: var(--semantic-danger-text);
+  font-weight: 700;
+}
+
+.form-field__error {
+  min-height: 1.1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--semantic-danger-text);
+}

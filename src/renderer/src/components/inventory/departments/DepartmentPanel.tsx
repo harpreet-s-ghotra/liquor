@@ -5,6 +5,7 @@ import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
 import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { Input } from '@renderer/components/ui/input'
 import { useCrudPanel } from '@renderer/hooks/useCrudPanel'
+import { cn } from '@renderer/lib/utils'
 import type { Department, TaxCode } from '@renderer/types/pos'
 import '../crud-panel.css'
 
@@ -242,12 +243,9 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
   const editNameError = showEditValidation && !editName.trim() ? 'Name is required' : undefined
 
   return (
-    <div
-      className="grid grid-rows-[auto_1fr_auto] gap-2 h-full min-h-0 p-3"
-      aria-label="Departments"
-    >
+    <div className="crud-panel__root" aria-label="Departments">
       {/* Section 1: New entry form */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-center">
+      <div className="crud-panel__new-form--dept">
         <FormField
           label="Department Name"
           required
@@ -289,7 +287,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
         <FormField label="Tax Code">
           <select
             aria-label="Default Tax Rate"
-            className="flex w-full rounded-(--radius) border border-(--border-default) bg-(--bg-input) px-2.5 py-2 text-[1.125rem] text-(--text-primary) outline-none focus:border-(--accent-blue) focus:ring-2 focus:ring-(--accent-blue)/50"
+            className="crud-panel__select"
             value={newTaxRate}
             onChange={(e) => setNewTaxRate(e.target.value)}
           >
@@ -307,7 +305,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
         <AppButton
           size="md"
           variant="success"
-          className="self-end min-w-[6rem]"
+          className="crud-panel__add-btn"
           onClick={() => void handleCreate()}
         >
           Add
@@ -315,9 +313,9 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
       </div>
 
       {/* Section 2: Scrollable department list */}
-      <div className="min-h-0 overflow-auto rounded-(--radius) border border-(--border-default)">
+      <div className="crud-panel__list-wrap">
         {filteredDepartments.length === 0 ? (
-          <p className="p-4 text-center text-(--text-muted) italic text-sm">
+          <p className="crud-panel__empty-text">
             {crud.items.length === 0
               ? 'No departments yet. Add one above to get started.'
               : 'No departments match your search.'}
@@ -336,11 +334,14 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
               {filteredDepartments.map((dept) => (
                 <tr
                   key={dept.id}
-                  className={`cursor-pointer hover:bg-(--bg-hover) ${selectedDeptId === dept.id ? 'bg-(--bg-selected)' : ''}`}
+                  className={cn(
+                    'crud-panel__row',
+                    selectedDeptId === dept.id && 'crud-panel__row--selected'
+                  )}
                   onClick={() => selectDepartment(dept)}
                 >
-                  <td className="font-semibold">{dept.name}</td>
-                  <td className="text-(--text-muted) text-[0.85rem]">{dept.description || '—'}</td>
+                  <td>{dept.name}</td>
+                  <td className="crud-panel__td--muted">{dept.description || '—'}</td>
                   <td>{dept.default_profit_margin ? `${dept.default_profit_margin}%` : '—'}</td>
                   <td>{taxRateLabel(dept.default_tax_rate)}</td>
                 </tr>
@@ -351,14 +352,12 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
       </div>
 
       {/* Section 3: Edit section */}
-      <div className="border border-(--border-default) rounded-(--radius) bg-(--bg-surface) p-3">
+      <div className="crud-panel__edit-section">
         {selectedDept ? (
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-(--text-primary)">
-                Editing: {selectedDept.name}
-              </span>
-              <div className="flex gap-2">
+          <div className="crud-panel__edit-grid">
+            <div className="crud-panel__edit-header">
+              <span className="crud-panel__edit-title">Editing: {selectedDept.name}</span>
+              <div className="crud-panel__edit-actions">
                 <AppButton
                   size="sm"
                   variant="success"
@@ -375,7 +374,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
                 </AppButton>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <div className="crud-panel__edit-fields">
               <FormField label="Name" required error={editNameError} showError={showEditValidation}>
                 <ValidatedInput
                   fieldType="name"
@@ -411,7 +410,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
               <FormField label="Default Tax Rate" error={undefined} showError={false}>
                 <select
                   aria-label="Edit Default Tax Rate"
-                  className="flex w-full rounded-(--radius) border border-(--border-default) bg-(--bg-input) px-2.5 py-2 text-[1.125rem] text-(--text-primary) outline-none focus:border-(--accent-blue) focus:ring-2 focus:ring-(--accent-blue)/50"
+                  className="crud-panel__select"
                   value={editTaxRate}
                   onChange={(e) => setEditTaxRate(e.target.value)}
                 >
@@ -428,36 +427,20 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
               </FormField>
             </div>
             {/* Status messages */}
-            <div className="min-h-[1.25rem]">
-              {crud.success && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
-                  {crud.success}
-                </p>
-              )}
-              {crud.error && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
-                  {crud.error}
-                </p>
-              )}
+            <div className="crud-panel__status-area">
+              {crud.success && <p className="crud-panel__msg--success">{crud.success}</p>}
+              {crud.error && <p className="crud-panel__msg--error">{crud.error}</p>}
             </div>
           </div>
         ) : (
-          <div className="text-center py-2">
-            <p className="text-(--text-muted) text-sm italic m-0">
+          <div className="crud-panel__edit-placeholder">
+            <p className="crud-panel__edit-placeholder-text">
               Select a department above to view and edit its details.
             </p>
             {/* Status messages when no dept selected */}
-            <div className="min-h-[1.25rem] mt-1">
-              {crud.success && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
-                  {crud.success}
-                </p>
-              )}
-              {crud.error && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
-                  {crud.error}
-                </p>
-              )}
+            <div className="crud-panel__status-area--mt">
+              {crud.success && <p className="crud-panel__msg--success">{crud.success}</p>}
+              {crud.error && <p className="crud-panel__msg--error">{crud.error}</p>}
             </div>
           </div>
         )}

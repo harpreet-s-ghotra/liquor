@@ -1,20 +1,14 @@
 import * as React from 'react'
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox'
 import { cn } from '@renderer/lib/utils'
+import './checkbox.css'
 
 const Checkbox = React.forwardRef<
   React.ComponentRef<typeof CheckboxPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
 >(({ className, ...props }, ref) => (
-  <CheckboxPrimitive.Root
-    ref={ref}
-    className={cn(
-      'h-4 w-4 shrink-0 rounded-sm border border-(--border-default) bg-(--bg-surface) data-[state=checked]:bg-(--btn-bg) data-[state=checked]:text-(--btn-text) data-[state=checked]:border-(--btn-bg) cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
-      className
-    )}
-    {...props}
-  >
-    <CheckboxPrimitive.Indicator className="flex items-center justify-center text-current">
+  <CheckboxPrimitive.Root ref={ref} className={cn('checkbox', className)} {...props}>
+    <CheckboxPrimitive.Indicator className="checkbox__indicator">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
@@ -23,7 +17,7 @@ const Checkbox = React.forwardRef<
         strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-3 w-3"
+        className="checkbox__icon"
       >
         <polyline points="20 6 9 17 4 12" />
       </svg>

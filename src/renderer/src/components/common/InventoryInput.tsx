@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { cn } from '@renderer/lib/utils'
+import './inventory-input.css'
 
 /** Compact input for use in the Inventory form (h-9, text-13px). */
 type InventoryInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
@@ -10,11 +11,7 @@ export const InventoryInput = React.forwardRef<HTMLInputElement, InventoryInputP
   ({ hasError, className, ...props }, ref) => (
     <input
       ref={ref}
-      className={cn(
-        'w-full h-9 bg-(--bg-input) rounded-(--radius) px-2.5 text-[13px] text-(--text-primary) border border-(--border-default) outline-none placeholder:text-(--text-muted) focus:ring-1 focus:ring-(--accent-blue)',
-        hasError && 'ring-1 ring-(--error)',
-        className
-      )}
+      className={cn('inventory-input', hasError && 'inventory-input--error', className)}
       {...props}
     />
   )
@@ -30,11 +27,7 @@ export const InventorySelect = React.forwardRef<HTMLSelectElement, InventorySele
   ({ hasError, className, children, ...props }, ref) => (
     <select
       ref={ref}
-      className={cn(
-        'w-full h-9 bg-(--bg-input) rounded-(--radius) px-2.5 text-[13px] text-(--text-primary) border border-(--border-default) outline-none cursor-pointer focus:ring-1 focus:ring-(--accent-blue)',
-        hasError && 'ring-1 ring-(--error)',
-        className
-      )}
+      className={cn('inventory-select', hasError && 'inventory-select--error', className)}
       {...props}
     >
       {children}

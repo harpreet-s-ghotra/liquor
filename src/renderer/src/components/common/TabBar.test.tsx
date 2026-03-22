@@ -22,11 +22,11 @@ describe('TabBar', () => {
 
     const active = screen.getByRole('tab', { name: 'Departments' })
     expect(active).toHaveAttribute('aria-selected', 'true')
-    expect(active.className).toContain('bg-')
+    expect(active.className).toContain('tab-bar__tab--active')
 
     const inactive = screen.getByRole('tab', { name: 'Items' })
     expect(inactive).toHaveAttribute('aria-selected', 'false')
-    expect(inactive.className).toContain('bg-transparent')
+    expect(inactive.className).not.toContain('tab-bar__tab--active')
   })
 
   it('calls onTabChange when a tab is clicked', () => {

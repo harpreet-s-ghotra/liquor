@@ -1,0 +1,90 @@
+/* ── Button ── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  font-weight: 700;
+  font-family: var(--font-display);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Variants ── */
+
+.btn--default {
+  border-color: var(--btn-border);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+}
+
+.btn--success {
+  border-color: var(--btn-success-border);
+  background: var(--btn-success-bg);
+  color: var(--btn-success-text);
+}
+
+.btn--danger {
+  border-color: var(--btn-danger-border);
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-text);
+}
+
+.btn--warning {
+  border-color: var(--btn-warning-border);
+  background: var(--btn-warning-bg);
+  color: var(--btn-warning-text);
+}
+
+.btn--neutral {
+  border-color: var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.btn--ghost {
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+.btn--outline {
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+/* ── Sizes ── */
+
+.btn--sm {
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.btn--md {
+  min-height: 2.75rem;
+  padding: 0 0.875rem;
+  font-size: 1rem;
+}
+
+.btn--lg {
+  min-height: 4.5rem;
+  padding: 0 1rem;
+  font-size: 1.3125rem;
+}
+
+.btn--icon {
+  width: 2.25rem;
+  height: 2.25rem;
+}

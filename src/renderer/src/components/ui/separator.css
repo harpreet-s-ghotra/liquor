@@ -1,0 +1,16 @@
+/* ── Separator ── */
+
+.separator {
+  flex-shrink: 0;
+  background: var(--border-strong);
+}
+
+.separator--horizontal {
+  width: 100%;
+  height: 1px;
+}
+
+.separator--vertical {
+  width: 1px;
+  height: 100%;
+}

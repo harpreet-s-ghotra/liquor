@@ -1,0 +1,31 @@
+/* ── Tabs ── */
+
+.tabs__list {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+}
+
+.tabs__trigger {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.tabs__trigger[data-state='active'] {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  box-shadow: var(--shadow-xs);
+}
+
+.tabs__trigger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

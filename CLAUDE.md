@@ -27,7 +27,7 @@ This file provides essential context for working on this project. Read it before
 | Desktop shell | Electron 39 (electron-vite)                              |
 | UI            | React 19 + TypeScript                                    |
 | State         | Zustand 5                                                |
-| Styling       | Tailwind CSS 4 + custom CSS tokens (`styles/tokens.css`) |
+| Styling       | BEM CSS + custom CSS tokens (`styles/tokens.css`) + stylelint-config-concentric-order |
 | Database      | SQLite via better-sqlite3 (sync, main process only)      |
 | Payments      | Stax Partner API                                         |
 | Unit tests    | Vitest + React Testing Library                           |
@@ -153,6 +153,7 @@ Run in this order:
 ```bash
 npx prettier --write .   # fix all formatting issues first
 npm run lint
+npx stylelint "src/**/*.css" # enforce concentric CSS property ordering
 npm run typecheck
 npm run test:coverage        # renderer + backend (must stay ≥ 80%)
 npm run test:e2e             # for UI flow changes
@@ -219,14 +220,47 @@ const attachPosApiMock = async (page: Page) => {
 
 ## Styling Conventions
 
+### BEM CSS — No Tailwind
+
+This project uses **plain CSS with BEM naming** — no Tailwind, no CSS-in-JS. Each component has a companion `.css` file imported at the top of the `.tsx`.
+
+### BEM Naming Convention
+
+- **Block:** component name in kebab-case (e.g., `ticket-panel`)
+- **Element:** double underscore (e.g., `ticket-panel__line`)
+- **Modifier:** double dash (e.g., `ticket-panel__line--active`)
+
+### CSS Property Ordering — Concentric CSS
+
+Property order is enforced by `stylelint-config-concentric-order`:
+
+1. **Positioning** — `position`, `top`, `right`, `z-index`
+2. **Display & Box Model** — `display`, `flex`, `grid`, `width`, `height`, `margin`, `padding`
+3. **Border & Background** — `border`, `border-radius`, `background`
+4. **Typography** — `font`, `text`, `color`
+5. **Other** — `cursor`, `opacity`, `box-shadow`
+
+### When to Use Inline Styles
+
+Only use inline `style={{}}` for **truly dynamic values** — values computed at runtime from props or state. Examples:
+- Conditional backgrounds (`isSelected ? 'var(--active-bg)' : 'var(--bg)'`)
+- Dynamic `gridTemplateRows` / `gridTemplateColumns`
+- Color derived from component state
+
+Static styles **always** go in the `.css` file.
+
+### Class Merging
+
+Use `cn()` from `@renderer/lib/utils` (which wraps `clsx`) for conditional class composition:
+
+```tsx
+import { cn } from '@renderer/lib/utils'
+<div className={cn('ticket-panel__line', isActive && 'ticket-panel__line--active')} />
+```
+
 ### Design Tokens First
 
-All colors, radius, and semantic values are defined as CSS custom properties in `src/renderer/src/styles/tokens.css`. Use these variables in component styles rather than hardcoding hex values. Only use hardcoded hex values when implementing a specific Figma design that has not yet been tokenized.
-
-### Hybrid Approach
-
-- Use **component CSS files** for component-specific visual styles
-- Use **CSS variables** for all color values
+All colors, radius, and semantic values are defined as CSS custom properties in `src/renderer/src/styles/tokens.css`. Use `var(--token-name)` in CSS files rather than hardcoding hex values.
 
 ### Key Design Tokens
 
@@ -287,7 +321,7 @@ Keep this table current when adding or modifying components in `ui/` or `common/
 
 ### Component Anti-Patterns — Do Not
 
-- Write `<button className="...lots of Tailwind...">` when `AppButton` with a `variant` prop achieves the same result
+- Write `<button className="..." style={{...}}>` with inline styles for static properties when `AppButton` with a `variant` prop achieves the same result
 - Write `<input className="...">` instead of `ValidatedInput` or `InventoryInput` — these handle focus rings, border colors, and sizing consistently
 - Write `<label>...<span className="text-red...">*</span></label>` instead of `FormField` with `required`
 - Create a new confirmation modal instead of using `ConfirmDialog`
@@ -388,7 +422,8 @@ Branch naming: `feature/name`, `fix/name`
 - **No new state libraries** — Zustand only
 - **No animations** — the app must feel instant
 - **No emojis** — in code or UI
-- **No Tailwind `@apply`** — use inline utility classes or CSS variables
+- **No Tailwind** — this project uses BEM CSS, not Tailwind. Do not add Tailwind or utility-first CSS classes
+- **No CSS-in-JS for static styles** — only use inline `style={{}}` for dynamic values computed at runtime
 - **Do not duplicate types** — all shared types belong in `src/shared/types/index.ts`
 - **Do not skip the coverage gate** — ≥80% is required on every change
 - **Do not write raw `<button>`, `<input>`, or `<select>` elements** — use the project components listed in "Component Reuse Rules" above

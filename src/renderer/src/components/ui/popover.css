@@ -1,0 +1,13 @@
+/* ── Popover ── */
+
+.popover__content {
+  z-index: 50;
+  width: var(--radix-popover-trigger-width);
+  max-height: 12rem;
+  overflow: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  padding: 0.25rem;
+  box-shadow: var(--shadow-md);
+}

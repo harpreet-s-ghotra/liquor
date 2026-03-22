@@ -1,0 +1,24 @@
+.tab-bar {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+  padding: 0.25rem;
+}
+
+.tab-bar__tab {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.tab-bar__tab--active {
+  background: var(--btn-bg);
+  box-shadow: var(--shadow-xs);
+  color: var(--btn-text);
+}

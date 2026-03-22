@@ -1,0 +1,44 @@
+.inventory-input {
+  width: 100%;
+  height: 2.25rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  padding: 0 0.625rem;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.inventory-input::placeholder {
+  color: var(--text-muted);
+}
+
+.inventory-input:focus {
+  box-shadow: 0 0 0 1px var(--accent-blue);
+}
+
+.inventory-input--error {
+  box-shadow: 0 0 0 1px var(--error);
+}
+
+.inventory-select {
+  width: 100%;
+  height: 2.25rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  padding: 0 0.625rem;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+}
+
+.inventory-select:focus {
+  box-shadow: 0 0 0 1px var(--accent-blue);
+}
+
+.inventory-select--error {
+  box-shadow: 0 0 0 1px var(--error);
+}

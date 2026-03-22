@@ -23,6 +23,8 @@ import {
   normalizeCurrencyForInput,
   parseCurrencyDigitsToDollars
 } from '@renderer/utils/currency'
+import { cn } from '@renderer/lib/utils'
+import './item-form.css'
 
 type SpecialPricingFormRow = {
   quantity: string
@@ -535,29 +537,25 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   }, [selectedItem, showValidation, hasFieldErrors, onButtonStateChange])
 
   /* ── Shared style helpers ── */
-  const labelCls =
-    'block text-[10px] font-black uppercase tracking-[1px] text-(--text-primary) mb-1'
+  const labelCls = 'item-form__label'
 
-  const errCls = 'text-[10px] text-(--error) mt-0.5'
+  const errCls = 'item-form__field-error'
 
-  const requiredStar = <span className="text-(--error)">*</span>
+  const requiredStar = <span className="item-form__required-star">*</span>
 
   /* ── Tab trigger shared class ── */
-  const tabTriggerCls =
-    'rounded-none border-b-[3px] border-transparent min-h-[44px] px-5 py-3 text-[13px] font-bold uppercase tracking-[0.5px] text-(--text-muted) bg-transparent data-[state=active]:border-(--btn-success-bg) data-[state=active]:text-(--text-primary) data-[state=active]:bg-transparent data-[state=active]:shadow-none disabled:opacity-40 disabled:cursor-not-allowed'
+  const tabTriggerCls = 'item-form__tab-trigger'
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-(--bg-panel)">
+    <div className="item-form">
       {/* ── General Information ── */}
-      <section aria-label="General Information" className="shrink-0">
+      <section aria-label="General Information" className="item-form__section">
         {/* Section header band */}
-        <div className="px-4 py-1.5 bg-(--bg-surface-soft) border-b border-(--border-default)">
-          <span className="text-[10px] font-black uppercase tracking-[1.5px] text-(--text-label)">
-            General Information
-          </span>
+        <div className="item-form__section-header">
+          <span className="item-form__section-title">General Information</span>
         </div>
 
-        <div className="px-4 py-3 grid grid-cols-4 gap-x-4 gap-y-3">
+        <div className="item-form__fields">
           {/* ── Row 1: Department | Item Type | SKU | Cost ── */}
 
           {/* Department */}
@@ -600,7 +598,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               type="text"
               aria-label="SKU"
               hasError={showValidation && !!fieldErrors.sku}
-              className="font-mono"
+              className="item-form__sku-input"
               value={formState.sku}
               onChange={(e) =>
                 setFormState((c) => ({
@@ -622,7 +620,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               aria-label="Cost"
               inputMode="numeric"
               hasError={showValidation && !!fieldErrors.cost}
-              className="font-bold text-(--semantic-danger-text)"
+              className="item-form__cost-input"
               value={formState.cost}
               onChange={(e) => handleCostChange(e.target.value)}
               placeholder="$0.00"
@@ -633,7 +631,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           {/* ── Row 2: Description (×2) | Price You Charge | # In Stock ── */}
 
           {/* Description */}
-          <div className="col-span-2">
+          <div className="item-form__field-span-2">
             <label className={labelCls}>Description {requiredStar}</label>
             <InventoryInput
               type="text"
@@ -653,18 +651,14 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           <div>
             <label className={labelCls}>
               Price You Charge {requiredStar}
-              {priceAutoCalc && (
-                <span className="ml-1.5 text-[9px] font-bold normal-case tracking-normal text-(--accent-mint) opacity-80">
-                  auto
-                </span>
-              )}
+              {priceAutoCalc && <span className="item-form__auto-badge">auto</span>}
             </label>
             <InventoryInput
               type="text"
               aria-label="Price Charged"
               inputMode="numeric"
               hasError={showValidation && !!fieldErrors.retail_price}
-              className="bg-(--accent-mint-soft) font-bold text-(--accent-mint)"
+              className="item-form__price-input"
               value={formState.retail_price}
               onChange={(e) => {
                 updateCurrencyField('retail_price', e.target.value)
@@ -685,7 +679,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               aria-label="In Stock"
               inputMode="numeric"
               hasError={showValidation && !!fieldErrors.in_stock}
-              className="font-bold text-(--accent-blue)"
+              className="item-form__stock-input"
               value={formState.in_stock}
               onChange={(e) => setFormState((c) => ({ ...c, in_stock: e.target.value }))}
               placeholder="0"
@@ -725,25 +719,26 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               type="text"
               aria-label="Final Price with Tax"
               readOnly
-              className="bg-(--bg-surface-soft) font-bold text-(--text-muted) cursor-default"
+              className="item-form__readonly-input"
               value={finalPriceWithTax != null ? formatCurrency(finalPriceWithTax) : '—'}
             />
           </div>
 
           {/* Profit Margin */}
-          <div className="col-span-2">
+          <div className="item-form__field-span-2">
             <label className={labelCls}>Profit Margin</label>
             <div
               aria-label="Profit Margin"
-              className={`h-9 bg-(--bg-input) rounded-(--radius) px-2.5 flex items-center text-[14px] font-black border border-(--border-default) ${
+              className={cn(
+                'item-form__margin-display',
                 profitMargin == null
-                  ? 'text-(--text-muted)'
+                  ? 'item-form__margin-display--none'
                   : profitMargin > 20
-                    ? 'text-(--semantic-success-text)'
+                    ? 'item-form__margin-display--high'
                     : profitMargin >= 10
-                      ? 'text-(--semantic-warning-text)'
-                      : 'text-(--semantic-danger-text)'
-              }`}
+                      ? 'item-form__margin-display--mid'
+                      : 'item-form__margin-display--low'
+              )}
             >
               {profitMargin != null ? `${profitMargin.toFixed(1)}%` : '—'}
             </div>
@@ -752,12 +747,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       </section>
 
       {/* ── Inner Tabs ── */}
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="flex-1 min-h-0 flex flex-col overflow-hidden border-t border-(--border-default)"
-      >
-        <TabsList className="gap-0 bg-(--bg-surface) border-b border-(--border-default) rounded-none p-0 h-auto justify-start w-full shrink-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="item-form__tabs">
+        <TabsList className="item-form__tab-list">
           <TabsTrigger value="case-settings" disabled={isFormEmpty} className={tabTriggerCls}>
             Case &amp; Quantity
           </TabsTrigger>
@@ -772,10 +763,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           </TabsTrigger>
         </TabsList>
 
-        <div className="flex-1 min-h-0 overflow-auto">
+        <div className="item-form__tab-scroll">
           {/* Case & Quantity */}
-          <TabsContent value="case-settings" className="p-3 grid gap-2 content-start">
-            <div className="grid grid-cols-3 gap-3">
+          <TabsContent value="case-settings" className="item-form__tab-panel">
+            <div className="item-form__case-grid">
               <FormField label="Bottles Per Case">
                 <ValidatedInput
                   fieldType="integer"
@@ -788,10 +779,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                 />
               </FormField>
               <FormField label="Case Discount">
-                <div className="flex items-stretch">
+                <div className="item-form__case-mode-row">
                   {formState.case_discount_mode === 'percent' ? (
                     <Input
-                      className="flex-1 min-w-0 rounded-r-none! border-r-0!"
+                      className="item-form__case-mode-input"
                       aria-label="Case Discount Percent"
                       inputMode="decimal"
                       value={formState.case_discount_price}
@@ -803,7 +794,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                     />
                   ) : (
                     <Input
-                      className="flex-1 min-w-0 rounded-r-none! border-r-0!"
+                      className="item-form__case-mode-input"
                       aria-label="Case Discount Price"
                       inputMode="numeric"
                       value={formState.case_discount_price}
@@ -837,7 +828,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               </FormField>
               <FormField label="Vendor">
                 <select
-                  className="flex w-full rounded-(--radius) border border-(--border-default) bg-(--bg-input) px-2.5 py-2 text-(--text-primary) outline-none focus:border-(--accent-blue) focus:ring-1 focus:ring-(--accent-blue)"
+                  className="item-form__vendor-select"
                   aria-label="Vendor"
                   value={formState.vendor_number}
                   onChange={(event) =>
@@ -853,7 +844,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                 </select>
               </FormField>
             </div>
-            <p className="m-0 text-[0.82rem] text-(--text-muted) italic">
+            <p className="item-form__case-hint">
               Set the number of bottles in a case to enable case-level inventory and pricing.
               {formState.case_discount_mode === 'percent'
                 ? ' Enter the discount percentage off the full case price.'
@@ -862,8 +853,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           </TabsContent>
 
           {/* Additional SKUs */}
-          <TabsContent value="additional-skus" className="p-3 grid gap-2 content-start">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+          <TabsContent value="additional-skus" className="item-form__tab-panel">
+            <div className="item-form__add-sku-row">
               <Input
                 aria-label="Additional SKU Input"
                 placeholder="Enter additional SKU..."
@@ -875,12 +866,9 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               </Button>
             </div>
             {formState.additional_skus.length > 0 && (
-              <ul className="m-0 p-0 list-none grid gap-1">
+              <ul className="item-form__sku-list">
                 {formState.additional_skus.map((sku) => (
-                  <li
-                    key={sku}
-                    className="flex justify-between items-center gap-1.5 py-1 border-b border-(--border-soft) text-(--text-primary) font-semibold text-[0.92rem]"
-                  >
+                  <li key={sku} className="item-form__sku-item">
                     <span>{sku}</span>
                     <Button size="sm" variant="neutral" onClick={() => removeAdditionalSku(sku)}>
                       Remove
@@ -892,8 +880,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           </TabsContent>
 
           {/* Special Pricing */}
-          <TabsContent value="special-pricing" className="p-3 grid gap-2 content-start">
-            <div className="flex items-center justify-between gap-3">
+          <TabsContent value="special-pricing" className="item-form__tab-panel">
+            <div className="item-form__sp-header">
               <Label>
                 Set quantity-based pricing deals (e.g. 2 bottles for $19.99 for 20 days)
               </Label>
@@ -902,29 +890,23 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               </Button>
             </div>
             {formState.special_pricing.length === 0 ? (
-              <p className="m-0 text-(--text-muted) italic">
+              <p className="item-form__sp-empty">
                 No special pricing rules. Click &quot;Add Rule&quot; to create one.
               </p>
             ) : (
-              <table className="w-full border-collapse" aria-label="Special Pricing Rules">
+              <table className="item-form__sp-table" aria-label="Special Pricing Rules">
                 <thead>
                   <tr>
-                    <th className="text-left text-[0.85rem] font-bold text-(--text-primary) px-2 py-1.5 border-b border-(--border-soft)">
-                      Quantity
-                    </th>
-                    <th className="text-left text-[0.85rem] font-bold text-(--text-primary) px-2 py-1.5 border-b border-(--border-soft)">
-                      Price
-                    </th>
-                    <th className="text-left text-[0.85rem] font-bold text-(--text-primary) px-2 py-1.5 border-b border-(--border-soft)">
-                      Duration (days)
-                    </th>
-                    <th className="px-2 py-1.5 border-b border-(--border-soft)"></th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Duration (days)</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {formState.special_pricing.map((row, index) => (
                     <tr key={index}>
-                      <td className="px-2 py-1.5">
+                      <td>
                         <Input
                           aria-label={`Rule ${index + 1} Quantity`}
                           inputMode="numeric"
@@ -935,7 +917,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                           }
                         />
                       </td>
-                      <td className="px-2 py-1.5">
+                      <td>
                         <Input
                           aria-label={`Rule ${index + 1} Price`}
                           inputMode="numeric"
@@ -944,7 +926,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                           onChange={(e) => updateSpecialPricingRow(index, 'price', e.target.value)}
                         />
                       </td>
-                      <td className="px-2 py-1.5">
+                      <td>
                         <Input
                           aria-label={`Rule ${index + 1} Duration`}
                           inputMode="numeric"
@@ -955,7 +937,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                           }
                         />
                       </td>
-                      <td className="px-2 py-1.5">
+                      <td>
                         <Button
                           size="sm"
                           variant="neutral"
@@ -972,31 +954,19 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           </TabsContent>
 
           {/* Sales History */}
-          <TabsContent value="sales-history" className="p-3 grid gap-2 content-start">
+          <TabsContent value="sales-history" className="item-form__tab-panel">
             {!selectedItem || selectedItem.sales_history.length === 0 ? (
-              <p className="m-0 text-(--text-muted) italic">No sales history found</p>
+              <p className="item-form__sh-empty">No sales history found</p>
             ) : (
-              <table className="w-full border-collapse text-[0.85rem] text-(--text-primary)">
+              <table className="item-form__sh-table">
                 <thead>
                   <tr>
-                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
-                      Date
-                    </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
-                      Txn #
-                    </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
-                      Qty
-                    </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
-                      Price
-                    </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
-                      Total
-                    </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-(--text-muted) text-[0.8rem] uppercase tracking-wide border-b border-(--border-default)">
-                      Payment
-                    </th>
+                    <th>Date</th>
+                    <th>Txn #</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                    <th>Payment</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1006,20 +976,14 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                     return (
                       <tr
                         key={`${h.transaction_id}-${h.created_at}`}
-                        style={
-                          isRefund
-                            ? { background: 'rgba(127, 29, 29, 0.15)' }
-                            : undefined
-                        }
+                        style={isRefund ? { background: 'rgba(127, 29, 29, 0.15)' } : undefined}
                       >
-                        <td className="px-2 py-1.5 border-b border-(--border-default)">
-                          {new Date(h.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-2 py-1.5 border-b border-(--border-default) font-mono text-[0.8rem]">
+                        <td>{new Date(h.created_at).toLocaleDateString()}</td>
+                        <td className="item-form__sh-td--mono">
                           {h.transaction_number ? (
                             <button
                               type="button"
-                              className="appearance-none border-none bg-transparent p-0 font-mono text-[0.8rem] text-(--accent-blue) underline cursor-pointer"
+                              className="item-form__sh-txn-link"
                               onClick={() => onRecallTransaction?.(h.transaction_number)}
                               data-testid="txn-link"
                             >
@@ -1030,38 +994,35 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                           )}
                         </td>
                         <td
-                          className="px-2 py-1.5 border-b border-(--border-default) font-bold"
+                          className="item-form__sh-td--bold"
                           style={isRefund ? { color: refundColor } : undefined}
                         >
                           {isRefund ? `-${h.quantity}` : h.quantity}
                         </td>
-                        <td
-                          className="px-2 py-1.5 border-b border-(--border-default)"
-                          style={isRefund ? { color: refundColor } : undefined}
-                        >
+                        <td style={isRefund ? { color: refundColor } : undefined}>
                           {isRefund
                             ? `(${formatCurrency(h.unit_price)})`
                             : formatCurrency(h.unit_price)}
                         </td>
                         <td
-                          className="px-2 py-1.5 border-b border-(--border-default) font-bold"
+                          className="item-form__sh-td--bold"
                           style={isRefund ? { color: refundColor } : undefined}
                         >
                           {isRefund
                             ? `(${formatCurrency(h.total_price)})`
                             : formatCurrency(h.total_price)}
                         </td>
-                        <td className="px-2 py-1.5 border-b border-(--border-default)">
+                        <td>
                           {h.payment_method ?? '—'}
                           {h.card_type && h.card_last_four && (
-                            <span className="text-(--text-muted) text-[0.8rem]">
+                            <span className="item-form__sh-card-info">
                               {' '}
                               ({h.card_type} ****{h.card_last_four})
                             </span>
                           )}
                           {isRefund && (
                             <span
-                              className="ml-2 inline-block px-1.5 py-0.5 text-[0.7rem] font-bold rounded"
+                              className="item-form__sh-refund-badge"
                               style={{
                                 background: 'rgba(127, 29, 29, 0.4)',
                                 color: '#fca5a5'
@@ -1083,17 +1044,9 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
 
       {/* Status messages */}
       {(saveMessage || errorMessage) && (
-        <div className="shrink-0 px-4 py-2 bg-(--bg-panel) border-t border-(--border-default) grid gap-0.5">
-          {saveMessage && (
-            <p className="m-0 text-[0.9rem] font-semibold text-(--semantic-success-text)">
-              {saveMessage}
-            </p>
-          )}
-          {errorMessage && (
-            <p className="m-0 text-[0.9rem] font-semibold text-(--semantic-danger-text)">
-              {errorMessage}
-            </p>
-          )}
+        <div className="item-form__status">
+          {saveMessage && <p className="item-form__status-success">{saveMessage}</p>}
+          {errorMessage && <p className="item-form__status-error">{errorMessage}</p>}
         </div>
       )}
 

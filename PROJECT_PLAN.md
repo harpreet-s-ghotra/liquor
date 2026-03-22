@@ -39,7 +39,7 @@ Build a fast, reliable, and simple Point of Sale system specifically designed fo
 - **React 18+** - Component-based UI library
 - **TypeScript** - Type-safe development
 - **Vite** - Lightning-fast build tool and dev server
-- **Tailwind CSS** - Utility-first CSS framework for rapid, consistent styling
+- **BEM CSS** - Component-scoped CSS with BEM naming and concentric property ordering
 
 ### State Management
 
@@ -351,7 +351,7 @@ Before starting development, install the following:
    ```
 
 4. **Visual Studio Code** (recommended IDE)
-   - Extensions: ESLint, Prettier, Tailwind CSS IntelliSense
+   - Extensions: ESLint, Prettier, Stylelint
 
 ### For Windows builds (can install later)
 
@@ -557,7 +557,7 @@ The sandbox/live distinction is determined by **which API key** you use (sandbox
 - [React Documentation](https://react.dev)
 - [Vite Documentation](https://vitejs.dev)
 - [Zustand Documentation](https://docs.pmnd.rs/zustand)
-- [Tailwind CSS Documentation](https://tailwindcss.com)
+- [Stylelint Documentation](https://stylelint.io)
 - [better-sqlite3 Documentation](https://github.com/WiseLibs/better-sqlite3)
 - [Stax API Documentation](https://docs.staxpayments.com/)
 - [Stax Connect Overview](https://docs.staxpayments.com/docs/stax-connect-overview)

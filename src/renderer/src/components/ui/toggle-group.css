@@ -1,0 +1,33 @@
+/* ── Toggle Group ── */
+
+.toggle-group {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.toggle-group__item {
+  min-width: 2rem;
+  border: 1px solid var(--border-default);
+  border-left-width: 0;
+  background: var(--bg-surface-soft);
+  padding: 0.375rem 0.625rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  cursor: pointer;
+}
+
+.toggle-group__item:first-child {
+  border-left-width: 1px;
+}
+
+.toggle-group__item:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.toggle-group__item[data-state='on'] {
+  border-color: var(--btn-bg);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+}

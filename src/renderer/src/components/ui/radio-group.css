@@ -1,0 +1,36 @@
+/* ── Radio Group ── */
+
+.radio-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.radio-group__item {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  background: var(--bg-surface);
+  color: var(--btn-bg);
+  cursor: pointer;
+}
+
+.radio-group__item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.radio-group__indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radio-group__dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: currentColor;
+}

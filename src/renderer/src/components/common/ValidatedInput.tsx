@@ -1,6 +1,5 @@
 import type { InputHTMLAttributes } from 'react'
 import { Input } from '@renderer/components/ui/input'
-import { cn } from '@renderer/lib/utils'
 import { fieldConfigs, type FieldType } from './validation'
 
 export type { FieldType } from './validation'
@@ -39,7 +38,7 @@ export function ValidatedInput({
 
   return (
     <Input
-      className={cn(className)}
+      className={className}
       value={value}
       onChange={handleChange}
       inputMode={inputMode ?? config.inputMode}

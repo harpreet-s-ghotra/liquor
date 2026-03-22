@@ -1,0 +1,7 @@
+{
+  "extends": ["stylelint-config-concentric-order"],
+  "rules": {
+    "declaration-block-no-duplicate-properties": true,
+    "no-descending-specificity": null
+  }
+}

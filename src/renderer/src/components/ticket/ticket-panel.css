@@ -1,0 +1,334 @@
+/* ── Ticket Panel (root) ── */
+.ticket-panel {
+  position: relative;
+  display: grid;
+  gap: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--ledger-border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  padding: 0.375rem;
+}
+
+.ticket-panel--viewing {
+  border-color: var(--semantic-warning-text);
+}
+
+/* ── Recall banner ── */
+.ticket-panel__recall-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.ticket-panel__recall-dismiss {
+  border: none;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.15);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ── Search & Qty controls ── */
+.ticket-panel__search-row {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1fr 5.5rem 5.5rem;
+}
+
+.ticket-panel__search-input {
+  font-size: 1.125rem;
+}
+
+.ticket-panel__search-btn {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* ── Table ── */
+.ticket-panel__table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--ledger-border);
+  border-radius: var(--radius);
+  background: var(--ledger-bg);
+  grid-template-rows: 2.5rem 1fr;
+}
+
+.ticket-panel__table-header {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  align-items: center;
+  background: var(--ledger-header-bg);
+  padding: 0 1.5rem;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--ledger-header-text);
+}
+
+.ticket-panel__table-header-cell {
+  /* base — inherits grid column from markup */
+}
+
+.ticket-panel__table-header-cell--right {
+  text-align: right;
+}
+
+.ticket-panel__lines {
+  overflow: auto;
+}
+
+.ticket-panel__empty {
+  padding: 1rem;
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+
+/* ── Line item ── */
+.ticket-panel__line {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  align-items: center;
+  width: 100%;
+  min-height: 4.5rem;
+  border: none;
+  border-bottom: 1px solid var(--ledger-border);
+  background: var(--ledger-bg);
+  padding: 1rem 1.5rem;
+  font: inherit;
+  text-align: left;
+  color: var(--ledger-line-text);
+  cursor: pointer;
+}
+
+.ticket-panel__line--border-left {
+  border-left: 4px solid transparent;
+}
+
+.ticket-panel__line-num {
+  grid-column: span 1;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ledger-line-muted);
+}
+
+.ticket-panel__line-desc {
+  display: grid;
+  grid-column: span 6;
+  gap: 0;
+}
+
+.ticket-panel__line-name {
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ticket-panel__line-sku {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.7;
+  color: var(--ledger-line-muted);
+}
+
+/* ── Badges (promo / discount / return) ── */
+.ticket-panel__badge-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ticket-panel__promo-badge {
+  border-radius: var(--radius);
+  background: var(--accent-mint);
+  padding: 1px 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--btn-success-text);
+}
+
+.ticket-panel__discount-badge {
+  border-radius: var(--radius);
+  background: var(--accent-peach);
+  padding: 1px 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.ticket-panel__return-badge {
+  border-radius: var(--radius);
+  background: var(--semantic-danger-text);
+  padding: 1px 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+/* ── Qty / Price columns ── */
+.ticket-panel__line-qty {
+  grid-column: span 2;
+  font-size: 1.125rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.ticket-panel__line-price {
+  grid-column: span 3;
+  font-size: 1.125rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+/* ── Transaction discount sticky line ── */
+.ticket-panel__tx-discount-line {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  align-items: center;
+  width: 100%;
+  min-height: 4.5rem;
+  border: none;
+  border-top: 2px solid var(--border-strong);
+  background: var(--accent-lavender-soft);
+  padding: 1rem 1.5rem;
+  font: inherit;
+  text-align: left;
+  color: var(--ledger-line-text);
+  cursor: pointer;
+}
+
+/* ── Action buttons row ── */
+.ticket-panel__actions {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+}
+
+.ticket-panel__action-btn {
+  min-height: 4.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* ── Edit overlay / dialog ── */
+.ticket-panel__edit-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg-shell) 55%, transparent);
+}
+
+.ticket-panel__edit-dialog {
+  display: grid;
+  width: min(34rem, calc(100% - 2rem));
+  gap: 1rem;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  padding: 1rem;
+  box-shadow: var(--shadow-lg);
+}
+
+.ticket-panel__edit-title {
+  margin: 0;
+  border-radius: var(--radius);
+  background: var(--bg-shell);
+  padding: 0.75rem 1rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-on-dark);
+}
+
+.ticket-panel__edit-info {
+  margin: 0;
+  border-radius: var(--radius);
+  background: var(--bg-surface-soft);
+  padding: 0.625rem 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ticket-panel__edit-restore-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ticket-panel__edit-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.ticket-panel__edit-radio-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.ticket-panel__edit-radio-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ticket-panel__edit-radio-label {
+  font-size: 1.125rem;
+  color: var(--text-primary);
+}
+
+.ticket-panel__edit-input {
+  min-height: 4rem;
+  padding: 0.75rem 1rem;
+  font-size: 1.75rem;
+}
+
+/* ── Keypad ── */
+.ticket-panel__keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.ticket-panel__keypad-btn {
+  min-height: 4.5rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.ticket-panel__keypad-btn--wide {
+  grid-column: span 3;
+}
+
+.ticket-panel__edit-footer {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.ticket-panel__edit-footer-btn {
+  min-height: 4.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}

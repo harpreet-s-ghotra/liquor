@@ -4,6 +4,7 @@ import { FormField } from '@renderer/components/common/FormField'
 import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
 import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { useCrudPanel } from '@renderer/hooks/useCrudPanel'
+import { cn } from '@renderer/lib/utils'
 import type { TaxCode } from '@renderer/types/pos'
 import '../crud-panel.css'
 
@@ -180,9 +181,9 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
   const editCodeError = showEditValidation && !editCode.trim() ? 'Code is required' : undefined
 
   return (
-    <div className="grid grid-rows-[auto_1fr_auto] gap-2 h-full min-h-0 p-3" aria-label="Tax Codes">
+    <div className="crud-panel__root" aria-label="Tax Codes">
       {/* Section 1: New entry form */}
-      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+      <div className="crud-panel__new-form--tc">
         <FormField label="Code" required error={codeError} showError={crud.showValidation}>
           <ValidatedInput
             fieldType="name"
@@ -207,7 +208,7 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
         <AppButton
           size="md"
           variant="success"
-          className="self-end min-w-[6rem]"
+          className="crud-panel__add-btn"
           onClick={() => void handleCreate()}
         >
           Add
@@ -215,9 +216,9 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
       </div>
 
       {/* Section 2: Scrollable tax code list */}
-      <div className="min-h-0 overflow-auto rounded-(--radius) border border-(--border-default)">
+      <div className="crud-panel__list-wrap">
         {filteredTaxCodes.length === 0 ? (
-          <p className="p-4 text-center text-(--text-muted) italic text-sm">
+          <p className="crud-panel__empty-text">
             {crud.items.length === 0
               ? 'No tax codes yet. Add one above to get started.'
               : 'No tax codes match your search.'}
@@ -234,10 +235,13 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
               {filteredTaxCodes.map((tc) => (
                 <tr
                   key={tc.id}
-                  className={`cursor-pointer hover:bg-(--bg-hover) ${selectedTcId === tc.id ? 'bg-(--bg-selected)' : ''}`}
+                  className={cn(
+                    'crud-panel__row',
+                    selectedTcId === tc.id && 'crud-panel__row--selected'
+                  )}
                   onClick={() => selectTaxCode(tc)}
                 >
-                  <td className="font-semibold">{tc.code}</td>
+                  <td>{tc.code}</td>
                   <td>{`${parseFloat((tc.rate * 100).toFixed(4))}%`}</td>
                 </tr>
               ))}
@@ -247,14 +251,12 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
       </div>
 
       {/* Section 3: Edit section */}
-      <div className="border border-(--border-default) rounded-(--radius) bg-(--bg-surface) p-3">
+      <div className="crud-panel__edit-section">
         {selectedTc ? (
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-(--text-primary)">
-                Editing: {selectedTc.code}
-              </span>
-              <div className="flex gap-2">
+          <div className="crud-panel__edit-grid">
+            <div className="crud-panel__edit-header">
+              <span className="crud-panel__edit-title">Editing: {selectedTc.code}</span>
+              <div className="crud-panel__edit-actions">
                 <AppButton
                   size="sm"
                   variant="success"
@@ -271,7 +273,7 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
                 </AppButton>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <div className="crud-panel__edit-fields">
               <FormField label="Code" required error={editCodeError} showError={showEditValidation}>
                 <ValidatedInput
                   fieldType="name"
@@ -296,35 +298,19 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
               </FormField>
             </div>
             {/* Status messages */}
-            <div className="min-h-[1.25rem]">
-              {crud.success && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
-                  {crud.success}
-                </p>
-              )}
-              {crud.error && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
-                  {crud.error}
-                </p>
-              )}
+            <div className="crud-panel__status-area">
+              {crud.success && <p className="crud-panel__msg--success">{crud.success}</p>}
+              {crud.error && <p className="crud-panel__msg--error">{crud.error}</p>}
             </div>
           </div>
         ) : (
-          <div className="text-center py-2">
-            <p className="text-(--text-muted) text-sm italic m-0">
+          <div className="crud-panel__edit-placeholder">
+            <p className="crud-panel__edit-placeholder-text">
               Select a tax code above to view and edit its details.
             </p>
-            <div className="min-h-[1.25rem] mt-1">
-              {crud.success && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-success-text)">
-                  {crud.success}
-                </p>
-              )}
-              {crud.error && (
-                <p className="m-0 text-sm font-semibold text-(--semantic-danger-text)">
-                  {crud.error}
-                </p>
-              )}
+            <div className="crud-panel__status-area--mt">
+              {crud.success && <p className="crud-panel__msg--success">{crud.success}</p>}
+              {crud.error && <p className="crud-panel__msg--error">{crud.error}</p>}
             </div>
           </div>
         )}

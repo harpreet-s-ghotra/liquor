@@ -132,11 +132,9 @@ describe('ActionPanel', () => {
     expect(smallBtn).toBeInTheDocument()
     expect(largeBtn).toBeInTheDocument()
 
-    // Small is active by default (uses surface-soft token for active state)
-    expect(smallBtn.className).toContain('bg-surface-soft')
-    expect(smallBtn.className).toContain('text-primary')
-    expect(largeBtn.className).toContain('bg-surface')
-    expect(largeBtn.className).toContain('text-muted')
+    // Small is active by default (uses BEM modifier for active state)
+    expect(smallBtn.className).toContain('action-panel__size-btn--active')
+    expect(largeBtn.className).not.toContain('action-panel__size-btn--active')
 
     // Product button is present and clickable
     fireEvent.click(screen.getByRole('button', { name: /Cabernet Sauvignon/i }))
@@ -144,8 +142,8 @@ describe('ActionPanel', () => {
 
     // Switch to large
     fireEvent.click(largeBtn)
-    expect(largeBtn.className).toContain('bg-surface-soft')
-    expect(smallBtn.className).toContain('bg-surface')
+    expect(largeBtn.className).toContain('action-panel__size-btn--active')
+    expect(smallBtn.className).not.toContain('action-panel__size-btn--active')
   })
 
   it('shows discount amount in totals', () => {

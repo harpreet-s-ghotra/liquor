@@ -99,68 +99,52 @@ export function ActionPanel({
   }, [menuOpen])
 
   return (
-    <aside
-      className="action-panel grid gap-2 overflow-hidden rounded-(--radius) border p-1.5"
-      style={{
-        gridTemplateRows: 'minmax(7rem, auto) auto auto minmax(12rem, 1fr) auto',
-        background: 'var(--bg-surface)',
-        borderColor: 'var(--ledger-border)'
-      }}
-    >
+    <aside className="action-panel">
       {/* ── Totals ── */}
-      <div
-        className="totals-box grid gap-1 content-center overflow-hidden rounded-(--radius) border p-3 text-(--totals-text)"
-        style={{ background: 'var(--totals-bg)', borderColor: 'var(--totals-border)' }}
-      >
-        <div className="flex items-center justify-between text-[clamp(0.9rem,1.4vw,1.125rem)] font-semibold leading-tight">
-          <span
-            className="uppercase tracking-[0.05rem] font-bold text-(--text-muted)"
-            style={{ fontSize: '0.75rem' }}
-          >
+      <div className="action-panel__totals">
+        <div className="action-panel__totals-row">
+          <span className="action-panel__totals-label">
             {showAsRefund ? 'Refund Sub-Total' : 'Sub-Total'}
           </span>
           <strong
-            style={showAsRefund ? { color: 'var(--semantic-danger-text)' } : undefined}
-            className={showAsRefund ? '' : 'text-(--text-primary)'}
+            className={cn(
+              'action-panel__totals-value',
+              showAsRefund && 'action-panel__totals-value--refund'
+            )}
           >
             {showAsRefund ? fmtRefundMoney(subtotalBeforeDiscount) : fmtMoney(subtotalBeforeDiscount)}
           </strong>
         </div>
         {!showAsRefund && (
-          <div className="totals-discount flex items-center justify-between text-[clamp(0.9rem,1.4vw,1.125rem)] font-semibold leading-tight text-(--accent-peach)">
-            <span
-              className="uppercase tracking-[0.05rem] font-bold"
-              style={{ fontSize: '0.75rem' }}
-            >
+          <div className="action-panel__totals-row action-panel__totals-row--discount">
+            <span className="action-panel__totals-label action-panel__totals-label--discount">
               Discount
             </span>
             <strong>-${discountAmount.toFixed(2)}</strong>
           </div>
         )}
-        <div className="flex items-center justify-between text-[clamp(0.9rem,1.4vw,1.125rem)] font-semibold leading-tight">
-          <span
-            className="uppercase tracking-[0.05rem] font-bold text-(--text-muted)"
-            style={{ fontSize: '0.75rem' }}
-          >
+        <div className="action-panel__totals-row">
+          <span className="action-panel__totals-label">
             {showAsRefund ? 'Refund Tax' : 'Tax'}
           </span>
           <strong
-            style={showAsRefund ? { color: 'var(--semantic-danger-text)' } : undefined}
-            className={showAsRefund ? '' : 'text-(--text-primary)'}
+            className={cn(
+              'action-panel__totals-value',
+              showAsRefund && 'action-panel__totals-value--refund'
+            )}
           >
             {showAsRefund ? fmtRefundMoney(tax) : fmtMoney(tax)}
           </strong>
         </div>
-        <div
-          className="grand-total flex items-baseline justify-between pt-1 border-t"
-          style={{ borderColor: 'var(--totals-border)' }}
-        >
-          <span className="uppercase tracking-[-0.05rem] text-(--text-label) text-[clamp(1.2rem,2.5vw,1.875rem)] font-black">
+        <div className="action-panel__grand-total">
+          <span className="action-panel__grand-total-label">
             {showAsRefund ? 'Refund' : 'Total'}
           </span>
           <strong
-            className="text-[clamp(2rem,4vw,3rem)] leading-none"
-            style={showAsRefund ? { color: 'var(--semantic-danger-text)' } : undefined}
+            className={cn(
+              'action-panel__grand-total-value',
+              showAsRefund && 'action-panel__grand-total-value--refund'
+            )}
           >
             {showAsRefund ? fmtRefundMoney(total) : fmtMoney(total)}
           </strong>
@@ -168,16 +152,10 @@ export function ActionPanel({
       </div>
 
       {/* ── Hold / TS Lookup row ── */}
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="action-panel__hold-row">
         <button
           type="button"
-          className="flex p-4 flex-col items-center justify-center gap-1 rounded-(--radius) min-h-14 text-[0.9375rem] font-black cursor-pointer uppercase tracking-wider border disabled:opacity-55 disabled:cursor-not-allowed"
-          style={{
-            background: '#FBBF24',
-            borderColor: '#F59E0B',
-            color: '#000000',
-            fontFamily: 'var(--font-display)'
-          }}
+          className="action-panel__hold-btn"
           disabled={cartCount === 0 || !!isViewingTransaction}
           onClick={onHold}
           data-testid="hold-btn"
@@ -189,13 +167,7 @@ export function ActionPanel({
         </button>
         <button
           type="button"
-          className="relative p-4 flex flex-col items-center justify-center gap-1 rounded-(--radius) min-h-14 text-[0.9375rem] font-black cursor-pointer uppercase tracking-wider border"
-          style={{
-            background: 'var(--bg-surface-soft)',
-            borderColor: 'var(--border-default)',
-            color: '#E5E9EB',
-            fontFamily: 'var(--font-display)'
-          }}
+          className="action-panel__lookup-btn"
           onClick={onTsLookup}
           data-testid="ts-lookup-btn"
         >
@@ -204,37 +176,35 @@ export function ActionPanel({
           </svg>
           TS Lookup
           {heldCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 min-w-5 h-5 rounded-full bg-(--accent-peach) text-[0.625rem] font-black text-white flex items-center justify-center px-1">
-              {heldCount}
-            </span>
+            <span className="action-panel__lookup-badge">{heldCount}</span>
           )}
         </button>
       </div>
 
       {/* ── Category dropdown + Size toggle row ── */}
-      <div className="flex items-center gap-1.5">
-        <div className="relative flex-1 min-w-0" ref={menuRef}>
+      <div className="action-panel__category-row">
+        <div className="action-panel__category-wrapper" ref={menuRef}>
           <button
             type="button"
-            className="category-dropdown-trigger flex items-center gap-2 w-full min-h-11 px-3 py-1.5 rounded-(--radius) border border-(--border-default) bg-(--bg-surface-soft) text-base font-bold text-(--text-primary) cursor-pointer shadow-(--shadow-xs)"
+            className="action-panel__category-trigger"
             onClick={() => setMenuOpen((o) => !o)}
             aria-haspopup="listbox"
             aria-expanded={menuOpen}
           >
-            <span className="text-lg leading-none" aria-hidden="true">
+            <span className="action-panel__category-trigger-icon" aria-hidden="true">
               ☰
             </span>
-            <span className="flex-1 text-left overflow-hidden text-ellipsis whitespace-nowrap">
+            <span className="action-panel__category-trigger-label">
               {activeCategory}
             </span>
-            <span className="text-xs opacity-60" aria-hidden="true">
+            <span className="action-panel__category-trigger-arrow" aria-hidden="true">
               ▾
             </span>
           </button>
 
           {menuOpen && (
             <ul
-              className="absolute top-full left-0 right-0 z-20 mt-1 p-1 list-none rounded-(--radius) border border-(--border-strong) bg-(--bg-surface) shadow-md max-h-64 overflow-auto"
+              className="action-panel__category-menu"
               role="listbox"
               aria-label="Categories"
             >
@@ -244,9 +214,9 @@ export function ActionPanel({
                   role="option"
                   aria-selected={activeCategory === category}
                   className={cn(
-                    'category-dropdown-item flex items-center gap-2 px-3 py-2  text-[0.95rem] font-semibold cursor-pointer',
+                    'action-panel__category-item',
                     categoryToneMap.get(category) ?? 'category-tone-all',
-                    activeCategory === category && 'shadow-[inset_0_0_0_1px_rgba(255,255,255,0.15)]'
+                    activeCategory === category && 'action-panel__category-item--active'
                   )}
                   onClick={() => handleCategorySelect(category)}
                   onKeyDown={(e) => {
@@ -254,7 +224,7 @@ export function ActionPanel({
                   }}
                   tabIndex={0}
                 >
-                  <span className="w-4.5 text-center font-extrabold text-sm">
+                  <span className="action-panel__category-check">
                     {activeCategory === category ? '✓' : ''}
                   </span>
                   {category}
@@ -264,14 +234,12 @@ export function ActionPanel({
           )}
         </div>
 
-        <div className="flex gap-0.5 rounded-(--radius) overflow-hidden">
+        <div className="action-panel__size-toggle">
           <button
             type="button"
             className={cn(
-              'grid place-items-center w-10 h-11 border-none cursor-pointer',
-              itemSize === 'small'
-                ? 'bg-(--bg-surface-soft) text-(--text-primary) shadow-(--shadow-xs) ring-1 ring-(--border-default)'
-                : 'bg-(--bg-surface) text-(--text-muted)'
+              'action-panel__size-btn',
+              itemSize === 'small' && 'action-panel__size-btn--active'
             )}
             onClick={() => setItemSize('small')}
             aria-label="Small items"
@@ -292,10 +260,8 @@ export function ActionPanel({
           <button
             type="button"
             className={cn(
-              'grid place-items-center w-10 h-11 border-none cursor-pointer',
-              itemSize === 'large'
-                ? 'bg-(--bg-surface-soft) text-(--text-primary) shadow-(--shadow-xs) ring-1 ring-(--border-default)'
-                : 'bg-(--bg-surface) text-(--text-muted)'
+              'action-panel__size-btn',
+              itemSize === 'large' && 'action-panel__size-btn--active'
             )}
             onClick={() => setItemSize('large')}
             aria-label="Large items"
@@ -314,10 +280,10 @@ export function ActionPanel({
       {/* ── Product grid ── */}
       <div
         className={cn(
-          'grid content-start gap-2 min-h-48 overflow-auto',
+          'action-panel__product-grid',
           itemSize === 'small'
-            ? 'grid-cols-3 gap-1.5 [@media(min-width:1400px)]:grid-cols-4'
-            : 'grid-cols-2'
+            ? 'action-panel__product-grid--small'
+            : 'action-panel__product-grid--large'
         )}
       >
         {filteredProducts.map((product) => (
@@ -325,10 +291,10 @@ export function ActionPanel({
             key={product.id}
             type="button"
             className={cn(
-              'product-pad-btn grid rounded-(--radius) border-none text-left bg-(--btn-bg) cursor-pointer shadow-(--shadow-xs)',
+              'action-panel__product-tile',
               itemSize === 'small'
-                ? 'min-h-14 p-1.5 text-[0.8125rem]'
-                : 'min-h-19 p-2 text-[0.9375rem]',
+                ? 'action-panel__product-tile--small'
+                : 'action-panel__product-tile--large',
               categoryToneMap.get(product.category) ?? 'category-tone-all'
             )}
             disabled={!!isViewingTransaction}
@@ -337,8 +303,10 @@ export function ActionPanel({
             <span>{product.name}</span>
             <strong
               className={cn(
-                'justify-self-end',
-                itemSize === 'small' ? 'text-base' : 'text-[1.375rem]'
+                'action-panel__product-price',
+                itemSize === 'small'
+                  ? 'action-panel__product-price--small'
+                  : 'action-panel__product-price--large'
               )}
             >
               ${product.price.toFixed(2)}
@@ -348,18 +316,14 @@ export function ActionPanel({
       </div>
 
       {/* ── Payment row ── */}
-      <div
-        className="grid grid-cols-3 gap-1.5 mt-1.5 pt-2.5 border-t-2"
-        style={{ borderColor: 'var(--ledger-border)' }}
-      >
+      <div className="action-panel__payment-row">
         <button
           type="button"
-          className="rounded-(--radius) min-h-16 text-[1.125rem] font-black cursor-pointer uppercase tracking-wider border disabled:opacity-55 disabled:cursor-not-allowed"
+          className="action-panel__pay-btn"
           style={{
             background: 'var(--pay-cash-bg)',
             borderColor: 'var(--pay-cash-border)',
-            color: 'var(--pay-cash-text)',
-            fontFamily: 'var(--font-display)'
+            color: 'var(--pay-cash-text)'
           }}
           disabled={cartCount === 0 || (!!isViewingTransaction && !isReturning)}
           onClick={onCash}
@@ -368,12 +332,11 @@ export function ActionPanel({
         </button>
         <button
           type="button"
-          className="rounded-(--radius) min-h-19 text-[1.125rem] font-black cursor-pointer uppercase tracking-wider border disabled:opacity-55 disabled:cursor-not-allowed"
+          className="action-panel__pay-btn"
           style={{
             background: 'var(--pay-credit-bg)',
             borderColor: 'var(--pay-credit-border)',
-            color: 'var(--pay-credit-text)',
-            fontFamily: 'var(--font-display)'
+            color: 'var(--pay-credit-text)'
           }}
           disabled={cartCount === 0 || (!!isViewingTransaction && !isReturning)}
           onClick={onCredit}
@@ -382,12 +345,11 @@ export function ActionPanel({
         </button>
         <button
           type="button"
-          className="rounded-(--radius) min-h-19 text-[1.125rem] font-black cursor-pointer uppercase tracking-wider border disabled:opacity-55 disabled:cursor-not-allowed"
+          className="action-panel__pay-btn"
           style={{
             background: 'var(--pay-debit-bg)',
             borderColor: 'var(--pay-debit-border)',
-            color: 'var(--pay-debit-text)',
-            fontFamily: 'var(--font-display)'
+            color: 'var(--pay-debit-text)'
           }}
           disabled={cartCount === 0 || (!!isViewingTransaction && !isReturning)}
           onClick={onDebit}
@@ -396,13 +358,7 @@ export function ActionPanel({
         </button>
         <button
           type="button"
-          className="col-span-3 w-full rounded-(--radius) min-h-19 text-[2.25rem] font-black cursor-pointer uppercase tracking-wider border shadow-md disabled:opacity-55 disabled:cursor-not-allowed"
-          style={{
-            background: 'var(--btn-success-bg)',
-            borderColor: 'var(--btn-success-border)',
-            color: 'var(--btn-success-text)',
-            fontFamily: 'var(--font-display)'
-          }}
+          className="action-panel__pay-btn--main"
           disabled={cartCount === 0 || (!!isViewingTransaction && !isReturning)}
           onClick={onPay}
         >

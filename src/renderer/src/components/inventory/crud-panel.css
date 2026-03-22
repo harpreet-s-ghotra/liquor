@@ -106,3 +106,166 @@
 .crud-panel__edit-input {
   width: 100%;
 }
+
+/* ── Row interactions ── */
+.crud-panel__table tr.crud-panel__row {
+  cursor: pointer;
+}
+
+.crud-panel__table tr.crud-panel__row:hover {
+  background: var(--bg-surface-soft);
+}
+
+.crud-panel__table tr.crud-panel__row--selected {
+  background: var(--accent-blue-soft);
+}
+
+/* ── Layout helpers used by all 3 panels ── */
+.crud-panel__root {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.5rem;
+  height: 100%;
+  min-height: 0;
+  padding: 0.75rem;
+}
+
+.crud-panel__new-form--dept {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.crud-panel__new-form--tc {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.crud-panel__new-form--vendor {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.crud-panel__list-wrap {
+  min-height: 0;
+  overflow: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-default);
+}
+
+.crud-panel__empty-text {
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.crud-panel__table td.crud-panel__td--muted {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.crud-panel__table td.crud-panel__td--bold {
+  font-weight: 600;
+}
+
+/* ── Edit section ── */
+.crud-panel__edit-section {
+  border-radius: var(--radius);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  padding: 0.75rem;
+}
+
+.crud-panel__edit-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.crud-panel__edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.crud-panel__edit-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.crud-panel__edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.crud-panel__edit-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 1rem;
+}
+
+.crud-panel__edit-placeholder {
+  padding: 0.5rem 0;
+  text-align: center;
+}
+
+.crud-panel__edit-placeholder-text {
+  margin: 0;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.crud-panel__status-area {
+  min-height: 1.25rem;
+}
+
+.crud-panel__status-area--mt {
+  min-height: 1.25rem;
+  margin-top: 0.25rem;
+}
+
+.crud-panel__msg--success {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--semantic-success-text);
+}
+
+.crud-panel__msg--error {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--semantic-danger-text);
+}
+
+/* ── Select element used inside CRUD panels ── */
+.crud-panel__select {
+  display: flex;
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-default);
+  background: var(--bg-input);
+  padding: 0.5rem 0.625rem;
+  font-size: 1.125rem;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.crud-panel__select:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.5);
+}
+
+.crud-panel__add-btn {
+  align-self: end;
+  min-width: 6rem;
+}

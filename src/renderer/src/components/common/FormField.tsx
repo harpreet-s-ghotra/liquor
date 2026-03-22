@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Label } from '@renderer/components/ui/label'
 import { cn } from '@renderer/lib/utils'
+import './form-field.css'
 
 type FormFieldProps = {
   label: string
@@ -22,17 +23,15 @@ export function FormField({
   const hasError = showError && !!error
 
   return (
-    <label className={cn('grid gap-[0.2rem]', hasError && 'has-error', className)}>
+    <label className={cn('form-field', hasError && 'has-error', className)}>
       <Label asChild>
         <span>
           {label}
-          {required && <span className="text-(--semantic-danger-text) font-bold"> *</span>}
+          {required && <span className="form-field__label-required"> *</span>}
         </span>
       </Label>
       {children}
-      <span className="min-h-[1.1rem] text-[0.78rem] text-(--semantic-danger-text) font-semibold">
-        {hasError ? error : ''}
-      </span>
+      <span className="form-field__error">{hasError ? error : ''}</span>
     </label>
   )
 }
