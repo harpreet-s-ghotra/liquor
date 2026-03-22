@@ -340,7 +340,12 @@ export function TicketPanel({
           inputMode="numeric"
           placeholder="Qty"
         />
-        <Button size="md" variant="outline" className="ticket-panel__search-btn" onClick={onSearchClick}>
+        <Button
+          size="md"
+          variant="outline"
+          className="ticket-panel__search-btn"
+          onClick={onSearchClick}
+        >
           Search
         </Button>
       </div>
@@ -396,6 +401,8 @@ export function TicketPanel({
                   type="button"
                   className={cn(
                     'ticket-panel__line',
+                    selectedCartId === item.id && 'active',
+                    isDiscountedLine && 'discounted',
                     (hasPromo || isDiscountedLine || isMarkedForReturn) &&
                       'ticket-panel__line--border-left'
                   )}
@@ -538,9 +545,7 @@ export function TicketPanel({
                 #
               </span>
               <span className="ticket-panel__line-desc">
-                <span className="ticket-panel__line-name">
-                  {transactionDiscountLine.name}
-                </span>
+                <span className="ticket-panel__line-name">{transactionDiscountLine.name}</span>
               </span>
               <span className="ticket-panel__line-qty">1</span>
               <span className="ticket-panel__line-price">

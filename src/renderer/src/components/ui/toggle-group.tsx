@@ -15,11 +15,7 @@ const ToggleGroupItem = React.forwardRef<
   React.ComponentRef<typeof ToggleGroupPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Item>
 >(({ className, ...props }, ref) => (
-  <ToggleGroupPrimitive.Item
-    ref={ref}
-    className={cn('toggle-group__item', className)}
-    {...props}
-  />
+  <ToggleGroupPrimitive.Item ref={ref} className={cn('toggle-group__item', className)} {...props} />
 ))
 ToggleGroupItem.displayName = ToggleGroupPrimitive.Item.displayName
 

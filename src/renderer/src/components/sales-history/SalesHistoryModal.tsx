@@ -131,10 +131,7 @@ export function SalesHistoryModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className="sales-history"
-        aria-label="Sales History"
-      >
+      <DialogContent className="sales-history" aria-label="Sales History">
         {/* Header */}
         <div className="sales-history__header">
           <h2 className="sales-history__title">Sales History</h2>
@@ -298,20 +295,12 @@ function TransactionRow({
         onClick={onExpand}
         data-testid={`sales-history-row-${txn.id}`}
       >
-        <td className="sales-history__txn-number">
-          {txn.transaction_number}
-        </td>
-        <td style={{ color: 'var(--text-primary)' }}>
-          {formatDateTime(txn.created_at)}
-        </td>
-        <td
-          style={{ color: isRefund ? 'var(--semantic-danger-text)' : 'var(--text-primary)' }}
-        >
+        <td className="sales-history__txn-number">{txn.transaction_number}</td>
+        <td style={{ color: 'var(--text-primary)' }}>{formatDateTime(txn.created_at)}</td>
+        <td style={{ color: isRefund ? 'var(--semantic-danger-text)' : 'var(--text-primary)' }}>
           {isRefund ? `-${txn.item_count}` : txn.item_count}
         </td>
-        <td
-          style={{ color: isRefund ? 'var(--semantic-danger-text)' : 'var(--text-primary)' }}
-        >
+        <td style={{ color: isRefund ? 'var(--semantic-danger-text)' : 'var(--text-primary)' }}>
           {isRefund ? `(${formatCurrency(txn.total)})` : formatCurrency(txn.total)}
         </td>
         <td style={{ color: 'var(--text-primary)' }}>
@@ -354,23 +343,27 @@ function TransactionRow({
                       const refundColor = 'var(--semantic-danger-text)'
                       return (
                         <tr key={item.id}>
-                          <td style={{ color: 'var(--text-primary)' }}>
-                            {item.product_name}
-                          </td>
+                          <td style={{ color: 'var(--text-primary)' }}>{item.product_name}</td>
                           <td
-                            style={isRefund ? { color: refundColor } : { color: 'var(--text-primary)' }}
+                            style={
+                              isRefund ? { color: refundColor } : { color: 'var(--text-primary)' }
+                            }
                           >
                             {isRefund ? `-${item.quantity}` : item.quantity}
                           </td>
                           <td
-                            style={isRefund ? { color: refundColor } : { color: 'var(--text-primary)' }}
+                            style={
+                              isRefund ? { color: refundColor } : { color: 'var(--text-primary)' }
+                            }
                           >
                             {isRefund
                               ? `(${formatCurrency(item.unit_price)})`
                               : formatCurrency(item.unit_price)}
                           </td>
                           <td
-                            style={isRefund ? { color: refundColor } : { color: 'var(--text-primary)' }}
+                            style={
+                              isRefund ? { color: refundColor } : { color: 'var(--text-primary)' }
+                            }
                           >
                             {isRefund
                               ? `(${formatCurrency(item.total_price)})`
@@ -418,11 +411,7 @@ function TransactionRow({
                 </div>
 
                 {/* Notes / linked transaction */}
-                {txn.notes && (
-                  <p className="sales-history__notes">
-                    {txn.notes}
-                  </p>
-                )}
+                {txn.notes && <p className="sales-history__notes">{txn.notes}</p>}
 
                 {/* Actions */}
                 <div className="sales-history__detail-actions">
@@ -442,9 +431,7 @@ function TransactionRow({
                 </div>
               </div>
             ) : (
-              <span className="sales-history__detail-loading">
-                Loading details...
-              </span>
+              <span className="sales-history__detail-loading">Loading details...</span>
             )}
           </td>
         </tr>

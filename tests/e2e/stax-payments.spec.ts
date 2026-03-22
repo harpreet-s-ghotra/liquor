@@ -171,7 +171,7 @@ const attachTerminalMock = async (
 }
 
 const addProductToCart = async (page: Page): Promise<void> => {
-  const firstProduct = page.locator('.product-pad-btn').first()
+  const firstProduct = page.locator('.action-panel__product-tile').first()
   await firstProduct.click()
 }
 
@@ -184,7 +184,10 @@ const loginWithPin = async (page: Page): Promise<void> => {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
 
-  await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
+  await page
+    .locator('.action-panel__product-tile')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 })
 }
 
 /** Navigate to the app and log in */

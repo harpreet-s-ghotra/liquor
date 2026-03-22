@@ -259,7 +259,10 @@ const loginWithPin = async (page: Page): Promise<void> => {
   for (const digit of ['1', '2', '3', '4']) {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
-  await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
+  await page
+    .locator('.action-panel__product-tile')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 })
 }
 
 const gotoAndLogin = async (page: Page): Promise<void> => {
@@ -383,8 +386,8 @@ test.describe('Inventory Management – Full Workflow', () => {
     await expect(dialog).not.toBeVisible()
 
     /* ── Step 7: Verify item appears on POS screen ── */
-    await page.locator('.category-dropdown-trigger').click()
-    await page.locator('.category-dropdown-item', { hasText: 'All' }).click()
+    await page.locator('.action-panel__category-trigger').click()
+    await page.locator('.action-panel__category-item', { hasText: 'All' }).click()
     await expect(page.getByText(itemName)).toBeVisible()
 
     /* ── Step 8: Search for the item ── */

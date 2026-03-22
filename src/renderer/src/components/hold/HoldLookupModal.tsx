@@ -26,18 +26,13 @@ export function HoldLookupModal({
 }: HoldLookupModalProps): React.JSX.Element {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className="hold-lookup"
-        aria-label="Transaction Hold Lookup"
-      >
+      <DialogContent className="hold-lookup" aria-label="Transaction Hold Lookup">
         {/* Header */}
         <div className="hold-lookup__header">
           <h2 className="hold-lookup__title">Transaction Hold Lookup</h2>
           {heldTransactions.length > 0 && (
             <>
-              <span className="hold-lookup__count">
-                {heldTransactions.length} on hold
-              </span>
+              <span className="hold-lookup__count">{heldTransactions.length} on hold</span>
               <button
                 type="button"
                 className="hold-lookup__clear-all"
@@ -68,18 +63,12 @@ export function HoldLookupModal({
                   className="hold-lookup__item-btn"
                   onClick={() => onRecall(held)}
                 >
-                  <span className="hold-lookup__item-number">
-                    Hold #{held.hold_number}
-                  </span>
+                  <span className="hold-lookup__item-number">Hold #{held.hold_number}</span>
                   <span className="hold-lookup__item-count">
                     {held.item_count} item{held.item_count !== 1 ? 's' : ''}
                   </span>
-                  <span className="hold-lookup__item-total">
-                    ${held.total.toFixed(2)}
-                  </span>
-                  <span className="hold-lookup__item-time">
-                    {formatTime(held.held_at)}
-                  </span>
+                  <span className="hold-lookup__item-total">${held.total.toFixed(2)}</span>
+                  <span className="hold-lookup__item-time">{formatTime(held.held_at)}</span>
                 </button>
                 <button
                   type="button"

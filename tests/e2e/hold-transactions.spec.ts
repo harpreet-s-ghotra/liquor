@@ -135,7 +135,10 @@ const loginWithPin = async (page: Page): Promise<void> => {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
 
-  await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
+  await page
+    .locator('.action-panel__product-tile')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 })
 }
 
 const gotoAndLogin = async (page: Page): Promise<void> => {
@@ -144,14 +147,14 @@ const gotoAndLogin = async (page: Page): Promise<void> => {
 }
 
 const selectAllCategory = async (page: Page): Promise<void> => {
-  await page.locator('.category-dropdown-trigger').click()
-  await page.locator('.category-dropdown-item', { hasText: 'All' }).click()
+  await page.locator('.action-panel__category-trigger').click()
+  await page.locator('.action-panel__category-item', { hasText: 'All' }).click()
 }
 
 /** Add the first product from the "All" category to the cart */
 const addProductToCart = async (page: Page): Promise<void> => {
   await selectAllCategory(page)
-  await page.locator('.product-pad-btn').first().click()
+  await page.locator('.action-panel__product-tile').first().click()
 }
 
 test.describe('Hold Transactions', () => {
@@ -185,7 +188,7 @@ test.describe('Hold Transactions', () => {
     await addProductToCart(page)
 
     // Verify item is in ticket before hold
-    await expect(page.locator('.ticket-line').first()).toBeVisible()
+    await expect(page.locator('.ticket-panel__line').first()).toBeVisible()
 
     // Click Hold
     await page.getByTestId('hold-btn').click()
@@ -246,7 +249,7 @@ test.describe('Hold Transactions', () => {
 
     // Add product B (a different product) — now in cart
     await selectAllCategory(page)
-    await page.locator('.product-pad-btn').nth(1).click()
+    await page.locator('.action-panel__product-tile').nth(1).click()
 
     // TS Lookup should show badge "1" (Hold #1 is waiting)
     await expect(page.getByTestId('ts-lookup-btn').locator('span')).toHaveText('1')
@@ -273,7 +276,7 @@ test.describe('Hold Transactions', () => {
 
     // Hold #2
     await selectAllCategory(page)
-    await page.locator('.product-pad-btn').nth(1).click()
+    await page.locator('.action-panel__product-tile').nth(1).click()
     await page.getByTestId('hold-btn').click()
 
     // Open TS Lookup — should show both
@@ -303,12 +306,12 @@ test.describe('Hold Transactions', () => {
     // Add a specific product and hold
     await selectAllCategory(page)
     const productName = await page
-      .locator('.product-pad-btn')
+      .locator('.action-panel__product-tile')
       .first()
       .locator('span')
       .first()
       .innerText()
-    await page.locator('.product-pad-btn').first().click()
+    await page.locator('.action-panel__product-tile').first().click()
     await page.getByTestId('hold-btn').click()
 
     // Recall it
@@ -316,7 +319,9 @@ test.describe('Hold Transactions', () => {
     await page.getByTestId('hold-row-1').click()
 
     // The product name should appear in the ticket
-    await expect(page.locator('.ticket-line', { hasText: productName }).first()).toBeVisible()
+    await expect(
+      page.locator('.ticket-panel__line', { hasText: productName }).first()
+    ).toBeVisible()
   })
 
   test('Hold preserves item quantity and total is restored after recall', async ({ page }) => {
@@ -328,7 +333,7 @@ test.describe('Hold Transactions', () => {
     await qtyInput.fill('3')
 
     await selectAllCategory(page)
-    await page.locator('.product-pad-btn').first().click()
+    await page.locator('.action-panel__product-tile').first().click()
 
     // Capture the total before hold
     const totalBefore = await page.locator('.grand-total strong').innerText()
@@ -353,12 +358,12 @@ test.describe('Hold Transactions', () => {
 
     // Hold product A (Hold #1)
     await selectAllCategory(page)
-    await page.locator('.product-pad-btn').first().click()
+    await page.locator('.action-panel__product-tile').first().click()
     await page.getByTestId('hold-btn').click()
 
     // Hold product B (Hold #2)
     await selectAllCategory(page)
-    await page.locator('.product-pad-btn').nth(1).click()
+    await page.locator('.action-panel__product-tile').nth(1).click()
     await page.getByTestId('hold-btn').click()
 
     // Badge should show 2
@@ -386,7 +391,7 @@ test.describe('Hold Transactions', () => {
     await page.getByTestId('hold-btn').click()
 
     await selectAllCategory(page)
-    await page.locator('.product-pad-btn').nth(1).click()
+    await page.locator('.action-panel__product-tile').nth(1).click()
     await page.getByTestId('hold-btn').click()
 
     // Badge shows 2
@@ -411,7 +416,7 @@ test.describe('Hold Transactions', () => {
     await page.getByTestId('hold-btn').click()
 
     await selectAllCategory(page)
-    await page.locator('.product-pad-btn').nth(1).click()
+    await page.locator('.action-panel__product-tile').nth(1).click()
     await page.getByTestId('hold-btn').click()
 
     // Badge shows 2

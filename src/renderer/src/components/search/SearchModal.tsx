@@ -192,9 +192,7 @@ export function SearchModal({
 
           <div className="search-modal__results-body" data-testid="search-results">
             {!hasSearched ? (
-              <div className="search-modal__result-empty">
-                Type a search term to find items.
-              </div>
+              <div className="search-modal__result-empty">Type a search term to find items.</div>
             ) : results.length === 0 ? (
               <div className="search-modal__result-empty">
                 No items found. Try a different search.
@@ -232,11 +230,7 @@ export function SearchModal({
             >
               Add to Cart
             </Button>
-            <Button
-              size="md"
-              className="search-modal__action-btn"
-              onClick={handleOpenInInventory}
-            >
+            <Button size="md" className="search-modal__action-btn" onClick={handleOpenInInventory}>
               Open in Inventory
             </Button>
           </div>

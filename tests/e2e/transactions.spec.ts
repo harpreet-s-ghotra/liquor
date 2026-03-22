@@ -222,7 +222,10 @@ const loginWithPin = async (page: Page): Promise<void> => {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
 
-  await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
+  await page
+    .locator('.action-panel__product-tile')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 })
 }
 
 /** Navigate to the app and log in */
@@ -233,8 +236,8 @@ const gotoAndLogin = async (page: Page): Promise<void> => {
 
 /** Open category dropdown and select "All" */
 const selectAllCategory = async (page: Page): Promise<void> => {
-  await page.locator('.category-dropdown-trigger').click()
-  await page.locator('.category-dropdown-item', { hasText: 'All' }).click()
+  await page.locator('.action-panel__category-trigger').click()
+  await page.locator('.action-panel__category-item', { hasText: 'All' }).click()
 }
 
 const parseAmount = async (selector: string, page: Page): Promise<number> => {
@@ -247,7 +250,7 @@ test.describe('Simple Transactions', () => {
     await attachPosApiMock(page)
     await gotoAndLogin(page)
 
-    const firstProduct = page.locator('.product-pad-btn').first()
+    const firstProduct = page.locator('.action-panel__product-tile').first()
     await firstProduct.click()
 
     await expect(page.getByRole('button', { name: 'Cash', exact: true })).toBeEnabled()
@@ -261,18 +264,18 @@ test.describe('Simple Transactions', () => {
     await gotoAndLogin(page)
     await selectAllCategory(page)
 
-    const products = page.locator('.product-pad-btn')
+    const products = page.locator('.action-panel__product-tile')
     const firstName = (await products.nth(0).locator('span').first().textContent())?.trim() ?? ''
     const secondName = (await products.nth(1).locator('span').first().textContent())?.trim() ?? ''
 
     await products.nth(0).click()
     await products.nth(1).click()
 
-    await expect(page.locator('.ticket-line.active')).toContainText(secondName)
+    await expect(page.locator('.ticket-panel__line.active')).toContainText(secondName)
 
     await page.getByRole('button', { name: 'Delete' }).click()
-    await expect(page.locator('.ticket-line')).toHaveCount(1)
-    await expect(page.locator('.ticket-line.active')).toContainText(firstName)
+    await expect(page.locator('.ticket-panel__line')).toHaveCount(1)
+    await expect(page.locator('.ticket-panel__line.active')).toContainText(firstName)
   })
 
   test('price change updates selected cart line price only', async ({ page }) => {
@@ -280,11 +283,11 @@ test.describe('Simple Transactions', () => {
     await gotoAndLogin(page)
     await selectAllCategory(page)
 
-    const products = page.locator('.product-pad-btn')
+    const products = page.locator('.action-panel__product-tile')
     await products.nth(0).click()
 
-    const firstLine = page.locator('.ticket-line').first()
-    const originalLineTotal = await firstLine.locator('.ticket-line-price').textContent()
+    const firstLine = page.locator('.ticket-panel__line').first()
+    const originalLineTotal = await firstLine.locator('.ticket-panel__line-price').textContent()
 
     await page.getByRole('button', { name: 'Price Change' }).click()
     const priceModal = page.getByTestId('edit-modal')
@@ -295,8 +298,10 @@ test.describe('Simple Transactions', () => {
     await priceModal.getByRole('button', { name: '0', exact: true }).click()
     await page.getByRole('button', { name: 'Save' }).click()
 
-    await expect(firstLine.locator('.ticket-line-price')).toHaveText('$12.50')
-    expect(await firstLine.locator('.ticket-line-price').textContent()).not.toBe(originalLineTotal)
+    await expect(firstLine.locator('.ticket-panel__line-price')).toHaveText('$12.50')
+    expect(await firstLine.locator('.ticket-panel__line-price').textContent()).not.toBe(
+      originalLineTotal
+    )
 
     await expect(products.nth(0)).toContainText('$19.99')
   })
@@ -306,13 +311,13 @@ test.describe('Simple Transactions', () => {
     await gotoAndLogin(page)
     await selectAllCategory(page)
 
-    const products = page.locator('.product-pad-btn')
+    const products = page.locator('.action-panel__product-tile')
     await products.nth(0).click()
     await products.nth(1).click()
 
     const totalBefore = await parseAmount('.grand-total strong', page)
 
-    await page.locator('.ticket-line').first().click()
+    await page.locator('.ticket-panel__line').first().click()
     await page.getByRole('button', { name: 'Discount', exact: true }).click()
     const itemDiscountModal = page.getByTestId('edit-modal')
     await expect(itemDiscountModal.getByText('Original Discount: 0.00%')).toBeVisible()
@@ -320,7 +325,7 @@ test.describe('Simple Transactions', () => {
     await itemDiscountModal.getByRole('button', { name: '0' }).click()
     await page.getByRole('button', { name: 'Save' }).click()
 
-    const discountedLine = page.locator('.ticket-line').first()
+    const discountedLine = page.locator('.ticket-panel__line').first()
     await expect(discountedLine).toHaveClass(/discounted/)
     await expect(discountedLine.getByText('DISCOUNT 10.00%')).toBeVisible()
     await expect(discountedLine.getByText(/New \$17\.99 \(was \$19\.99\)/)).toBeVisible()
@@ -339,8 +344,8 @@ test.describe('Simple Transactions', () => {
 
     const transactionDiscountLine = page.getByRole('button', { name: /5% Discount/i })
     await expect(transactionDiscountLine).toBeVisible()
-    await expect(transactionDiscountLine.locator('.ticket-line-qty')).toHaveText('1')
-    await expect(transactionDiscountLine.locator('.ticket-line-price')).toHaveText('-$1.57')
+    await expect(transactionDiscountLine.locator('.ticket-panel__line-qty')).toHaveText('1')
+    await expect(transactionDiscountLine.locator('.ticket-panel__line-price')).toHaveText('-$1.57')
 
     const totalAfterTransactionDiscount = await parseAmount('.grand-total strong', page)
     expect(totalAfterTransactionDiscount).toBeLessThan(totalAfterItemDiscount)
@@ -358,27 +363,31 @@ test.describe('Simple Transactions', () => {
 
     // Default is Favorites — COOLER-001 is not a favorite
     // Verify the cooler product is NOT visible initially
-    await expect(page.locator('.product-pad-btn', { hasText: 'Vodka Soda' })).toHaveCount(0)
+    await expect(
+      page.locator('.action-panel__product-tile', { hasText: 'Vodka Soda' })
+    ).toHaveCount(0)
 
     // Type the full SKU into the search box
     const searchInput = page.getByPlaceholder('Search item')
     await searchInput.fill('COOLER-001')
 
     // The matching product should now be visible despite the Favorites filter
-    const coolerBtn = page.locator('.product-pad-btn', { hasText: 'Vodka Soda' })
+    const coolerBtn = page.locator('.action-panel__product-tile', { hasText: 'Vodka Soda' })
     await expect(coolerBtn).toBeVisible()
 
     // Click the product to add it to the cart
     await coolerBtn.click()
 
     // Verify it appeared in the ticket
-    await expect(page.locator('.ticket-line')).toHaveCount(1)
-    await expect(page.locator('.ticket-line').first()).toContainText('Vodka Soda')
-    await expect(page.locator('.ticket-line-price').first()).toHaveText('$4.25')
+    await expect(page.locator('.ticket-panel__line')).toHaveCount(1)
+    await expect(page.locator('.ticket-panel__line').first()).toContainText('Vodka Soda')
+    await expect(page.locator('.ticket-panel__line-price').first()).toHaveText('$4.25')
 
     // Clear search and verify category filter restores
     await searchInput.fill('')
-    await expect(page.locator('.product-pad-btn', { hasText: 'Vodka Soda' })).toHaveCount(0)
+    await expect(
+      page.locator('.action-panel__product-tile', { hasText: 'Vodka Soda' })
+    ).toHaveCount(0)
   })
 
   test('partial SKU search narrows product grid results', async ({ page }) => {
@@ -389,11 +398,15 @@ test.describe('Simple Transactions', () => {
     await searchInput.fill('MIXER')
 
     // All three MIXER products should appear
-    const mixerButtons = page.locator('.product-pad-btn', { hasText: /Tonic|Club Soda|Ginger/ })
+    const mixerButtons = page.locator('.action-panel__product-tile', {
+      hasText: /Tonic|Club Soda|Ginger/
+    })
     await expect(mixerButtons).toHaveCount(3)
 
     // Non-mixer products should not appear
-    await expect(page.locator('.product-pad-btn', { hasText: 'Cabernet' })).toHaveCount(0)
+    await expect(page.locator('.action-panel__product-tile', { hasText: 'Cabernet' })).toHaveCount(
+      0
+    )
   })
 
   test('quantity change updates selected item quantity with keypad', async ({ page }) => {
@@ -401,11 +414,11 @@ test.describe('Simple Transactions', () => {
     await gotoAndLogin(page)
     await selectAllCategory(page)
 
-    const product = page.locator('.product-pad-btn').first()
+    const product = page.locator('.action-panel__product-tile').first()
     await product.click()
 
-    const firstLine = page.locator('.ticket-line').first()
-    await expect(firstLine.locator('.ticket-line-qty')).toHaveText('1')
+    const firstLine = page.locator('.ticket-panel__line').first()
+    await expect(firstLine.locator('.ticket-panel__line-qty')).toHaveText('1')
 
     await page.getByRole('button', { name: 'Qty Change' }).click()
     const qtyModal = page.getByTestId('edit-modal')
@@ -413,8 +426,8 @@ test.describe('Simple Transactions', () => {
     await qtyModal.getByRole('button', { name: '5' }).click()
     await page.getByRole('button', { name: 'Save' }).click()
 
-    await expect(firstLine.locator('.ticket-line-qty')).toHaveText('5')
-    await expect(firstLine.locator('.ticket-line-price')).toHaveText('$99.95')
+    await expect(firstLine.locator('.ticket-panel__line-qty')).toHaveText('5')
+    await expect(firstLine.locator('.ticket-panel__line-price')).toHaveText('$99.95')
   })
 
   test('typing a SKU and pressing Enter adds the item to the cart', async ({ page }) => {
@@ -426,8 +439,8 @@ test.describe('Simple Transactions', () => {
     await searchInput.press('Enter')
 
     // Item should appear in the ticket
-    await expect(page.locator('.ticket-line')).toHaveCount(1)
-    await expect(page.locator('.ticket-line').first()).toContainText('Vodka Soda')
+    await expect(page.locator('.ticket-panel__line')).toHaveCount(1)
+    await expect(page.locator('.ticket-panel__line').first()).toContainText('Vodka Soda')
 
     // Search input should be cleared after adding
     await expect(searchInput).toHaveValue('')
@@ -442,7 +455,7 @@ test.describe('Simple Transactions', () => {
     await searchInput.press('Enter')
 
     // No items should be in the ticket
-    await expect(page.locator('.ticket-line')).toHaveCount(0)
+    await expect(page.locator('.ticket-panel__line')).toHaveCount(0)
 
     // Search should remain (not cleared since no match)
     await expect(searchInput).toHaveValue('INVALID-999')
@@ -468,9 +481,9 @@ test.describe('Simple Transactions', () => {
     await searchInput.press('Enter')
 
     // Item should appear with quantity 3
-    const firstLine = page.locator('.ticket-line').first()
+    const firstLine = page.locator('.ticket-panel__line').first()
     await expect(firstLine).toContainText('Craft IPA')
-    await expect(firstLine.locator('.ticket-line-qty')).toHaveText('3')
+    await expect(firstLine.locator('.ticket-panel__line-qty')).toHaveText('3')
 
     // Quantity input should be reset to 1
     await expect(qtyInput).toHaveValue('1')
@@ -484,11 +497,11 @@ test.describe('Simple Transactions', () => {
     await selectAllCategory(page)
 
     // Add Cabernet Sauvignon ($19.99)
-    const product = page.locator('.product-pad-btn').first()
+    const product = page.locator('.action-panel__product-tile').first()
     await product.click()
 
     // Select the line and apply 10% item discount
-    await page.locator('.ticket-line').first().click()
+    await page.locator('.ticket-panel__line').first().click()
     await page.getByRole('button', { name: 'Discount', exact: true }).click()
     const discountModal = page.getByTestId('edit-modal')
     await discountModal.getByRole('button', { name: '1' }).click()
@@ -496,7 +509,9 @@ test.describe('Simple Transactions', () => {
     await page.getByRole('button', { name: 'Save' }).click()
 
     // Verify discount applied on screen
-    await expect(page.locator('.ticket-line').first().getByText('DISCOUNT 10.00%')).toBeVisible()
+    await expect(
+      page.locator('.ticket-panel__line').first().getByText('DISCOUNT 10.00%')
+    ).toBeVisible()
 
     // Complete payment with cash
     await page.getByRole('button', { name: 'Pay Now' }).click()
@@ -528,7 +543,7 @@ test.describe('Payment Modal', () => {
   // Helper: add a product to the cart and return its total (price * 1.13 tax)
   const addProductToCart = async (page: Page): Promise<void> => {
     await selectAllCategory(page)
-    const firstProduct = page.locator('.product-pad-btn').first()
+    const firstProduct = page.locator('.action-panel__product-tile').first()
     await firstProduct.click()
   }
 
@@ -582,7 +597,7 @@ test.describe('Payment Modal', () => {
     // Modal stays until OK is clicked
     await modal.getByTestId('payment-ok-btn').click()
     await expect(page.getByTestId('payment-modal')).toHaveCount(0)
-    await expect(page.locator('.ticket-line')).toHaveCount(0)
+    await expect(page.locator('.ticket-panel__line')).toHaveCount(0)
 
     // Search input should be re-focused
     await expect(page.getByPlaceholder('Search item')).toBeFocused()
@@ -609,7 +624,7 @@ test.describe('Payment Modal', () => {
     await expect(modal.getByTestId('payment-complete')).toBeVisible({ timeout: 5000 })
     await modal.getByTestId('payment-ok-btn').click()
     await expect(page.getByTestId('payment-modal')).toHaveCount(0)
-    await expect(page.locator('.ticket-line')).toHaveCount(0)
+    await expect(page.locator('.ticket-panel__line')).toHaveCount(0)
   })
 
   test('Debit card payment works like credit', async ({ page }) => {
@@ -646,7 +661,7 @@ test.describe('Payment Modal', () => {
 
     // Add another $10
     await modal.getByRole('button', { name: '$10', exact: true }).click()
-    await expect(paidList.locator('.paid-entry')).toHaveCount(2)
+    await expect(paidList.locator('.payment-modal__paid-entry')).toHaveCount(2)
 
     // Add $5 more — total tendered = $25, total = $22.59, change = $2.41
     await modal.getByRole('button', { name: '$5', exact: true }).click()
@@ -685,7 +700,7 @@ test.describe('Payment Modal', () => {
     await expect(modal.getByTestId('payment-complete')).toBeVisible({ timeout: 5000 })
     await modal.getByTestId('payment-ok-btn').click()
     await expect(page.getByTestId('payment-modal')).toHaveCount(0)
-    await expect(page.locator('.ticket-line')).toHaveCount(0)
+    await expect(page.locator('.ticket-panel__line')).toHaveCount(0)
   })
 
   test('Cancel closes modal without clearing transaction', async ({ page }) => {
@@ -702,7 +717,7 @@ test.describe('Payment Modal', () => {
     await expect(page.getByTestId('payment-modal')).toHaveCount(0)
 
     // Cart should still have the item
-    await expect(page.locator('.ticket-line')).toHaveCount(1)
+    await expect(page.locator('.ticket-panel__line')).toHaveCount(1)
 
     // Search should be refocused
     await expect(page.getByPlaceholder('Search item')).toBeFocused()
@@ -759,7 +774,7 @@ test.describe('Payment Modal', () => {
     await gotoAndLogin(page)
     await selectAllCategory(page)
 
-    const product = page.locator('.product-pad-btn').first()
+    const product = page.locator('.action-panel__product-tile').first()
     await product.click()
 
     // After adding item, search input should be focused
@@ -788,7 +803,7 @@ test.describe('Payment Modal', () => {
     await expect(page.getByTestId('payment-modal')).toHaveCount(0)
 
     // Previous transaction cleared, new item in cart
-    await expect(page.locator('.ticket-line')).toHaveCount(1)
-    await expect(page.locator('.ticket-line').first()).toContainText('Craft IPA')
+    await expect(page.locator('.ticket-panel__line')).toHaveCount(1)
+    await expect(page.locator('.ticket-panel__line').first()).toContainText('Craft IPA')
   })
 })

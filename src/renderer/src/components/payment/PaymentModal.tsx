@@ -232,9 +232,7 @@ export function PaymentModal({
       <div className="payment-modal__dialog" role="dialog" aria-modal="true" aria-label="Payment">
         {/* Header */}
         <div className="payment-modal__header">
-          <h3 className="payment-modal__title">
-            {isRefund ? 'Process Refund' : 'Payment'}
-          </h3>
+          <h3 className="payment-modal__title">{isRefund ? 'Process Refund' : 'Payment'}</h3>
           <Button
             variant="danger"
             size="sm"
@@ -249,6 +247,7 @@ export function PaymentModal({
         {/* Transaction total */}
         <div
           className={cn(
+            'payment-total-bar',
             'payment-modal__total-bar',
             isRefund && 'payment-modal__total-bar--refund'
           )}

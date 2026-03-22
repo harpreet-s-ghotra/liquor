@@ -184,7 +184,10 @@ const loginWithPin = async (page: Page): Promise<void> => {
   for (const digit of ['1', '2', '3', '4']) {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
-  await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
+  await page
+    .locator('.action-panel__product-tile')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 })
 }
 
 const gotoAndLogin = async (page: Page): Promise<void> => {
@@ -202,11 +205,11 @@ test.describe('Startup', () => {
     await expect(page.getByTestId('bottom-bar')).toBeVisible()
 
     // Category dropdown defaults to "Favorites"
-    const categoryTrigger = page.locator('.category-dropdown-trigger')
+    const categoryTrigger = page.locator('.action-panel__category-trigger')
     await expect(categoryTrigger).toBeVisible()
     await expect(categoryTrigger).toContainText('Favorites')
 
-    const productPadItems = page.locator('.product-pad-btn')
+    const productPadItems = page.locator('.action-panel__product-tile')
     await expect(productPadItems.first()).toBeVisible()
     await expect(productPadItems).toHaveCount(3)
   })
@@ -226,35 +229,35 @@ test.describe('Startup', () => {
     await gotoAndLogin(page)
 
     // Open category dropdown and select "All"
-    await page.locator('.category-dropdown-trigger').click()
-    await page.locator('.category-dropdown-item', { hasText: 'All' }).click()
-    const products = page.locator('.product-pad-btn')
+    await page.locator('.action-panel__category-trigger').click()
+    await page.locator('.action-panel__category-item', { hasText: 'All' }).click()
+    const products = page.locator('.action-panel__product-tile')
     await expect(products).toHaveCount(15)
 
     const firstName = (await products.nth(0).locator('span').first().textContent())?.trim() ?? ''
     const secondName = (await products.nth(1).locator('span').first().textContent())?.trim() ?? ''
 
     await products.nth(0).click()
-    await expect(page.locator('.ticket-line.active')).toContainText(firstName)
+    await expect(page.locator('.ticket-panel__line.active')).toContainText(firstName)
 
     await products.nth(1).click()
-    await expect(page.locator('.ticket-line.active')).toContainText(secondName)
+    await expect(page.locator('.ticket-panel__line.active')).toContainText(secondName)
 
-    const activeLine = page.locator('.ticket-line.active')
+    const activeLine = page.locator('.ticket-panel__line.active')
     await expect(activeLine).toContainText(secondName)
 
-    await page.locator('.ticket-line').first().click()
-    await expect(page.locator('.ticket-line.active')).toContainText(firstName)
+    await page.locator('.ticket-panel__line').first().click()
+    await expect(page.locator('.ticket-panel__line.active')).toContainText(firstName)
   })
 
   test('cart section is scrollable and auto-scrolls to latest added item', async ({ page }) => {
     await attachPosApiMock(page)
     await gotoAndLogin(page)
     // Open category dropdown and select "All"
-    await page.locator('.category-dropdown-trigger').click()
-    await page.locator('.category-dropdown-item', { hasText: 'All' }).click()
+    await page.locator('.action-panel__category-trigger').click()
+    await page.locator('.action-panel__category-item', { hasText: 'All' }).click()
 
-    const products = page.locator('.product-pad-btn')
+    const products = page.locator('.action-panel__product-tile')
     await expect(products).toHaveCount(15)
     const totalProducts = await products.count()
 
@@ -271,7 +274,7 @@ test.describe('Startup', () => {
     })
     expect(['auto', 'scroll']).toContain(ticketOverflow)
 
-    await expect(page.locator('.ticket-line.active')).toContainText(lastName)
+    await expect(page.locator('.ticket-panel__line.active')).toContainText(lastName)
 
     const scrolled = await page.getByTestId('ticket-lines').evaluate((element) => {
       return element.scrollTop > 0

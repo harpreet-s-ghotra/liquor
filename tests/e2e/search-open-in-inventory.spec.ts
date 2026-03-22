@@ -107,7 +107,10 @@ const loginWithPin = async (page: Page): Promise<void> => {
   for (const digit of ['1', '2', '3', '4']) {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
-  await page.locator('.product-pad-btn').first().waitFor({ state: 'visible', timeout: 10000 })
+  await page
+    .locator('.action-panel__product-tile')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 })
 }
 
 test.describe('Search modal — Open in Inventory', () => {

@@ -101,7 +101,7 @@ export function ActionPanel({
   return (
     <aside className="action-panel">
       {/* ── Totals ── */}
-      <div className="action-panel__totals">
+      <div className="action-panel__totals totals-box">
         <div className="action-panel__totals-row">
           <span className="action-panel__totals-label">
             {showAsRefund ? 'Refund Sub-Total' : 'Sub-Total'}
@@ -112,11 +112,13 @@ export function ActionPanel({
               showAsRefund && 'action-panel__totals-value--refund'
             )}
           >
-            {showAsRefund ? fmtRefundMoney(subtotalBeforeDiscount) : fmtMoney(subtotalBeforeDiscount)}
+            {showAsRefund
+              ? fmtRefundMoney(subtotalBeforeDiscount)
+              : fmtMoney(subtotalBeforeDiscount)}
           </strong>
         </div>
         {!showAsRefund && (
-          <div className="action-panel__totals-row action-panel__totals-row--discount">
+          <div className="action-panel__totals-row action-panel__totals-row--discount totals-discount">
             <span className="action-panel__totals-label action-panel__totals-label--discount">
               Discount
             </span>
@@ -124,9 +126,7 @@ export function ActionPanel({
           </div>
         )}
         <div className="action-panel__totals-row">
-          <span className="action-panel__totals-label">
-            {showAsRefund ? 'Refund Tax' : 'Tax'}
-          </span>
+          <span className="action-panel__totals-label">{showAsRefund ? 'Refund Tax' : 'Tax'}</span>
           <strong
             className={cn(
               'action-panel__totals-value',
@@ -136,7 +136,7 @@ export function ActionPanel({
             {showAsRefund ? fmtRefundMoney(tax) : fmtMoney(tax)}
           </strong>
         </div>
-        <div className="action-panel__grand-total">
+        <div className="action-panel__grand-total grand-total">
           <span className="action-panel__grand-total-label">
             {showAsRefund ? 'Refund' : 'Total'}
           </span>
@@ -175,9 +175,7 @@ export function ActionPanel({
             <path d="M20.75 22.5L12.875 14.625C12.25 15.125 11.5312 15.5208 10.7188 15.8125C9.90625 16.1042 9.04167 16.25 8.125 16.25C5.85417 16.25 3.93229 15.4635 2.35938 13.8906C0.786458 12.3177 0 10.3958 0 8.125C0 5.85417 0.786458 3.93229 2.35938 2.35938C3.93229 0.786458 5.85417 0 8.125 0C10.3958 0 12.3177 0.786458 13.8906 2.35938C15.4635 3.93229 16.25 5.85417 16.25 8.125C16.25 9.04167 16.1042 9.90625 15.8125 10.7188C15.5208 11.5312 15.125 12.25 14.625 12.875L22.5 20.75L20.75 22.5ZM8.125 13.75C9.6875 13.75 11.0156 13.2031 12.1094 12.1094C13.2031 11.0156 13.75 9.6875 13.75 8.125C13.75 6.5625 13.2031 5.23438 12.1094 4.14062C11.0156 3.04688 9.6875 2.5 8.125 2.5C6.5625 2.5 5.23438 3.04688 4.14062 4.14062C3.04688 5.23438 2.5 6.5625 2.5 8.125C2.5 9.6875 3.04688 11.0156 4.14062 12.1094C5.23438 13.2031 6.5625 13.75 8.125 13.75Z" />
           </svg>
           TS Lookup
-          {heldCount > 0 && (
-            <span className="action-panel__lookup-badge">{heldCount}</span>
-          )}
+          {heldCount > 0 && <span className="action-panel__lookup-badge">{heldCount}</span>}
         </button>
       </div>
 
@@ -194,20 +192,14 @@ export function ActionPanel({
             <span className="action-panel__category-trigger-icon" aria-hidden="true">
               ☰
             </span>
-            <span className="action-panel__category-trigger-label">
-              {activeCategory}
-            </span>
+            <span className="action-panel__category-trigger-label">{activeCategory}</span>
             <span className="action-panel__category-trigger-arrow" aria-hidden="true">
               ▾
             </span>
           </button>
 
           {menuOpen && (
-            <ul
-              className="action-panel__category-menu"
-              role="listbox"
-              aria-label="Categories"
-            >
+            <ul className="action-panel__category-menu" role="listbox" aria-label="Categories">
               {categories.map((category) => (
                 <li
                   key={category}
