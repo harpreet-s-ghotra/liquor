@@ -22,6 +22,8 @@ type ActionPanelProps = {
   onHold: () => void
   onTsLookup: () => void
   isViewingTransaction?: boolean
+  isReturning?: boolean
+  isViewingRefund?: boolean
 }
 
 type ItemSize = 'small' | 'large'
@@ -44,10 +46,16 @@ export function ActionPanel({
   heldCount,
   onHold,
   onTsLookup,
-  isViewingTransaction
+  isViewingTransaction,
+  isReturning,
+  isViewingRefund
 }: ActionPanelProps): React.JSX.Element {
   const discountAmount = subtotalBeforeDiscount - subtotalDiscounted
   const [menuOpen, setMenuOpen] = useState(false)
+  const showAsRefund = isReturning || isViewingRefund
+  const fmtMoney = (v: number): string =>
+    v < 0 ? `($${Math.abs(v).toFixed(2)})` : `$${v.toFixed(2)}`
+  const fmtRefundMoney = (v: number): string => `($${Math.abs(v).toFixed(2)})`
   const [itemSize, setItemSize] = useState<ItemSize>('small')
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -109,33 +117,53 @@ export function ActionPanel({
             className="uppercase tracking-[0.05rem] font-bold text-(--text-muted)"
             style={{ fontSize: '0.75rem' }}
           >
-            Sub-Total
+            {showAsRefund ? 'Refund Sub-Total' : 'Sub-Total'}
           </span>
-          <strong className="text-(--text-primary)">${subtotalBeforeDiscount.toFixed(2)}</strong>
+          <strong
+            style={showAsRefund ? { color: 'var(--semantic-danger-text)' } : undefined}
+            className={showAsRefund ? '' : 'text-(--text-primary)'}
+          >
+            {showAsRefund ? fmtRefundMoney(subtotalBeforeDiscount) : fmtMoney(subtotalBeforeDiscount)}
+          </strong>
         </div>
-        <div className="totals-discount flex items-center justify-between text-[clamp(0.9rem,1.4vw,1.125rem)] font-semibold leading-tight text-(--accent-peach)">
-          <span className="uppercase tracking-[0.05rem] font-bold" style={{ fontSize: '0.75rem' }}>
-            Discount
-          </span>
-          <strong>-${discountAmount.toFixed(2)}</strong>
-        </div>
+        {!showAsRefund && (
+          <div className="totals-discount flex items-center justify-between text-[clamp(0.9rem,1.4vw,1.125rem)] font-semibold leading-tight text-(--accent-peach)">
+            <span
+              className="uppercase tracking-[0.05rem] font-bold"
+              style={{ fontSize: '0.75rem' }}
+            >
+              Discount
+            </span>
+            <strong>-${discountAmount.toFixed(2)}</strong>
+          </div>
+        )}
         <div className="flex items-center justify-between text-[clamp(0.9rem,1.4vw,1.125rem)] font-semibold leading-tight">
           <span
             className="uppercase tracking-[0.05rem] font-bold text-(--text-muted)"
             style={{ fontSize: '0.75rem' }}
           >
-            Tax
+            {showAsRefund ? 'Refund Tax' : 'Tax'}
           </span>
-          <strong className="text-(--text-primary)">${tax.toFixed(2)}</strong>
+          <strong
+            style={showAsRefund ? { color: 'var(--semantic-danger-text)' } : undefined}
+            className={showAsRefund ? '' : 'text-(--text-primary)'}
+          >
+            {showAsRefund ? fmtRefundMoney(tax) : fmtMoney(tax)}
+          </strong>
         </div>
         <div
           className="grand-total flex items-baseline justify-between pt-1 border-t"
           style={{ borderColor: 'var(--totals-border)' }}
         >
           <span className="uppercase tracking-[-0.05rem] text-(--text-label) text-[clamp(1.2rem,2.5vw,1.875rem)] font-black">
-            Total
+            {showAsRefund ? 'Refund' : 'Total'}
           </span>
-          <strong className="text-[clamp(2rem,4vw,3rem)] leading-none">${total.toFixed(2)}</strong>
+          <strong
+            className="text-[clamp(2rem,4vw,3rem)] leading-none"
+            style={showAsRefund ? { color: 'var(--semantic-danger-text)' } : undefined}
+          >
+            {showAsRefund ? fmtRefundMoney(total) : fmtMoney(total)}
+          </strong>
         </div>
       </div>
 
@@ -333,10 +361,10 @@ export function ActionPanel({
             color: 'var(--pay-cash-text)',
             fontFamily: 'var(--font-display)'
           }}
-          disabled={cartCount === 0 || !!isViewingTransaction}
+          disabled={cartCount === 0 || (!!isViewingTransaction && !isReturning)}
           onClick={onCash}
         >
-          Cash
+          {isReturning ? 'Cash Refund' : 'Cash'}
         </button>
         <button
           type="button"
@@ -347,10 +375,10 @@ export function ActionPanel({
             color: 'var(--pay-credit-text)',
             fontFamily: 'var(--font-display)'
           }}
-          disabled={cartCount === 0 || !!isViewingTransaction}
+          disabled={cartCount === 0 || (!!isViewingTransaction && !isReturning)}
           onClick={onCredit}
         >
-          Credit
+          {isReturning ? 'Credit Refund' : 'Credit'}
         </button>
         <button
           type="button"
@@ -361,10 +389,10 @@ export function ActionPanel({
             color: 'var(--pay-debit-text)',
             fontFamily: 'var(--font-display)'
           }}
-          disabled={cartCount === 0 || !!isViewingTransaction}
+          disabled={cartCount === 0 || (!!isViewingTransaction && !isReturning)}
           onClick={onDebit}
         >
-          Debit
+          {isReturning ? 'Debit Refund' : 'Debit'}
         </button>
         <button
           type="button"
@@ -375,10 +403,10 @@ export function ActionPanel({
             color: 'var(--btn-success-text)',
             fontFamily: 'var(--font-display)'
           }}
-          disabled={cartCount === 0 || !!isViewingTransaction}
+          disabled={cartCount === 0 || (!!isViewingTransaction && !isReturning)}
           onClick={onPay}
         >
-          Pay Now
+          {isReturning ? 'Process Refund' : 'Pay Now'}
         </button>
       </div>
     </aside>

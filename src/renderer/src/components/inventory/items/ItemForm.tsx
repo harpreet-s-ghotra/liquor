@@ -1000,45 +1000,80 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedItem.sales_history.map((h) => (
-                    <tr key={`${h.transaction_id}-${h.created_at}`}>
-                      <td className="px-2 py-1.5 border-b border-(--border-default)">
-                        {new Date(h.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-2 py-1.5 border-b border-(--border-default) font-mono text-[0.8rem]">
-                        {h.transaction_number ? (
-                          <button
-                            type="button"
-                            className="appearance-none border-none bg-transparent p-0 font-mono text-[0.8rem] text-(--accent-blue) underline cursor-pointer"
-                            onClick={() => onRecallTransaction?.(h.transaction_number)}
-                            data-testid="txn-link"
-                          >
-                            {h.transaction_number}
-                          </button>
-                        ) : (
-                          `#${h.transaction_id}`
-                        )}
-                      </td>
-                      <td className="px-2 py-1.5 border-b border-(--border-default)">
-                        {h.quantity}
-                      </td>
-                      <td className="px-2 py-1.5 border-b border-(--border-default)">
-                        {formatCurrency(h.unit_price)}
-                      </td>
-                      <td className="px-2 py-1.5 border-b border-(--border-default)">
-                        {formatCurrency(h.total_price)}
-                      </td>
-                      <td className="px-2 py-1.5 border-b border-(--border-default)">
-                        {h.payment_method ?? '—'}
-                        {h.card_type && h.card_last_four && (
-                          <span className="text-(--text-muted) text-[0.8rem]">
-                            {' '}
-                            ({h.card_type} ****{h.card_last_four})
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {selectedItem.sales_history.map((h) => {
+                    const isRefund = h.status === 'refund'
+                    const refundColor = 'var(--semantic-danger-text)'
+                    return (
+                      <tr
+                        key={`${h.transaction_id}-${h.created_at}`}
+                        style={
+                          isRefund
+                            ? { background: 'rgba(127, 29, 29, 0.15)' }
+                            : undefined
+                        }
+                      >
+                        <td className="px-2 py-1.5 border-b border-(--border-default)">
+                          {new Date(h.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-2 py-1.5 border-b border-(--border-default) font-mono text-[0.8rem]">
+                          {h.transaction_number ? (
+                            <button
+                              type="button"
+                              className="appearance-none border-none bg-transparent p-0 font-mono text-[0.8rem] text-(--accent-blue) underline cursor-pointer"
+                              onClick={() => onRecallTransaction?.(h.transaction_number)}
+                              data-testid="txn-link"
+                            >
+                              {h.transaction_number}
+                            </button>
+                          ) : (
+                            `#${h.transaction_id}`
+                          )}
+                        </td>
+                        <td
+                          className="px-2 py-1.5 border-b border-(--border-default) font-bold"
+                          style={isRefund ? { color: refundColor } : undefined}
+                        >
+                          {isRefund ? `-${h.quantity}` : h.quantity}
+                        </td>
+                        <td
+                          className="px-2 py-1.5 border-b border-(--border-default)"
+                          style={isRefund ? { color: refundColor } : undefined}
+                        >
+                          {isRefund
+                            ? `(${formatCurrency(h.unit_price)})`
+                            : formatCurrency(h.unit_price)}
+                        </td>
+                        <td
+                          className="px-2 py-1.5 border-b border-(--border-default) font-bold"
+                          style={isRefund ? { color: refundColor } : undefined}
+                        >
+                          {isRefund
+                            ? `(${formatCurrency(h.total_price)})`
+                            : formatCurrency(h.total_price)}
+                        </td>
+                        <td className="px-2 py-1.5 border-b border-(--border-default)">
+                          {h.payment_method ?? '—'}
+                          {h.card_type && h.card_last_four && (
+                            <span className="text-(--text-muted) text-[0.8rem]">
+                              {' '}
+                              ({h.card_type} ****{h.card_last_four})
+                            </span>
+                          )}
+                          {isRefund && (
+                            <span
+                              className="ml-2 inline-block px-1.5 py-0.5 text-[0.7rem] font-bold rounded"
+                              style={{
+                                background: 'rgba(127, 29, 29, 0.4)',
+                                color: '#fca5a5'
+                              }}
+                            >
+                              REFUND
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}

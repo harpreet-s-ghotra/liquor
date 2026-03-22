@@ -48,7 +48,9 @@ export {
   saveTransaction,
   getRecentTransactions,
   getProductSalesHistory,
-  getTransactionByNumber
+  getTransactionByNumber,
+  saveRefundTransaction,
+  listTransactions
 } from './transactions.repo'
 
 // Held transactions

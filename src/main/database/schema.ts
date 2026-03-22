@@ -149,6 +149,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('transactions', 'stax_transaction_id', 'stax_transaction_id TEXT')
   ensureColumn('transactions', 'card_last_four', 'card_last_four TEXT')
   ensureColumn('transactions', 'card_type', 'card_type TEXT')
+  ensureColumn('transactions', 'original_transaction_id', 'original_transaction_id INTEGER')
 
   ensureColumn('products', 'dept_id', 'dept_id TEXT')
   ensureColumn('products', 'category_id', 'category_id INTEGER')

@@ -1,0 +1,216 @@
+# Transactions
+
+**Spec file:** `tests/e2e/transactions.spec.ts`
+
+**Mock data:** 15 products, terminal `chargeTerminal` mock (300ms), in-memory transaction store
+
+---
+
+## Suite: Simple Transactions
+
+### 1. Payment buttons become enabled after adding an item
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, click first product | Item added to cart |
+| 2 | -- | Cash, Credit, Debit, Pay Now buttons are all enabled |
+
+### 2. Delete removes currently selected item
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, select "All" category | 15 products shown |
+| 2 | Click product A, then product B | B is the active line |
+| 3 | Click Delete | B removed; A is now active |
+| 4 | -- | Only 1 ticket line remains |
+
+### 3. Price change updates selected cart line price only
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add first product ($19.99) | Item in cart |
+| 2 | Click Price Change | Edit modal opens showing "Original Price: $19.99" |
+| 3 | Type 1-2-5-0 on keypad, click Save | Line price updates to $12.50 |
+| 4 | -- | Product grid tile still shows $19.99 (catalog unaffected) |
+
+### 4. Discount supports selected item and entire transaction modes
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add product A + product B | 2 items in cart |
+| 2 | Select line A, click Discount | Modal shows "Original Discount: 0.00%" |
+| 3 | Type 1-0, click Save (10% item discount) | Line A shows "DISCOUNT 10.00%", "New $17.99 (was $19.99)" |
+| 4 | -- | Totals box shows discount of -$2.00 |
+| 5 | -- | Grand total decreased |
+| 6 | Click Discount again, select "Entire Transaction" | Transaction discount modal opens |
+| 7 | Type 5, click Save (5% transaction discount) | A "5% Discount" line appears with amount -$1.57 |
+| 8 | -- | Grand total decreased further |
+| 9 | Select the discount line | Qty Change button is disabled |
+| 10 | Click Delete on discount line | Discount line removed |
+
+### 5. Search by SKU finds product across all categories and adds to cart
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in (Favorites category active) | Vodka Soda is not visible |
+| 2 | Type "COOLER-001" in search box | Vodka Soda appears in grid |
+| 3 | Click the product | Ticket shows "Vodka Soda" at $4.25 |
+| 4 | Clear search input | Vodka Soda disappears (back to Favorites filter) |
+
+### 6. Partial SKU search narrows product grid results
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, type "MIXER" in search | 3 mixer products shown |
+| 2 | -- | Non-mixer products (e.g. Cabernet) are hidden |
+
+### 7. Quantity change updates selected item quantity with keypad
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, select "All", add first product | Qty shows 1 |
+| 2 | Click Qty Change | Modal shows "Original Qty: 1" |
+| 3 | Type 5, click Save | Qty updates to 5, price shows $99.95 |
+
+### 8. Typing a SKU and pressing Enter adds the item to the cart
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, type "COOLER-001" in search, press Enter | Vodka Soda added to ticket |
+| 2 | -- | Search input is cleared |
+
+### 9. Pressing Enter with a non-existent SKU does not add to cart
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, type "INVALID-999", press Enter | No ticket lines |
+| 2 | -- | Search input retains "INVALID-999" |
+
+### 10. Search input is auto-focused on page load
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in | Search input has focus |
+
+### 11. Enter adds item with current quantity and resets to 1
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, set Qty input to 3 | -- |
+| 2 | Type "BEER-001", press Enter | Craft IPA added with qty 3 |
+| 3 | -- | Qty input resets to 1 |
+
+### 12. Saved transaction includes discounted prices when item discount is applied
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add Cabernet ($19.99) | -- |
+| 2 | Apply 10% item discount | "DISCOUNT 10.00%" visible |
+| 3 | Pay Now -> Cash (Exact) -> OK | Transaction completes |
+| 4 | Query `getRecentTransactions` | 1 saved transaction |
+| 5 | -- | `unit_price` ~ $17.99, `total_price` ~ $17.99 |
+
+---
+
+## Suite: Payment Modal
+
+### 13. Pay button opens the payment modal
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add product, click Pay Now | Payment modal visible |
+| 2 | -- | "Payment" heading, "Transaction Total", Cash (Exact), Credit, Debit buttons visible |
+| 3 | -- | Shows "No payments yet" |
+
+### 14. Pay button does nothing when cart is empty
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in (empty cart) | Pay Now is disabled |
+| 2 | -- | Payment modal does not exist in DOM |
+
+### 15. Cash (Exact) completes payment and clears transaction
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add product, click Pay Now | Modal total matches grand total |
+| 2 | Click Cash (Exact) | "Payment complete" shown with OK button |
+| 3 | Click OK | Modal closes, cart is empty |
+| 4 | -- | Search input is re-focused |
+
+### 16. Credit card shows processing then completes
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add product, click Pay Now | -- |
+| 2 | Click Credit | "Waiting for card machine..." shown, Cancel disabled |
+| 3 | -- (300ms mock delay) | Payment complete screen appears |
+| 4 | Click OK | Modal closes, cart empty |
+
+### 17. Debit card payment works like credit
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add product, click Pay Now | -- |
+| 2 | Click Debit | Processing shown, then complete |
+| 3 | Click OK | Modal closes |
+
+### 18. Tender denomination buttons accumulate and show change
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add Cabernet (total $22.59), click Pay Now | -- |
+| 2 | Click $10 | "$10.00 Cash" in paid list, remaining visible |
+| 3 | Click $10 again | 2 entries in paid list |
+| 4 | Click $5 | Total tendered $25; "Change: $2.41" shown |
+| 5 | Click OK | Modal closes |
+
+### 19. Split payment: partial cash then card completes
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add Cabernet (total $22.59), click Pay Now | -- |
+| 2 | Click $10 | "$10.00 Cash" in paid list |
+| 3 | -- | Remaining shows $12.59 |
+| 4 | Click Credit | Processing shown, then complete |
+| 5 | Click OK | Modal closes, cart empty |
+
+### 20. Cancel closes modal without clearing transaction
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add product, click Pay Now | Modal visible |
+| 2 | Click Cancel | Modal closes |
+| 3 | -- | Cart still has 1 item |
+| 4 | -- | Search input is focused |
+
+### 21. All seven tender denomination buttons are rendered
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add product, click Pay Now | -- |
+| 2 | -- | $1, $2, $5, $10, $20, $50, $100 buttons all visible |
+
+### 22. Cash/Credit/Debit buttons in action panel open payment modal
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add product | -- |
+| 2 | Click Cash (action panel) | Modal opens, auto-completes cash payment; click OK |
+| 3 | Add product again, click Credit | Modal opens, terminal processes, completes; click OK |
+| 4 | Add product again, click Debit | Modal opens, terminal processes, completes |
+
+### 23. Focus returns to search bar after adding item via product grid
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, select "All", click a product | Item added |
+| 2 | -- | Search input is focused |
+
+### 24. Scanning a new item while payment-complete dismisses modal and adds item
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, add product, Pay Now, Cash (Exact) | Payment complete screen showing |
+| 2 | Type "BEER-001" in search, press Enter | Modal dismissed |
+| 3 | -- | Previous cart cleared, new item "Craft IPA" in cart |

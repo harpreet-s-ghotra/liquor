@@ -48,6 +48,7 @@ export type TransactionHistoryItem = InventorySalesHistory & {
   stax_transaction_id: string | null
   card_last_four: string | null
   card_type: string | null
+  status: string
 }
 
 /** Input for saving a completed transaction */
@@ -69,6 +70,26 @@ export type SaveTransactionInput = {
   }>
 }
 
+/** Input for saving a refund transaction */
+export type SaveRefundInput = {
+  original_transaction_id: number
+  original_transaction_number: string
+  subtotal: number
+  tax_amount: number
+  total: number
+  payment_method: string
+  stax_transaction_id?: string | null
+  card_last_four?: string | null
+  card_type?: string | null
+  items: Array<{
+    product_id: number
+    product_name: string
+    quantity: number
+    unit_price: number
+    total_price: number
+  }>
+}
+
 /** Saved transaction record returned from the database */
 export type SavedTransaction = {
   id: number
@@ -81,6 +102,7 @@ export type SavedTransaction = {
   card_last_four: string | null
   card_type: string | null
   status: string
+  original_transaction_id: number | null
   created_at: string
 }
 
@@ -97,6 +119,31 @@ export type TransactionLineItem = {
 /** Full transaction with line items, used for transaction recall */
 export type TransactionDetail = SavedTransaction & {
   items: TransactionLineItem[]
+}
+
+// ── Sales History Listing ──
+
+/** Filters for the Sales History modal */
+export type TransactionListFilter = {
+  date_from?: string | null
+  date_to?: string | null
+  status?: 'completed' | 'refund' | null
+  payment_method?: string | null
+  search?: string | null
+  limit?: number
+  offset?: number
+}
+
+/** Summary row for the Sales History modal (no line items) */
+export type TransactionSummary = SavedTransaction & {
+  item_count: number
+  notes: string | null
+}
+
+/** Paginated result from the transactions:list endpoint */
+export type TransactionListResult = {
+  transactions: TransactionSummary[]
+  total_count: number
 }
 
 export type SpecialPricingRule = {

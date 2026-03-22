@@ -30,6 +30,10 @@ type TicketPanelProps = {
   isViewingTransaction?: boolean
   viewingTransaction?: TransactionDetail | null
   onDismissRecall?: () => void
+  returnItems?: Record<number, number>
+  onToggleReturnItem?: (cartItemId: number) => void
+  onToggleReturnAll?: () => void
+  onSetReturnItemQuantity?: (cartItemId: number, qty: number) => void
 }
 
 export function TicketPanel({
@@ -53,7 +57,11 @@ export function TicketPanel({
   setSelectedCartId,
   isViewingTransaction,
   viewingTransaction,
-  onDismissRecall
+  onDismissRecall,
+  returnItems,
+  onToggleReturnItem,
+  onToggleReturnAll,
+  onSetReturnItemQuantity
 }: TicketPanelProps): React.JSX.Element {
   const lineRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
   const [editMode, setEditMode] = useState<EditMode>(null)
@@ -67,6 +75,11 @@ export function TicketPanel({
       item.kind === 'transaction-discount'
   )
   const isTransactionDiscountSelected = selectedCartItem?.kind === 'transaction-discount'
+  const isRefundTransaction = viewingTransaction?.status === 'refund'
+  const canReturn = !!isViewingTransaction && !isRefundTransaction
+  const isSelectedMarkedForReturn =
+    selectedCartId != null && returnItems != null && returnItems[selectedCartId] != null
+  const returnCount = returnItems ? Object.keys(returnItems).length : 0
 
   const formatMoney = (amount: number): string => {
     return amount < 0 ? `-$${Math.abs(amount).toFixed(2)}` : `$${amount.toFixed(2)}`
@@ -170,7 +183,11 @@ export function TicketPanel({
     setIsEditPristine(true)
 
     if (mode === 'quantity') {
-      setEditRawValue(selectedCartItem ? String(selectedCartItem.lineQuantity) : '')
+      if (canReturn && selectedCartId != null && returnItems?.[selectedCartId] != null) {
+        setEditRawValue(String(returnItems[selectedCartId]))
+      } else {
+        setEditRawValue(selectedCartItem ? String(selectedCartItem.lineQuantity) : '')
+      }
       return
     }
 
@@ -212,7 +229,11 @@ export function TicketPanel({
     if (editMode === 'quantity') {
       const parsedQuantity = Number.parseInt(editRawValue, 10)
       if (!Number.isNaN(parsedQuantity) && parsedQuantity > 0) {
-        updateSelectedLineQuantity(parsedQuantity)
+        if (canReturn && selectedCartId != null && returnItems?.[selectedCartId] != null) {
+          onSetReturnItemQuantity?.(selectedCartId, parsedQuantity)
+        } else {
+          updateSelectedLineQuantity(parsedQuantity)
+        }
       }
       closeEditModal()
       return
@@ -268,21 +289,30 @@ export function TicketPanel({
         <div
           className="flex items-center justify-between gap-2 px-3 py-2 rounded-(--radius) text-[0.875rem] font-bold"
           style={{
-            background: 'var(--accent-peach)',
-            color: '#000'
+            background: returnCount > 0 ? 'var(--semantic-danger-text)' : 'var(--accent-peach)',
+            color: returnCount > 0 ? '#fff' : '#000'
           }}
           data-testid="recall-banner"
         >
           <span>
-            Viewing Transaction: {viewingTransaction.transaction_number} —{' '}
-            {new Date(viewingTransaction.created_at).toLocaleString()} —{' '}
-            {viewingTransaction.payment_method}
-            {viewingTransaction.total != null && ` — $${viewingTransaction.total.toFixed(2)}`}
+            {returnCount > 0 ? (
+              <>
+                Returning {returnCount} item{returnCount > 1 ? 's' : ''} from{' '}
+                {viewingTransaction.transaction_number}
+              </>
+            ) : (
+              <>
+                Viewing Transaction: {viewingTransaction.transaction_number} —{' '}
+                {new Date(viewingTransaction.created_at).toLocaleString()} —{' '}
+                {viewingTransaction.payment_method}
+                {viewingTransaction.total != null && ` — $${viewingTransaction.total.toFixed(2)}`}
+              </>
+            )}
           </span>
           <button
             type="button"
             className="px-3 py-1 rounded-(--radius) text-[0.8125rem] font-bold cursor-pointer border-none"
-            style={{ background: 'rgba(0,0,0,0.15)', color: '#000' }}
+            style={{ background: 'rgba(0,0,0,0.15)', color: returnCount > 0 ? '#fff' : '#000' }}
             onClick={onDismissRecall}
             data-testid="dismiss-recall-btn"
           >
@@ -353,6 +383,8 @@ export function TicketPanel({
               const discountedLineTotal = effectiveLineTotal * (1 - itemDiscountRate)
               const isDiscountedLine = itemDiscountRate > 0
               const hasPromo = !!item.promo
+              const markedReturnQty = returnItems?.[item.id]
+              const isMarkedForReturn = markedReturnQty != null
 
               return (
                 <button
@@ -370,7 +402,8 @@ export function TicketPanel({
                     selectedCartId === item.id ? 'active' : '',
                     index % 2 === 1 && selectedCartId !== item.id && 'ticket-line-alt',
                     hasPromo && !isDiscountedLine && 'promo border-l-4',
-                    isDiscountedLine && 'discounted border-l-4'
+                    isDiscountedLine && 'discounted border-l-4',
+                    isMarkedForReturn && 'border-l-4'
                   )}
                   style={{
                     background:
@@ -390,7 +423,8 @@ export function TicketPanel({
                     ...(hasPromo && !isDiscountedLine
                       ? { borderLeftColor: 'var(--accent-mint)' }
                       : {}),
-                    ...(isDiscountedLine ? { borderLeftColor: 'var(--accent-peach)' } : {})
+                    ...(isDiscountedLine ? { borderLeftColor: 'var(--accent-peach)' } : {}),
+                    ...(isMarkedForReturn ? { borderLeftColor: 'var(--semantic-danger-text)' } : {})
                   }}
                   onClick={() => setSelectedCartId(item.id)}
                 >
@@ -446,12 +480,51 @@ export function TicketPanel({
                         </span>
                       </span>
                     )}
+                    {isMarkedForReturn && (
+                      <span
+                        className="inline-flex flex-wrap items-center gap-1.5 text-xs font-bold"
+                        style={{ color: 'var(--semantic-danger-text)' }}
+                        data-testid="return-badge"
+                      >
+                        <span
+                          className="rounded-(--radius) px-1.5 py-px text-xs font-extrabold text-white"
+                          style={{ background: 'var(--semantic-danger-text)' }}
+                        >
+                          RETURN
+                        </span>
+                        <span>
+                          Returning {markedReturnQty} of {item.lineQuantity}
+                        </span>
+                      </span>
+                    )}
                   </span>
                   <span className="ticket-line-qty col-span-2 text-right text-lg font-black">
-                    {item.lineQuantity}
+                    {isMarkedForReturn ? (
+                      <span style={{ color: 'var(--semantic-danger-text)' }}>
+                        -{markedReturnQty}
+                      </span>
+                    ) : isRefundTransaction ? (
+                      <span style={{ color: 'var(--semantic-danger-text)' }}>
+                        -{item.lineQuantity}
+                      </span>
+                    ) : (
+                      item.lineQuantity
+                    )}
                   </span>
                   <span className="ticket-line-price col-span-3 text-right text-lg font-black">
-                    {formatMoney(discountedLineTotal)}
+                    {isMarkedForReturn ? (
+                      <span style={{ color: 'var(--semantic-danger-text)' }}>
+                        (
+                        {formatMoney(effectiveUnitPrice * markedReturnQty * (1 - itemDiscountRate))}
+                        )
+                      </span>
+                    ) : isRefundTransaction ? (
+                      <span style={{ color: 'var(--semantic-danger-text)' }}>
+                        ({formatMoney(discountedLineTotal)})
+                      </span>
+                    ) : (
+                      formatMoney(discountedLineTotal)
+                    )}
                   </span>
                 </button>
               )
@@ -496,31 +569,60 @@ export function TicketPanel({
 
       {/* ── Action buttons ── */}
       <div className="grid grid-cols-5 gap-2">
+        {canReturn ? (
+          <Button
+            variant={isSelectedMarkedForReturn ? 'neutral' : 'danger'}
+            className="min-h-18 text-xl font-bold"
+            disabled={!selectedCartId || isTransactionDiscountSelected}
+            onClick={() => {
+              if (selectedCartId != null && onToggleReturnItem) onToggleReturnItem(selectedCartId)
+            }}
+            data-testid="return-btn"
+          >
+            {isSelectedMarkedForReturn ? 'Undo' : 'Return'}
+          </Button>
+        ) : (
+          <Button
+            variant="danger"
+            className="min-h-18 text-xl font-bold"
+            disabled={!!isViewingTransaction}
+            onClick={() => {
+              removeSelectedLine()
+              onFocusSearch?.()
+            }}
+          >
+            Delete
+          </Button>
+        )}
+        {canReturn ? (
+          <Button
+            variant="warning"
+            className="min-h-18 text-xl font-bold"
+            onClick={() => onToggleReturnAll?.()}
+            data-testid="return-all-btn"
+          >
+            {returnCount > 0 && returnCount === productLines.length ? 'Undo All' : 'Return All'}
+          </Button>
+        ) : (
+          <Button
+            variant="warning"
+            className="min-h-18 text-xl font-bold"
+            disabled={!!isViewingTransaction}
+            onClick={() => {
+              clearTransaction()
+              onFocusSearch?.()
+            }}
+          >
+            Void
+          </Button>
+        )}
         <Button
-          variant="danger"
           className="min-h-18 text-xl font-bold"
-          disabled={!!isViewingTransaction}
-          onClick={() => {
-            removeSelectedLine()
-            onFocusSearch?.()
-          }}
-        >
-          Delete
-        </Button>
-        <Button
-          variant="warning"
-          className="min-h-18 text-xl font-bold"
-          disabled={!!isViewingTransaction}
-          onClick={() => {
-            clearTransaction()
-            onFocusSearch?.()
-          }}
-        >
-          Void
-        </Button>
-        <Button
-          className="min-h-18 text-xl font-bold"
-          disabled={!!isViewingTransaction || !selectedCartId || isTransactionDiscountSelected}
+          disabled={
+            canReturn
+              ? !isSelectedMarkedForReturn
+              : !!isViewingTransaction || !selectedCartId || isTransactionDiscountSelected
+          }
           onClick={() => openEditModal('quantity')}
         >
           Qty Change

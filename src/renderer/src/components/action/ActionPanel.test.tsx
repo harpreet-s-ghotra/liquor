@@ -201,4 +201,67 @@ describe('ActionPanel', () => {
     fireEvent.keyDown(wineOption, { key: 'Enter' })
     expect(setActiveCategory).toHaveBeenCalledWith('Wine')
   })
+
+  describe('return/refund mode', () => {
+    it('shows refund labels and enables payment buttons when isReturning', () => {
+      render(
+        <ActionPanel
+          {...baseProps}
+          activeCategory="All"
+          categories={['All']}
+          setActiveCategory={vi.fn()}
+          cartCount={2}
+          subtotalBeforeDiscount={-19.99}
+          subtotalDiscounted={-19.99}
+          tax={-2.6}
+          total={-22.59}
+          isViewingTransaction={true}
+          isReturning={true}
+        />
+      )
+
+      expect(screen.getByText('Refund Sub-Total')).toBeInTheDocument()
+      expect(screen.getByText('Refund Tax')).toBeInTheDocument()
+      expect(screen.getByText('Refund')).toBeInTheDocument()
+
+      expect(screen.getByRole('button', { name: 'Cash Refund' })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Credit Refund' })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Debit Refund' })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Process Refund' })).not.toBeDisabled()
+    })
+
+    it('hides discount row when isReturning', () => {
+      render(
+        <ActionPanel
+          {...baseProps}
+          activeCategory="All"
+          categories={['All']}
+          setActiveCategory={vi.fn()}
+          isReturning={true}
+          isViewingTransaction={true}
+        />
+      )
+
+      expect(screen.queryByText('Discount')).not.toBeInTheDocument()
+    })
+
+    it('disables payment buttons when viewing transaction without return', () => {
+      render(
+        <ActionPanel
+          {...baseProps}
+          activeCategory="All"
+          categories={['All']}
+          setActiveCategory={vi.fn()}
+          cartCount={2}
+          isViewingTransaction={true}
+          isReturning={false}
+        />
+      )
+
+      expect(screen.getByRole('button', { name: 'Cash' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Credit' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Debit' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Pay Now' })).toBeDisabled()
+    })
+  })
 })

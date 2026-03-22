@@ -511,4 +511,72 @@ describe('PaymentModal', () => {
       )
     })
   })
+
+  describe('refund mode', () => {
+    it('shows "Process Refund" header and refund amount when isRefund', () => {
+      render(
+        <PaymentModal
+          isOpen={true}
+          total={15.0}
+          onComplete={vi.fn()}
+          onCancel={vi.fn()}
+          isRefund={true}
+          initialMethod="cash"
+        />
+      )
+
+      expect(screen.getByText('Process Refund')).toBeInTheDocument()
+      expect(screen.getByText('Refund Amount')).toBeInTheDocument()
+      expect(screen.getByText('($15.00)')).toBeInTheDocument()
+    })
+
+    it('auto-completes refund immediately and shows refund message', () => {
+      const onComplete = vi.fn()
+      render(
+        <PaymentModal
+          isOpen={true}
+          total={25.5}
+          onComplete={onComplete}
+          onCancel={vi.fn()}
+          isRefund={true}
+          initialMethod="cash"
+        />
+      )
+
+      // Flush the deferred setTimeout(…, 0) that auto-triggers the refund
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
+
+      expect(screen.getByTestId('payment-complete')).toHaveTextContent(
+        'Refund of $25.50 processed!'
+      )
+
+      fireEvent.click(screen.getByTestId('payment-ok-btn'))
+      expect(onComplete).toHaveBeenCalledTimes(1)
+    })
+
+    it('auto-completes credit refund', () => {
+      const onComplete = vi.fn()
+      render(
+        <PaymentModal
+          isOpen={true}
+          total={9.99}
+          onComplete={onComplete}
+          onCancel={vi.fn()}
+          isRefund={true}
+          initialMethod="credit"
+        />
+      )
+
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
+
+      expect(screen.getByTestId('payment-complete')).toHaveTextContent('Refund of $9.99 processed!')
+
+      fireEvent.click(screen.getByTestId('payment-ok-btn'))
+      expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ method: 'credit' }))
+    })
+  })
 })

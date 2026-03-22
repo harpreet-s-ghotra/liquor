@@ -26,9 +26,12 @@ import type {
   SaveTransactionInput,
   SavedTransaction,
   TransactionDetail,
+  SaveRefundInput,
   SaveHeldTransactionInput,
   HeldTransaction,
-  SearchProductFilters
+  SearchProductFilters,
+  TransactionListFilter,
+  TransactionListResult
 } from '../shared/types'
 
 // Custom APIs for renderer
@@ -108,6 +111,10 @@ const api = {
     ipcRenderer.invoke('transactions:recent', limit),
   getTransactionByNumber: (txnNumber: string): Promise<TransactionDetail | null> =>
     ipcRenderer.invoke('transactions:get-by-number', txnNumber),
+  saveRefundTransaction: (input: SaveRefundInput): Promise<SavedTransaction> =>
+    ipcRenderer.invoke('transactions:save-refund', input),
+  listTransactions: (filter: TransactionListFilter): Promise<TransactionListResult> =>
+    ipcRenderer.invoke('transactions:list', filter),
 
   // Held Transactions
   saveHeldTransaction: (input: SaveHeldTransactionInput): Promise<HeldTransaction> =>

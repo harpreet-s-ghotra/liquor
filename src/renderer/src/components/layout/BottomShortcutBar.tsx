@@ -3,6 +3,7 @@ import { useAuthStore } from '@renderer/store/useAuthStore'
 
 type BottomShortcutBarProps = {
   onInventoryClick: () => void
+  onSalesHistoryClick: () => void
 }
 
 const F_KEYS = [
@@ -11,7 +12,8 @@ const F_KEYS = [
   { key: 'F3', label: 'Clock In/Out' },
   { key: 'F4', label: 'Customers' },
   { key: 'F5', label: 'Reports' },
-  { key: 'F6', label: 'Manager' }
+  { key: 'F6', label: 'Manager' },
+  { key: 'F7', label: 'Sales History', action: 'sales-history' }
 ]
 
 function useCurrentTime(): string {
@@ -29,7 +31,10 @@ function useCurrentTime(): string {
   return `${date.toUpperCase()}\n${time}`
 }
 
-export function BottomShortcutBar({ onInventoryClick }: BottomShortcutBarProps): React.JSX.Element {
+export function BottomShortcutBar({
+  onInventoryClick,
+  onSalesHistoryClick
+}: BottomShortcutBarProps): React.JSX.Element {
   const logout = useAuthStore((s) => s.logout)
   const datetime = useCurrentTime()
   const [datePart, timePart] = datetime.split('\n')
@@ -57,7 +62,13 @@ export function BottomShortcutBar({ onInventoryClick }: BottomShortcutBarProps):
               borderBottomWidth: '2px',
               fontFamily: 'var(--font-display)'
             }}
-            onClick={action === 'inventory' ? onInventoryClick : undefined}
+            onClick={
+              action === 'inventory'
+                ? onInventoryClick
+                : action === 'sales-history'
+                  ? onSalesHistoryClick
+                  : undefined
+            }
           >
             <span
               className="px-1 text-[10px] font-black text-center text-white"

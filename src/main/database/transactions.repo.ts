@@ -1,10 +1,14 @@
 import { getDb } from './connection'
 import type {
+  SaveRefundInput,
   SaveTransactionInput,
   SavedTransaction,
   TransactionDetail,
   TransactionHistoryItem,
-  TransactionLineItem
+  TransactionLineItem,
+  TransactionListFilter,
+  TransactionListResult,
+  TransactionSummary
 } from '../../shared/types'
 
 /**
@@ -95,6 +99,7 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
     card_last_four: input.card_last_four ?? null,
     card_type: input.card_type ?? null,
     status: 'completed',
+    original_transaction_id: null,
     created_at: new Date().toISOString()
   }
 }
@@ -109,7 +114,7 @@ export function getRecentTransactions(limit = 50): SavedTransaction[] {
       SELECT
         id, transaction_number, subtotal, tax_amount, total,
         payment_method, stax_transaction_id, card_last_four, card_type,
-        status, created_at
+        status, original_transaction_id, created_at
       FROM transactions
       ORDER BY created_at DESC
       LIMIT ?
@@ -131,7 +136,7 @@ export function getTransactionByNumber(txnNumber: string): TransactionDetail | n
       SELECT
         id, transaction_number, subtotal, tax_amount, total,
         payment_method, stax_transaction_id, card_last_four, card_type,
-        status, created_at
+        status, original_transaction_id, created_at
       FROM transactions
       WHERE transaction_number = ?
       `
@@ -171,7 +176,8 @@ export function getProductSalesHistory(productId: number, limit = 20): Transacti
         t.payment_method,
         t.stax_transaction_id,
         t.card_last_four,
-        t.card_type
+        t.card_type,
+        t.status
       FROM transaction_items ti
       INNER JOIN transactions t ON t.id = ti.transaction_id
       WHERE ti.product_id = ?
@@ -180,4 +186,158 @@ export function getProductSalesHistory(productId: number, limit = 20): Transacti
       `
     )
     .all(productId, limit) as TransactionHistoryItem[]
+}
+
+/**
+ * List transactions with optional filters and pagination.
+ * Used by the Sales History modal.
+ */
+export function listTransactions(filter: TransactionListFilter = {}): TransactionListResult {
+  const db = getDb()
+  const { date_from, date_to, status, payment_method, search, limit = 50, offset = 0 } = filter
+
+  const conditions: string[] = []
+  const params: Record<string, unknown> = {}
+
+  if (date_from) {
+    conditions.push('t.created_at >= @date_from')
+    params.date_from = date_from
+  }
+  if (date_to) {
+    conditions.push('t.created_at <= @date_to')
+    params.date_to = date_to
+  }
+  if (status) {
+    conditions.push('t.status = @status')
+    params.status = status
+  }
+  if (payment_method) {
+    conditions.push('t.payment_method = @payment_method')
+    params.payment_method = payment_method
+  }
+  if (search) {
+    conditions.push(
+      `(t.transaction_number LIKE @search_pattern OR t.id IN (SELECT transaction_id FROM transaction_items WHERE product_name LIKE @search_pattern))`
+    )
+    params.search_pattern = `%${search}%`
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+
+  const countRow = db
+    .prepare(`SELECT COUNT(DISTINCT t.id) AS cnt FROM transactions t ${whereClause}`)
+    .get(params) as { cnt: number }
+
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        t.id, t.transaction_number, t.subtotal, t.tax_amount, t.total,
+        t.payment_method, t.stax_transaction_id, t.card_last_four, t.card_type,
+        t.status, t.original_transaction_id, t.notes, t.created_at,
+        COUNT(ti.id) AS item_count
+      FROM transactions t
+      LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
+      ${whereClause}
+      GROUP BY t.id
+      ORDER BY t.created_at DESC
+      LIMIT @limit OFFSET @offset
+      `
+    )
+    .all({ ...params, limit, offset }) as TransactionSummary[]
+
+  return { transactions: rows, total_count: countRow.cnt }
+}
+
+/**
+ * Save a refund transaction. Stores negative totals and increments product stock.
+ */
+export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction {
+  const db = getDb()
+
+  const txNumber = `TXN-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+
+  const tx = db.transaction(() => {
+    const result = db
+      .prepare(
+        `
+        INSERT INTO transactions (
+          transaction_number, subtotal, tax_amount, total,
+          payment_method, stax_transaction_id, card_last_four, card_type,
+          status, original_transaction_id, notes
+        )
+        VALUES (
+          @transaction_number, @subtotal, @tax_amount, @total,
+          @payment_method, @stax_transaction_id, @card_last_four, @card_type,
+          'refund', @original_transaction_id, @notes
+        )
+        `
+      )
+      .run({
+        transaction_number: txNumber,
+        subtotal: input.subtotal,
+        tax_amount: input.tax_amount,
+        total: input.total,
+        payment_method: input.payment_method,
+        stax_transaction_id: input.stax_transaction_id ?? null,
+        card_last_four: input.card_last_four ?? null,
+        card_type: input.card_type ?? null,
+        original_transaction_id: input.original_transaction_id,
+        notes: `Refund for ${input.original_transaction_number}`
+      })
+
+    const transactionId = Number(result.lastInsertRowid)
+
+    const insertItem = db.prepare(
+      `
+      INSERT INTO transaction_items (
+        transaction_id, product_id, product_name, quantity, unit_price, total_price
+      )
+      VALUES (?, ?, ?, ?, ?, ?)
+      `
+    )
+
+    const incrementStock = db.prepare(
+      `
+      UPDATE products
+      SET
+        in_stock  = COALESCE(in_stock, quantity, 0) + ?,
+        quantity  = COALESCE(quantity, in_stock, 0) + ?
+      WHERE id = ?
+      `
+    )
+
+    for (const item of input.items) {
+      insertItem.run(
+        transactionId,
+        item.product_id,
+        item.product_name,
+        item.quantity,
+        item.unit_price,
+        item.total_price
+      )
+
+      // Increment product stock for returned items
+      incrementStock.run(item.quantity, item.quantity, item.product_id)
+    }
+
+    return transactionId
+  })
+
+  const transactionId = tx()
+
+  return {
+    id: transactionId,
+    transaction_number: txNumber,
+    subtotal: input.subtotal,
+    tax_amount: input.tax_amount,
+    total: input.total,
+    payment_method: input.payment_method,
+    stax_transaction_id: input.stax_transaction_id ?? null,
+    card_last_four: input.card_last_four ?? null,
+    card_type: input.card_type ?? null,
+    status: 'refund',
+    original_transaction_id: input.original_transaction_id,
+    created_at: new Date().toISOString()
+  }
 }

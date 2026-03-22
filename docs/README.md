@@ -39,6 +39,11 @@ Build a fast, reliable Point of Sale system for liquor stores. The app should fe
 - [Stax Activation & Login](stax-activation-and-login.md) — Merchant activation flow, cashier PIN login, auth state machine
 - [Stax Integration Plan](stax-integration-plan.md) — Partner API architecture, endpoints, test cards, webhook events, implementation steps
 - [Product Search Modal](product-search-modal.md) — Search button on POS screen, modal with filters, product lookup flow
+- [Returns & Refunds](returns-and-refunds.md) — Return workflow, refund scenarios, inventory impact, sales history modal, error handling, edge cases
+
+### E2E Test Coverage
+
+- [Test Coverage Index](tests/README.md) — Visual overview of all 65 E2E test workflows (startup, transactions, hold, inventory, payments)
 
 ### Developer Guidelines
 

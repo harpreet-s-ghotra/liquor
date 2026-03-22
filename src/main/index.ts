@@ -37,6 +37,8 @@ import {
   saveTransaction,
   getRecentTransactions,
   getTransactionByNumber,
+  saveRefundTransaction,
+  listTransactions,
   saveHeldTransaction,
   getHeldTransactions,
   deleteHeldTransaction,
@@ -46,8 +48,10 @@ import { validateApiKey, getTerminalRegisters, chargeTerminal } from './services
 import type {
   TerminalChargeInput,
   SaveTransactionInput,
+  SaveRefundInput,
   SaveHeldTransactionInput,
-  SearchProductFilters
+  SearchProductFilters,
+  TransactionListFilter
 } from '../shared/types'
 
 function createWindow(): void {
@@ -370,6 +374,22 @@ app.whenReady().then(() => {
       return getTransactionByNumber(txnNumber)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to get transaction')
+    }
+  })
+
+  ipcMain.handle('transactions:save-refund', async (_, input: SaveRefundInput) => {
+    try {
+      return saveRefundTransaction(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to save refund')
+    }
+  })
+
+  ipcMain.handle('transactions:list', async (_, filter: TransactionListFilter) => {
+    try {
+      return listTransactions(filter)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list transactions')
     }
   })
 

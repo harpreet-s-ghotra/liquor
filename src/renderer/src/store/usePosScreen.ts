@@ -37,6 +37,7 @@ type PosState = {
   heldTransactions: HeldTransaction[]
   isHoldLookupOpen: boolean
   viewingTransaction: TransactionDetail | null
+  returnItems: Record<number, number>
 }
 
 // ── Pure derivation functions (testable, no hooks) ──
@@ -193,6 +194,9 @@ type PosActions = {
   dismissHoldLookup: () => void
   recallTransaction: (txnNumber: string) => Promise<boolean>
   dismissRecalledTransaction: () => void
+  toggleReturnItem: (cartItemId: number) => void
+  toggleReturnAll: () => void
+  setReturnItemQuantity: (cartItemId: number, qty: number) => void
 }
 
 // ── Full store type ──
@@ -221,6 +225,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
   heldTransactions: [],
   isHoldLookupOpen: false,
   viewingTransaction: null,
+  returnItems: {},
 
   // Setters
   setProducts: (products) => set({ products, productsLoadError: null }),
@@ -526,9 +531,10 @@ export const usePosStore = create<PosStore>((set, get) => ({
 
       set({
         cart: recalledCart,
-        selectedCartId: null,
+        selectedCartId: recalledCart.length > 0 ? recalledCart[0].id : null,
         transactionDiscountPercent: 0,
         viewingTransaction: detail,
+        returnItems: {},
         search: '',
         quantity: '1'
       })
@@ -544,8 +550,53 @@ export const usePosStore = create<PosStore>((set, get) => ({
       cart: [],
       selectedCartId: null,
       transactionDiscountPercent: 0,
-      viewingTransaction: null
+      viewingTransaction: null,
+      returnItems: {}
     })
+  },
+
+  toggleReturnItem: (cartItemId: number) => {
+    const { returnItems, viewingTransaction, cart } = get()
+    if (!viewingTransaction) return
+    // Don't allow returns on refund transactions
+    if (viewingTransaction.status === 'refund') return
+
+    const next = { ...returnItems }
+    if (next[cartItemId] != null) {
+      delete next[cartItemId]
+    } else {
+      const item = cart.find((c) => c.id === cartItemId)
+      if (item) next[cartItemId] = item.lineQuantity
+    }
+    set({ returnItems: next })
+  },
+
+  toggleReturnAll: () => {
+    const { returnItems, viewingTransaction, cart } = get()
+    if (!viewingTransaction) return
+    if (viewingTransaction.status === 'refund') return
+
+    const hasAll = cart.length > 0 && cart.every((c) => returnItems[c.id] != null)
+    if (hasAll) {
+      set({ returnItems: {} })
+    } else {
+      const next: Record<number, number> = {}
+      for (const c of cart) {
+        next[c.id] = c.lineQuantity
+      }
+      set({ returnItems: next })
+    }
+  },
+
+  setReturnItemQuantity: (cartItemId: number, qty: number) => {
+    const { returnItems, viewingTransaction, cart } = get()
+    if (!viewingTransaction) return
+
+    const item = cart.find((c) => c.id === cartItemId)
+    if (!item) return
+
+    const clamped = Math.max(1, Math.min(qty, item.lineQuantity))
+    set({ returnItems: { ...returnItems, [cartItemId]: clamped } })
   }
 }))
 
@@ -594,6 +645,14 @@ type UsePosScreenState = {
   isViewingTransaction: boolean
   recallTransaction: (txnNumber: string) => Promise<boolean>
   dismissRecalledTransaction: () => void
+  returnItems: Record<number, number>
+  isReturning: boolean
+  returnSubtotal: number
+  returnTax: number
+  returnTotal: number
+  toggleReturnItem: (cartItemId: number) => void
+  toggleReturnAll: () => void
+  setReturnItemQuantity: (cartItemId: number, qty: number) => void
 }
 
 export function usePosScreen(): UsePosScreenState {
@@ -633,7 +692,11 @@ export function usePosScreen(): UsePosScreenState {
       dismissHoldLookup: s.dismissHoldLookup,
       viewingTransaction: s.viewingTransaction,
       recallTransaction: s.recallTransaction,
-      dismissRecalledTransaction: s.dismissRecalledTransaction
+      dismissRecalledTransaction: s.dismissRecalledTransaction,
+      returnItems: s.returnItems,
+      toggleReturnItem: s.toggleReturnItem,
+      toggleReturnAll: s.toggleReturnAll,
+      setReturnItemQuantity: s.setReturnItemQuantity
     }))
   )
 
@@ -662,6 +725,37 @@ export function usePosScreen(): UsePosScreenState {
       ),
     [store.cart, store.transactionDiscountPercent, store.selectedCartId, store.specialPricingMap]
   )
+
+  const returnTotals = useMemo(() => {
+    const vt = store.viewingTransaction
+    const ri = store.returnItems
+    if (!vt) return { returnSubtotal: 0, returnTax: 0, returnTotal: 0 }
+
+    const markedIds = Object.keys(ri).map(Number)
+    if (markedIds.length === 0) return { returnSubtotal: 0, returnTax: 0, returnTotal: 0 }
+
+    // Compute proportion of the original transaction being returned
+    const originalItemsTotal = vt.items.reduce((s, i) => s + i.total_price, 0)
+
+    let returnSubtotal = 0
+    for (const id of markedIds) {
+      const cartItem = store.cart.find((c) => c.id === id)
+      if (!cartItem) continue
+      const returnQty = ri[id]
+      returnSubtotal += cartItem.price * returnQty
+    }
+
+    // Proportional tax: (returnSubtotal / originalSubtotal) * originalTax
+    const returnTax =
+      originalItemsTotal > 0 ? (returnSubtotal / originalItemsTotal) * vt.tax_amount : 0
+    const returnTotal = returnSubtotal + returnTax
+
+    return {
+      returnSubtotal: -Math.round(returnSubtotal * 100) / 100,
+      returnTax: -Math.round(returnTax * 100) / 100,
+      returnTotal: -Math.round(returnTotal * 100) / 100
+    }
+  }, [store.viewingTransaction, store.returnItems, store.cart])
 
   return {
     activeCategory: store.activeCategory,
@@ -705,6 +799,14 @@ export function usePosScreen(): UsePosScreenState {
     viewingTransaction: store.viewingTransaction,
     isViewingTransaction: store.viewingTransaction !== null,
     recallTransaction: store.recallTransaction,
-    dismissRecalledTransaction: store.dismissRecalledTransaction
+    dismissRecalledTransaction: store.dismissRecalledTransaction,
+    returnItems: store.returnItems,
+    isReturning: Object.keys(store.returnItems).length > 0,
+    returnSubtotal: returnTotals.returnSubtotal,
+    returnTax: returnTotals.returnTax,
+    returnTotal: returnTotals.returnTotal,
+    toggleReturnItem: store.toggleReturnItem,
+    toggleReturnAll: store.toggleReturnAll,
+    setReturnItemQuantity: store.setReturnItemQuantity
   }
 }

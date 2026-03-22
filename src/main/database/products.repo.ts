@@ -250,7 +250,8 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         t.payment_method,
         t.stax_transaction_id,
         t.card_last_four,
-        t.card_type
+        t.card_type,
+        t.status
       FROM transaction_items ti
       INNER JOIN transactions t ON t.id = ti.transaction_id
       WHERE ti.product_id = ?

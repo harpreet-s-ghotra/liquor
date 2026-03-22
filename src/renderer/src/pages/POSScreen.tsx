@@ -1,12 +1,15 @@
 import { InventoryModal } from '@renderer/components/inventory/InventoryModal'
 import { PaymentModal } from '@renderer/components/payment/PaymentModal'
+import { SalesHistoryModal } from '@renderer/components/sales-history/SalesHistoryModal'
 import { SearchModal } from '@renderer/components/search/SearchModal'
 import { ActionPanel } from '@renderer/components/action/ActionPanel'
+import { AlertBar } from '@renderer/components/common/AlertBar'
 import { HoldLookupModal } from '@renderer/components/hold/HoldLookupModal'
 import { BottomShortcutBar } from '@renderer/components/layout/BottomShortcutBar'
 import { HeaderBar } from '@renderer/components/layout/HeaderBar'
 import { TicketPanel } from '@renderer/components/ticket/TicketPanel'
 import { usePosScreen } from '@renderer/store/usePosScreen'
+import { useAlertStore } from '@renderer/store/useAlertStore'
 import { useAuthStore } from '@renderer/store/useAuthStore'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import '../styles/auth.css'
@@ -20,12 +23,14 @@ export function POSScreen(): React.JSX.Element {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
   const [isPaymentComplete, setIsPaymentComplete] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isSalesHistoryOpen, setIsSalesHistoryOpen] = useState(false)
   const [searchKey, setSearchKey] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
   const searchRef = useRef<HTMLInputElement>(null)
 
   const currentCashier = useAuthStore((s) => s.currentCashier)
   const logout = useAuthStore((s) => s.logout)
+  const showError = useAlertStore((s) => s.showError)
 
   // Ctrl+L keyboard shortcut for logout
   useEffect(() => {
@@ -79,7 +84,15 @@ export function POSScreen(): React.JSX.Element {
     viewingTransaction,
     isViewingTransaction,
     recallTransaction,
-    dismissRecalledTransaction
+    dismissRecalledTransaction,
+    returnItems,
+    isReturning,
+    returnSubtotal,
+    returnTax,
+    returnTotal,
+    toggleReturnItem,
+    toggleReturnAll,
+    setReturnItemQuantity
   } = usePosScreen()
 
   // Load held transactions on mount so the badge is accurate on startup
@@ -145,7 +158,10 @@ export function POSScreen(): React.JSX.Element {
             card_type: result.card_type ?? null,
             items: lineItems
           })
-          .catch((err) => console.error('Failed to save transaction:', err))
+          .catch((err) => {
+            console.error('Failed to save transaction:', err)
+            showError('Failed to save transaction. Please try again.')
+          })
       }
 
       setIsPaymentOpen(false)
@@ -161,7 +177,81 @@ export function POSScreen(): React.JSX.Element {
       total,
       transactionDiscountPercent,
       clearTransaction,
-      focusSearch
+      focusSearch,
+      showError
+    ]
+  )
+
+  const handleRefundComplete = useCallback(
+    (result: PaymentResult) => {
+      if (!viewingTransaction || !window.api?.saveRefundTransaction) return
+
+      const refundItems = Object.entries(returnItems)
+        .map(([cartItemIdStr, returnQty]) => {
+          const cartItemId = Number(cartItemIdStr)
+          const cartItem = cart.find((i) => i.id === cartItemId)
+          if (!cartItem) return null
+
+          // Recalled cart items have synthetic negative IDs: -(index + 100).
+          // Resolve the real product_id from the original transaction line items.
+          const originalIndex = -cartItemId - 100
+          const originalItem = viewingTransaction.items[originalIndex]
+          const realProductId = originalItem?.product_id ?? cartItem.id
+
+          const itemDiscountMultiplier = cartItem.itemDiscountPercent
+            ? 1 - cartItem.itemDiscountPercent / 100
+            : 1
+          const effectiveUnitPrice = cartItem.price * itemDiscountMultiplier
+          return {
+            product_id: realProductId,
+            product_name: cartItem.name,
+            quantity: returnQty,
+            unit_price: Math.round(effectiveUnitPrice * 100) / 100,
+            total_price: Math.round(effectiveUnitPrice * returnQty * 100) / 100
+          }
+        })
+        .filter(Boolean) as {
+        product_id: number
+        product_name: string
+        quantity: number
+        unit_price: number
+        total_price: number
+      }[]
+
+      window.api
+        .saveRefundTransaction({
+          original_transaction_id: viewingTransaction.id,
+          original_transaction_number: viewingTransaction.transaction_number,
+          subtotal: Math.abs(returnSubtotal),
+          tax_amount: Math.abs(returnTax),
+          total: Math.abs(returnTotal),
+          payment_method: result.method,
+          stax_transaction_id: result.stax_transaction_id ?? null,
+          card_last_four: result.card_last_four ?? null,
+          card_type: result.card_type ?? null,
+          items: refundItems
+        })
+        .catch((err) => {
+          console.error('Failed to save refund transaction:', err)
+          showError('Failed to process refund. Please try again.')
+        })
+
+      setIsPaymentOpen(false)
+      setIsPaymentComplete(false)
+      setPaymentMethod(undefined)
+      dismissRecalledTransaction()
+      focusSearch()
+    },
+    [
+      viewingTransaction,
+      returnItems,
+      cart,
+      returnSubtotal,
+      returnTax,
+      returnTotal,
+      dismissRecalledTransaction,
+      focusSearch,
+      showError
     ]
   )
 
@@ -209,8 +299,9 @@ export function POSScreen(): React.JSX.Element {
   }, [addToCartBySku, search, isPaymentComplete, clearTransaction, focusSearch, recallTransaction])
 
   return (
-    <div className="grid h-full overflow-hidden" style={{ gridTemplateRows: 'auto 1fr auto' }}>
+    <div className="grid h-full overflow-hidden" style={{ gridTemplateRows: 'auto auto 1fr auto' }}>
       <HeaderBar cashierName={currentCashier?.name} />
+      <AlertBar />
       <main
         className="grid gap-2 p-2 min-h-0 overflow-hidden"
         style={{ gridTemplateColumns: '56% 44%' }}
@@ -240,6 +331,10 @@ export function POSScreen(): React.JSX.Element {
           isViewingTransaction={isViewingTransaction}
           viewingTransaction={viewingTransaction}
           onDismissRecall={dismissRecalledTransaction}
+          returnItems={returnItems}
+          onToggleReturnItem={toggleReturnItem}
+          onToggleReturnAll={toggleReturnAll}
+          onSetReturnItemQuantity={setReturnItemQuantity}
         />
 
         <ActionPanel
@@ -250,11 +345,21 @@ export function POSScreen(): React.JSX.Element {
           setActiveCategory={setActiveCategory}
           addToCart={handleAddToCart}
           subtotalBeforeDiscount={
-            viewingTransaction ? viewingTransaction.subtotal : subtotalBeforeDiscount
+            isReturning
+              ? returnSubtotal
+              : viewingTransaction
+                ? viewingTransaction.subtotal
+                : subtotalBeforeDiscount
           }
-          subtotalDiscounted={viewingTransaction ? viewingTransaction.subtotal : subtotalDiscounted}
-          tax={viewingTransaction ? viewingTransaction.tax_amount : tax}
-          total={viewingTransaction ? viewingTransaction.total : total}
+          subtotalDiscounted={
+            isReturning
+              ? returnSubtotal
+              : viewingTransaction
+                ? viewingTransaction.subtotal
+                : subtotalDiscounted
+          }
+          tax={isReturning ? returnTax : viewingTransaction ? viewingTransaction.tax_amount : tax}
+          total={isReturning ? returnTotal : viewingTransaction ? viewingTransaction.total : total}
           onPay={() => handlePaymentOpen()}
           onCash={() => handlePaymentOpen('cash')}
           onCredit={() => handlePaymentOpen('credit')}
@@ -263,15 +368,31 @@ export function POSScreen(): React.JSX.Element {
           onHold={handleHold}
           onTsLookup={openHoldLookup}
           isViewingTransaction={isViewingTransaction}
+          isReturning={isReturning}
+          isViewingRefund={viewingTransaction?.status === 'refund'}
         />
       </main>
 
-      <BottomShortcutBar onInventoryClick={() => setIsInventoryOpen(true)} />
+      <BottomShortcutBar
+        onInventoryClick={() => setIsInventoryOpen(true)}
+        onSalesHistoryClick={() => setIsSalesHistoryOpen(true)}
+      />
 
       <InventoryModal
         isOpen={isInventoryOpen}
         onClose={handleInventoryClose}
         openItemNumber={pendingInventoryItemNumber}
+        onRecallTransaction={(txnNumber) => {
+          void recallTransaction(txnNumber)
+        }}
+      />
+
+      <SalesHistoryModal
+        isOpen={isSalesHistoryOpen}
+        onClose={() => {
+          setIsSalesHistoryOpen(false)
+          focusSearch()
+        }}
         onRecallTransaction={(txnNumber) => {
           void recallTransaction(txnNumber)
         }}
@@ -305,11 +426,12 @@ export function POSScreen(): React.JSX.Element {
 
       <PaymentModal
         isOpen={isPaymentOpen}
-        total={total}
+        total={isReturning ? returnTotal : total}
         initialMethod={paymentMethod}
-        onComplete={handlePaymentComplete}
+        onComplete={isReturning ? handleRefundComplete : handlePaymentComplete}
         onCancel={handlePaymentCancel}
         onStatusChange={handlePaymentStatusChange}
+        isRefund={isReturning}
       />
 
       {productsLoadError && (

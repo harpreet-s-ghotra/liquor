@@ -11,6 +11,7 @@ type PaymentModalProps = {
   onComplete: (result: PaymentResult) => void
   onCancel: () => void
   onStatusChange?: (status: PaymentStatus) => void
+  isRefund?: boolean
 }
 
 const TENDER_DENOMINATIONS = [1, 2, 5, 10, 20, 50, 100]
@@ -37,7 +38,8 @@ export function PaymentModal({
   initialMethod,
   onComplete,
   onCancel,
-  onStatusChange
+  onStatusChange,
+  isRefund
 }: PaymentModalProps): React.JSX.Element | null {
   const nextPaymentIdRef = useRef(1)
   const [payments, setPayments] = useState<PaymentEntry[]>([])
@@ -200,14 +202,25 @@ export function PaymentModal({
 
     // Defer to avoid synchronous setState inside effect body
     const id = setTimeout(() => {
-      if (initialMethod === 'cash') {
+      if (isRefund) {
+        // For refunds, complete immediately without tender collection
+        finishTransaction(initialMethod === 'cash', { method: initialMethod })
+      } else if (initialMethod === 'cash') {
         handleCashExact()
       } else {
         handleCardPayment(initialMethod)
       }
     }, 0)
     return (): void => clearTimeout(id)
-  }, [isOpen, initialMethod, status, handleCashExact, handleCardPayment])
+  }, [
+    isOpen,
+    initialMethod,
+    status,
+    handleCashExact,
+    handleCardPayment,
+    isRefund,
+    finishTransaction
+  ])
 
   if (!isOpen) {
     return null
@@ -227,7 +240,9 @@ export function PaymentModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
-          <h3 className="m-0 text-2xl font-bold text-(--text-primary)">Payment</h3>
+          <h3 className="m-0 text-2xl font-bold text-(--text-primary)">
+            {isRefund ? 'Process Refund' : 'Payment'}
+          </h3>
           <Button
             variant="danger"
             size="sm"
@@ -240,9 +255,19 @@ export function PaymentModal({
         </div>
 
         {/* Transaction total */}
-        <div className="payment-total-bar flex items-center justify-between rounded-(--radius) bg-(--totals-bg) px-4 py-3 text-[1.375rem] font-bold text-(--totals-text)">
-          <span>Transaction Total</span>
-          <strong className="text-[2rem]">${total.toFixed(2)}</strong>
+        <div
+          className={cn(
+            'payment-total-bar flex items-center justify-between rounded-(--radius) px-4 py-3 text-[1.375rem] font-bold',
+            !isRefund && 'bg-(--totals-bg) text-(--totals-text)'
+          )}
+          style={
+            isRefund ? { background: 'var(--semantic-danger-text)', color: '#fff' } : undefined
+          }
+        >
+          <span>{isRefund ? 'Refund Amount' : 'Transaction Total'}</span>
+          <strong className="text-[2rem]">
+            {isRefund ? `($${Math.abs(total).toFixed(2)})` : `$${total.toFixed(2)}`}
+          </strong>
         </div>
 
         {/* Main body: left = methods & info, right = paid-so-far log */}
@@ -315,7 +340,11 @@ export function PaymentModal({
                   className="flex items-center justify-between gap-4 w-full font-bold text-(--semantic-success-text)"
                   data-testid="payment-complete"
                 >
-                  <span>Payment complete! {change > 0 && `Change: $${change.toFixed(2)}`}</span>
+                  <span>
+                    {isRefund
+                      ? `Refund of $${Math.abs(total).toFixed(2)} processed!`
+                      : `Payment complete!${change > 0 ? ` Change: $${change.toFixed(2)}` : ''}`}
+                  </span>
                   <Button
                     variant="success"
                     className="px-8 min-h-11 text-xl whitespace-nowrap"

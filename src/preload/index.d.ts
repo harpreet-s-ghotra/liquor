@@ -25,9 +25,12 @@ import type {
   SaveTransactionInput,
   SavedTransaction,
   TransactionDetail,
+  SaveRefundInput,
   SaveHeldTransactionInput,
   HeldTransaction,
-  SearchProductFilters
+  SearchProductFilters,
+  TransactionListFilter,
+  TransactionListResult
 } from '../shared/types'
 
 type AppApi = {
@@ -74,6 +77,8 @@ type AppApi = {
   saveTransaction: (input: SaveTransactionInput) => Promise<SavedTransaction>
   getRecentTransactions: (limit?: number) => Promise<SavedTransaction[]>
   getTransactionByNumber: (txnNumber: string) => Promise<TransactionDetail | null>
+  saveRefundTransaction: (input: SaveRefundInput) => Promise<SavedTransaction>
+  listTransactions: (filter: TransactionListFilter) => Promise<TransactionListResult>
 
   // Held Transactions
   saveHeldTransaction: (input: SaveHeldTransactionInput) => Promise<HeldTransaction>

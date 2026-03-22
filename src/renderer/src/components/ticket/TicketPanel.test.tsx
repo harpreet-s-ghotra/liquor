@@ -476,4 +476,162 @@ describe('TicketPanel', () => {
     fireEvent.click(searchBtn)
     expect(onSearchClick).toHaveBeenCalledTimes(1)
   })
+
+  describe('return mode', () => {
+    const mockViewingTxn = {
+      id: 1,
+      transaction_number: 'TXN-001',
+      subtotal: 19.99,
+      tax_amount: 2.6,
+      total: 22.59,
+      payment_method: 'cash',
+      status: 'completed' as const,
+      created_at: '2026-01-01T00:00:00Z',
+      stax_transaction_id: null,
+      card_last_four: null,
+      card_type: null,
+      original_transaction_id: null,
+      items: [
+        {
+          id: 1,
+          product_id: 1,
+          product_name: 'Cabernet Sauvignon 750ml',
+          quantity: 1,
+          unit_price: 19.99,
+          total_price: 19.99
+        }
+      ]
+    }
+
+    const baseReturnProps = {
+      applyDiscount: vi.fn(),
+      cart: cart,
+      quantity: '1',
+      search: '',
+      selectedCartId: 1,
+      selectedCartItem: cart[0],
+      transactionDiscountPercent: 0,
+      updateSelectedLinePrice: vi.fn(),
+      updateSelectedLineQuantity: vi.fn(),
+      setQuantity: vi.fn(),
+      setSearch: vi.fn(),
+      setSelectedCartId: vi.fn(),
+      clearTransaction: vi.fn(),
+      removeSelectedLine: vi.fn(),
+      isViewingTransaction: true,
+      viewingTransaction: mockViewingTxn,
+      onDismissRecall: vi.fn()
+    }
+
+    it('shows Return button when viewing non-refund transaction', () => {
+      const onToggleReturnItem = vi.fn()
+      render(
+        <TicketPanel
+          {...baseReturnProps}
+          returnItems={{}}
+          onToggleReturnItem={onToggleReturnItem}
+          onToggleReturnAll={vi.fn()}
+          onSetReturnItemQuantity={vi.fn()}
+        />
+      )
+
+      expect(screen.getByTestId('return-btn')).toHaveTextContent('Return')
+      expect(screen.getByTestId('return-all-btn')).toHaveTextContent('Return All')
+    })
+
+    it('shows Undo when selected item is marked for return', () => {
+      render(
+        <TicketPanel
+          {...baseReturnProps}
+          returnItems={{ 1: 1 }}
+          onToggleReturnItem={vi.fn()}
+          onToggleReturnAll={vi.fn()}
+          onSetReturnItemQuantity={vi.fn()}
+        />
+      )
+
+      expect(screen.getByTestId('return-btn')).toHaveTextContent('Undo')
+    })
+
+    it('shows RETURN badge on marked items', () => {
+      render(
+        <TicketPanel
+          {...baseReturnProps}
+          returnItems={{ 1: 1 }}
+          onToggleReturnItem={vi.fn()}
+          onToggleReturnAll={vi.fn()}
+          onSetReturnItemQuantity={vi.fn()}
+        />
+      )
+
+      expect(screen.getByTestId('return-badge')).toBeInTheDocument()
+      expect(screen.getByText('RETURN')).toBeInTheDocument()
+    })
+
+    it('shows disabled Delete/Void when viewing a refund transaction', () => {
+      const refundTxn = { ...mockViewingTxn, status: 'refund' as const }
+      render(
+        <TicketPanel
+          {...baseReturnProps}
+          viewingTransaction={refundTxn}
+          returnItems={{}}
+          onToggleReturnItem={vi.fn()}
+          onToggleReturnAll={vi.fn()}
+          onSetReturnItemQuantity={vi.fn()}
+        />
+      )
+
+      const deleteBtn = screen.getByRole('button', { name: 'Delete' })
+      expect(deleteBtn).toBeDisabled()
+      const voidBtn = screen.getByRole('button', { name: 'Void' })
+      expect(voidBtn).toBeDisabled()
+    })
+
+    it('recall banner shows return count when items are marked', () => {
+      render(
+        <TicketPanel
+          {...baseReturnProps}
+          returnItems={{ 1: 1 }}
+          onToggleReturnItem={vi.fn()}
+          onToggleReturnAll={vi.fn()}
+          onSetReturnItemQuantity={vi.fn()}
+        />
+      )
+
+      const banner = screen.getByTestId('recall-banner')
+      expect(banner.textContent).toContain('Returning 1 item')
+    })
+
+    it('calls onToggleReturnItem when Return is clicked', () => {
+      const onToggleReturnItem = vi.fn()
+      render(
+        <TicketPanel
+          {...baseReturnProps}
+          returnItems={{}}
+          onToggleReturnItem={onToggleReturnItem}
+          onToggleReturnAll={vi.fn()}
+          onSetReturnItemQuantity={vi.fn()}
+        />
+      )
+
+      fireEvent.click(screen.getByTestId('return-btn'))
+      expect(onToggleReturnItem).toHaveBeenCalledWith(1)
+    })
+
+    it('calls onToggleReturnAll when Return All is clicked', () => {
+      const onToggleReturnAll = vi.fn()
+      render(
+        <TicketPanel
+          {...baseReturnProps}
+          returnItems={{}}
+          onToggleReturnItem={vi.fn()}
+          onToggleReturnAll={onToggleReturnAll}
+          onSetReturnItemQuantity={vi.fn()}
+        />
+      )
+
+      fireEvent.click(screen.getByTestId('return-all-btn'))
+      expect(onToggleReturnAll).toHaveBeenCalledTimes(1)
+    })
+  })
 })

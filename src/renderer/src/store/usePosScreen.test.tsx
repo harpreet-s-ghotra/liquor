@@ -827,4 +827,346 @@ describe('usePosScreen', () => {
       expect(result.current.cart).toHaveLength(0)
     })
   })
+
+  describe('recallTransaction edge cases', () => {
+    it('returns false when transaction is not found', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api.getTransactionByNumber = vi.fn().mockResolvedValue(null)
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      let ok: boolean = true
+      await act(async () => {
+        ok = await result.current.recallTransaction('TXN-NONE')
+      })
+      expect(ok).toBe(false)
+    })
+
+    it('returns false when api call throws', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api.getTransactionByNumber = vi.fn().mockRejectedValue(new Error('db error'))
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      let ok: boolean = true
+      await act(async () => {
+        ok = await result.current.recallTransaction('TXN-ERR')
+      })
+      expect(ok).toBe(false)
+    })
+
+    it('returns false when api is unavailable', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).api.getTransactionByNumber
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      let ok: boolean = true
+      await act(async () => {
+        ok = await result.current.recallTransaction('TXN-001')
+      })
+      expect(ok).toBe(false)
+    })
+  })
+
+  describe('held transaction error branches', () => {
+    it('loadHeldTransactions handles api error', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api.getHeldTransactions = vi.fn().mockRejectedValue(new Error('load error'))
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      await act(async () => {
+        await result.current.loadHeldTransactions()
+      })
+      // Should not throw; heldTransactions stays unchanged
+      expect(result.current.heldTransactions).toEqual([])
+    })
+
+    it('clearAllHeldTransactions handles api error', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api.clearAllHeldTransactions = vi
+        .fn()
+        .mockRejectedValue(new Error('clear error'))
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      await act(async () => {
+        await result.current.clearAllHeldTransactions()
+      })
+      // Should not throw
+      expect(result.current.heldTransactions).toEqual([])
+    })
+  })
+
+  describe('return/refund', () => {
+    const mockTransaction = {
+      id: 1,
+      transaction_number: 'TXN-001',
+      subtotal: 33.48,
+      tax_amount: 4.35,
+      total: 37.83,
+      payment_method: 'cash',
+      status: 'completed' as const,
+      created_at: '2026-01-01T00:00:00Z',
+      stax_transaction_id: null,
+      card_last_four: null,
+      card_type: null,
+      original_transaction_id: null,
+      items: [
+        {
+          id: 1,
+          product_id: 1,
+          product_name: 'Cabernet Sauvignon 750ml',
+          quantity: 1,
+          unit_price: 19.99,
+          total_price: 19.99
+        },
+        {
+          id: 2,
+          product_id: 2,
+          product_name: 'Craft IPA 6-Pack',
+          quantity: 1,
+          unit_price: 13.49,
+          total_price: 13.49
+        }
+      ]
+    }
+
+    function setupRecalledState(): void {
+      usePosStore.setState({
+        products: mockProducts,
+        cart: mockTransaction.items.map((item) => ({
+          id: item.product_id,
+          sku: '',
+          name: item.product_name,
+          category: '',
+          price: item.unit_price,
+          quantity: 0,
+          tax_rate: 0,
+          lineQuantity: item.quantity
+        })),
+        viewingTransaction: mockTransaction,
+        selectedCartId: 1,
+        returnItems: {}
+      })
+    }
+
+    it('toggleReturnItem adds item with full lineQuantity', async () => {
+      setupRecalledState()
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.toggleReturnItem(1)
+      })
+
+      expect(result.current.returnItems).toEqual({ 1: 1 })
+      expect(result.current.isReturning).toBe(true)
+    })
+
+    it('toggleReturnItem removes item on second call', async () => {
+      setupRecalledState()
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.toggleReturnItem(1)
+      })
+      act(() => {
+        result.current.toggleReturnItem(1)
+      })
+
+      expect(result.current.returnItems).toEqual({})
+      expect(result.current.isReturning).toBe(false)
+    })
+
+    it('toggleReturnItem blocks on refund transactions', async () => {
+      setupRecalledState()
+      usePosStore.setState({
+        viewingTransaction: { ...mockTransaction, status: 'refund' as const }
+      })
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.toggleReturnItem(1)
+      })
+
+      expect(result.current.returnItems).toEqual({})
+    })
+
+    it('toggleReturnItem does nothing without viewingTransaction', async () => {
+      usePosStore.setState({
+        products: mockProducts,
+        cart: [],
+        viewingTransaction: null,
+        returnItems: {}
+      })
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.toggleReturnItem(1)
+      })
+
+      expect(result.current.returnItems).toEqual({})
+    })
+
+    it('toggleReturnAll marks all cart items', async () => {
+      setupRecalledState()
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.toggleReturnAll()
+      })
+
+      expect(result.current.returnItems).toEqual({ 1: 1, 2: 1 })
+    })
+
+    it('toggleReturnAll unmarks all when all are marked', async () => {
+      setupRecalledState()
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.toggleReturnAll()
+      })
+      act(() => {
+        result.current.toggleReturnAll()
+      })
+
+      expect(result.current.returnItems).toEqual({})
+    })
+
+    it('toggleReturnAll blocks on refund transactions', async () => {
+      setupRecalledState()
+      usePosStore.setState({
+        viewingTransaction: { ...mockTransaction, status: 'refund' as const }
+      })
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.toggleReturnAll()
+      })
+
+      expect(result.current.returnItems).toEqual({})
+    })
+
+    it('setReturnItemQuantity clamps between 1 and lineQuantity', async () => {
+      setupRecalledState()
+      usePosStore.setState({
+        cart: [
+          {
+            id: 1,
+            sku: '',
+            name: 'Test',
+            category: '',
+            price: 10,
+            quantity: 0,
+            tax_rate: 0,
+            lineQuantity: 5
+          }
+        ],
+        returnItems: { 1: 5 }
+      })
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.setReturnItemQuantity(1, 3)
+      })
+      expect(result.current.returnItems[1]).toBe(3)
+
+      act(() => {
+        result.current.setReturnItemQuantity(1, 0)
+      })
+      expect(result.current.returnItems[1]).toBe(1)
+
+      act(() => {
+        result.current.setReturnItemQuantity(1, 99)
+      })
+      expect(result.current.returnItems[1]).toBe(5)
+    })
+
+    it('setReturnItemQuantity does nothing without viewingTransaction', async () => {
+      usePosStore.setState({
+        products: mockProducts,
+        cart: [
+          {
+            id: 1,
+            sku: '',
+            name: 'Test',
+            category: '',
+            price: 10,
+            quantity: 0,
+            tax_rate: 0,
+            lineQuantity: 5
+          }
+        ],
+        viewingTransaction: null,
+        returnItems: { 1: 5 }
+      })
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.setReturnItemQuantity(1, 3)
+      })
+      expect(result.current.returnItems[1]).toBe(5)
+    })
+
+    it('setReturnItemQuantity does nothing for non-existent item', async () => {
+      setupRecalledState()
+      usePosStore.setState({ returnItems: { 1: 1 } })
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.setReturnItemQuantity(999, 3)
+      })
+      expect(result.current.returnItems).toEqual({ 1: 1 })
+    })
+
+    it('dismissRecalledTransaction resets returnItems', async () => {
+      setupRecalledState()
+      usePosStore.setState({ returnItems: { 1: 1, 2: 1 } })
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.dismissRecalledTransaction()
+      })
+
+      expect(result.current.returnItems).toEqual({})
+      expect(result.current.isReturning).toBe(false)
+    })
+
+    it('computes negative return totals', async () => {
+      setupRecalledState()
+      const { result } = renderHook(() => usePosScreen())
+
+      act(() => {
+        result.current.toggleReturnItem(1)
+      })
+
+      expect(result.current.returnSubtotal).toBeLessThan(0)
+      expect(result.current.returnTax).toBeLessThan(0)
+      expect(result.current.returnTotal).toBeLessThan(0)
+    })
+
+    it('return totals are zero when no items marked', async () => {
+      setupRecalledState()
+      const { result } = renderHook(() => usePosScreen())
+
+      expect(result.current.returnSubtotal).toBe(0)
+      expect(result.current.returnTax).toBe(0)
+      expect(result.current.returnTotal).toBe(0)
+    })
+
+    it('return totals are zero without viewingTransaction', async () => {
+      usePosStore.setState({
+        products: mockProducts,
+        cart: [],
+        viewingTransaction: null,
+        returnItems: {}
+      })
+      const { result } = renderHook(() => usePosScreen())
+
+      expect(result.current.returnSubtotal).toBe(0)
+      expect(result.current.returnTax).toBe(0)
+      expect(result.current.returnTotal).toBe(0)
+    })
+  })
 })
