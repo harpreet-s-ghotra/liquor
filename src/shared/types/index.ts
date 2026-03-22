@@ -84,6 +84,21 @@ export type SavedTransaction = {
   created_at: string
 }
 
+/** A single line item within a saved transaction */
+export type TransactionLineItem = {
+  id: number
+  product_id: number
+  product_name: string
+  quantity: number
+  unit_price: number
+  total_price: number
+}
+
+/** Full transaction with line items, used for transaction recall */
+export type TransactionDetail = SavedTransaction & {
+  items: TransactionLineItem[]
+}
+
 export type SpecialPricingRule = {
   quantity: number
   price: number
@@ -184,6 +199,42 @@ export type UpdateVendorInput = {
   contact_name?: string
   phone?: string
   email?: string
+}
+
+// ── Hold Transactions ──
+
+/** A cart item serialised into a held transaction snapshot */
+export type HeldCartItem = {
+  id: number
+  sku: string
+  name: string
+  category: string
+  price: number
+  basePrice: number
+  quantity: number
+  tax_rate: number
+  lineQuantity: number
+  itemDiscountPercent: number
+}
+
+/** Input for saving the current cart as a held transaction */
+export type SaveHeldTransactionInput = {
+  cart: HeldCartItem[]
+  transactionDiscountPercent: number
+  subtotal: number
+  total: number
+}
+
+/** A held transaction record returned from the database */
+export type HeldTransaction = {
+  id: number
+  hold_number: number
+  cart_snapshot: string
+  transaction_discount_percent: number
+  subtotal: number
+  total: number
+  item_count: number
+  held_at: string
 }
 
 // ── Merchant Activation & Cashier Login ──

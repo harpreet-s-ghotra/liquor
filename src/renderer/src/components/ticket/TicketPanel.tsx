@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import type { CartItem, CartLineItem } from '../../types/pos'
+import type { CartItem, CartLineItem, TransactionDetail } from '../../types/pos'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
@@ -27,6 +27,9 @@ type TicketPanelProps = {
   setQuantity: (value: string) => void
   setSearch: (value: string) => void
   setSelectedCartId: (id: number) => void
+  isViewingTransaction?: boolean
+  viewingTransaction?: TransactionDetail | null
+  onDismissRecall?: () => void
 }
 
 export function TicketPanel({
@@ -47,7 +50,10 @@ export function TicketPanel({
   updateSelectedLineQuantity,
   setQuantity,
   setSearch,
-  setSelectedCartId
+  setSelectedCartId,
+  isViewingTransaction,
+  viewingTransaction,
+  onDismissRecall
 }: TicketPanelProps): React.JSX.Element {
   const lineRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
   const [editMode, setEditMode] = useState<EditMode>(null)
@@ -252,11 +258,38 @@ export function TicketPanel({
     <section
       className="ticket-panel grid gap-2 overflow-hidden rounded-(--radius) border p-1.5 relative"
       style={{
-        gridTemplateRows: '3rem 1fr 5.25rem',
+        gridTemplateRows: isViewingTransaction ? 'auto 3rem 1fr 5.25rem' : '3rem 1fr 5.25rem',
         background: 'var(--bg-surface)',
-        borderColor: 'var(--ledger-border)'
+        borderColor: isViewingTransaction ? 'var(--semantic-warning-text)' : 'var(--ledger-border)'
       }}
     >
+      {/* ── Recall banner ── */}
+      {isViewingTransaction && viewingTransaction && (
+        <div
+          className="flex items-center justify-between gap-2 px-3 py-2 rounded-(--radius) text-[0.875rem] font-bold"
+          style={{
+            background: 'var(--accent-peach)',
+            color: '#000'
+          }}
+          data-testid="recall-banner"
+        >
+          <span>
+            Viewing Transaction: {viewingTransaction.transaction_number} —{' '}
+            {new Date(viewingTransaction.created_at).toLocaleString()} —{' '}
+            {viewingTransaction.payment_method}
+            {viewingTransaction.total != null && ` — $${viewingTransaction.total.toFixed(2)}`}
+          </span>
+          <button
+            type="button"
+            className="px-3 py-1 rounded-(--radius) text-[0.8125rem] font-bold cursor-pointer border-none"
+            style={{ background: 'rgba(0,0,0,0.15)', color: '#000' }}
+            onClick={onDismissRecall}
+            data-testid="dismiss-recall-btn"
+          >
+            Back to POS
+          </button>
+        </div>
+      )}
       {/* ── Search & Qty controls ── */}
       <div className="grid gap-2" style={{ gridTemplateColumns: '1fr 5.5rem 5.5rem' }}>
         <Input
@@ -466,6 +499,7 @@ export function TicketPanel({
         <Button
           variant="danger"
           className="min-h-18 text-xl font-bold"
+          disabled={!!isViewingTransaction}
           onClick={() => {
             removeSelectedLine()
             onFocusSearch?.()
@@ -476,6 +510,7 @@ export function TicketPanel({
         <Button
           variant="warning"
           className="min-h-18 text-xl font-bold"
+          disabled={!!isViewingTransaction}
           onClick={() => {
             clearTransaction()
             onFocusSearch?.()
@@ -485,21 +520,21 @@ export function TicketPanel({
         </Button>
         <Button
           className="min-h-18 text-xl font-bold"
-          disabled={!selectedCartId || isTransactionDiscountSelected}
+          disabled={!!isViewingTransaction || !selectedCartId || isTransactionDiscountSelected}
           onClick={() => openEditModal('quantity')}
         >
           Qty Change
         </Button>
         <Button
           className="min-h-18 text-xl font-bold"
-          disabled={!selectedCartId || isTransactionDiscountSelected}
+          disabled={!!isViewingTransaction || !selectedCartId || isTransactionDiscountSelected}
           onClick={() => openEditModal('price')}
         >
           Price Change
         </Button>
         <Button
           className="min-h-18 text-xl font-bold"
-          disabled={!selectedCartId && cart.length === 0}
+          disabled={!!isViewingTransaction || (!selectedCartId && cart.length === 0)}
           onClick={() => openEditModal('discount')}
         >
           Discount

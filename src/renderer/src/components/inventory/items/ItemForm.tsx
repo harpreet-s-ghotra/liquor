@@ -86,10 +86,11 @@ export type ItemFormButtonState = {
 type ItemFormProps = {
   onButtonStateChange?: (state: ItemFormButtonState) => void
   onSaveComplete?: () => void
+  onRecallTransaction?: (txnNumber: string) => void
 }
 
 export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemForm(
-  { onButtonStateChange, onSaveComplete },
+  { onButtonStateChange, onSaveComplete, onRecallTransaction },
   ref
 ) {
   const api = typeof window !== 'undefined' ? window.api : undefined
@@ -1005,7 +1006,18 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                         {new Date(h.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-2 py-1.5 border-b border-(--border-default) font-mono text-[0.8rem]">
-                        {h.transaction_number ?? `#${h.transaction_id}`}
+                        {h.transaction_number ? (
+                          <button
+                            type="button"
+                            className="appearance-none border-none bg-transparent p-0 font-mono text-[0.8rem] text-(--accent-blue) underline cursor-pointer"
+                            onClick={() => onRecallTransaction?.(h.transaction_number)}
+                            data-testid="txn-link"
+                          >
+                            {h.transaction_number}
+                          </button>
+                        ) : (
+                          `#${h.transaction_id}`
+                        )}
                       </td>
                       <td className="px-2 py-1.5 border-b border-(--border-default)">
                         {h.quantity}

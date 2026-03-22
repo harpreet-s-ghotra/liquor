@@ -25,6 +25,9 @@ import type {
   TerminalRegister,
   SaveTransactionInput,
   SavedTransaction,
+  TransactionDetail,
+  SaveHeldTransactionInput,
+  HeldTransaction,
   SearchProductFilters
 } from '../shared/types'
 
@@ -102,7 +105,18 @@ const api = {
   saveTransaction: (input: SaveTransactionInput): Promise<SavedTransaction> =>
     ipcRenderer.invoke('transactions:save', input),
   getRecentTransactions: (limit?: number): Promise<SavedTransaction[]> =>
-    ipcRenderer.invoke('transactions:recent', limit)
+    ipcRenderer.invoke('transactions:recent', limit),
+  getTransactionByNumber: (txnNumber: string): Promise<TransactionDetail | null> =>
+    ipcRenderer.invoke('transactions:get-by-number', txnNumber),
+
+  // Held Transactions
+  saveHeldTransaction: (input: SaveHeldTransactionInput): Promise<HeldTransaction> =>
+    ipcRenderer.invoke('held-transactions:save', input),
+  getHeldTransactions: (): Promise<HeldTransaction[]> =>
+    ipcRenderer.invoke('held-transactions:list'),
+  deleteHeldTransaction: (id: number): Promise<void> =>
+    ipcRenderer.invoke('held-transactions:delete', id),
+  clearAllHeldTransactions: (): Promise<void> => ipcRenderer.invoke('held-transactions:clear-all')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

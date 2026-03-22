@@ -35,12 +35,18 @@ import {
   updateCashier,
   deleteCashier,
   saveTransaction,
-  getRecentTransactions
+  getRecentTransactions,
+  getTransactionByNumber,
+  saveHeldTransaction,
+  getHeldTransactions,
+  deleteHeldTransaction,
+  clearAllHeldTransactions
 } from './database'
 import { validateApiKey, getTerminalRegisters, chargeTerminal } from './services/stax'
 import type {
   TerminalChargeInput,
   SaveTransactionInput,
+  SaveHeldTransactionInput,
   SearchProductFilters
 } from '../shared/types'
 
@@ -356,6 +362,47 @@ app.whenReady().then(() => {
       return getRecentTransactions(limit)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to get transactions')
+    }
+  })
+
+  ipcMain.handle('transactions:get-by-number', async (_, txnNumber: string) => {
+    try {
+      return getTransactionByNumber(txnNumber)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get transaction')
+    }
+  })
+
+  // Held Transactions
+  ipcMain.handle('held-transactions:save', async (_, input: SaveHeldTransactionInput) => {
+    try {
+      return saveHeldTransaction(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to save held transaction')
+    }
+  })
+
+  ipcMain.handle('held-transactions:list', async () => {
+    try {
+      return getHeldTransactions()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list held transactions')
+    }
+  })
+
+  ipcMain.handle('held-transactions:delete', async (_, id: number) => {
+    try {
+      deleteHeldTransaction(id)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete held transaction')
+    }
+  })
+
+  ipcMain.handle('held-transactions:clear-all', async () => {
+    try {
+      clearAllHeldTransactions()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to clear held transactions')
     }
   })
 

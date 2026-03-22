@@ -131,6 +131,17 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS held_transactions (
+      id                           INTEGER PRIMARY KEY AUTOINCREMENT,
+      hold_number                  INTEGER NOT NULL,
+      cart_snapshot                TEXT NOT NULL,
+      transaction_discount_percent REAL NOT NULL DEFAULT 0,
+      subtotal                     REAL NOT NULL,
+      total                        REAL NOT NULL,
+      item_count                   INTEGER NOT NULL,
+      held_at                      DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `)
 
   // ── Column migrations ──

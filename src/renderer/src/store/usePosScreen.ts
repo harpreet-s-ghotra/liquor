@@ -6,8 +6,10 @@ import type {
   CartLineItem,
   Product,
   TransactionDiscountItem,
-  ActiveSpecialPricingRule
+  ActiveSpecialPricingRule,
+  TransactionDetail
 } from '../types/pos'
+import type { HeldCartItem, HeldTransaction } from '../../../shared/types'
 import {
   applyPromotions,
   buildSpecialPricingMap,
@@ -32,6 +34,9 @@ type PosState = {
   activeCategory: string
   transactionDiscountPercent: number
   specialPricingMap: SpecialPricingMap
+  heldTransactions: HeldTransaction[]
+  isHoldLookupOpen: boolean
+  viewingTransaction: TransactionDetail | null
 }
 
 // ── Pure derivation functions (testable, no hooks) ──
@@ -179,6 +184,15 @@ type PosActions = {
   applyDiscount: (percent: number, scope: 'item' | 'transaction') => void
   reloadProducts: () => void
   loadSpecialPricing: () => void
+  holdTransaction: () => Promise<void>
+  recallHeldTransaction: (held: HeldTransaction) => Promise<void>
+  deleteOneHeldTransaction: (held: HeldTransaction) => Promise<void>
+  clearAllHeldTransactions: () => Promise<void>
+  loadHeldTransactions: () => Promise<void>
+  openHoldLookup: () => Promise<void>
+  dismissHoldLookup: () => void
+  recallTransaction: (txnNumber: string) => Promise<boolean>
+  dismissRecalledTransaction: () => void
 }
 
 // ── Full store type ──
@@ -204,6 +218,9 @@ export const usePosStore = create<PosStore>((set, get) => ({
   activeCategory: FAVORITES_CATEGORY,
   transactionDiscountPercent: 0,
   specialPricingMap: new Map(),
+  heldTransactions: [],
+  isHoldLookupOpen: false,
+  viewingTransaction: null,
 
   // Setters
   setProducts: (products) => set({ products, productsLoadError: null }),
@@ -215,6 +232,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
 
   // Cart actions
   addToCart: (product) => {
+    if (get().viewingTransaction) return
     const { quantity, cart } = get()
     const parsedQuantity = Number.parseInt(quantity, 10)
     const lineQuantity = Number.isNaN(parsedQuantity) || parsedQuantity < 1 ? 1 : parsedQuantity
@@ -241,6 +259,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
   },
 
   addToCartBySku: (sku) => {
+    if (get().viewingTransaction) return false
     const term = sku.trim().toLowerCase()
     if (term.length === 0) return false
 
@@ -254,6 +273,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
   },
 
   removeSelectedLine: () => {
+    if (get().viewingTransaction) return
     const { selectedCartId, cart } = get()
     if (!selectedCartId) return
 
@@ -272,9 +292,16 @@ export const usePosStore = create<PosStore>((set, get) => ({
     })
   },
 
-  clearTransaction: () => set({ cart: [], selectedCartId: null, transactionDiscountPercent: 0 }),
+  clearTransaction: () =>
+    set({
+      cart: [],
+      selectedCartId: null,
+      transactionDiscountPercent: 0,
+      viewingTransaction: null
+    }),
 
   updateSelectedLineQuantity: (nextQuantity) => {
+    if (get().viewingTransaction) return
     const { selectedCartId, cart } = get()
     if (!selectedCartId || selectedCartId === TRANSACTION_DISCOUNT_ID || nextQuantity < 1) return
 
@@ -286,6 +313,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
   },
 
   updateSelectedLinePrice: (price) => {
+    if (get().viewingTransaction) return
     const { selectedCartId, cart } = get()
     if (!selectedCartId || selectedCartId === TRANSACTION_DISCOUNT_ID || price <= 0) return
 
@@ -295,6 +323,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
   },
 
   applyDiscount: (percent, scope) => {
+    if (get().viewingTransaction) return
     const boundedPercent = Math.min(Math.max(percent, 0), 100)
 
     if (scope === 'transaction') {
@@ -334,6 +363,189 @@ export const usePosStore = create<PosStore>((set, get) => ({
       .catch(() => {
         /* pricing unavailable — cart works without promos */
       })
+  },
+
+  holdTransaction: async () => {
+    if (get().viewingTransaction) return
+    const { cart, transactionDiscountPercent, selectedCartId, specialPricingMap } = get()
+    if (cart.length === 0) return
+
+    const api = typeof window !== 'undefined' ? window.api : undefined
+    if (!api?.saveHeldTransaction) {
+      console.error('[holdTransaction] window.api.saveHeldTransaction is not available')
+      return
+    }
+
+    try {
+      const { subtotalDiscounted, total } = deriveCartTotals(
+        cart,
+        transactionDiscountPercent,
+        selectedCartId,
+        specialPricingMap
+      )
+
+      const heldItems: HeldCartItem[] = cart.map((item) => ({
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        basePrice: item.basePrice ?? item.price,
+        quantity: item.quantity,
+        tax_rate: item.tax_rate,
+        lineQuantity: item.lineQuantity,
+        itemDiscountPercent: item.itemDiscountPercent ?? 0
+      }))
+
+      await api.saveHeldTransaction({
+        cart: heldItems,
+        transactionDiscountPercent,
+        subtotal: subtotalDiscounted,
+        total
+      })
+
+      get().clearTransaction()
+      await get().loadHeldTransactions()
+    } catch (err) {
+      console.error('[holdTransaction] Failed:', err)
+    }
+  },
+
+  recallHeldTransaction: async (held: HeldTransaction) => {
+    try {
+      const { cart } = get()
+
+      // Auto-hold the current cart if it has items
+      if (cart.length > 0) {
+        await get().holdTransaction()
+      }
+
+      const heldItems = JSON.parse(held.cart_snapshot) as HeldCartItem[]
+
+      const restoredCart: CartItem[] = heldItems.map((item) => ({
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        basePrice: item.basePrice,
+        quantity: item.quantity,
+        tax_rate: item.tax_rate,
+        lineQuantity: item.lineQuantity,
+        itemDiscountPercent: item.itemDiscountPercent
+      }))
+
+      const lastId = restoredCart.length > 0 ? restoredCart[restoredCart.length - 1].id : null
+
+      set({
+        cart: restoredCart,
+        transactionDiscountPercent: held.transaction_discount_percent,
+        selectedCartId: lastId,
+        isHoldLookupOpen: false
+      })
+
+      const api = typeof window !== 'undefined' ? window.api : undefined
+      api
+        ?.deleteHeldTransaction(held.id)
+        .catch((err) => console.error('[recallHeldTransaction] Failed to delete held record:', err))
+      await get().loadHeldTransactions()
+    } catch (err) {
+      console.error('[recallHeldTransaction] Failed:', err)
+    }
+  },
+
+  deleteOneHeldTransaction: async (held: HeldTransaction) => {
+    const api = typeof window !== 'undefined' ? window.api : undefined
+    if (!api?.deleteHeldTransaction) {
+      console.error('[deleteOneHeldTransaction] window.api.deleteHeldTransaction is not available')
+      return
+    }
+    try {
+      await api.deleteHeldTransaction(held.id)
+      await get().loadHeldTransactions()
+    } catch (err) {
+      console.error('[deleteOneHeldTransaction] Failed:', err)
+    }
+  },
+
+  clearAllHeldTransactions: async () => {
+    const api = typeof window !== 'undefined' ? window.api : undefined
+    if (!api?.clearAllHeldTransactions) {
+      console.error(
+        '[clearAllHeldTransactions] window.api.clearAllHeldTransactions is not available'
+      )
+      return
+    }
+    try {
+      await api.clearAllHeldTransactions()
+      set({ heldTransactions: [] })
+    } catch (err) {
+      console.error('[clearAllHeldTransactions] Failed:', err)
+    }
+  },
+
+  loadHeldTransactions: async () => {
+    const api = typeof window !== 'undefined' ? window.api : undefined
+    if (!api?.getHeldTransactions) {
+      console.error('[loadHeldTransactions] window.api.getHeldTransactions is not available')
+      return
+    }
+    try {
+      const items = await api.getHeldTransactions()
+      set({ heldTransactions: items })
+    } catch (err) {
+      console.error('[loadHeldTransactions] Failed:', err)
+    }
+  },
+
+  openHoldLookup: async () => {
+    await get().loadHeldTransactions()
+    set({ isHoldLookupOpen: true })
+  },
+
+  dismissHoldLookup: () => set({ isHoldLookupOpen: false }),
+
+  recallTransaction: async (txnNumber: string) => {
+    const api = typeof window !== 'undefined' ? window.api : undefined
+    if (!api?.getTransactionByNumber) return false
+
+    try {
+      const detail = await api.getTransactionByNumber(txnNumber.toUpperCase())
+      if (!detail) return false
+
+      const recalledCart: CartItem[] = detail.items.map((item, index) => ({
+        id: -(index + 100),
+        sku: '',
+        name: item.product_name,
+        category: '',
+        price: item.unit_price,
+        quantity: 0,
+        tax_rate: 0,
+        lineQuantity: item.quantity
+      }))
+
+      set({
+        cart: recalledCart,
+        selectedCartId: null,
+        transactionDiscountPercent: 0,
+        viewingTransaction: detail,
+        search: '',
+        quantity: '1'
+      })
+      return true
+    } catch (err) {
+      console.error('[recallTransaction] Failed:', err)
+      return false
+    }
+  },
+
+  dismissRecalledTransaction: () => {
+    set({
+      cart: [],
+      selectedCartId: null,
+      transactionDiscountPercent: 0,
+      viewingTransaction: null
+    })
   }
 }))
 
@@ -369,6 +581,19 @@ type UsePosScreenState = {
   totalSavings: number
   transactionDiscountPercent: number
   total: number
+  heldTransactions: HeldTransaction[]
+  isHoldLookupOpen: boolean
+  holdTransaction: () => Promise<void>
+  recallHeldTransaction: (held: HeldTransaction) => Promise<void>
+  deleteOneHeldTransaction: (held: HeldTransaction) => Promise<void>
+  clearAllHeldTransactions: () => Promise<void>
+  loadHeldTransactions: () => Promise<void>
+  openHoldLookup: () => Promise<void>
+  dismissHoldLookup: () => void
+  viewingTransaction: TransactionDetail | null
+  isViewingTransaction: boolean
+  recallTransaction: (txnNumber: string) => Promise<boolean>
+  dismissRecalledTransaction: () => void
 }
 
 export function usePosScreen(): UsePosScreenState {
@@ -396,7 +621,19 @@ export function usePosScreen(): UsePosScreenState {
       setActiveCategory: s.setActiveCategory,
       setQuantity: s.setQuantity,
       setSearch: s.setSearch,
-      setSelectedCartId: s.setSelectedCartId
+      setSelectedCartId: s.setSelectedCartId,
+      heldTransactions: s.heldTransactions,
+      isHoldLookupOpen: s.isHoldLookupOpen,
+      holdTransaction: s.holdTransaction,
+      recallHeldTransaction: s.recallHeldTransaction,
+      deleteOneHeldTransaction: s.deleteOneHeldTransaction,
+      clearAllHeldTransactions: s.clearAllHeldTransactions,
+      loadHeldTransactions: s.loadHeldTransactions,
+      openHoldLookup: s.openHoldLookup,
+      dismissHoldLookup: s.dismissHoldLookup,
+      viewingTransaction: s.viewingTransaction,
+      recallTransaction: s.recallTransaction,
+      dismissRecalledTransaction: s.dismissRecalledTransaction
     }))
   )
 
@@ -455,6 +692,19 @@ export function usePosScreen(): UsePosScreenState {
     tax: totals.tax,
     totalSavings: totals.totalSavings,
     transactionDiscountPercent: store.transactionDiscountPercent,
-    total: totals.total
+    total: totals.total,
+    heldTransactions: store.heldTransactions,
+    isHoldLookupOpen: store.isHoldLookupOpen,
+    holdTransaction: store.holdTransaction,
+    recallHeldTransaction: store.recallHeldTransaction,
+    deleteOneHeldTransaction: store.deleteOneHeldTransaction,
+    clearAllHeldTransactions: store.clearAllHeldTransactions,
+    loadHeldTransactions: store.loadHeldTransactions,
+    openHoldLookup: store.openHoldLookup,
+    dismissHoldLookup: store.dismissHoldLookup,
+    viewingTransaction: store.viewingTransaction,
+    isViewingTransaction: store.viewingTransaction !== null,
+    recallTransaction: store.recallTransaction,
+    dismissRecalledTransaction: store.dismissRecalledTransaction
   }
 }

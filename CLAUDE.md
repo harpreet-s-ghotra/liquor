@@ -225,8 +225,7 @@ All colors, radius, and semantic values are defined as CSS custom properties in 
 
 ### Hybrid Approach
 
-- Use **Tailwind utility classes** for layout, spacing, flex/grid
-- Use **component CSS files** or inline Tailwind for component-specific visual styles
+- Use **component CSS files** for component-specific visual styles
 - Use **CSS variables** for all color values
 
 ### Key Design Tokens
@@ -245,6 +244,57 @@ All colors, radius, and semantic values are defined as CSS custom properties in 
 - No animations or transitions — the app must feel instant
 - No emojis in UI
 - Touch-friendly targets throughout
+
+---
+
+## Component Reuse Rules — MANDATORY
+
+Before writing ANY new UI element, check the table below. If an existing component covers the use case, you MUST use it. Do not write raw HTML elements (`<button>`, `<input>`, `<select>`, `<label>`) when a project component exists. Do not create new wrapper components that duplicate existing ones.
+
+Keep this table current when adding or modifying components in `ui/` or `common/`.
+
+### Component Lookup
+
+| Need                                   | Use                                                 | Import from             |
+| -------------------------------------- | --------------------------------------------------- | ----------------------- |
+| Clickable button                       | `AppButton`                                         | `common/AppButton`      |
+| Button with ghost/outline/icon variant | `Button`                                            | `ui/button`             |
+| Text input (forms)                     | `ValidatedInput` with `fieldType`                   | `common/ValidatedInput` |
+| Text input (inventory, compact)        | `InventoryInput`                                    | `common/InventoryInput` |
+| Select dropdown (inventory)            | `InventorySelect`                                   | `common/InventoryInput` |
+| Label + input + error wrapper          | `FormField`                                         | `common/FormField`      |
+| Modal / dialog                         | `Dialog` + `DialogContent`                          | `ui/dialog`             |
+| Confirmation prompt                    | `ConfirmDialog`                                     | `common/ConfirmDialog`  |
+| Tabs                                   | `Tabs` + `TabsList` + `TabsTrigger` + `TabsContent` | `ui/tabs`               |
+| Status badge                           | `Badge`                                             | `ui/badge`              |
+| Radio selection                        | `RadioGroup` + `RadioGroupItem`                     | `ui/radio-group`        |
+| Multi-toggle                           | `ToggleGroup` + `ToggleGroupItem`                   | `ui/toggle-group`       |
+| Checkbox                               | `Checkbox`                                          | `ui/checkbox`           |
+| Accessible label                       | `Label`                                             | `ui/label`              |
+| Floating panel                         | `Popover`                                           | `ui/popover`            |
+| Divider                                | `Separator`                                         | `ui/separator`          |
+| Class merging                          | `cn()`                                              | `lib/utils`             |
+| CRUD list panel                        | `useCrudPanel<T>` hook                              | `hooks/useCrudPanel`    |
+| Debounced value                        | `useDebounce<T>` hook                               | `hooks/useDebounce`     |
+| Currency display                       | `formatCurrency()`                                  | `utils/currency`        |
+| Currency input handling                | `normalizeCurrencyForInput()`                       | `utils/currency`        |
+
+### Which Button Component?
+
+- **`AppButton`** — default choice for all standard buttons (actions, form submit, cancel, CRUD operations). Defaults `type="button"`. Variants: `default | success | danger | warning | neutral`. Sizes: `sm | md | lg`.
+- **`Button`** (CVA) — use directly only when you need `ghost`, `outline`, or `icon` size variants, or `asChild` for Radix composition. Otherwise use `AppButton`.
+- **Raw `<button>`** — only acceptable for highly custom interactive elements where the visual design is fundamentally different from a standard button (e.g., product grid tiles, ticket line items, F-key shortcuts with unique layouts). Always include `type="button"`.
+
+### Component Anti-Patterns — Do Not
+
+- Write `<button className="...lots of Tailwind...">` when `AppButton` with a `variant` prop achieves the same result
+- Write `<input className="...">` instead of `ValidatedInput` or `InventoryInput` — these handle focus rings, border colors, and sizing consistently
+- Write `<label>...<span className="text-red...">*</span></label>` instead of `FormField` with `required`
+- Create a new confirmation modal instead of using `ConfirmDialog`
+- Write manual debounce logic (`setTimeout`/`clearTimeout`) instead of `useDebounce`
+- Duplicate CRUD state management (items array, error/success messages, loading) instead of `useCrudPanel`
+- Write `toFixed(2)` or manual dollar formatting instead of `formatCurrency()`
+- Write manual input sanitization instead of using `ValidatedInput` with the right `fieldType`
 
 ---
 
@@ -341,6 +391,7 @@ Branch naming: `feature/name`, `fix/name`
 - **No Tailwind `@apply`** — use inline utility classes or CSS variables
 - **Do not duplicate types** — all shared types belong in `src/shared/types/index.ts`
 - **Do not skip the coverage gate** — ≥80% is required on every change
+- **Do not write raw `<button>`, `<input>`, or `<select>` elements** — use the project components listed in "Component Reuse Rules" above
 - **Do not add features beyond what was asked** — keep scope tight
 - **Do not leave Prettier issues unresolved** — run `npx prettier --write .` before linting; Prettier config: single quotes, no semis, 100 char width, no trailing commas
 

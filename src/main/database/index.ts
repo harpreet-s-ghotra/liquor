@@ -44,7 +44,20 @@ export { getTaxCodes, createTaxCode, updateTaxCode, deleteTaxCode } from './tax-
 export { getVendors, createVendor, updateVendor, deleteVendor } from './vendors.repo'
 
 // Transactions
-export { saveTransaction, getRecentTransactions, getProductSalesHistory } from './transactions.repo'
+export {
+  saveTransaction,
+  getRecentTransactions,
+  getProductSalesHistory,
+  getTransactionByNumber
+} from './transactions.repo'
+
+// Held transactions
+export {
+  saveHeldTransaction,
+  getHeldTransactions,
+  deleteHeldTransaction,
+  clearAllHeldTransactions
+} from './held-transactions.repo'
 
 // Merchant config
 export { getMerchantConfig, saveMerchantConfig, clearMerchantConfig } from './merchant-config.repo'

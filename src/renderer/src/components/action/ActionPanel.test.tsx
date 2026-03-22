@@ -26,7 +26,10 @@ const baseProps = {
   onPay: vi.fn(),
   onCash: vi.fn(),
   onCredit: vi.fn(),
-  onDebit: vi.fn()
+  onDebit: vi.fn(),
+  heldCount: 0,
+  onHold: vi.fn(),
+  onTsLookup: vi.fn()
 }
 
 describe('ActionPanel', () => {

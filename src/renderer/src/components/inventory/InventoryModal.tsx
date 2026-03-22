@@ -14,12 +14,14 @@ type InventoryModalProps = {
   isOpen: boolean
   onClose: () => void
   openItemNumber?: number
+  onRecallTransaction?: (txnNumber: string) => void
 }
 
 export function InventoryModal({
   isOpen,
   onClose,
-  openItemNumber
+  openItemNumber,
+  onRecallTransaction
 }: InventoryModalProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<InventoryTab>('items')
   const itemFormRef = useRef<ItemFormHandle>(null)
@@ -180,7 +182,7 @@ export function InventoryModal({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] px-5 rounded-lg bg-[rgba(255,255,255,0.08)] text-[#94a3b8] text-[13px] font-bold cursor-pointer border border-[rgba(255,255,255,0.12)] outline-none hover:bg-[rgba(255,255,255,0.14)]"
+            className="min-h-11 px-5 rounded-lg bg-[rgba(255,255,255,0.08)] text-[#94a3b8] text-[13px] font-bold cursor-pointer border border-[rgba(255,255,255,0.12)] outline-none hover:bg-[rgba(255,255,255,0.14)]"
           >
             Close
           </button>
@@ -210,7 +212,7 @@ export function InventoryModal({
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className="rounded-none border-b-[3px] border-transparent min-h-[48px] px-6 py-3 text-[13px] font-black uppercase tracking-[1px] text-[#6b7280] bg-transparent data-[state=active]:border-[#a3f69c] data-[state=active]:text-[#e8ecf0] data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  className="rounded-none border-b-[3px] border-transparent min-h-12 px-6 py-3 text-[14px] font-black uppercase tracking-[1px] text-[#6b7280] bg-transparent data-[state=active]:border-[#a3f69c] data-[state=active]:text-[#e8ecf0] data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
                   {label}
                 </TabsTrigger>
@@ -224,6 +226,10 @@ export function InventoryModal({
               ref={itemFormRef}
               onButtonStateChange={handleItemButtonState}
               onSaveComplete={handleSaveComplete}
+              onRecallTransaction={(txnNumber) => {
+                onClose()
+                onRecallTransaction?.(txnNumber)
+              }}
             />
           </TabsContent>
           <TabsContent value="departments" className="flex-1 overflow-auto m-0 p-4">

@@ -2,6 +2,7 @@ import { InventoryModal } from '@renderer/components/inventory/InventoryModal'
 import { PaymentModal } from '@renderer/components/payment/PaymentModal'
 import { SearchModal } from '@renderer/components/search/SearchModal'
 import { ActionPanel } from '@renderer/components/action/ActionPanel'
+import { HoldLookupModal } from '@renderer/components/hold/HoldLookupModal'
 import { BottomShortcutBar } from '@renderer/components/layout/BottomShortcutBar'
 import { HeaderBar } from '@renderer/components/layout/HeaderBar'
 import { TicketPanel } from '@renderer/components/ticket/TicketPanel'
@@ -65,12 +66,36 @@ export function POSScreen(): React.JSX.Element {
     total,
     transactionDiscountPercent,
     updateSelectedLinePrice,
-    updateSelectedLineQuantity
+    updateSelectedLineQuantity,
+    heldTransactions,
+    isHoldLookupOpen,
+    holdTransaction,
+    recallHeldTransaction,
+    deleteOneHeldTransaction,
+    clearAllHeldTransactions,
+    loadHeldTransactions,
+    openHoldLookup,
+    dismissHoldLookup,
+    viewingTransaction,
+    isViewingTransaction,
+    recallTransaction,
+    dismissRecalledTransaction
   } = usePosScreen()
+
+  // Load held transactions on mount so the badge is accurate on startup
+  useEffect(() => {
+    loadHeldTransactions()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const focusSearch = useCallback(() => {
     setTimeout(() => searchRef.current?.focus(), 0)
   }, [])
+
+  const handleHold = useCallback(async () => {
+    if (cart.length === 0) return
+    await holdTransaction()
+    focusSearch()
+  }, [cart.length, holdTransaction, focusSearch])
 
   const handleInventoryClose = useCallback(() => {
     setIsInventoryOpen(false)
@@ -173,9 +198,15 @@ export function POSScreen(): React.JSX.Element {
       setIsPaymentComplete(false)
       clearTransaction()
     }
+    const trimmed = search.trim()
+    if (/^TXN-/i.test(trimmed)) {
+      void recallTransaction(trimmed)
+      focusSearch()
+      return
+    }
     addToCartBySku(search)
     focusSearch()
-  }, [addToCartBySku, search, isPaymentComplete, clearTransaction, focusSearch])
+  }, [addToCartBySku, search, isPaymentComplete, clearTransaction, focusSearch, recallTransaction])
 
   return (
     <div className="grid h-full overflow-hidden" style={{ gridTemplateRows: 'auto 1fr auto' }}>
@@ -206,6 +237,9 @@ export function POSScreen(): React.JSX.Element {
             setSearchKey((k) => k + 1)
             setIsSearchOpen(true)
           }}
+          isViewingTransaction={isViewingTransaction}
+          viewingTransaction={viewingTransaction}
+          onDismissRecall={dismissRecalledTransaction}
         />
 
         <ActionPanel
@@ -215,14 +249,20 @@ export function POSScreen(): React.JSX.Element {
           filteredProducts={filteredProducts}
           setActiveCategory={setActiveCategory}
           addToCart={handleAddToCart}
-          subtotalBeforeDiscount={subtotalBeforeDiscount}
-          subtotalDiscounted={subtotalDiscounted}
-          tax={tax}
-          total={total}
+          subtotalBeforeDiscount={
+            viewingTransaction ? viewingTransaction.subtotal : subtotalBeforeDiscount
+          }
+          subtotalDiscounted={viewingTransaction ? viewingTransaction.subtotal : subtotalDiscounted}
+          tax={viewingTransaction ? viewingTransaction.tax_amount : tax}
+          total={viewingTransaction ? viewingTransaction.total : total}
           onPay={() => handlePaymentOpen()}
           onCash={() => handlePaymentOpen('cash')}
           onCredit={() => handlePaymentOpen('credit')}
           onDebit={() => handlePaymentOpen('debit')}
+          heldCount={heldTransactions.length}
+          onHold={handleHold}
+          onTsLookup={openHoldLookup}
+          isViewingTransaction={isViewingTransaction}
         />
       </main>
 
@@ -232,6 +272,9 @@ export function POSScreen(): React.JSX.Element {
         isOpen={isInventoryOpen}
         onClose={handleInventoryClose}
         openItemNumber={pendingInventoryItemNumber}
+        onRecallTransaction={(txnNumber) => {
+          void recallTransaction(txnNumber)
+        }}
       />
 
       <SearchModal
@@ -249,6 +292,15 @@ export function POSScreen(): React.JSX.Element {
           setPendingInventoryItemNumber(product.id)
           setIsInventoryOpen(true)
         }}
+      />
+
+      <HoldLookupModal
+        isOpen={isHoldLookupOpen}
+        heldTransactions={heldTransactions}
+        onRecall={recallHeldTransaction}
+        onDelete={deleteOneHeldTransaction}
+        onClearAll={clearAllHeldTransactions}
+        onClose={dismissHoldLookup}
       />
 
       <PaymentModal

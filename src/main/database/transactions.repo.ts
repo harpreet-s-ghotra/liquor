@@ -2,7 +2,9 @@ import { getDb } from './connection'
 import type {
   SaveTransactionInput,
   SavedTransaction,
-  TransactionHistoryItem
+  TransactionDetail,
+  TransactionHistoryItem,
+  TransactionLineItem
 } from '../../shared/types'
 
 /**
@@ -114,6 +116,42 @@ export function getRecentTransactions(limit = 50): SavedTransaction[] {
       `
     )
     .all(limit) as SavedTransaction[]
+}
+
+/**
+ * Get a full transaction with line items by transaction number.
+ * Returns null if the transaction number does not exist.
+ */
+export function getTransactionByNumber(txnNumber: string): TransactionDetail | null {
+  const db = getDb()
+
+  const row = db
+    .prepare(
+      `
+      SELECT
+        id, transaction_number, subtotal, tax_amount, total,
+        payment_method, stax_transaction_id, card_last_four, card_type,
+        status, created_at
+      FROM transactions
+      WHERE transaction_number = ?
+      `
+    )
+    .get(txnNumber) as SavedTransaction | undefined
+
+  if (!row) return null
+
+  const items = db
+    .prepare(
+      `
+      SELECT id, product_id, product_name, quantity, unit_price, total_price
+      FROM transaction_items
+      WHERE transaction_id = ?
+      ORDER BY id
+      `
+    )
+    .all(row.id) as TransactionLineItem[]
+
+  return { ...row, items }
 }
 
 /**

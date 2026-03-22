@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePosScreen, usePosStore } from './usePosScreen'
 
 const mockProducts = [
@@ -473,6 +473,267 @@ describe('usePosScreen', () => {
     })
 
     expect(result.current.activeCategory).toBe('Favorites')
+  })
+
+  describe('hold transaction actions', () => {
+    beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api = {
+        getProducts: async () => mockProducts,
+        getActiveSpecialPricing: async () => [],
+        saveHeldTransaction: async () => ({
+          id: 1,
+          hold_number: 1,
+          cart_snapshot: '[]',
+          transaction_discount_percent: 0,
+          subtotal: 0,
+          total: 0,
+          item_count: 0,
+          held_at: new Date().toISOString()
+        }),
+        getHeldTransactions: async () => [],
+        deleteHeldTransaction: async () => undefined
+      }
+    })
+
+    it('holdTransaction saves cart and clears it', async () => {
+      const { result } = renderHook(() => usePosScreen())
+
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      act(() => result.current.addToCart(result.current.filteredProducts[0]))
+      expect(result.current.cart).toHaveLength(1)
+
+      await act(async () => {
+        await result.current.holdTransaction()
+      })
+
+      expect(result.current.cart).toHaveLength(0)
+    })
+
+    it('holdTransaction is no-op when cart is empty', async () => {
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const saveHeldTransaction = (window as any).api.saveHeldTransaction as ReturnType<
+        typeof vi.fn
+      >
+      const spySave = vi.fn(saveHeldTransaction)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api.saveHeldTransaction = spySave
+
+      await act(async () => {
+        await result.current.holdTransaction()
+      })
+
+      expect(spySave).not.toHaveBeenCalled()
+    })
+
+    it('loadHeldTransactions populates heldTransactions', async () => {
+      const held = {
+        id: 1,
+        hold_number: 1,
+        cart_snapshot: '[]',
+        transaction_discount_percent: 0,
+        subtotal: 10,
+        total: 11,
+        item_count: 1,
+        held_at: new Date().toISOString()
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api.getHeldTransactions = async () => [held]
+
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      await act(async () => {
+        await result.current.loadHeldTransactions()
+      })
+
+      expect(result.current.heldTransactions).toHaveLength(1)
+      expect(result.current.heldTransactions[0].hold_number).toBe(1)
+    })
+
+    it('openHoldLookup sets isHoldLookupOpen to true', async () => {
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      await act(async () => {
+        await result.current.openHoldLookup()
+      })
+
+      expect(result.current.isHoldLookupOpen).toBe(true)
+    })
+
+    it('dismissHoldLookup sets isHoldLookupOpen to false', async () => {
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      await act(async () => {
+        await result.current.openHoldLookup()
+      })
+      act(() => result.current.dismissHoldLookup())
+
+      expect(result.current.isHoldLookupOpen).toBe(false)
+    })
+
+    it('recallHeldTransaction restores cart from snapshot', async () => {
+      const cartSnapshot = [
+        {
+          id: 1,
+          sku: 'WINE-001',
+          name: 'Cabernet Sauvignon 750ml',
+          category: 'Wine',
+          price: 19.99,
+          basePrice: 19.99,
+          quantity: 24,
+          tax_rate: 0.13,
+          lineQuantity: 2,
+          itemDiscountPercent: 0
+        }
+      ]
+      const held = {
+        id: 5,
+        hold_number: 1,
+        cart_snapshot: JSON.stringify(cartSnapshot),
+        transaction_discount_percent: 10,
+        subtotal: 39.98,
+        total: 43.98,
+        item_count: 2,
+        held_at: new Date().toISOString()
+      }
+
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      await act(async () => {
+        await result.current.recallHeldTransaction(held)
+      })
+
+      expect(result.current.cart).toHaveLength(1)
+      expect(result.current.cart[0].sku).toBe('WINE-001')
+      expect(result.current.transactionDiscountPercent).toBe(10)
+      expect(result.current.isHoldLookupOpen).toBe(false)
+    })
+
+    it('deleteOneHeldTransaction removes a single hold', async () => {
+      const deleteHeldTransaction = vi.fn().mockResolvedValue(undefined)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api.deleteHeldTransaction = deleteHeldTransaction
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api.getHeldTransactions = async () => []
+
+      const held = {
+        id: 3,
+        hold_number: 1,
+        cart_snapshot: '[]',
+        transaction_discount_percent: 0,
+        subtotal: 10,
+        total: 11,
+        item_count: 1,
+        held_at: new Date().toISOString()
+      }
+
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      await act(async () => {
+        await result.current.deleteOneHeldTransaction(held)
+      })
+
+      expect(deleteHeldTransaction).toHaveBeenCalledWith(3)
+    })
+
+    it('clearAllHeldTransactions removes all holds', async () => {
+      const clearAll = vi.fn().mockResolvedValue(undefined)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api.clearAllHeldTransactions = clearAll
+
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      // Pre-populate heldTransactions via store
+      act(() => {
+        usePosStore.setState({
+          heldTransactions: [
+            {
+              id: 1,
+              hold_number: 1,
+              cart_snapshot: '[]',
+              transaction_discount_percent: 0,
+              subtotal: 0,
+              total: 0,
+              item_count: 0,
+              held_at: new Date().toISOString()
+            }
+          ]
+        })
+      })
+      expect(result.current.heldTransactions).toHaveLength(1)
+
+      await act(async () => {
+        await result.current.clearAllHeldTransactions()
+      })
+
+      expect(clearAll).toHaveBeenCalled()
+      expect(result.current.heldTransactions).toHaveLength(0)
+    })
+
+    it('recallHeldTransaction auto-holds current cart before restoring', async () => {
+      const saveHeldTransaction = vi.fn().mockResolvedValue({
+        id: 2,
+        hold_number: 1,
+        cart_snapshot: '[]',
+        transaction_discount_percent: 0,
+        subtotal: 0,
+        total: 0,
+        item_count: 0,
+        held_at: new Date().toISOString()
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api.saveHeldTransaction = saveHeldTransaction
+
+      const { result } = renderHook(() => usePosScreen())
+      await waitFor(() => expect(result.current.filteredProducts.length).toBeGreaterThan(0))
+
+      // Add item to cart first
+      act(() => result.current.addToCart(result.current.filteredProducts[0]))
+      expect(result.current.cart).toHaveLength(1)
+
+      const held = {
+        id: 5,
+        hold_number: 2,
+        cart_snapshot: JSON.stringify([
+          {
+            id: 2,
+            sku: 'BEER-001',
+            name: 'Craft IPA',
+            category: 'Beer',
+            price: 13.49,
+            basePrice: 13.49,
+            quantity: 40,
+            tax_rate: 0.13,
+            lineQuantity: 1,
+            itemDiscountPercent: 0
+          }
+        ]),
+        transaction_discount_percent: 0,
+        subtotal: 13.49,
+        total: 15.24,
+        item_count: 1,
+        held_at: new Date().toISOString()
+      }
+
+      await act(async () => {
+        await result.current.recallHeldTransaction(held)
+      })
+
+      // Auto-hold should have been called
+      expect(saveHeldTransaction).toHaveBeenCalled()
+      // Cart should now have the recalled item
+      expect(result.current.cart[0].sku).toBe('BEER-001')
+    })
   })
 
   describe('addToCartBySku', () => {

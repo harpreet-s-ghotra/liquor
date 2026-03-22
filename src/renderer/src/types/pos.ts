@@ -27,6 +27,8 @@ export type {
   StaxMerchantInfo,
   SaveTransactionInput,
   SavedTransaction,
+  TransactionDetail,
+  TransactionLineItem,
   TransactionHistoryItem
 } from '../../../shared/types'
 

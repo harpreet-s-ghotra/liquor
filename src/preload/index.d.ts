@@ -24,6 +24,9 @@ import type {
   TerminalRegister,
   SaveTransactionInput,
   SavedTransaction,
+  TransactionDetail,
+  SaveHeldTransactionInput,
+  HeldTransaction,
   SearchProductFilters
 } from '../shared/types'
 
@@ -70,6 +73,13 @@ type AppApi = {
   // Transactions
   saveTransaction: (input: SaveTransactionInput) => Promise<SavedTransaction>
   getRecentTransactions: (limit?: number) => Promise<SavedTransaction[]>
+  getTransactionByNumber: (txnNumber: string) => Promise<TransactionDetail | null>
+
+  // Held Transactions
+  saveHeldTransaction: (input: SaveHeldTransactionInput) => Promise<HeldTransaction>
+  getHeldTransactions: () => Promise<HeldTransaction[]>
+  deleteHeldTransaction: (id: number) => Promise<void>
+  clearAllHeldTransactions: () => Promise<void>
 }
 
 declare global {

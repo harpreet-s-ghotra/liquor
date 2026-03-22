@@ -38,6 +38,15 @@ function createDefaultMock(overrides: Record<string, unknown> = {}): Record<stri
     total: 0,
     updateSelectedLinePrice: vi.fn(),
     updateSelectedLineQuantity: vi.fn(),
+    heldTransactions: [],
+    isHoldLookupOpen: false,
+    holdTransaction: vi.fn(),
+    recallHeldTransaction: vi.fn(),
+    deleteOneHeldTransaction: vi.fn(),
+    clearAllHeldTransactions: vi.fn(),
+    loadHeldTransactions: vi.fn(),
+    openHoldLookup: vi.fn(),
+    dismissHoldLookup: vi.fn(),
     ...overrides
   }
 }
@@ -59,7 +68,20 @@ describe('POSScreen', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
       getDepartments: vi.fn().mockResolvedValue([]),
-      getVendors: vi.fn().mockResolvedValue([])
+      getVendors: vi.fn().mockResolvedValue([]),
+      getHeldTransactions: vi.fn().mockResolvedValue([]),
+      saveHeldTransaction: vi.fn().mockResolvedValue({
+        id: 1,
+        hold_number: 1,
+        cart_snapshot: '[]',
+        transaction_discount_percent: 0,
+        subtotal: 0,
+        total: 0,
+        item_count: 0,
+        held_at: ''
+      }),
+      deleteHeldTransaction: vi.fn().mockResolvedValue(undefined),
+      clearAllHeldTransactions: vi.fn().mockResolvedValue(undefined)
     }
   })
 
@@ -287,7 +309,11 @@ describe('POSScreen', () => {
     ;(window as any).api = {
       saveTransaction,
       getDepartments: vi.fn().mockResolvedValue([]),
-      getVendors: vi.fn().mockResolvedValue([])
+      getVendors: vi.fn().mockResolvedValue([]),
+      getHeldTransactions: vi.fn().mockResolvedValue([]),
+      saveHeldTransaction: vi.fn().mockResolvedValue({}),
+      deleteHeldTransaction: vi.fn().mockResolvedValue(undefined),
+      clearAllHeldTransactions: vi.fn().mockResolvedValue(undefined)
     }
 
     mockUsePosScreen.mockReturnValue(
@@ -337,7 +363,11 @@ describe('POSScreen', () => {
     ;(window as any).api = {
       saveTransaction,
       getDepartments: vi.fn().mockResolvedValue([]),
-      getVendors: vi.fn().mockResolvedValue([])
+      getVendors: vi.fn().mockResolvedValue([]),
+      getHeldTransactions: vi.fn().mockResolvedValue([]),
+      saveHeldTransaction: vi.fn().mockResolvedValue({}),
+      deleteHeldTransaction: vi.fn().mockResolvedValue(undefined),
+      clearAllHeldTransactions: vi.fn().mockResolvedValue(undefined)
     }
 
     mockUsePosScreen.mockReturnValue(
