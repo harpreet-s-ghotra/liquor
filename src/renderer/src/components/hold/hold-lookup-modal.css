@@ -3,7 +3,7 @@
 .hold-lookup {
   display: flex;
   flex-direction: column;
-  width: 480px;
+  width: 800px;
   overflow: hidden;
   border-radius: 1rem;
   border: 1px solid var(--border-default);
