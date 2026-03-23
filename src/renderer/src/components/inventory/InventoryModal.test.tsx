@@ -4,9 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InventoryModal } from './InventoryModal'
 
 describe('InventoryModal', () => {
+  // Keep flexible typing for the broad window.api test double used by child panels.
+  let api: Record<string, ReturnType<typeof vi.fn>>
+
   beforeEach(() => {
     // Provide minimal API stubs so child panels don't crash on mount
-    const api = {
+    api = {
       searchInventoryProducts: vi.fn(async () => []),
       getInventoryProductDetail: vi.fn(async () => null),
       saveInventoryItem: vi.fn(async () => ({})),
@@ -151,11 +154,14 @@ describe('InventoryModal', () => {
         vendor_name: null,
         bottles_per_case: 12,
         case_discount_price: null,
+        special_pricing_enabled: 0,
+        special_price: null,
+        is_active: 1,
         barcode: null,
         description: null
       }
     ]
-    vi.mocked(window.api.searchInventoryProducts).mockResolvedValue(mockProducts)
+    vi.mocked(api.searchInventoryProducts).mockResolvedValue(mockProducts)
 
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 
@@ -166,12 +172,12 @@ describe('InventoryModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 
     await waitFor(() => {
-      expect(window.api.searchInventoryProducts).toHaveBeenCalledWith('wine')
+      expect(api.searchInventoryProducts).toHaveBeenCalledWith('wine')
     })
   })
 
   it('shows no-results prompt when search returns empty', async () => {
-    vi.mocked(window.api.searchInventoryProducts).mockResolvedValue([])
+    vi.mocked(api.searchInventoryProducts).mockResolvedValue([])
 
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 
@@ -185,7 +191,7 @@ describe('InventoryModal', () => {
   })
 
   it('clears search term and no-results on tab switch', async () => {
-    vi.mocked(window.api.searchInventoryProducts).mockResolvedValue([])
+    vi.mocked(api.searchInventoryProducts).mockResolvedValue([])
 
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 
@@ -206,7 +212,7 @@ describe('InventoryModal', () => {
   })
 
   it('clears no-results when search term changes', async () => {
-    vi.mocked(window.api.searchInventoryProducts).mockResolvedValue([])
+    vi.mocked(api.searchInventoryProducts).mockResolvedValue([])
 
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 

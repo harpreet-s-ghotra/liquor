@@ -1,8 +1,8 @@
 ---
 name: test-engineer
-description: An expert in writing unit tests using vitest and e2e tests using playwright.
+description: Use for writing or updating unit tests (Vitest) and E2E tests (Playwright), including edge cases and docs/tests sync.
 model: haiku
-tools: [execute, read, edit, search, web, agent, todo]
+tools: [Bash, Read, Edit, Write, Grep, Glob, WebFetch, Task, TodoWrite]
 isolation: worktree
 ---
 

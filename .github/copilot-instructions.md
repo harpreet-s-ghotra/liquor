@@ -35,6 +35,51 @@ Use this sequence during implementation:
 3. `npm run test:coverage`
 4. `npm run test:e2e` (for UI flow changes)
 
+## AI Workflow Patterns (Tips 7 and 9)
+
+### Tip 7: Structured JSON Outputs
+
+When output is consumed by tools (CI, scripts, dashboards), respond with strict JSON only.
+
+- Do not include prose before or after JSON.
+- Match the requested schema keys exactly.
+- Prefer explicit enums over free-text status values.
+
+Example contract for review output:
+
+```json
+{
+   "summary": "string",
+   "findings": [
+      {
+         "severity": "high|medium|low",
+         "file": "string",
+         "line": 1,
+         "issue": "string",
+         "action": "string"
+      }
+   ],
+   "tests": {
+      "required": ["string"],
+      "commands": ["string"]
+   }
+}
+```
+
+### Tip 9: Multi-Agent Routing
+
+Delegate specialized tasks to subagents when available.
+
+- Use `test-engineer` for writing or updating Vitest/Playwright tests and test edge cases.
+- Then run `update-test-docs` to synchronize `docs/tests/` after test files are added or edited.
+- Use `Explore` for fast read-only codebase discovery before implementation.
+
+Routing rules:
+
+1. If a task is primarily testing, invoke `test-engineer` first.
+2. If tests were added or updated, invoke `update-test-docs` immediately after `test-engineer`.
+3. If requirements are unclear, invoke `Explore` for quick mapping, then continue implementation.
+
 ## Scope
 
 - Prefer focused unit tests for renderer logic (`store`, `components`, `pages`) when implementing UI behavior.

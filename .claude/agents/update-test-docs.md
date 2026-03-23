@@ -1,7 +1,7 @@
 ---
 name: update-test-docs
 description: Updates the E2E test documentation in docs/tests/ to match the current test files.
-tools: [read, edit, write, search, glob, todo]
+tools: [Read, Edit, Write, Grep, Glob, TodoWrite]
 ---
 
 You are a documentation updater. Your task is to synchronize the markdown files in `docs/tests/` with the actual E2E test specs in `tests/e2e/`.

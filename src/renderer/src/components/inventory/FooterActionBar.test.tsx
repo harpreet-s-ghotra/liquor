@@ -20,6 +20,9 @@ const sampleProduct: InventoryProduct = {
   vendor_name: null,
   bottles_per_case: 12,
   case_discount_price: null,
+  special_pricing_enabled: 0,
+  special_price: null,
+  is_active: 1,
   barcode: null,
   description: null
 }
