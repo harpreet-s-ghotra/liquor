@@ -779,7 +779,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                 />
               </FormField>
               <FormField label="Case Discount">
-                <div className="item-form__case-mode-row">
+                <div
+                  className="item-form__case-mode-field"
+                  data-mode={formState.case_discount_mode}
+                >
                   {formState.case_discount_mode === 'percent' ? (
                     <Input
                       className="item-form__case-mode-input"
@@ -805,6 +808,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                     />
                   )}
                   <ToggleGroup
+                    className="item-form__case-mode-toggle"
                     type="single"
                     value={formState.case_discount_mode}
                     onValueChange={(val) => {
@@ -817,10 +821,18 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                       }
                     }}
                   >
-                    <ToggleGroupItem value="percent" aria-label="Switch to percent mode">
+                    <ToggleGroupItem
+                      className="item-form__case-mode-toggle-item"
+                      value="percent"
+                      aria-label="Switch to percent mode"
+                    >
                       %
                     </ToggleGroupItem>
-                    <ToggleGroupItem value="dollar" aria-label="Switch to dollar mode">
+                    <ToggleGroupItem
+                      className="item-form__case-mode-toggle-item"
+                      value="dollar"
+                      aria-label="Switch to dollar mode"
+                    >
                       $
                     </ToggleGroupItem>
                   </ToggleGroup>

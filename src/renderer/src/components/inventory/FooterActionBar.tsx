@@ -63,7 +63,7 @@ export function FooterActionBar({
     <div className="footer-action-bar">
       {/* Left: Search */}
       <div ref={searchWrapperRef} className="footer-action-bar__search">
-        <span className="footer-action-bar__search-label">Item Lookup</span>
+        {/* <span className="footer-action-bar__search-label">Item Lookup</span> */}
         <div className="footer-action-bar__search-wrap">
           <input
             ref={searchInputRef}
@@ -77,6 +77,7 @@ export function FooterActionBar({
             }}
             placeholder={SEARCH_PLACEHOLDER[activeTab] ?? 'Search...'}
             className="footer-action-bar__search-input"
+            name="Search Inventory"
           />
 
           {/* Autocomplete dropdown — Items tab only */}

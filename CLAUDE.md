@@ -377,6 +377,22 @@ The inventory modal is being redesigned. See `docs/inventory-modal-v2-plan.md` f
 
 ---
 
+## AI Index — Read Before Searching
+
+Before searching the codebase, read the relevant index doc in `docs/ai/`:
+
+| Index | Covers |
+| ----- | ------ |
+| `docs/ai/repo-map.md` | Architecture, layer entry points, IPC channels, module lookup table |
+| `docs/ai/testing-map.md` | Test locations, runners, patterns, how to add tests |
+| `docs/ai/inventory-map.md` | All inventory feature files, components, types, tests |
+| `docs/ai/stax-map.md` | Payment/auth files, Stax API, terminal flow |
+| `docs/ai/glossary.md` | Canonical terms and definitions |
+
+Routing: read `repo-map.md` first for general tasks. Read the feature-specific map for scoped work. Check `glossary.md` when a domain term is ambiguous.
+
+---
+
 ## Documentation
 
 Before implementing any feature, read the relevant doc in `docs/`:

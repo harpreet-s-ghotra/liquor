@@ -31,13 +31,13 @@
 }
 
 .footer-action-bar__search-input {
-  width: 280px;
-  height: 2.25rem;
+  width: 380px;
+  height: 2.5rem;
   border-radius: var(--radius);
   border: 1px solid var(--border-default);
   background: var(--bg-input);
   padding: 0 0.75rem;
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 700;
   color: var(--text-primary);
   outline: none;

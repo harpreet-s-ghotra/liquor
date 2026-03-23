@@ -21,7 +21,7 @@
 }
 
 .item-form__section-title {
-  font-size: 10px;
+  font-size: var(--text-sm);
   font-weight: 900;
   color: var(--text-label);
   text-transform: uppercase;
@@ -42,7 +42,7 @@
 .item-form__label {
   display: block;
   margin-bottom: 0.25rem;
-  font-size: 10px;
+  font-size: var(--text-sm);
   font-weight: 900;
   color: var(--text-primary);
   text-transform: uppercase;
@@ -195,17 +195,93 @@
   gap: 0.75rem;
 }
 
-.item-form__case-mode-row {
+.item-form__case-mode-field {
+  position: relative;
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  min-height: 2.25rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.item-form__case-mode-field::before {
+  content: '';
+  position: absolute;
+  top: 0.375rem;
+  right: 4.25rem;
+  bottom: 0.375rem;
+  width: 1px;
+  background: var(--border-default);
+  z-index: 1;
+}
+
+.item-form__case-mode-field::after {
+  content: '';
+  position: absolute;
+  top: 0.1875rem;
+  right: 0.1875rem;
+  bottom: 0.1875rem;
+  width: 4rem;
+  border-radius: calc(var(--radius) - 0.125rem);
+  background: var(--bg-surface-soft);
+  z-index: 0;
+}
+
+.item-form__case-mode-field:focus-within {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 1px var(--accent-blue);
 }
 
 .item-form__case-mode-input {
   flex: 1;
   min-width: 0;
-  border-top-right-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-right: 0 !important;
+  border: 0 !important;
+  background: transparent;
+  padding-right: 4.5rem;
+  box-shadow: none !important;
+  z-index: 2;
+}
+
+.item-form__case-mode-input:focus {
+  box-shadow: none !important;
+}
+
+.item-form__case-mode-toggle {
+  position: absolute;
+  top: 0.1875rem;
+  right: 0.1875rem;
+  bottom: 0.1875rem;
+  z-index: 2;
+}
+
+.item-form__case-mode-toggle-item {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0.625rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.item-form__case-mode-toggle-item:first-child {
+  border-left-width: 0;
+}
+
+.item-form__case-mode-toggle-item:last-child {
+  border-radius: 0 calc(var(--radius) - 0.125rem) calc(var(--radius) - 0.125rem) 0;
+}
+
+.item-form__case-mode-toggle-item[data-state='on'] {
+  background: var(--btn-success-bg);
+  color: var(--btn-success-text);
+}
+
+.item-form__case-mode-toggle-item[data-state='off']:hover {
+  color: var(--text-primary);
 }
 
 .item-form__case-hint {
