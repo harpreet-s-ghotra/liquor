@@ -106,6 +106,43 @@ const attachTerminalMock = async (
           }
         ],
 
+        // Dev-mode card mock (used when IS_DEV=true — mirrors terminal behavior)
+        chargeWithCard: async (input: { total: number; card_type?: string }) => {
+          await new Promise((resolve) => setTimeout(resolve, lat))
+          if (doTimeout) {
+            return {
+              transaction_id: 'txn-timeout',
+              success: false,
+              last_four: '',
+              card_type: 'unknown',
+              total: input.total,
+              message: 'Terminal timed out — no response from card reader',
+              status: 'timeout'
+            }
+          }
+          if (doDecline) {
+            return {
+              transaction_id: '',
+              success: false,
+              last_four: '',
+              card_type: 'unknown',
+              total: input.total,
+              message: 'Card declined by terminal',
+              status: 'declined'
+            }
+          }
+          const isVisa = (input.card_type ?? 'visa') !== 'mastercard'
+          return {
+            transaction_id: `txn-${Date.now()}`,
+            success: true,
+            last_four: isVisa ? '4242' : '3222',
+            card_type: isVisa ? 'visa' : 'mastercard',
+            total: input.total,
+            message: 'Approved',
+            status: 'approved'
+          }
+        },
+
         // Simulated terminal charge — represents physical card machine interaction
         chargeTerminal: async (input: { total: number; payment_type: string }) => {
           // Simulate terminal processing time
@@ -205,11 +242,9 @@ test.describe('Terminal Card Payments', () => {
     // Click Credit on ActionPanel — sends charge to terminal
     await page.getByRole('button', { name: 'Credit' }).click()
 
-    // Should show "Waiting for card machine..." processing
+    // Should show processing state (DEV mode shows "Processing test card...")
     await expect(page.getByTestId('payment-processing')).toBeVisible()
-    await expect(page.getByTestId('payment-processing')).toContainText(
-      'Waiting for card machine...'
-    )
+    await expect(page.getByTestId('payment-processing')).toContainText('Processing test card...')
 
     // Terminal approves → payment complete
     await expect(page.getByTestId('payment-complete')).toBeVisible({ timeout: 5000 })

@@ -299,6 +299,8 @@ Keep this table current when adding or modifying components in `ui/` or `common/
 | Label + input + error wrapper          | `FormField`                                         | `common/FormField`      |
 | Modal / dialog                         | `Dialog` + `DialogContent`                          | `ui/dialog`             |
 | Confirmation prompt                    | `ConfirmDialog`                                     | `common/ConfirmDialog`  |
+| Error feedback (modal)                 | `ErrorModal`                                        | `common/ErrorModal`     |
+| Success feedback (modal, auto-closes)  | `SuccessModal`                                      | `common/SuccessModal`   |
 | Tabs                                   | `Tabs` + `TabsList` + `TabsTrigger` + `TabsContent` | `ui/tabs`               |
 | Status badge                           | `Badge`                                             | `ui/badge`              |
 | Radio selection                        | `RadioGroup` + `RadioGroupItem`                     | `ui/radio-group`        |
@@ -325,6 +327,8 @@ Keep this table current when adding or modifying components in `ui/` or `common/
 - Write `<input className="...">` instead of `ValidatedInput` or `InventoryInput` — these handle focus rings, border colors, and sizing consistently
 - Write `<label>...<span className="text-red...">*</span></label>` instead of `FormField` with `required`
 - Create a new confirmation modal instead of using `ConfirmDialog`
+- Render inline error/success text (`<p className="...error...">`) when `ErrorModal` or `SuccessModal` should be used
+- Render raw IPC error messages — always strip the `"Error invoking remote method '...': Error:"` prefix before displaying
 - Write manual debounce logic (`setTimeout`/`clearTimeout`) instead of `useDebounce`
 - Duplicate CRUD state management (items array, error/success messages, loading) instead of `useCrudPanel`
 - Write `toFixed(2)` or manual dollar formatting instead of `formatCurrency()`

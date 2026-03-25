@@ -19,6 +19,7 @@ import type {
   Cashier,
   CreateCashierInput,
   UpdateCashierInput,
+  DirectChargeInput,
   TerminalChargeInput,
   TerminalChargeResult,
   TerminalRegister,
@@ -72,6 +73,7 @@ type AppApi = {
   // Stax Terminal Payments
   getTerminalRegisters: () => Promise<TerminalRegister[]>
   chargeTerminal: (input: TerminalChargeInput) => Promise<TerminalChargeResult>
+  chargeWithCard: (input: DirectChargeInput) => Promise<TerminalChargeResult>
 
   // Transactions
   saveTransaction: (input: SaveTransactionInput) => Promise<SavedTransaction>

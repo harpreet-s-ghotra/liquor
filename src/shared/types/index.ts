@@ -333,6 +333,29 @@ export type StaxMerchantInfo = {
 
 // ── Stax Terminal Payment Processing ──
 
+/**
+ * Input for a direct (keyed-entry) card charge via POST /charge.
+ * Used when no physical terminal is present — Phase A testing path.
+ */
+export type DirectChargeInput = {
+  /** Total amount in dollars (e.g. 22.59) — minimum 0.01 */
+  total: number
+  /** Cardholder name */
+  person_name: string
+  /** Card number (no spaces) */
+  card_number: string
+  /** 4-digit expiry MMYY e.g. "0427" */
+  card_exp: string
+  /** CVV / security code */
+  card_cvv: string
+  /** Card brand hint — null is accepted by Stax */
+  card_type?: string
+  /** Billing zip for AVS (optional but recommended) */
+  address_zip?: string
+  /** Optional metadata (tax, subtotal, lineItems, etc.) */
+  meta?: Record<string, unknown>
+}
+
 /** A physical card reader / terminal device paired with the merchant */
 export type TerminalRegister = {
   id: string

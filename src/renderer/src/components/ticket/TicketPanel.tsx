@@ -331,7 +331,10 @@ export function TicketPanel({
             }
           }}
           placeholder="Search item"
-          className="ticket-panel__search-input"
+          className={cn(
+            'ticket-panel__search-input',
+            search && 'ticket-panel__search-input--active'
+          )}
           autoFocus
         />
         <Input

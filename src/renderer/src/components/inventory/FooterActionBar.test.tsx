@@ -42,10 +42,8 @@ function makeProps(overrides?: Partial<FooterActionBarProps>): FooterActionBarPr
     noResultsSku: null,
     onAddNewWithSku: vi.fn(),
     showItemActions: true,
-    canNew: true,
     canSave: true,
     canDelete: true,
-    onNew: vi.fn(),
     onSave: vi.fn(),
     onDelete: vi.fn(),
     onDiscard: vi.fn(),
@@ -57,7 +55,7 @@ describe('FooterActionBar', () => {
   it('renders search input and action buttons on items tab', () => {
     render(<FooterActionBar {...makeProps()} />)
     expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
-    expect(screen.getByText('+ New Item')).toBeInTheDocument()
+    expect(screen.queryByText('+ New Item')).not.toBeInTheDocument()
     expect(screen.getByText('Save')).toBeInTheDocument()
     expect(screen.getByText('Delete Item')).toBeInTheDocument()
     expect(screen.getByText('Discard')).toBeInTheDocument()
@@ -65,7 +63,6 @@ describe('FooterActionBar', () => {
 
   it('hides action buttons when showItemActions is false', () => {
     render(<FooterActionBar {...makeProps({ showItemActions: false })} />)
-    expect(screen.queryByText('+ New Item')).not.toBeInTheDocument()
     expect(screen.queryByText('Save')).not.toBeInTheDocument()
   })
 
@@ -176,14 +173,10 @@ describe('FooterActionBar', () => {
   })
 
   it('calls action handlers when buttons are clicked', () => {
-    const onNew = vi.fn()
     const onSave = vi.fn()
     const onDelete = vi.fn()
     const onDiscard = vi.fn()
-    render(<FooterActionBar {...makeProps({ onNew, onSave, onDelete, onDiscard })} />)
-
-    fireEvent.click(screen.getByText('+ New Item'))
-    expect(onNew).toHaveBeenCalled()
+    render(<FooterActionBar {...makeProps({ onSave, onDelete, onDiscard })} />)
 
     fireEvent.click(screen.getByText('Save'))
     expect(onSave).toHaveBeenCalled()
@@ -195,9 +188,8 @@ describe('FooterActionBar', () => {
     expect(onDiscard).toHaveBeenCalled()
   })
 
-  it('disables buttons based on canNew, canSave, canDelete', () => {
-    render(<FooterActionBar {...makeProps({ canNew: false, canSave: false, canDelete: false })} />)
-    expect(screen.getByText('+ New Item').closest('button')).toBeDisabled()
+  it('disables buttons based on canSave, canDelete', () => {
+    render(<FooterActionBar {...makeProps({ canSave: false, canDelete: false })} />)
     expect(screen.getByText('Save').closest('button')).toBeDisabled()
     expect(screen.getByText('Delete Item').closest('button')).toBeDisabled()
   })

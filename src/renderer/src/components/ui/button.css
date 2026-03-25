@@ -80,8 +80,12 @@
 
 .btn--lg {
   min-height: 4.5rem;
-  padding: 0 1rem;
+  padding: 1rem;
   font-size: 1.3125rem;
+}
+
+.btn--lg.two-one {
+  aspect-ratio: 2 / 1;
 }
 
 .btn--icon {

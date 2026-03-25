@@ -4,24 +4,26 @@
 
 This document covers two features that gate access to the POS:
 
-| Phase | Feature                 | Description                                                                                                                                                                            |
-| ----- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | **Merchant Activation** | First-launch screen where the merchant enters their Stax API key (you onboard merchants manually via the Stax dashboard). The key is validated against `GET /self` and stored locally. |
-| **2** | **Cashier PIN Login**   | After activation, cashiers log in with a 4-digit PIN. Supports multiple cashiers per merchant.                                                                                         |
+| Phase | Feature                 | Description                                                                                                                                                          |
+| ----- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **Merchant Activation** | First-launch screen where the merchant enters their Stax Pay API key. The key is validated against `GET /self` and stored locally.                                   |
+| **2** | **Cashier PIN Login**   | After activation, cashiers log in with a 4-digit PIN. Supports multiple cashiers per merchant.                                                                       |
+
+> **Account model:** LiquorPOS uses **Stax Pay** (direct merchant account). The API key is obtained from the Stax Pay merchant dashboard and entered manually on first launch. No partner/ISV backend is required.
 
 ### Business Flow
 
 ```
 ┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐
-│  YOU (ISV Admin)  │      │  First Launch    │      │   Daily Use      │
-│                   │      │                  │      │                  │
-│ 1. Create merchant│─────▶│ 2. Activation    │─────▶│ 3. Cashier PIN   │
-│    in Stax dash   │      │    screen: enter │      │    login → POS   │
-│ 3. Give API key   │      │    API key       │      │                  │
-│    to store owner │      │ 4. Validate key  │      │                  │
-└──────────────────┘      │    (GET /self)   │      └──────────────────┘
-                           │ 5. Store config  │
-                           └──────────────────┘
+│  Stax Pay Dash   │      │  First Launch    │      │   Daily Use      │
+│                  │      │                  │      │                  │
+│ 1. Get API key   │─────▶│ 2. Activation    │─────▶│ 3. Cashier PIN   │
+│    from Stax Pay │      │    screen: enter │      │    login → POS   │
+│    dashboard     │      │    API key       │      │                  │
+│                  │      │ 3. Validate key  │      └──────────────────┘
+│                  │      │    (GET /self)   │
+│                  │      │ 4. Store config  │
+└──────────────────┘      └──────────────────┘
 ```
 
 ---
@@ -117,10 +119,19 @@ validateApiKey(apiKey: string): Promise<StaxMerchant>
   // → GET /self with Authorization: Bearer <apiKey>
   // → Returns { merchant_id, company_name, status } or throws
 
-// Future (Phase 3 — payments):
-charge(paymentMethodId: string, total: number, meta?: object): Promise<StaxTransaction>
-createCustomer(data: object): Promise<StaxCustomer>
-tokenizeCard(customerId: string, cardToken: string): Promise<StaxPaymentMethod>
+// Phase A — Pre-hardware testing (direct API charge):
+createCustomer(apiKey: string, data: object): Promise<StaxCustomer>
+  // → POST /customer
+createPaymentMethod(apiKey: string, customerId: string, cardData: object): Promise<StaxPaymentMethod>
+  // → POST /payment-method/
+chargePaymentMethod(apiKey: string, paymentMethodId: string, total: number, meta?: object): Promise<TerminalChargeResult>
+  // → POST /charge — synchronous, no polling
+
+// Phase B — Terminal hardware (already implemented):
+getTerminalRegisters(apiKey: string): Promise<TerminalRegister[]>
+  // → GET /terminal/register
+chargeTerminal(apiKey: string, input: TerminalChargeInput): Promise<TerminalChargeResult>
+  // → POST /terminal/charge + polling
 ```
 
 ### 1B. Merchant Config Repo (`src/main/database/merchant-config.repo.ts`)

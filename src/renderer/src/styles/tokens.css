@@ -165,6 +165,7 @@
   --text-muted: #6b7280;
   --text-label: #6b7280;
   --text-on-dark: #e8ecf0;
+  --text-white: #ffffff;
 
   --btn-bg: #005db7;
   --btn-border: transparent;
@@ -237,7 +238,7 @@
   --bottom-border: #e4e7ea;
   --bottom-key-bg: #f1f4f6;
   --bottom-key-border: #d4d8db;
-  --bottom-key-badge-bg: #e8ebee;
+  --bottom-key-badge-bg: #1e293b;
   --bottom-key-text: #6b7280;
   --bottom-exit-bg: rgba(134, 0, 13, 0.06);
   --bottom-exit-border: rgba(134, 0, 13, 0.2);

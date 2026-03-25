@@ -4,7 +4,6 @@
   justify-content: flex-end;
   gap: 1rem;
   height: 4rem;
-  border-bottom: 2px solid var(--header-border);
   background: var(--header-bg);
   padding: 0 1.5rem;
 }

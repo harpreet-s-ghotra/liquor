@@ -16,21 +16,30 @@ type SalesHistoryModalProps = {
   onRecallTransaction: (txnNumber: string) => void
 }
 
-type DatePreset = 'today' | 'week' | 'month' | 'all'
+type DatePreset = 'today' | 'yesterday' | 'last2days' | 'week' | 'month' | 'all'
 
 function getDateRange(preset: DatePreset): { from: string | null; to: string | null } {
   if (preset === 'all') return { from: null, to: null }
   const now = new Date()
-  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString()
   let from: Date
+  let to: Date
   if (preset === 'today') {
     from = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+  } else if (preset === 'yesterday') {
+    from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+    to = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59)
+  } else if (preset === 'last2days') {
+    from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+    to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
   } else if (preset === 'week') {
     from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
+    to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
   } else {
     from = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+    to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
   }
-  return { from: from.toISOString(), to }
+  return { from: from.toISOString(), to: to.toISOString() }
 }
 
 function formatDateTime(iso: string): string {
@@ -125,6 +134,17 @@ export function SalesHistoryModal({
     [onRecallTransaction, onClose]
   )
 
+  const hasActiveFilters =
+    datePreset !== 'today' || statusFilter !== '' || paymentFilter !== '' || searchText !== ''
+
+  const clearFilters = (): void => {
+    setDatePreset('today')
+    setStatusFilter('')
+    setPaymentFilter('')
+    setSearchText('')
+    setPage(0)
+  }
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
   const startIdx = page * PAGE_SIZE + 1
   const endIdx = Math.min((page + 1) * PAGE_SIZE, totalCount)
@@ -149,6 +169,8 @@ export function SalesHistoryModal({
             data-testid="sales-history-date-filter"
           >
             <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="last2days">Last 2 Days</option>
             <option value="week">Last 7 Days</option>
             <option value="month">Last 30 Days</option>
             <option value="all">All Time</option>
@@ -185,6 +207,17 @@ export function SalesHistoryModal({
             onChange={(e) => setSearchText(e.target.value)}
             data-testid="sales-history-search"
           />
+
+          {hasActiveFilters && (
+            <AppButton
+              variant="neutral"
+              size="sm"
+              onClick={clearFilters}
+              data-testid="sales-history-clear-filters"
+            >
+              Clear Filters
+            </AppButton>
+          )}
         </div>
 
         {/* Table */}

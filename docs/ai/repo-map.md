@@ -35,6 +35,8 @@ Renderer (React)  →  window.api  →  Preload (contextBridge)  →  IPC  →  
 | Add a shared type | `src/shared/types/index.ts` only — then import in renderer/main |
 | Add a new page | `src/renderer/src/pages/`, `src/renderer/src/App.tsx`, `src/renderer/src/store/useAuthStore.ts` |
 | Add a component | `src/renderer/src/components/<feature>/`, companion `.css`, companion `.test.tsx` |
+| Show an error to the user | `common/ErrorModal` — modal with OK button (touch-friendly, size lg) |
+| Show a success to the user | `common/SuccessModal` — modal that auto-closes after 5 s |
 | Add a Zustand store | `src/renderer/src/store/`, export from index if needed |
 | Change product schema | `schema.ts` → `products.repo.ts` → `src/shared/types/index.ts` → preload types → renderer |
 | Add an E2E test | `tests/e2e/`, then `docs/tests/` for documentation |

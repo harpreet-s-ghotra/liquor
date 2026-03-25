@@ -196,6 +196,21 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
         }
       },
 
+      // Dev-mode card mock (used when IS_DEV=true — preset test cards)
+      chargeWithCard: async (input: { total: number; card_type?: string }) => {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        const isVisa = (input.card_type ?? 'visa') !== 'mastercard'
+        return {
+          transaction_id: `txn-${Date.now()}`,
+          success: true,
+          last_four: isVisa ? '4242' : '3222',
+          card_type: isVisa ? 'visa' : 'mastercard',
+          total: input.total,
+          message: 'Approved',
+          status: 'approved'
+        }
+      },
+
       // Transaction persistence mock
       saveTransaction: async (input: Record<string, unknown>) => {
         const txn = {
@@ -457,8 +472,13 @@ test.describe('Simple Transactions', () => {
     // No items should be in the ticket
     await expect(page.locator('.ticket-panel__line')).toHaveCount(0)
 
-    // Search should remain (not cleared since no match)
-    await expect(searchInput).toHaveValue('INVALID-999')
+    // Search is cleared and error modal is shown
+    await expect(searchInput).toHaveValue('')
+    await expect(page.getByText('Item "INVALID-999" not found')).toBeVisible()
+
+    // Dismiss the error modal
+    await page.getByTestId('error-modal-ok').click()
+    await expect(page.getByText('Item "INVALID-999" not found')).toHaveCount(0)
   })
 
   test('search input is auto-focused on page load', async ({ page }) => {
@@ -615,7 +635,7 @@ test.describe('Payment Modal', () => {
 
     // Should show processing state
     await expect(modal.getByTestId('payment-processing')).toBeVisible()
-    await expect(modal.getByText('Waiting for card machine...')).toBeVisible()
+    await expect(modal.getByText('Processing test card...')).toBeVisible()
 
     // Cancel should be disabled during processing
     await expect(modal.getByRole('button', { name: 'Cancel' })).toBeDisabled()

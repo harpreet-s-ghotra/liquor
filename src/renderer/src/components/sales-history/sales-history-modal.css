@@ -3,7 +3,7 @@
 .sales-history {
   display: flex;
   flex-direction: column;
-  width: 800px;
+  width: 1000px;
   max-height: 85vh;
   overflow: hidden;
   border-radius: 1rem;

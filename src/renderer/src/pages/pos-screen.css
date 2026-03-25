@@ -11,7 +11,7 @@
   min-height: 0;
   overflow: hidden;
   gap: 0.5rem;
-  padding: 0.5rem;
+  padding: 0 0.5rem;
 }
 
 .pos-screen__error {

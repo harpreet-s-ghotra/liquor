@@ -7,8 +7,15 @@
 ```
 ActivationScreen → validateApiKey → saveMerchantConfig → login state
 LoginScreen → validatePin → pos state
+
+Phase A (no hardware):
+POSScreen → checkout → chargePaymentMethod → saveTransaction
+
+Phase B (terminal on-site):
 POSScreen → checkout → chargeTerminal → saveTransaction
 ```
+
+> Phase A is the active testing path. Phase B activates once the physical card reader is registered. Both paths share the same IPC interface, error handling, and transaction recording — only the stax.ts charge function differs.
 
 ## File Inventory
 
@@ -16,20 +23,31 @@ POSScreen → checkout → chargeTerminal → saveTransaction
 
 | File | Key exports | Purpose |
 |------|-------------|---------|
-| `src/main/services/stax.ts` | `validateApiKey`, `getTerminalRegisters`, `chargeTerminal`, `StaxApiError` | Stax Partner API calls |
+| `src/main/services/stax.ts` | `validateApiKey`, `getTerminalRegisters`, `chargeTerminal`, `StaxApiError` | Stax Pay API calls (Phase B terminal path — implemented). Phase A direct charge functions to be added. |
 | `src/main/database/merchant-config.repo.ts` | `getMerchantConfig`, `saveMerchantConfig`, `clearMerchantConfig` | API key + merchant metadata persistence |
 | `src/main/database/cashiers.repo.ts` | `getCashiers`, `createCashier`, `validatePin`, `hashPin` | Cashier auth (PIN hashing with crypto) |
 | `src/main/database/transactions.repo.ts` | `saveTransaction`, `saveRefundTransaction`, `getRecentTransactions`, `listTransactions` | Transaction recording |
 
+### Planned additions to `stax.ts` (Phase A)
+
+| Function | Endpoint | Purpose |
+|----------|----------|---------|
+| `createCustomer()` | `POST /customer` | Create throwaway customer for tokenization |
+| `createPaymentMethod()` | `POST /payment-method/` | Tokenize a card number → `payment_method_id` |
+| `chargePaymentMethod()` | `POST /charge` | Direct charge (no terminal) — for pre-hardware testing |
+
 ### IPC Channels
 
-- `merchant:get-config` — load stored merchant config
-- `merchant:activate` — validate API key with Stax, save config
-- `merchant:deactivate` — clear config, return to activation screen
-- `cashiers:list/create/validate-pin/update/delete`
-- `stax:terminal:registers` — list card readers
-- `stax:terminal:charge` — process payment on terminal
-- `transactions:save/recent/get-by-number/save-refund/list`
+| Channel | Status | Purpose |
+|---------|--------|---------|
+| `merchant:get-config` | Active | Load stored merchant config |
+| `merchant:activate` | Active | Validate API key with Stax, save config |
+| `merchant:deactivate` | Active | Clear config, return to activation screen |
+| `cashiers:list/create/validate-pin/update/delete` | Active | Cashier management |
+| `stax:terminal:registers` | Active | List card readers |
+| `stax:terminal:charge` | Active (Phase B) | Process payment on physical terminal |
+| `stax:charge:direct` | Planned (Phase A) | Direct API charge for pre-hardware testing |
+| `transactions:save/recent/get-by-number/save-refund/list` | Active | Transaction persistence |
 
 ### Renderer
 
@@ -47,7 +65,7 @@ POSScreen → checkout → chargeTerminal → saveTransaction
 | Type | Purpose |
 |------|---------|
 | `MerchantConfig` | API key, merchant ID, company name |
-| `StaxMerchantInfo` | Stax API response shape |
+| `StaxMerchantInfo` | Stax API response shape from `GET /self` |
 | `TerminalRegister` | Card reader device info |
 | `TerminalChargeInput` | Charge request (amount, payment type, meta) |
 | `TerminalChargeResult` | Charge response (txn ID, success, card last 4) |
@@ -69,11 +87,12 @@ POSScreen → checkout → chargeTerminal → saveTransaction
 | Doc | Content |
 |-----|---------|
 | `docs/stax-activation-and-login.md` | Auth flow spec |
-| `docs/stax-integration-plan.md` | API endpoints, test cards, webhooks |
+| `docs/stax-integration-plan.md` | API endpoints, account model, two-phase plan, test cards |
 
 ## API Details
 
 - Base URL: `https://apiprod.fattlabs.com/`
 - Sandbox and production use the same URL (API key determines environment)
+- Account type: Stax Pay (direct merchant) — same terminal endpoints as Stax Connect
 - Test cards: Visa `4111111111111111`, Mastercard `5555555555554444`
-- Electron app uses `ApiKeyAuth` (per-merchant); `PartnerApiKey` is server-side only
+- Electron app uses `ApiKeyAuth` (merchant Bearer token) — stored in main process only, never sent to renderer

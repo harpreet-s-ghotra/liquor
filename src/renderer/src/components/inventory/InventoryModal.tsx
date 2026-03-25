@@ -264,10 +264,8 @@ export function InventoryModal({
           noResultsSku={noResultsSku}
           onAddNewWithSku={handleAddNewWithSku}
           showItemActions={activeTab === 'items'}
-          canNew={itemBtnState.canNew}
           canSave={itemBtnState.canSave}
           canDelete={itemBtnState.canDelete}
-          onNew={() => itemFormRef.current?.handleNewItem()}
           onSave={() => itemFormRef.current?.handleSave()}
           onDelete={() => itemFormRef.current?.handleDelete()}
           onDiscard={() => itemFormRef.current?.handleDiscard()}

@@ -24,6 +24,30 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         special_pricing_enabled: 0,
         special_price: null,
         is_active: 1,
+        additional_skus: ['SKU-001-ALT'],
+        special_pricing: [],
+        sales_history: []
+      },
+      {
+        item_number: 2,
+        sku: 'SKU-002',
+        item_name: 'Second Item',
+        dept_id: '11',
+        category_id: null,
+        category_name: null,
+        cost: 8,
+        retail_price: 12,
+        in_stock: 10,
+        tax_1: 0.13,
+        tax_2: 0,
+        vendor_number: null,
+        vendor_name: null,
+        bottles_per_case: 6,
+        barcode: null,
+        description: null,
+        special_pricing_enabled: 0,
+        special_price: null,
+        is_active: 1,
         additional_skus: [],
         special_pricing: [],
         sales_history: []
@@ -38,6 +62,15 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         category: 'Wine',
         price: 15,
         quantity: 4,
+        tax_rate: 0.13
+      },
+      {
+        id: 2,
+        sku: 'SKU-002',
+        name: 'Second Item',
+        category: 'Wine',
+        price: 12,
+        quantity: 10,
         tax_rate: 0.13
       }
     ]
@@ -119,6 +152,32 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         const nextId =
           payload.item_number ??
           inventoryStore.reduce((max, current) => Math.max(max, current.item_number), 0) + 1
+
+        // Validate additional SKUs don't conflict with other products
+        if (payload.additional_skus?.length) {
+          for (const altSku of payload.additional_skus) {
+            const primaryConflict = inventoryStore.find(
+              (item) => item.sku === altSku && item.is_active === 1 && item.item_number !== nextId
+            )
+            if (primaryConflict) {
+              throw new Error(
+                `Additional SKU "${altSku}" is already the primary SKU of "${primaryConflict.item_name}"`
+              )
+            }
+            const altConflict = inventoryStore.find(
+              (item) =>
+                item.item_number !== nextId &&
+                item.is_active === 1 &&
+                item.additional_skus?.includes(altSku)
+            )
+            if (altConflict) {
+              throw new Error(
+                `Additional SKU "${altSku}" is already used by "${altConflict.item_name}"`
+              )
+            }
+          }
+        }
+
         const existingIndex = inventoryStore.findIndex((item) => item.item_number === nextId)
         const nextItem = {
           item_number: nextId,
@@ -252,5 +311,61 @@ test.describe('Inventory Management', () => {
 
     // Verify the item was loaded into the form
     await expect(page.getByRole('textbox', { name: 'SKU', exact: true })).toHaveValue(sku)
+  })
+
+  test('rejects additional SKU that duplicates another product primary SKU', async ({ page }) => {
+    await attachInventoryApiMock(page)
+    await gotoAndLogin(page)
+
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
+
+    // Fill required fields for a new item
+    await page.getByRole('textbox', { name: 'SKU', exact: true }).fill('SKU-NEW')
+    await page.getByLabel('Name').fill('New Item')
+    const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
+    await itemsPanel.getByLabel('Department').selectOption({ label: 'Dept 11' })
+    await page.getByLabel('Cost').fill('5.00')
+    await page.getByLabel('Price Charged').fill('10.00')
+    await page.getByLabel('In Stock').fill('5')
+
+    // Add an additional SKU that matches an existing product's primary SKU
+    await page.getByRole('tab', { name: 'Additional SKUs' }).focus()
+    await page.getByLabel('Additional SKU Input').fill('SKU-001')
+    await page.getByRole('button', { name: 'Add Additional SKU' }).click()
+
+    await page.getByRole('button', { name: 'Save' }).click()
+
+    // Should show an error about the duplicate SKU
+    await expect(
+      page.getByText('Additional SKU "SKU-001" is already the primary SKU of "Inventory Item"')
+    ).toBeVisible()
+  })
+
+  test('rejects additional SKU that duplicates another product alt SKU', async ({ page }) => {
+    await attachInventoryApiMock(page)
+    await gotoAndLogin(page)
+
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
+
+    // Fill required fields for a new item
+    await page.getByRole('textbox', { name: 'SKU', exact: true }).fill('SKU-NEW-2')
+    await page.getByLabel('Name').fill('Another New Item')
+    const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
+    await itemsPanel.getByLabel('Department').selectOption({ label: 'Dept 11' })
+    await page.getByLabel('Cost').fill('6.00')
+    await page.getByLabel('Price Charged').fill('11.00')
+    await page.getByLabel('In Stock').fill('3')
+
+    // Add an additional SKU that matches another product's alt SKU
+    await page.getByRole('tab', { name: 'Additional SKUs' }).focus()
+    await page.getByLabel('Additional SKU Input').fill('SKU-001-ALT')
+    await page.getByRole('button', { name: 'Add Additional SKU' }).click()
+
+    await page.getByRole('button', { name: 'Save' }).click()
+
+    // Should show an error about the duplicate alt SKU
+    await expect(
+      page.getByText('Additional SKU "SKU-001-ALT" is already used by "Inventory Item"')
+    ).toBeVisible()
   })
 })

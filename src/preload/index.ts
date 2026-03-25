@@ -20,6 +20,7 @@ import type {
   Cashier,
   CreateCashierInput,
   UpdateCashierInput,
+  DirectChargeInput,
   TerminalChargeInput,
   TerminalChargeResult,
   TerminalRegister,
@@ -103,6 +104,8 @@ const api = {
     ipcRenderer.invoke('stax:terminal:registers'),
   chargeTerminal: (input: TerminalChargeInput): Promise<TerminalChargeResult> =>
     ipcRenderer.invoke('stax:terminal:charge', input),
+  chargeWithCard: (input: DirectChargeInput): Promise<TerminalChargeResult> =>
+    ipcRenderer.invoke('stax:charge:direct', input),
 
   // Transactions
   saveTransaction: (input: SaveTransactionInput): Promise<SavedTransaction> =>

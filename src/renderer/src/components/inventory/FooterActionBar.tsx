@@ -28,10 +28,8 @@ export type FooterActionBarProps = {
   onAddNewWithSku: (sku: string) => void
   // Actions — only rendered when on the Items tab
   showItemActions: boolean
-  canNew: boolean
   canSave: boolean
   canDelete: boolean
-  onNew: () => void
   onSave: () => void
   onDelete: () => void
   onDiscard: () => void
@@ -51,10 +49,8 @@ export function FooterActionBar({
   noResultsSku,
   onAddNewWithSku,
   showItemActions,
-  canNew,
   canSave,
   canDelete,
-  onNew,
   onSave,
   onDelete,
   onDiscard
@@ -135,10 +131,6 @@ export function FooterActionBar({
       {/* Right: Action buttons — only on Items tab */}
       {showItemActions && (
         <div className="footer-action-bar__actions">
-          <AppButton size="md" variant="success" disabled={!canNew} onClick={onNew}>
-            + New Item
-          </AppButton>
-
           <AppButton size="md" variant="success" disabled={!canSave} onClick={onSave}>
             Save
           </AppButton>

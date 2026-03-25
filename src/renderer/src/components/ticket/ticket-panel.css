@@ -48,6 +48,11 @@
   font-size: 1.125rem;
 }
 
+.ticket-panel__search-input--active {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px var(--accent-blue-soft);
+}
+
 .ticket-panel__search-btn {
   font-size: 1rem;
   font-weight: 600;
@@ -69,7 +74,7 @@
   align-items: center;
   background: var(--ledger-header-bg);
   padding: 0 1.5rem;
-  font-size: 10px;
+  font-size: var(--text-sm);
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 2px;

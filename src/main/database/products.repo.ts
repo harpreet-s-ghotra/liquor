@@ -436,6 +436,50 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     )
   )
 
+  // Validate additional SKUs don't conflict with other products' primary or alt SKUs
+  for (const altSku of normalizedAdditionalSkus) {
+    const primaryConflict = db
+      .prepare(
+        `
+        SELECT id, sku, name
+        FROM products
+        WHERE sku = @alt_sku
+          AND is_active = 1
+          AND (@item_number IS NULL OR id != @item_number)
+        LIMIT 1
+        `
+      )
+      .get({ alt_sku: altSku, item_number: input.item_number ?? null }) as
+      | { id: number; sku: string; name: string }
+      | undefined
+
+    if (primaryConflict) {
+      throw new Error(
+        `Additional SKU "${altSku}" is already the primary SKU of "${primaryConflict.name}"`
+      )
+    }
+
+    const altConflict = db
+      .prepare(
+        `
+        SELECT pas.alt_sku, p.name
+        FROM product_alt_skus pas
+        JOIN products p ON p.id = pas.product_id
+        WHERE pas.alt_sku = @alt_sku
+          AND p.is_active = 1
+          AND (@item_number IS NULL OR pas.product_id != @item_number)
+        LIMIT 1
+        `
+      )
+      .get({ alt_sku: altSku, item_number: input.item_number ?? null }) as
+      | { alt_sku: string; name: string }
+      | undefined
+
+    if (altConflict) {
+      throw new Error(`Additional SKU "${altSku}" is already used by "${altConflict.name}"`)
+    }
+  }
+
   const tx = db.transaction((payload: SaveInventoryItemInput) => {
     const primaryTaxRate = normalizedTaxRates.length > 0 ? normalizedTaxRates[0] : null
     const secondaryTaxRate = normalizedTaxRates.length > 1 ? normalizedTaxRates[1] : null

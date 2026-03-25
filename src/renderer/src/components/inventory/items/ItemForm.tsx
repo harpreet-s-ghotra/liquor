@@ -8,6 +8,8 @@ import { FormField } from '@renderer/components/common/FormField'
 import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
 import { InventoryInput, InventorySelect } from '@renderer/components/common/InventoryInput'
 import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
+import { ErrorModal } from '@renderer/components/common/ErrorModal'
+import { SuccessModal } from '@renderer/components/common/SuccessModal'
 import type {
   InventoryProduct,
   InventoryProductDetail,
@@ -103,10 +105,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   const [formState, setFormState] = useState<InventoryFormState>(emptyFormState)
   const [additionalSkuInput, setAdditionalSkuInput] = useState('')
   const [showValidation, setShowValidation] = useState(false)
-  const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState('')
   // Tracks whether the current retail_price was auto-calculated from cost + dept margin
   const [priceAutoCalc, setPriceAutoCalc] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState('')
   const [activeTab, setActiveTab] = useState('case-settings')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -144,7 +146,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       })
       .catch(() => {
         if (!active) return
-        setErrorMessage('Unable to load inventory reference data.')
+        setSaveError('Unable to load inventory reference data.')
       })
     return () => {
       active = false
@@ -202,8 +204,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     setSelectedItem(null)
     setFormState(emptyFormState)
     setShowValidation(false)
-    setSaveMessage(null)
-    setErrorMessage(null)
+    setSuccessMessage('')
+    setSaveError('')
     setActiveTab('case-settings')
     setPriceAutoCalc(false)
   }
@@ -220,8 +222,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       setFormState(emptyFormState)
     }
     setShowValidation(false)
-    setSaveMessage(null)
-    setErrorMessage(null)
+    setSuccessMessage('')
+    setSaveError('')
     setPriceAutoCalc(false)
   }
 
@@ -234,22 +236,22 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     setShowDeleteConfirm(false)
     if (!selectedItem) return
     if (!hasBackendApi || typeof api?.deleteInventoryItem !== 'function') {
-      setErrorMessage('Delete is not available in this environment.')
+      setSaveError('Delete is not available in this environment.')
       return
     }
     try {
       await api.deleteInventoryItem(selectedItem.item_number)
       handleNewItem()
-      setSaveMessage('Item deleted successfully')
+      setSuccessMessage('Item deleted')
       onSaveComplete?.()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to delete item')
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete item')
     }
   }
 
   const selectItem = async (item: InventoryProduct): Promise<void> => {
-    setSaveMessage(null)
-    setErrorMessage(null)
+    setSuccessMessage('')
+    setSaveError('')
     if (!hasBackendApi) return
     try {
       const detail = await api!.getInventoryProductDetail(item.item_number)
@@ -258,7 +260,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         setShowValidation(false)
       }
     } catch {
-      setErrorMessage('Unable to load item details.')
+      setSaveError('Unable to load item details.')
     }
   }
 
@@ -336,7 +338,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       )
 
     if (Number.isNaN(cost) || Number.isNaN(retailPrice) || Number.isNaN(inStock)) {
-      setErrorMessage('One or more numeric fields are invalid')
+      setSaveError('One or more numeric fields are invalid')
       return null
     }
 
@@ -372,11 +374,12 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   }
 
   const handleSave = async (): Promise<void> => {
-    setSaveMessage(null)
+    setSuccessMessage('')
+    setSaveError('')
     setShowValidation(true)
 
     if (!hasBackendApi) {
-      setErrorMessage(
+      setSaveError(
         'Backend inventory API is unavailable. Please run the app via Electron (npm run dev).'
       )
       return
@@ -391,11 +394,14 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       const savedDetail = await api.saveInventoryItem(payload)
       applyDetailToForm(savedDetail)
       setShowValidation(false)
-      setErrorMessage(null)
-      setSaveMessage('Item saved')
+      setSuccessMessage('Item saved')
       onSaveComplete?.()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to save item')
+      const raw = error instanceof Error ? error.message : 'Failed to save item'
+      setSaveError(
+        raw.replace(/^Error invoking( remote)? method '[^']*':\s*(Error:\s*)?/i, '').trim() ||
+          'Failed to save item'
+      )
     }
   }
 
@@ -793,7 +799,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                         const raw = event.target.value.replace(/[^0-9.]/g, '')
                         setFormState((current) => ({ ...current, case_discount_price: raw }))
                       }}
-                      placeholder="e.g. 10"
+                      placeholder="e.g. 10%"
                     />
                   ) : (
                     <Input
@@ -1054,13 +1060,13 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         </div>
       </Tabs>
 
-      {/* Status messages */}
-      {(saveMessage || errorMessage) && (
-        <div className="item-form__status">
-          {saveMessage && <p className="item-form__status-success">{saveMessage}</p>}
-          {errorMessage && <p className="item-form__status-error">{errorMessage}</p>}
-        </div>
-      )}
+      <SuccessModal
+        isOpen={!!successMessage}
+        message={successMessage}
+        onDismiss={() => setSuccessMessage('')}
+      />
+
+      <ErrorModal isOpen={!!saveError} message={saveError} onDismiss={() => setSaveError('')} />
 
       <ConfirmDialog
         isOpen={showDeleteConfirm}

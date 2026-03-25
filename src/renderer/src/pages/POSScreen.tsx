@@ -4,6 +4,7 @@ import { SalesHistoryModal } from '@renderer/components/sales-history/SalesHisto
 import { SearchModal } from '@renderer/components/search/SearchModal'
 import { ActionPanel } from '@renderer/components/action/ActionPanel'
 import { AlertBar } from '@renderer/components/common/AlertBar'
+import { ErrorModal } from '@renderer/components/common/ErrorModal'
 import { HoldLookupModal } from '@renderer/components/hold/HoldLookupModal'
 import { BottomShortcutBar } from '@renderer/components/layout/BottomShortcutBar'
 import { HeaderBar } from '@renderer/components/layout/HeaderBar'
@@ -27,6 +28,7 @@ export function POSScreen(): React.JSX.Element {
   const [isSalesHistoryOpen, setIsSalesHistoryOpen] = useState(false)
   const [searchKey, setSearchKey] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
+  const [skuError, setSkuError] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
 
   const currentCashier = useAuthStore((s) => s.currentCashier)
@@ -290,14 +292,30 @@ export function POSScreen(): React.JSX.Element {
       clearTransaction()
     }
     const trimmed = search.trim()
+    if (!trimmed) {
+      focusSearch()
+      return
+    }
     if (/^TXN-/i.test(trimmed)) {
       void recallTransaction(trimmed)
       focusSearch()
       return
     }
-    addToCartBySku(search)
+    const found = addToCartBySku(search)
+    if (!found) {
+      setSkuError(`Item "${trimmed}" not found`)
+      setSearch('')
+    }
     focusSearch()
-  }, [addToCartBySku, search, isPaymentComplete, clearTransaction, focusSearch, recallTransaction])
+  }, [
+    addToCartBySku,
+    search,
+    isPaymentComplete,
+    clearTransaction,
+    focusSearch,
+    recallTransaction,
+    setSearch
+  ])
 
   return (
     <div className="pos-screen">
@@ -430,6 +448,15 @@ export function POSScreen(): React.JSX.Element {
         onCancel={handlePaymentCancel}
         onStatusChange={handlePaymentStatusChange}
         isRefund={isReturning}
+      />
+
+      <ErrorModal
+        isOpen={!!skuError}
+        message={skuError}
+        onDismiss={() => {
+          setSkuError('')
+          setTimeout(() => searchRef.current?.focus(), 0)
+        }}
       />
 
       {productsLoadError && <div className="pos-screen__error">{productsLoadError}</div>}

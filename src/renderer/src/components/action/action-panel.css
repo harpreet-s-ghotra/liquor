@@ -87,7 +87,7 @@
 }
 
 .action-panel__totals-value {
-  color: var(--text-primary);
+  color: var(--text-white);
 }
 
 .action-panel__totals-value--refund {
@@ -328,9 +328,7 @@
 
 .action-panel__product-tile {
   display: grid;
-  border: none;
   border-radius: var(--radius);
-  background: var(--btn-bg);
   box-shadow: var(--shadow-xs);
   font-family: var(--font-display);
   text-align: left;

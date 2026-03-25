@@ -44,8 +44,14 @@ import {
   deleteHeldTransaction,
   clearAllHeldTransactions
 } from './database'
-import { validateApiKey, getTerminalRegisters, chargeTerminal } from './services/stax'
+import {
+  validateApiKey,
+  getTerminalRegisters,
+  chargeTerminal,
+  chargeWithCard
+} from './services/stax'
 import type {
+  DirectChargeInput,
   TerminalChargeInput,
   SaveTransactionInput,
   SaveRefundInput,
@@ -446,6 +452,19 @@ app.whenReady().then(() => {
         throw new Error('Merchant not activated — cannot process payments')
       }
       return await chargeTerminal(config.stax_api_key, input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Payment failed')
+    }
+  })
+
+  // Direct API charge — Phase A (pre-hardware testing, keyed-entry)
+  ipcMain.handle('stax:charge:direct', async (_, input: DirectChargeInput) => {
+    try {
+      const config = getMerchantConfig()
+      if (!config) {
+        throw new Error('Merchant not activated — cannot process payments')
+      }
+      return await chargeWithCard(config.stax_api_key, input)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Payment failed')
     }

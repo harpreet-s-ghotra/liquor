@@ -1,9 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PaymentEntry, PaymentMethod, PaymentResult, PaymentStatus } from '../../types/pos'
-import type { TerminalChargeInput } from '../../../../shared/types'
+import type { DirectChargeInput, TerminalChargeInput } from '../../../../shared/types'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
 import './payment-modal.css'
+
+const IS_DEV = import.meta.env.DEV
+
+/** Preset test cards used in dev mode (no physical terminal required). */
+const DEV_CARDS: Record<'credit' | 'debit', DirectChargeInput> = {
+  credit: {
+    total: 0,
+    person_name: 'Dev Test',
+    card_number: '4111111111111111',
+    card_exp: '1230',
+    card_cvv: '123',
+    card_type: 'visa'
+  },
+  debit: {
+    total: 0,
+    person_name: 'Dev Test',
+    card_number: '5555555555554444',
+    card_exp: '1230',
+    card_cvv: '123',
+    card_type: 'mastercard'
+  }
+}
 
 type PaymentModalProps = {
   isOpen: boolean
@@ -131,7 +153,7 @@ export function PaymentModal({
     finishTransaction(true, { method: 'cash' })
   }, [remaining, status, finishTransaction])
 
-  /** Send charge to the physical card terminal and wait for result */
+  /** Send charge to terminal (production) or use a preset test card (dev mode). */
   const handleCardPayment = useCallback(
     async (method: 'credit' | 'debit') => {
       if (status === 'processing-card' || status === 'complete') return
@@ -143,13 +165,14 @@ export function PaymentModal({
       onStatusChange?.('processing-card')
 
       try {
-        const input: TerminalChargeInput = {
-          total: Math.round(cardAmount * 100) / 100,
-          payment_type: method,
-          meta: { source: 'liquor-pos' }
-        }
-
-        const result = await window.api!.chargeTerminal(input)
+        const chargedTotal = Math.round(cardAmount * 100) / 100
+        const result = await (IS_DEV
+          ? window.api!.chargeWithCard({ ...DEV_CARDS[method], total: chargedTotal })
+          : window.api!.chargeTerminal({
+              total: chargedTotal,
+              payment_type: method,
+              meta: { source: 'liquor-pos' }
+            } satisfies TerminalChargeInput))
 
         if (!result.success) {
           setCardError(friendlyCardError(result.message || 'Card declined'))
@@ -278,6 +301,7 @@ export function PaymentModal({
                 disabled={status === 'processing-card' || status === 'complete' || remaining <= 0}
               >
                 Credit
+                {IS_DEV && <span className="payment-modal__dev-badge">Visa TEST</span>}
               </button>
               <button
                 type="button"
@@ -286,6 +310,7 @@ export function PaymentModal({
                 disabled={status === 'processing-card' || status === 'complete' || remaining <= 0}
               >
                 Debit
+                {IS_DEV && <span className="payment-modal__dev-badge">MC TEST</span>}
               </button>
             </div>
 
@@ -311,7 +336,7 @@ export function PaymentModal({
               {status === 'processing-card' && (
                 <div className="payment-modal__processing" data-testid="payment-processing">
                   <span className="payment-modal__spinner" />
-                  Waiting for card machine...
+                  {IS_DEV ? 'Processing test card...' : 'Waiting for card machine...'}
                 </div>
               )}
               {status === 'complete' && (

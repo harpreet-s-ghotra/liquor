@@ -33,6 +33,14 @@ InventoryModal (modal shell, 4 outer tabs)
 | `tax-codes/TaxCodePanel.tsx` | Tax code CRUD via `useCrudPanel` |
 | `vendors/VendorPanel.tsx` | Vendor CRUD via `useCrudPanel` |
 
+### Common components used by ItemForm
+
+| Component | Purpose |
+|-----------|---------|
+| `common/ErrorModal` | Save/delete errors — strips Electron IPC prefix from messages |
+| `common/SuccessModal` | Save/delete success — auto-dismisses after 5 seconds |
+| `common/ConfirmDialog` | Delete confirmation |
+
 ### Backend — `src/main/database/`
 
 | File | Key functions |

@@ -1,4 +1,5 @@
 import type {
+  DirectChargeInput,
   StaxMerchantInfo,
   TerminalChargeInput,
   TerminalChargeResult,
@@ -209,6 +210,99 @@ async function pollTerminalStatus(
     total: input.total,
     message: 'Terminal timed out — no response from card reader',
     status: 'timeout'
+  }
+}
+
+/**
+ * Charge a card directly via the API without a physical terminal.
+ * Used for Phase A (pre-hardware) testing.
+ *
+ * Flow:
+ *  1. POST /customer        → create a walk-in customer record
+ *  2. POST /payment-method/ → tokenize the card
+ *  3. POST /charge          → charge the payment method
+ *
+ * Returns the same TerminalChargeResult shape as chargeTerminal() so
+ * the rest of the app (IPC handlers, PaymentModal, transaction recording)
+ * needs no changes.
+ */
+export async function chargeWithCard(
+  apiKey: string,
+  input: DirectChargeInput
+): Promise<TerminalChargeResult> {
+  // Step 1: Create a walk-in customer
+  const customerResponse = await staxFetch(apiKey, '/customer', {
+    method: 'POST',
+    body: JSON.stringify({ company: 'Walk-in Customer', reference: 'liquor-pos-walkin' })
+  })
+  if (!customerResponse.ok) {
+    const body = await customerResponse.text().catch(() => '')
+    throw new StaxApiError(
+      `Failed to create customer (HTTP ${customerResponse.status})`,
+      customerResponse.status,
+      body
+    )
+  }
+  const customer = await customerResponse.json()
+
+  // Step 2: Tokenize the card
+  const pmPayload: Record<string, unknown> = {
+    customer_id: customer.id,
+    method: 'card',
+    person_name: input.person_name,
+    card_number: input.card_number,
+    card_exp: input.card_exp,
+    card_cvv: input.card_cvv,
+    card_type: input.card_type ?? null
+  }
+  if (input.address_zip) pmPayload.address_zip = input.address_zip
+
+  const pmResponse = await staxFetch(apiKey, '/payment-method/', {
+    method: 'POST',
+    body: JSON.stringify(pmPayload)
+  })
+  if (!pmResponse.ok) {
+    const body = await pmResponse.text().catch(() => '')
+    throw new StaxApiError(
+      `Failed to tokenize card (HTTP ${pmResponse.status})`,
+      pmResponse.status,
+      body
+    )
+  }
+  const paymentMethod = await pmResponse.json()
+
+  // Step 3: Charge the tokenized payment method
+  const chargeResponse = await staxFetch(apiKey, '/charge', {
+    method: 'POST',
+    body: JSON.stringify({
+      payment_method_id: paymentMethod.id,
+      total: input.total,
+      pre_auth: false,
+      meta: {
+        ...(input.meta ?? {}),
+        source: 'liquor-pos'
+      }
+    })
+  })
+  if (!chargeResponse.ok) {
+    const body = await chargeResponse.text().catch(() => '')
+    throw new StaxApiError(
+      `Charge failed (HTTP ${chargeResponse.status})`,
+      chargeResponse.status,
+      body
+    )
+  }
+  const charge = await chargeResponse.json()
+  const success = charge.success === true
+
+  return {
+    transaction_id: String(charge.id ?? ''),
+    success,
+    last_four: String(charge.last_four ?? charge.payment_method?.card_last_four ?? ''),
+    card_type: String(charge.payment_method?.card_type ?? charge.method ?? 'unknown'),
+    total: Number(charge.total ?? input.total),
+    message: String(charge.message ?? (success ? 'Approved' : 'Declined')),
+    status: success ? 'approved' : 'declined'
   }
 }
 
