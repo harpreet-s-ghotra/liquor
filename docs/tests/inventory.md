@@ -3,9 +3,9 @@
 **Spec file:** `tests/e2e/inventory.spec.ts`
 **Suite:** `Inventory Management`
 
-Basic inventory modal tests: opening, validation, and saving an item with additional SKUs and special pricing.
+Basic inventory modal tests: opening, validation, saving an item with additional SKUs and special pricing, and SKU conflict rejection.
 
-**Mock data:** 1 pre-seeded item (SKU-001), in-memory inventory store with search and save support
+**Mock data:** 2 pre-seeded items (SKU-001 with alt SKU-001-ALT, SKU-002), in-memory inventory store with search and save support
 
 ---
 
@@ -47,3 +47,25 @@ Tests the full create flow including sub-tabs (Additional SKUs, Special Pricing)
 | 7 | Click "Add Rule", fill qty=2, price=1399, duration=20 | -- |
 | 8 | Click Save | "Item saved" toast visible |
 | 9 | Search for the item by SKU | SKU field populated with the saved SKU |
+
+---
+
+## 4. Rejects additional SKU that duplicates another product primary SKU
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, open inventory modal | -- |
+| 2 | Fill required fields for a new item (SKU "SKU-NEW") | -- |
+| 3 | Navigate to "Additional SKUs" tab, enter "SKU-001", click "Add Additional SKU" | -- |
+| 4 | Click Save | Error shown: 'Additional SKU "SKU-001" is already the primary SKU of "Inventory Item"' |
+
+---
+
+## 5. Rejects additional SKU that duplicates another product alt SKU
+
+| # | Step | Assertion |
+|---|------|-----------|
+| 1 | Log in, open inventory modal | -- |
+| 2 | Fill required fields for a new item (SKU "SKU-NEW-2") | -- |
+| 3 | Navigate to "Additional SKUs" tab, enter "SKU-001-ALT", click "Add Additional SKU" | -- |
+| 4 | Click Save | Error shown: 'Additional SKU "SKU-001-ALT" is already used by "Inventory Item"' |

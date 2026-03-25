@@ -2,7 +2,7 @@
 
 **Spec file:** `tests/e2e/transactions.spec.ts`
 
-**Mock data:** 15 products, terminal `chargeTerminal` mock (300ms), in-memory transaction store
+**Mock data:** 15 products, `chargeTerminal` and `chargeWithCard` mocks (300ms latency), in-memory transaction store
 
 ---
 
@@ -84,7 +84,9 @@
 | # | Step | Assertion |
 |---|------|-----------|
 | 1 | Log in, type "INVALID-999", press Enter | No ticket lines |
-| 2 | -- | Search input retains "INVALID-999" |
+| 2 | -- | Search input is cleared |
+| 3 | -- | Error modal shows 'Item "INVALID-999" not found' |
+| 4 | Click OK on error modal | Error modal disappears |
 
 ### 10. Search input is auto-focused on page load
 
@@ -143,7 +145,7 @@
 | # | Step | Assertion |
 |---|------|-----------|
 | 1 | Log in, add product, click Pay Now | -- |
-| 2 | Click Credit | "Waiting for card machine..." shown, Cancel disabled |
+| 2 | Click Credit | "Processing test card..." shown, Cancel disabled |
 | 3 | -- (300ms mock delay) | Payment complete screen appears |
 | 4 | Click OK | Modal closes, cart empty |
 

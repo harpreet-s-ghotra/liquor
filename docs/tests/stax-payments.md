@@ -5,7 +5,7 @@
 
 Tests credit/debit payments via a physical card terminal (Stax integration). No card entry form exists in the UI -- the terminal handles all card interaction. Tests cover success, decline, timeout, and split payment scenarios.
 
-**Mock data:** 3 products, configurable `chargeTerminal` mock (success/decline/timeout, adjustable latency)
+**Mock data:** 3 products, configurable `chargeTerminal` and `chargeWithCard` mocks (success/decline/timeout, adjustable latency)
 
 ---
 
@@ -14,7 +14,7 @@ Tests credit/debit payments via a physical card terminal (Stax integration). No 
 | # | Step | Assertion |
 |---|------|-----------|
 | 1 | Log in, add product to cart | -- |
-| 2 | Click Credit (action panel) | "Waiting for card machine..." processing shown |
+| 2 | Click Credit (action panel) | "Processing test card..." processing shown |
 | 3 | -- (terminal approves) | Payment complete screen |
 | 4 | -- | Paid list shows "visa" and "4242" |
 | 5 | Click OK | Modal closes |

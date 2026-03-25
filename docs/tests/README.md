@@ -9,12 +9,12 @@ Each file below documents one Playwright test spec. Every test is broken down in
 | [startup.md](startup.md) | 4 | POS screen initial state |
 | [transactions.md](transactions.md) | 24 | Cart operations + payment modal |
 | [hold-transactions.md](hold-transactions.md) | 16 | Hold / recall / TS Lookup |
-| [inventory.md](inventory.md) | 3 | Inventory modal basics |
+| [inventory.md](inventory.md) | 5 | Inventory modal basics |
 | [inventory-management.md](inventory-management.md) | 9 | Full CRUD for departments, tax codes, vendors, items |
 | [search-open-in-inventory.md](search-open-in-inventory.md) | 1 | Search modal to inventory bridge |
 | [stax-payments.md](stax-payments.md) | 9 | Terminal card payments (Stax) |
 
-**Total: 66 test cases**
+**Total: 68 test cases**
 
 ---
 
