@@ -3,9 +3,29 @@ import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import { POSScreen } from './POSScreen'
 
 const mockUsePosScreen = vi.fn()
+const mockShowError = vi.fn()
+const mockDismissAlert = vi.fn()
+const mockLogout = vi.fn()
+
+const authStoreState = {
+  currentCashier: { id: 1, name: 'Cashier 1', pin: '1234', created_at: '', updated_at: '' },
+  merchantConfig: { id: 1, stax_api_key: 'key', merchant_id: 'm1', merchant_name: 'My Store' },
+  logout: mockLogout
+}
 
 vi.mock('@renderer/store/usePosScreen', () => ({
   usePosScreen: () => mockUsePosScreen()
+}))
+
+vi.mock('@renderer/store/useAlertStore', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useAlertStore: (selector: any) =>
+    selector({ showError: mockShowError, alerts: [], dismissAlert: mockDismissAlert })
+}))
+
+vi.mock('@renderer/store/useAuthStore', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useAuthStore: (selector: any) => selector(authStoreState)
 }))
 
 function createDefaultMock(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -65,6 +85,9 @@ const sampleCartItem = {
 describe('POSScreen', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    mockShowError.mockReset()
+    mockDismissAlert.mockReset()
+    mockLogout.mockReset()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
       getDepartments: vi.fn().mockResolvedValue([]),
@@ -293,6 +316,82 @@ describe('POSScreen', () => {
     })
 
     expect(addToCartBySku).toHaveBeenCalledWith('WINE-001')
+  })
+
+  it('routes TXN search input to recallTransaction', () => {
+    const addToCartBySku = vi.fn()
+    const recallTransaction = vi.fn().mockResolvedValue(true)
+
+    mockUsePosScreen.mockReturnValue(
+      createDefaultMock({
+        search: 'TXN-1001',
+        addToCartBySku,
+        recallTransaction
+      })
+    )
+
+    render(<POSScreen />)
+
+    const searchInput = screen.getByPlaceholderText('Search item')
+    fireEvent.keyDown(searchInput, { key: 'Enter' })
+
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+
+    expect(recallTransaction).toHaveBeenCalledWith('TXN-1001')
+    expect(addToCartBySku).not.toHaveBeenCalled()
+  })
+
+  it('prints viewed transaction when Receipt button is clicked', () => {
+    const printReceipt = vi.fn().mockResolvedValue(undefined)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api = {
+      ...(window as any).api,
+      printReceipt
+    }
+
+    mockUsePosScreen.mockReturnValue(
+      createDefaultMock({
+        viewingTransaction: {
+          id: 100,
+          transaction_number: 'TXN-PRINT-1',
+          subtotal: 10,
+          tax_amount: 1,
+          total: 11,
+          payment_method: 'credit',
+          stax_transaction_id: 'stx_1',
+          card_last_four: '4242',
+          card_type: 'visa',
+          status: 'completed',
+          original_transaction_id: null,
+          created_at: '2026-03-27T10:00:00.000Z',
+          items: [
+            {
+              id: 1,
+              product_id: 1,
+              product_name: 'Item',
+              quantity: 1,
+              unit_price: 10,
+              total_price: 10
+            }
+          ]
+        },
+        isViewingTransaction: true
+      })
+    )
+
+    render(<POSScreen />)
+    fireEvent.click(screen.getByTestId('print-receipt-btn'))
+
+    expect(printReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transaction_number: 'TXN-PRINT-1',
+        store_name: 'My Store',
+        cashier_name: 'Cashier 1',
+        payment_method: 'credit'
+      })
+    )
   })
 
   it('saves discounted unit_price and total_price when discounts are applied', () => {

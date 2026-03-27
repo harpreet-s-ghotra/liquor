@@ -169,7 +169,7 @@ describe('PaymentModal', () => {
       await waitFor(() => {
         expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
         expect(screen.getByTestId('payment-processing')).toHaveTextContent(
-          'Waiting for card machine...'
+          /Waiting for card machine|Processing test card/
         )
       })
     })

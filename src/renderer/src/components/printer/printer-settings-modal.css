@@ -14,11 +14,27 @@
 .printer-settings-modal__header {
   display: flex;
   flex-shrink: 0;
-  gap: 0.75rem;
   align-items: center;
+  justify-content: space-between;
   border-bottom: 1px solid var(--border-default);
   background: var(--bg-surface);
   padding: 1rem 1.25rem;
+}
+
+.printer-settings-modal__close-btn {
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 1rem;
+  min-height: 2.25rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.printer-settings-modal__close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .printer-settings-modal__title {
@@ -274,8 +290,15 @@
 .printer-settings-modal__footer {
   display: flex;
   flex-shrink: 0;
-  gap: 0.75rem;
-  justify-content: flex-end;
+  gap: 0.625rem;
+  align-items: center;
+  justify-content: space-between;
   border-top: 1px solid var(--border-default);
   padding: 1rem 1.25rem;
+}
+
+.printer-settings-modal__footer-left {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
 }

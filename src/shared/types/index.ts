@@ -92,10 +92,11 @@ export type SaveRefundInput = {
 
 /** Receipt layout/style config stored in peripheral-config.json */
 export type ReceiptConfig = {
-  fontSize: number // 8–16pt, default 12
-  paddingY: number // top + bottom margin in pts, default 14
-  paddingX: number // left + right margin in pts, default 14
+  fontSize: number // 8–16pt, default 10
+  paddingY: number // top + bottom margin in pts, default 4
+  paddingX: number // left + right margin in pts, default 4
   storeName: string // receipt header name override ('' = use merchant name)
+  footerMessage: string // default footer message ('' = no footer message)
 }
 
 /** Input for printing a receipt on the Star receipt printer */

@@ -45,10 +45,11 @@ export function saveCashDrawerConfig(config: CashDrawerConfig): void {
 }
 
 const RECEIPT_CONFIG_DEFAULTS: ReceiptConfig = {
-  fontSize: 12,
-  paddingY: 14,
-  paddingX: 14,
-  storeName: ''
+  fontSize: 10,
+  paddingY: 4,
+  paddingX: 4,
+  storeName: '',
+  footerMessage: ''
 }
 
 export function getReceiptConfig(): ReceiptConfig {
@@ -58,13 +59,21 @@ export function getReceiptConfig(): ReceiptConfig {
     fontSize: clamp(cfg?.fontSize ?? RECEIPT_CONFIG_DEFAULTS.fontSize, 8, 16),
     paddingY: clamp(cfg?.paddingY ?? RECEIPT_CONFIG_DEFAULTS.paddingY, 4, 40),
     paddingX: clamp(cfg?.paddingX ?? RECEIPT_CONFIG_DEFAULTS.paddingX, 4, 30),
-    storeName: cfg?.storeName ?? ''
+    storeName: cfg?.storeName ?? '',
+    footerMessage: cfg?.footerMessage ?? ''
   }
 }
 
 export function saveReceiptConfig(config: ReceiptConfig): void {
   const existing = readConfigFile()
-  writeFileSync(configPath(), JSON.stringify({ ...existing, receiptConfig: config }, null, 2))
+  const sanitized: ReceiptConfig = {
+    fontSize: clamp(config.fontSize, 8, 16),
+    paddingY: clamp(config.paddingY, 4, 40),
+    paddingX: clamp(config.paddingX, 4, 30),
+    storeName: config.storeName ?? '',
+    footerMessage: config.footerMessage ?? ''
+  }
+  writeFileSync(configPath(), JSON.stringify({ ...existing, receiptConfig: sanitized }, null, 2))
 }
 
 function clamp(value: number, min: number, max: number): number {

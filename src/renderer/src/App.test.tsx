@@ -28,6 +28,28 @@ afterEach(() => {
 })
 
 describe('App', () => {
+  it('renders POS directly in dev-browser mode when window.api is unavailable', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).api
+    mockApi.getProducts.mockResolvedValue([])
+
+    useAuthStore.setState({
+      appState: 'loading' as AppState,
+      currentCashier: {
+        id: 1,
+        name: 'Alice',
+        role: 'admin',
+        is_active: 1,
+        created_at: '2026-01-01'
+      }
+    })
+
+    render(<App />)
+    await waitFor(() => {
+      expect(screen.getByText('Tax')).toBeInTheDocument()
+    })
+  })
+
   it('shows loading state initially', () => {
     useAuthStore.setState({ appState: 'loading' as AppState })
     render(<App />)

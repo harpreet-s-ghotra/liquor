@@ -1,5 +1,7 @@
 import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
 import { AppButton } from '@renderer/components/common/AppButton'
+import { SuccessModal } from '@renderer/components/common/SuccessModal'
+import { ErrorModal } from '@renderer/components/common/ErrorModal'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReceiptConfig } from '../../../../shared/types'
 import './printer-settings-modal.css'
@@ -14,10 +16,11 @@ const SAMPLE_LABELS: Record<SampleType, string> = {
 }
 
 const DEFAULT_CONFIG: ReceiptConfig = {
-  fontSize: 12,
-  paddingY: 14,
-  paddingX: 14,
-  storeName: ''
+  fontSize: 10,
+  paddingY: 4,
+  paddingX: 4,
+  storeName: '',
+  footerMessage: ''
 }
 
 type PrinterSettingsModalProps = {
@@ -33,6 +36,9 @@ export function PrinterSettingsModal({
   const [printerName, setPrinterName] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [printing, setPrinting] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [isSaveSuccessOpen, setIsSaveSuccessOpen] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [sampleType, setSampleType] = useState<SampleType>('basic')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -64,15 +70,32 @@ export function PrinterSettingsModal({
     (patch: Partial<ReceiptConfig>) => {
       const next = { ...cfg, ...patch }
       setCfg(next)
-      void window.api?.saveReceiptConfig?.(next)
     },
     [cfg]
   )
+
+  const handleSaveSettings = useCallback(async () => {
+    setSaving(true)
+    try {
+      await window.api?.saveReceiptConfig?.(cfg)
+      setIsSaveSuccessOpen(true)
+    } catch {
+      setSaveError('Failed to save printer settings. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }, [cfg])
+
+  const handleResetToDefaults = useCallback(() => {
+    setCfg(DEFAULT_CONFIG)
+    setSaveError('')
+  }, [])
 
   const handlePrintSample = useCallback(async () => {
     setPrinting(true)
     try {
       const storeName = cfg.storeName || 'Sample Store'
+      const footerMessage = cfg.footerMessage.trim() || undefined
 
       if (sampleType === 'basic') {
         await window.api?.printReceipt?.({
@@ -91,7 +114,8 @@ export function PrinterSettingsModal({
           subtotal: 51.97,
           tax_amount: 6.76,
           total: 58.73,
-          payment_method: 'cash'
+          payment_method: 'cash',
+          footer_message: footerMessage
         })
       } else if (sampleType === 'with-promo') {
         await window.api?.printReceipt?.({
@@ -114,7 +138,8 @@ export function PrinterSettingsModal({
           total: 60.53,
           payment_method: 'credit',
           card_last_four: '4242',
-          card_type: 'visa'
+          card_type: 'visa',
+          footer_message: footerMessage
         })
       } else if (sampleType === 'many-items') {
         await window.api?.printReceipt?.({
@@ -164,7 +189,8 @@ export function PrinterSettingsModal({
           total: 244.54,
           payment_method: 'debit',
           card_last_four: '1234',
-          card_type: 'mastercard'
+          card_type: 'mastercard',
+          footer_message: footerMessage
         })
       } else {
         await window.api?.printReceipt?.({
@@ -183,7 +209,7 @@ export function PrinterSettingsModal({
           tax_amount: 24.7,
           total: 214.69,
           payment_method: 'cash',
-          footer_message: 'Thank you for shopping with us!\nHave a great day.'
+          footer_message: footerMessage ?? 'Thank you for shopping with us!\nHave a great day.'
         })
       }
     } catch {
@@ -191,7 +217,7 @@ export function PrinterSettingsModal({
     } finally {
       setPrinting(false)
     }
-  }, [cfg.storeName, sampleType])
+  }, [cfg.footerMessage, cfg.storeName, sampleType])
 
   // Clamp helpers
   const clamp = (v: number, min: number, max: number): number => Math.max(min, Math.min(max, v))
@@ -205,6 +231,9 @@ export function PrinterSettingsModal({
       >
         <div className="printer-settings-modal__header">
           <h2 className="printer-settings-modal__title">Printer Settings</h2>
+          <button type="button" className="printer-settings-modal__close-btn" onClick={onClose}>
+            Close
+          </button>
         </div>
 
         <div className="printer-settings-modal__body">
@@ -241,6 +270,18 @@ export function PrinterSettingsModal({
               value={cfg.storeName}
               placeholder="Leave blank to use merchant name"
               onChange={(e) => updateCfg({ storeName: e.target.value })}
+            />
+          </div>
+
+          {/* ── Footer Message ── */}
+          <div className="printer-settings-modal__section">
+            <h3 className="printer-settings-modal__section-title">Footer Message</h3>
+            <input
+              className="printer-settings-modal__text-input"
+              type="text"
+              value={cfg.footerMessage}
+              placeholder="Optional message printed below barcode"
+              onChange={(e) => updateCfg({ footerMessage: e.target.value })}
             />
           </div>
 
@@ -402,35 +443,52 @@ export function PrinterSettingsModal({
           {/* ── Test Print ── */}
           <div className="printer-settings-modal__section">
             <h3 className="printer-settings-modal__section-title">Test Print</h3>
-            <div className="printer-settings-modal__sample-row">
-              <select
-                className="printer-settings-modal__select"
-                value={sampleType}
-                onChange={(e) => setSampleType(e.target.value as SampleType)}
-              >
-                {(Object.keys(SAMPLE_LABELS) as SampleType[]).map((k) => (
-                  <option key={k} value={k}>
-                    {SAMPLE_LABELS[k]}
-                  </option>
-                ))}
-              </select>
-              <AppButton
-                variant="default"
-                size="md"
-                onClick={handlePrintSample}
-                disabled={!connected || printing}
-              >
-                {printing ? 'Printing...' : 'Print'}
-              </AppButton>
-            </div>
+            <select
+              className="printer-settings-modal__select"
+              value={sampleType}
+              onChange={(e) => setSampleType(e.target.value as SampleType)}
+            >
+              {(Object.keys(SAMPLE_LABELS) as SampleType[]).map((k) => (
+                <option key={k} value={k}>
+                  {SAMPLE_LABELS[k]}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
         <div className="printer-settings-modal__footer">
-          <AppButton variant="neutral" size="lg" onClick={onClose}>
-            Close
+          <div className="printer-settings-modal__footer-left">
+            <AppButton variant="neutral" size="lg" onClick={handleResetToDefaults}>
+              Reset to Defaults
+            </AppButton>
+            <AppButton variant="default" size="lg" onClick={handleSaveSettings} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Settings'}
+            </AppButton>
+          </div>
+          <AppButton
+            variant="success"
+            size="lg"
+            onClick={handlePrintSample}
+            disabled={!connected || printing}
+          >
+            {printing ? 'Printing...' : 'Print Sample'}
           </AppButton>
         </div>
+
+        <SuccessModal
+          isOpen={isSaveSuccessOpen}
+          title="Printer Settings Saved"
+          message="Receipt settings were saved successfully."
+          onDismiss={() => setIsSaveSuccessOpen(false)}
+        />
+
+        <ErrorModal
+          isOpen={saveError.length > 0}
+          title="Save Failed"
+          message={saveError}
+          onDismiss={() => setSaveError('')}
+        />
       </DialogContent>
     </Dialog>
   )

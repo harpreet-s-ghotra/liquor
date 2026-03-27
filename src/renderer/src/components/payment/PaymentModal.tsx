@@ -105,9 +105,11 @@ export function PaymentModal({
       }
       setStatus('complete')
       if (shouldOpenRegister) {
-        window.api?.openCashDrawer().catch((err: unknown) => {
-          console.error('Cash drawer failed to open:', err)
-        })
+        window.api
+          ?.openCashDrawer?.()
+          ?.catch((err: unknown) => {
+            console.error('Cash drawer failed to open:', err)
+          })
       }
       // TODO: Integrate with receipt printer hardware
       onStatusChange?.('complete')
@@ -169,9 +171,14 @@ export function PaymentModal({
 
       try {
         const chargedTotal = Math.round(cardAmount * 100) / 100
-        const result = await (IS_DEV
-          ? window.api!.chargeWithCard({ ...DEV_CARDS[method], total: chargedTotal })
-          : window.api!.chargeTerminal({
+        const api = window.api
+        if (!api) {
+          throw new Error('Payment API unavailable')
+        }
+
+        const result = await (IS_DEV && typeof api.chargeWithCard === 'function'
+          ? api.chargeWithCard({ ...DEV_CARDS[method], total: chargedTotal })
+          : api.chargeTerminal({
               total: chargedTotal,
               payment_type: method,
               meta: { source: 'liquor-pos' }
@@ -300,6 +307,7 @@ export function PaymentModal({
               <button
                 type="button"
                 className="payment-modal__method-btn payment-modal__method-btn--credit"
+                aria-label="Credit"
                 onClick={() => handleCardPayment('credit')}
                 disabled={status === 'processing-card' || status === 'complete' || remaining <= 0}
               >
@@ -309,6 +317,7 @@ export function PaymentModal({
               <button
                 type="button"
                 className="payment-modal__method-btn payment-modal__method-btn--debit"
+                aria-label="Debit"
                 onClick={() => handleCardPayment('debit')}
                 disabled={status === 'processing-card' || status === 'complete' || remaining <= 0}
               >
