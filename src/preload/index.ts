@@ -32,7 +32,9 @@ import type {
   HeldTransaction,
   SearchProductFilters,
   TransactionListFilter,
-  TransactionListResult
+  TransactionListResult,
+  PrintReceiptInput,
+  ReceiptConfig
 } from '../shared/types'
 
 // Custom APIs for renderer
@@ -130,14 +132,20 @@ const api = {
 
   // Cash Drawer
   getCashDrawerConfig: (): Promise<
-    | { type: 'usb'; printerName: string }
-    | { type: 'tcp'; ip: string; port: number }
-    | null
+    { type: 'usb'; printerName: string } | { type: 'tcp'; ip: string; port: number } | null
   > => ipcRenderer.invoke('peripheral:get-drawer-config'),
   saveCashDrawerConfig: (
     config: { type: 'usb'; printerName: string } | { type: 'tcp'; ip: string; port: number }
   ): Promise<void> => ipcRenderer.invoke('peripheral:save-drawer-config', config),
-  openCashDrawer: (): Promise<void> => ipcRenderer.invoke('peripheral:open-cash-drawer')
+  openCashDrawer: (): Promise<void> => ipcRenderer.invoke('peripheral:open-cash-drawer'),
+  printReceipt: (input: PrintReceiptInput): Promise<void> =>
+    ipcRenderer.invoke('peripheral:print-receipt', input),
+  getReceiptConfig: (): Promise<ReceiptConfig> =>
+    ipcRenderer.invoke('peripheral:get-receipt-config'),
+  saveReceiptConfig: (config: ReceiptConfig): Promise<void> =>
+    ipcRenderer.invoke('peripheral:save-receipt-config', config),
+  getPrinterStatus: (): Promise<{ connected: boolean; printerName: string | null }> =>
+    ipcRenderer.invoke('peripheral:get-printer-status')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

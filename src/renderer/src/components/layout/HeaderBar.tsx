@@ -1,13 +1,14 @@
-import { CircleHelp, Settings, Sun, Moon, User } from 'lucide-react'
+import { CircleHelp, Printer, Settings, Sun, Moon, User } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useThemeStore } from '@renderer/store/useThemeStore'
 import './header-bar.css'
 
 type HeaderBarProps = {
   cashierName?: string
+  onPrinterSettings?: () => void
 }
 
-export function HeaderBar({ cashierName }: HeaderBarProps): React.JSX.Element {
+export function HeaderBar({ cashierName, onPrinterSettings }: HeaderBarProps): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const theme = useThemeStore((s) => s.theme)
@@ -59,6 +60,18 @@ export function HeaderBar({ cashierName }: HeaderBarProps): React.JSX.Element {
               >
                 {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                 {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              </button>
+              <button
+                type="button"
+                className="header-bar__dropdown-item"
+                onClick={() => {
+                  onPrinterSettings?.()
+                  setMenuOpen(false)
+                }}
+                data-testid="printer-settings-btn"
+              >
+                <Printer size={16} />
+                Printer Settings
               </button>
             </div>
           )}

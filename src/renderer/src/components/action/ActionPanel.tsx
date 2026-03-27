@@ -21,6 +21,9 @@ type ActionPanelProps = {
   heldCount: number
   onHold: () => void
   onTsLookup: () => void
+  onPrintReceipt: () => void
+  onOpenDrawer: () => void
+  canPrintReceipt: boolean
   isViewingTransaction?: boolean
   isReturning?: boolean
   isViewingRefund?: boolean
@@ -46,6 +49,9 @@ export function ActionPanel({
   heldCount,
   onHold,
   onTsLookup,
+  onPrintReceipt,
+  onOpenDrawer,
+  canPrintReceipt,
   isViewingTransaction,
   isReturning,
   isViewingRefund
@@ -151,7 +157,7 @@ export function ActionPanel({
         </div>
       </div>
 
-      {/* ── Hold / TS Lookup row ── */}
+      {/* ── Hold / TS Lookup / Print / Drawer row ── */}
       <div className="action-panel__hold-row">
         <button
           type="button"
@@ -176,6 +182,29 @@ export function ActionPanel({
           </svg>
           TS Lookup
           {heldCount > 0 && <span className="action-panel__lookup-badge">{heldCount}</span>}
+        </button>
+        <button
+          type="button"
+          className="action-panel__hold-row-btn"
+          disabled={!canPrintReceipt}
+          onClick={onPrintReceipt}
+          data-testid="print-receipt-btn"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M18 3H6v4h12V3zm1 9c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm-3 7H8v-5h8v5zm3-11H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3z" />
+          </svg>
+          Receipt
+        </button>
+        <button
+          type="button"
+          className="action-panel__hold-row-btn"
+          onClick={onOpenDrawer}
+          data-testid="open-drawer-btn"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-9-1h2v-4h4v-2h-4V7h-2v4H8v2h4v4z" />
+          </svg>
+          Drawer
         </button>
       </div>
 

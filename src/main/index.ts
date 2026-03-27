@@ -53,9 +53,13 @@ import {
 import {
   openCashDrawer,
   getCashDrawerConfig,
-  saveCashDrawerConfig
+  saveCashDrawerConfig,
+  getReceiptConfig,
+  saveReceiptConfig,
+  checkPrinterConnected
 } from './services/cash-drawer'
 import type { CashDrawerConfig } from './services/cash-drawer'
+import { printReceipt } from './services/receipt-printer'
 import type {
   DirectChargeInput,
   TerminalChargeInput,
@@ -63,7 +67,9 @@ import type {
   SaveRefundInput,
   SaveHeldTransactionInput,
   SearchProductFilters,
-  TransactionListFilter
+  TransactionListFilter,
+  PrintReceiptInput,
+  ReceiptConfig
 } from '../shared/types'
 
 function createWindow(): void {
@@ -491,6 +497,31 @@ app.whenReady().then(() => {
       throw new Error('Cash drawer not configured — set an IP address in peripheral settings')
     }
     await openCashDrawer(config)
+  })
+
+  ipcMain.handle('peripheral:print-receipt', async (_, input: PrintReceiptInput) => {
+    try {
+      await printReceipt(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to print receipt')
+    }
+  })
+
+  ipcMain.handle('peripheral:get-receipt-config', () => {
+    return getReceiptConfig()
+  })
+
+  ipcMain.handle('peripheral:save-receipt-config', (_, config: ReceiptConfig) => {
+    saveReceiptConfig(config)
+  })
+
+  ipcMain.handle('peripheral:get-printer-status', async () => {
+    const config = getCashDrawerConfig()
+    if (!config || config.type !== 'usb') {
+      return { connected: false, printerName: null }
+    }
+    const connected = await checkPrinterConnected(config.printerName)
+    return { connected, printerName: config.printerName }
   })
 
   createWindow()

@@ -31,7 +31,9 @@ import type {
   HeldTransaction,
   SearchProductFilters,
   TransactionListFilter,
-  TransactionListResult
+  TransactionListResult,
+  PrintReceiptInput,
+  ReceiptConfig
 } from '../shared/types'
 
 type AppApi = {
@@ -90,14 +92,16 @@ type AppApi = {
 
   // Cash Drawer
   getCashDrawerConfig: () => Promise<
-    | { type: 'usb'; printerName: string }
-    | { type: 'tcp'; ip: string; port: number }
-    | null
+    { type: 'usb'; printerName: string } | { type: 'tcp'; ip: string; port: number } | null
   >
   saveCashDrawerConfig: (
     config: { type: 'usb'; printerName: string } | { type: 'tcp'; ip: string; port: number }
   ) => Promise<void>
   openCashDrawer: () => Promise<void>
+  printReceipt: (input: PrintReceiptInput) => Promise<void>
+  getReceiptConfig: () => Promise<ReceiptConfig>
+  saveReceiptConfig: (config: ReceiptConfig) => Promise<void>
+  getPrinterStatus: () => Promise<{ connected: boolean; printerName: string | null }>
 }
 
 declare global {

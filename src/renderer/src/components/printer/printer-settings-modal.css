@@ -1,0 +1,281 @@
+.printer-settings-modal {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-default);
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+  background: var(--bg-panel);
+  padding: 0;
+  width: 560px;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.printer-settings-modal__header {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.75rem;
+  align-items: center;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  padding: 1rem 1.25rem;
+}
+
+.printer-settings-modal__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-2xl);
+  font-weight: 900;
+}
+
+.printer-settings-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.printer-settings-modal__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.printer-settings-modal__section-title {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* ── Status ── */
+.printer-settings-modal__status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-surface-soft);
+  padding: 0.5rem 0.75rem;
+}
+
+.printer-settings-modal__status-label {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.printer-settings-modal__status-value {
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.printer-settings-modal__status-badge--connected,
+.printer-settings-modal__status-badge--disconnected {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.25rem 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.printer-settings-modal__status-badge--connected {
+  border: 1px solid var(--semantic-success-text);
+  background: rgba(74, 222, 128, 0.1);
+  color: var(--semantic-success-text);
+}
+
+.printer-settings-modal__status-badge--disconnected {
+  border: 1px solid var(--semantic-danger-text);
+  background: rgba(248, 113, 113, 0.1);
+  color: var(--semantic-danger-text);
+}
+
+.printer-settings-modal__status-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+/* ── Text input (store name) ── */
+.printer-settings-modal__text-input {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  padding: 0.5rem 0.75rem;
+  width: 100%;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+}
+
+.printer-settings-modal__text-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+/* ── Stepper control ── */
+.printer-settings-modal__stepper {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+}
+
+.printer-settings-modal__stepper--sm {
+  gap: 0.375rem;
+}
+
+.printer-settings-modal__stepper-value {
+  min-width: 3.5rem;
+  text-align: center;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.printer-settings-modal__stepper-hint {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* ── Padding (box-model) layout ── */
+.printer-settings-modal__padding-layout {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+/* Box-model visualizer */
+.printer-settings-modal__box-model {
+  flex-shrink: 0;
+}
+
+.printer-settings-modal__box-outer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 2px dashed var(--accent-blue);
+  border-radius: 4px;
+  background: rgba(99, 179, 237, 0.07);
+  padding: 0;
+  width: 120px;
+  min-height: 90px;
+}
+
+.printer-settings-modal__box-y-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0;
+  width: 100%;
+  color: var(--accent-blue);
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.printer-settings-modal__box-middle-row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  width: 100%;
+}
+
+.printer-settings-modal__box-x-label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  color: var(--accent-blue);
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.printer-settings-modal__box-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: 2px;
+  background: var(--bg-surface-soft);
+  padding: 0.5rem 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+/* Padding controls beside the diagram */
+.printer-settings-modal__padding-controls {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.printer-settings-modal__padding-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.printer-settings-modal__padding-axis {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* ── Sample print row ── */
+.printer-settings-modal__sample-row {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+}
+
+.printer-settings-modal__select {
+  flex: 1;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+}
+
+.printer-settings-modal__select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+/* ── Footer ── */
+.printer-settings-modal__footer {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-default);
+  padding: 1rem 1.25rem;
+}

@@ -29,7 +29,10 @@ const baseProps = {
   onDebit: vi.fn(),
   heldCount: 0,
   onHold: vi.fn(),
-  onTsLookup: vi.fn()
+  onTsLookup: vi.fn(),
+  onPrintReceipt: vi.fn(),
+  onOpenDrawer: vi.fn(),
+  canPrintReceipt: false
 }
 
 describe('ActionPanel', () => {

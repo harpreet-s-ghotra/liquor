@@ -3,6 +3,7 @@ import { execFile } from 'child_process'
 import { app } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
+import type { ReceiptConfig } from '../../shared/types'
 
 export type CashDrawerConfig =
   | { type: 'usb'; printerName: string }
@@ -43,6 +44,43 @@ export function saveCashDrawerConfig(config: CashDrawerConfig): void {
   writeFileSync(configPath(), JSON.stringify({ ...existing, cashDrawer: config }, null, 2))
 }
 
+const RECEIPT_CONFIG_DEFAULTS: ReceiptConfig = {
+  fontSize: 12,
+  paddingY: 14,
+  paddingX: 14,
+  storeName: ''
+}
+
+export function getReceiptConfig(): ReceiptConfig {
+  const data = readConfigFile()
+  const cfg = data.receiptConfig as Partial<ReceiptConfig> | undefined
+  return {
+    fontSize: clamp(cfg?.fontSize ?? RECEIPT_CONFIG_DEFAULTS.fontSize, 8, 16),
+    paddingY: clamp(cfg?.paddingY ?? RECEIPT_CONFIG_DEFAULTS.paddingY, 4, 40),
+    paddingX: clamp(cfg?.paddingX ?? RECEIPT_CONFIG_DEFAULTS.paddingX, 4, 30),
+    storeName: cfg?.storeName ?? ''
+  }
+}
+
+export function saveReceiptConfig(config: ReceiptConfig): void {
+  const existing = readConfigFile()
+  writeFileSync(configPath(), JSON.stringify({ ...existing, receiptConfig: config }, null, 2))
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+/** Check whether the named CUPS printer is currently reachable (idle/processing). */
+export function checkPrinterConnected(printerName: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile('lpstat', ['-p', printerName], (_err, stdout) => {
+      const out = stdout.toLowerCase()
+      resolve(out.includes('idle') || out.includes('processing'))
+    })
+  })
+}
+
 function openViaUsb(printerName: string): Promise<void> {
   return new Promise((resolve, reject) => {
     // Use the Star CUPS driver's CashDrawerSetting option — no raw bytes needed.
@@ -50,10 +88,14 @@ function openViaUsb(printerName: string): Promise<void> {
     const lp = execFile(
       'lp',
       [
-        '-d', printerName,
-        '-o', 'CashDrawerSetting=1OpenDrawer1',
-        '-o', 'DocCutType=0NoCutDoc',
-        '-o', 'PageCutType=0NoCutPage',
+        '-d',
+        printerName,
+        '-o',
+        'CashDrawerSetting=1OpenDrawer1',
+        '-o',
+        'DocCutType=0NoCutDoc',
+        '-o',
+        'PageCutType=0NoCutPage',
         '-'
       ],
       (err) => {

@@ -90,6 +90,36 @@ export type SaveRefundInput = {
   }>
 }
 
+/** Receipt layout/style config stored in peripheral-config.json */
+export type ReceiptConfig = {
+  fontSize: number // 8–16pt, default 12
+  paddingY: number // top + bottom margin in pts, default 14
+  paddingX: number // left + right margin in pts, default 14
+  storeName: string // receipt header name override ('' = use merchant name)
+}
+
+/** Input for printing a receipt on the Star receipt printer */
+export type PrintReceiptInput = {
+  transaction_number: string
+  store_name: string
+  cashier_name: string
+  items: Array<{
+    product_name: string
+    quantity: number
+    unit_price: number
+    total_price: number
+  }>
+  subtotal: number
+  subtotal_before_discount?: number | null
+  discount_amount?: number | null
+  tax_amount: number
+  total: number
+  payment_method: string
+  card_last_four?: string | null
+  card_type?: string | null
+  footer_message?: string | null
+}
+
 /** Saved transaction record returned from the database */
 export type SavedTransaction = {
   id: number

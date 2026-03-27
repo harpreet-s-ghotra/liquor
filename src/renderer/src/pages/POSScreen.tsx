@@ -1,5 +1,6 @@
 import { InventoryModal } from '@renderer/components/inventory/InventoryModal'
 import { PaymentModal } from '@renderer/components/payment/PaymentModal'
+import { PrinterSettingsModal } from '@renderer/components/printer/PrinterSettingsModal'
 import { SalesHistoryModal } from '@renderer/components/sales-history/SalesHistoryModal'
 import { SearchModal } from '@renderer/components/search/SearchModal'
 import { ActionPanel } from '@renderer/components/action/ActionPanel'
@@ -26,12 +27,14 @@ export function POSScreen(): React.JSX.Element {
   const [isPaymentComplete, setIsPaymentComplete] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSalesHistoryOpen, setIsSalesHistoryOpen] = useState(false)
+  const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false)
   const [searchKey, setSearchKey] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
   const [skuError, setSkuError] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
 
   const currentCashier = useAuthStore((s) => s.currentCashier)
+  const merchantConfig = useAuthStore((s) => s.merchantConfig)
   const logout = useAuthStore((s) => s.logout)
   const showError = useAlertStore((s) => s.showError)
 
@@ -113,6 +116,41 @@ export function POSScreen(): React.JSX.Element {
     focusSearch()
   }, [cart.length, holdTransaction, focusSearch])
 
+  const handlePrintReceipt = useCallback(async () => {
+    if (!viewingTransaction) return
+    try {
+      await window.api?.printReceipt?.({
+        transaction_number: viewingTransaction.transaction_number,
+        store_name: merchantConfig?.merchant_name ?? 'Liquor Store',
+        cashier_name: currentCashier?.name ?? '',
+        items: viewingTransaction.items.map((li) => ({
+          product_name: li.product_name,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          total_price: li.total_price
+        })),
+        subtotal: viewingTransaction.subtotal,
+        tax_amount: viewingTransaction.tax_amount,
+        total: viewingTransaction.total,
+        payment_method: viewingTransaction.payment_method,
+        card_last_four: viewingTransaction.card_last_four ?? null,
+        card_type: viewingTransaction.card_type ?? null
+      })
+    } catch (err) {
+      console.error('Receipt print failed:', err)
+      showError('Failed to print receipt.')
+    }
+  }, [viewingTransaction, merchantConfig, currentCashier, showError])
+
+  const handleOpenDrawer = useCallback(async () => {
+    try {
+      await window.api?.openCashDrawer?.()
+    } catch (err) {
+      console.error('Cash drawer failed:', err)
+      showError('Failed to open cash drawer.')
+    }
+  }, [showError])
+
   const handleInventoryClose = useCallback(() => {
     setIsInventoryOpen(false)
     setPendingInventoryItemNumber(undefined)
@@ -161,6 +199,36 @@ export function POSScreen(): React.JSX.Element {
             card_type: result.card_type ?? null,
             items: lineItems
           })
+          .then((savedTxn) => {
+            void window.api
+              ?.printReceipt?.({
+                transaction_number: savedTxn.transaction_number,
+                store_name: merchantConfig?.merchant_name ?? 'Liquor Store',
+                cashier_name: currentCashier?.name ?? '',
+                items: lineItems.map((li) => ({
+                  product_name: li.product_name,
+                  quantity: li.quantity,
+                  unit_price: li.unit_price,
+                  total_price: li.total_price
+                })),
+                subtotal: subtotalDiscounted,
+                subtotal_before_discount:
+                  subtotalBeforeDiscount > subtotalDiscounted ? subtotalBeforeDiscount : null,
+                discount_amount:
+                  subtotalBeforeDiscount > subtotalDiscounted
+                    ? Math.round((subtotalBeforeDiscount - subtotalDiscounted) * 100) / 100
+                    : null,
+                tax_amount: tax,
+                total,
+                payment_method: result.method,
+                card_last_four: result.card_last_four ?? null,
+                card_type: result.card_type ?? null
+              })
+              ?.catch((err: unknown) => {
+                console.error('Receipt print failed:', err)
+                showError('Transaction saved. Receipt failed to print.')
+              })
+          })
           .catch((err) => {
             console.error('Failed to save transaction:', err)
             showError('Failed to save transaction. Please try again.')
@@ -175,10 +243,13 @@ export function POSScreen(): React.JSX.Element {
     },
     [
       cart,
+      subtotalBeforeDiscount,
       subtotalDiscounted,
       tax,
       total,
       transactionDiscountPercent,
+      merchantConfig,
+      currentCashier,
       clearTransaction,
       focusSearch,
       showError
@@ -319,7 +390,10 @@ export function POSScreen(): React.JSX.Element {
 
   return (
     <div className="pos-screen">
-      <HeaderBar cashierName={currentCashier?.name} />
+      <HeaderBar
+        cashierName={currentCashier?.name}
+        onPrinterSettings={() => setIsPrinterSettingsOpen(true)}
+      />
       <AlertBar />
       <main className="pos-screen__main" style={{ gridTemplateColumns: '56% 44%' }}>
         <TicketPanel
@@ -383,6 +457,9 @@ export function POSScreen(): React.JSX.Element {
           heldCount={heldTransactions.length}
           onHold={handleHold}
           onTsLookup={openHoldLookup}
+          onPrintReceipt={handlePrintReceipt}
+          onOpenDrawer={handleOpenDrawer}
+          canPrintReceipt={!!viewingTransaction}
           isViewingTransaction={isViewingTransaction}
           isReturning={isReturning}
           isViewingRefund={viewingTransaction?.status === 'refund'}
@@ -392,6 +469,11 @@ export function POSScreen(): React.JSX.Element {
       <BottomShortcutBar
         onInventoryClick={() => setIsInventoryOpen(true)}
         onSalesHistoryClick={() => setIsSalesHistoryOpen(true)}
+      />
+
+      <PrinterSettingsModal
+        isOpen={isPrinterSettingsOpen}
+        onClose={() => setIsPrinterSettingsOpen(false)}
       />
 
       <InventoryModal
