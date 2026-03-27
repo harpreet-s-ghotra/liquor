@@ -87,6 +87,17 @@ type AppApi = {
   getHeldTransactions: () => Promise<HeldTransaction[]>
   deleteHeldTransaction: (id: number) => Promise<void>
   clearAllHeldTransactions: () => Promise<void>
+
+  // Cash Drawer
+  getCashDrawerConfig: () => Promise<
+    | { type: 'usb'; printerName: string }
+    | { type: 'tcp'; ip: string; port: number }
+    | null
+  >
+  saveCashDrawerConfig: (
+    config: { type: 'usb'; printerName: string } | { type: 'tcp'; ip: string; port: number }
+  ) => Promise<void>
+  openCashDrawer: () => Promise<void>
 }
 
 declare global {

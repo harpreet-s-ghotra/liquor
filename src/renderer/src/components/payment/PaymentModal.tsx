@@ -104,8 +104,11 @@ export function PaymentModal({
         paymentResultRef.current = result
       }
       setStatus('complete')
-      // TODO: Integrate with cash drawer hardware
-      void shouldOpenRegister
+      if (shouldOpenRegister) {
+        window.api?.openCashDrawer().catch((err: unknown) => {
+          console.error('Cash drawer failed to open:', err)
+        })
+      }
       // TODO: Integrate with receipt printer hardware
       onStatusChange?.('complete')
     },

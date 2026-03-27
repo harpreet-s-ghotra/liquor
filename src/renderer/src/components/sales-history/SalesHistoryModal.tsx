@@ -263,32 +263,30 @@ export function SalesHistoryModal({
           )}
         </div>
 
-        {/* Footer / Pagination */}
-        {totalCount > 0 && (
-          <div className="sales-history__footer">
-            <span className="sales-history__footer-info">
-              Showing {startIdx}-{endIdx} of {totalCount}
-            </span>
-            <div className="sales-history__footer-nav">
-              <AppButton
-                variant="neutral"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-              >
-                Prev
-              </AppButton>
-              <AppButton
-                variant="neutral"
-                size="sm"
-                onClick={() => setPage((p) => p + 1)}
-                disabled={page + 1 >= totalPages}
-              >
-                Next
-              </AppButton>
-            </div>
+        {/* Footer / Pagination — always rendered to keep modal height stable */}
+        <div className="sales-history__footer">
+          <span className="sales-history__footer-info">
+            {totalCount > 0 ? `Showing ${startIdx}-${endIdx} of ${totalCount}` : ''}
+          </span>
+          <div className="sales-history__footer-nav">
+            <AppButton
+              variant="neutral"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0 || totalCount === 0}
+            >
+              Prev
+            </AppButton>
+            <AppButton
+              variant="neutral"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page + 1 >= totalPages || totalCount === 0}
+            >
+              Next
+            </AppButton>
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   )

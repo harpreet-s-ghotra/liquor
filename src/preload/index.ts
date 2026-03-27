@@ -126,7 +126,18 @@ const api = {
     ipcRenderer.invoke('held-transactions:list'),
   deleteHeldTransaction: (id: number): Promise<void> =>
     ipcRenderer.invoke('held-transactions:delete', id),
-  clearAllHeldTransactions: (): Promise<void> => ipcRenderer.invoke('held-transactions:clear-all')
+  clearAllHeldTransactions: (): Promise<void> => ipcRenderer.invoke('held-transactions:clear-all'),
+
+  // Cash Drawer
+  getCashDrawerConfig: (): Promise<
+    | { type: 'usb'; printerName: string }
+    | { type: 'tcp'; ip: string; port: number }
+    | null
+  > => ipcRenderer.invoke('peripheral:get-drawer-config'),
+  saveCashDrawerConfig: (
+    config: { type: 'usb'; printerName: string } | { type: 'tcp'; ip: string; port: number }
+  ): Promise<void> => ipcRenderer.invoke('peripheral:save-drawer-config', config),
+  openCashDrawer: (): Promise<void> => ipcRenderer.invoke('peripheral:open-cash-drawer')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

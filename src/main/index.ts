@@ -50,6 +50,12 @@ import {
   chargeTerminal,
   chargeWithCard
 } from './services/stax'
+import {
+  openCashDrawer,
+  getCashDrawerConfig,
+  saveCashDrawerConfig
+} from './services/cash-drawer'
+import type { CashDrawerConfig } from './services/cash-drawer'
 import type {
   DirectChargeInput,
   TerminalChargeInput,
@@ -468,6 +474,23 @@ app.whenReady().then(() => {
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Payment failed')
     }
+  })
+
+  // Cash Drawer
+  ipcMain.handle('peripheral:get-drawer-config', () => {
+    return getCashDrawerConfig()
+  })
+
+  ipcMain.handle('peripheral:save-drawer-config', (_, config: CashDrawerConfig) => {
+    saveCashDrawerConfig(config)
+  })
+
+  ipcMain.handle('peripheral:open-cash-drawer', async () => {
+    const config = getCashDrawerConfig()
+    if (!config) {
+      throw new Error('Cash drawer not configured — set an IP address in peripheral settings')
+    }
+    await openCashDrawer(config)
   })
 
   createWindow()
