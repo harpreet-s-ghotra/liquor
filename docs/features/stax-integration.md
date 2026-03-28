@@ -232,7 +232,7 @@ Stax sandbox enforces a "Max attempts exceeded" policy after multiple charges on
 
 ## Related Docs
 
-- [Stax Activation & Login](stax-activation-and-login.md) — merchant activation + cashier PIN login flow
+- [Stax Activation & Login](stax-activation.md) -- merchant activation + cashier PIN login flow
 - [Stax API Documentation](https://docs.staxpayments.com/)
 - [Stax Test Environments](https://docs.staxpayments.com/docs/test-environments)
 - [Stax Test Card Numbers](https://docs.staxpayments.com/docs/test-card-payment-methods)

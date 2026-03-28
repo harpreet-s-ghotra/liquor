@@ -49,7 +49,8 @@ const RECEIPT_CONFIG_DEFAULTS: ReceiptConfig = {
   paddingY: 4,
   paddingX: 4,
   storeName: '',
-  footerMessage: ''
+  footerMessage: '',
+  alwaysPrint: false
 }
 
 export function getReceiptConfig(): ReceiptConfig {
@@ -60,7 +61,8 @@ export function getReceiptConfig(): ReceiptConfig {
     paddingY: clamp(cfg?.paddingY ?? RECEIPT_CONFIG_DEFAULTS.paddingY, 4, 40),
     paddingX: clamp(cfg?.paddingX ?? RECEIPT_CONFIG_DEFAULTS.paddingX, 4, 30),
     storeName: cfg?.storeName ?? '',
-    footerMessage: cfg?.footerMessage ?? ''
+    footerMessage: cfg?.footerMessage ?? '',
+    alwaysPrint: cfg?.alwaysPrint ?? false
   }
 }
 
@@ -71,7 +73,8 @@ export function saveReceiptConfig(config: ReceiptConfig): void {
     paddingY: clamp(config.paddingY, 4, 40),
     paddingX: clamp(config.paddingX, 4, 30),
     storeName: config.storeName ?? '',
-    footerMessage: config.footerMessage ?? ''
+    footerMessage: config.footerMessage ?? '',
+    alwaysPrint: config.alwaysPrint ?? false
   }
   writeFileSync(configPath(), JSON.stringify({ ...existing, receiptConfig: sanitized }, null, 2))
 }

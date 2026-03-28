@@ -1,65 +1,45 @@
 # LiquorPOS Documentation
 
-## Project Goal
+> Master index for all project documentation. Start here.
 
-Build a fast, reliable Point of Sale system for liquor stores. The app should feel familiar to PC America users while being maintainable with modern technology. Revenue comes from per-transaction residuals as a Stax Partner/ISV.
+## Project
 
-## Tech Stack
+| Doc | Covers |
+| --- | ------ |
+| [Project Plan](project-plan.md) | Full vision, roadmap, database schema, Stax architecture |
+| [Design System](design-system.md) | Visual spec -- colors, typography, layout rules, component specs |
 
-| Layer         | Technology                                             |
-| ------------- | ------------------------------------------------------ |
-| Desktop Shell | Electron (electron-vite)                               |
-| UI            | React 19 + TypeScript                                  |
-| State         | Zustand 5                                              |
-| Database      | SQLite (better-sqlite3)                                |
-| Payments      | Stax Partner API                                       |
-| Testing       | Vitest (unit, ≥80% coverage) + Playwright (E2E)        |
-| Styling       | Custom CSS with design tokens (no Tailwind at runtime) |
+## Feature Specs
 
-## Current Status
+| Doc | Status | Covers |
+| --- | ------ | ------ |
+| [Inventory V1](features/inventory-v1.md) | Complete | Inventory CRUD, search, form fields, data contracts |
+| [Inventory V2](features/inventory-v2.md) | Active | Inventory modal redesign, new fields, footer action bar |
+| [Pricing Engine](features/pricing-engine.md) | Complete | Special pricing, mix-and-match, pricing engine architecture |
+| [Product Search](features/product-search.md) | Complete | Search modal, filters, product lookup flow |
+| [Returns and Refunds](features/returns-and-refunds.md) | Complete | Return workflow, refund scenarios, inventory impact |
+| [Stax Activation](features/stax-activation.md) | Complete | Merchant activation flow, cashier PIN login, auth state machine |
+| [Stax Integration](features/stax-integration.md) | In Progress | Partner API, endpoints, test cards, webhooks |
 
-| Phase                                | Status             | Description                                                                                                 |
-| ------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| **Phase 1** — Core POS               | ✅ Complete        | Sales interface, cart, payments, transactions, search                                                       |
-| **Phase 2** — Inventory & Management | ✅ Mostly Complete | Full CRUD for items, departments, tax codes, vendors, special pricing, alternate SKUs, case/quantity fields |
-| **Phase 3** — Stax Integration       | 🟡 In Progress     | Activation screen, cashier PIN login done; terminal charges, webhooks, sales history pending                |
-| **Phase 4** — Hardware & Polish      | ⏳ Planned         | Barcode scanner, receipt printer, cloud sync                                                                |
+## AI Navigation
 
-## Documentation Index
+AI agents should read these before searching the codebase:
 
-### Overall Plan
+| Index | Covers |
+| ----- | ------ |
+| [Repo Map](ai/repo-map.md) | Architecture, entry points, IPC channels, module lookup |
+| [Testing Map](ai/testing-map.md) | Test locations, runners, patterns, how to add tests |
+| [Inventory Map](ai/inventory-map.md) | All inventory feature files, components, types, tests |
+| [Stax Map](ai/stax-map.md) | Payment/auth files, Stax API, terminal flow |
+| [Glossary](ai/glossary.md) | Canonical terms and definitions |
 
-- [PROJECT_PLAN.md](../PROJECT_PLAN.md) — Full project vision, tech stack details, roadmap, database schema, Stax architecture
+## E2E Test Coverage
 
-### Feature Implementation Docs
+Auto-maintained by the `update-test-docs` agent. See [Test Coverage Index](tests/README.md).
 
-- [UI Architecture](UI_ARCHITECTURE.md) — Layout rules, design tokens, component boundaries, CSS strategy
-- [Inventory Management V1](inventory-management-v1.md) — Inventory modal, CRUD operations, search, form fields, data contracts
-- [Pricing Engine Plan](pricing-engine-plan.md) — Special pricing fix, mix-and-match pricing, pricing engine architecture
-- [Stax Activation & Login](stax-activation-and-login.md) — Merchant activation flow, cashier PIN login, auth state machine
-- [Stax Integration Plan](stax-integration-plan.md) — Partner API architecture, endpoints, test cards, webhook events, implementation steps
-- [Product Search Modal](product-search-modal.md) — Search button on POS screen, modal with filters, product lookup flow
-- [Returns & Refunds](returns-and-refunds.md) — Return workflow, refund scenarios, inventory impact, sales history modal, error handling, edge cases
+## Conventions
 
-### E2E Test Coverage
-
-- [Test Coverage Index](tests/README.md) — Visual overview of all 65 E2E test workflows (startup, transactions, hold, inventory, payments)
-
-### Developer Guidelines
-
-- [Copilot Instructions](../.github/copilot-instructions.md) — Testing gate, quality commands, coding conventions
-
-## Key Architectural Decisions
-
-1. **All data from backend** — No hardcoded product data in the renderer. All inventory comes from SQLite via IPC.
-2. **Auth state machine** — App has 4 states: `loading → needs-activation → needs-login → authenticated`, managed by `useAuthStore`.
-3. **Single merchant per install** — Each POS install is activated with one Stax merchant API key (stored in `merchant_config` table).
-4. **CSS design tokens** — Defined in `src/renderer/src/styles/tokens.css`. All colors, spacing, and sizing use CSS custom properties.
-5. **Coverage gate** — Every change must maintain ≥80% coverage across statements, branches, functions, and lines.
-
-## Adding a New Feature
-
-1. Create a doc in `docs/` describing scope, data contract, and UX requirements.
-2. Reference it from this index.
-3. Follow the quality sequence: `lint → typecheck → test:coverage → test:e2e`.
-4. Keep unit tests deterministic and independent from external services.
+- **Naming:** All doc files use `kebab-case.md`
+- **Location:** Feature specs go in `features/`. AI indexes go in `ai/`. Test docs go in `tests/`.
+- **New features:** Create a spec in `features/`, add it to this index, and reference it from `CLAUDE.md`
+- **Active work:** Mark status as "Active" in the table above

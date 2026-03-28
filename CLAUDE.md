@@ -368,7 +368,7 @@ Special pricing logic lives in `src/renderer/src/utils/pricing-engine.ts`. The `
 
 ## Active Work — Inventory Modal v2
 
-The inventory modal is being redesigned. See `docs/inventory-modal-v2-plan.md` for the full spec. Key decisions:
+The inventory modal is being redesigned. See `docs/features/inventory-v2.md` for the full spec. Key decisions:
 
 - Visual redesign matching Figma (`node-id=6:3`, file `99ouO4wLIDF6jwNQIhZUax`)
 - Tabs keep the same 4 items — only the tab bar **styling** changes (new dark-green underline style)
@@ -377,7 +377,7 @@ The inventory modal is being redesigned. See `docs/inventory-modal-v2-plan.md` f
 - New persisted fields: item_type, allow_food_stamps, prompt_for_price_at_pos, scale_at_pos, bonus_points_earned, commission_amount, commission_mode, physical_location
 - The Figma navigation buttons (Previous / Look Up / Next) are **not being implemented** — keep the existing search bar UX
 
-**Do not start implementation without reviewing `docs/inventory-modal-v2-plan.md` first.**
+**Do not start implementation without reviewing `docs/features/inventory-v2.md` first.**
 
 ---
 
@@ -399,21 +399,70 @@ Routing: read `repo-map.md` first for general tasks. Read the feature-specific m
 
 ## Documentation
 
-Before implementing any feature, read the relevant doc in `docs/`:
+All documentation lives in `docs/`. See `docs/README.md` for the full index.
 
-| Doc                                 | Covers                                                     |
-| ----------------------------------- | ---------------------------------------------------------- |
-| `docs/README.md`                    | Documentation index, project status                        |
-| `PROJECT_PLAN.md`                   | Full project vision, roadmap, DB schema, Stax architecture |
-| `docs/UI_ARCHITECTURE.md`           | Layout rules, design tokens, component structure           |
-| `docs/inventory-management-v1.md`   | Inventory CRUD spec (v1)                                   |
-| `docs/inventory-modal-v2-plan.md`   | Inventory modal redesign plan (active)                     |
-| `docs/stax-activation-and-login.md` | Auth flow spec                                             |
-| `docs/stax-integration-plan.md`     | Stax API endpoints, test cards, webhooks                   |
-| `docs/pricing-engine-plan.md`       | Special pricing rules, mix-and-match                       |
-| `docs/product-search-modal.md`      | Search modal spec                                          |
+| Doc | Covers |
+| --- | ------ |
+| `docs/project-plan.md` | Full project vision, roadmap, DB schema, Stax architecture |
+| `docs/design-system.md` | Visual spec -- colors, typography, layout rules, component specs |
+| `docs/features/inventory-v1.md` | Inventory CRUD spec (v1, historical) |
+| `docs/features/inventory-v2.md` | Inventory modal redesign (active) |
+| `docs/features/pricing-engine.md` | Special pricing rules, mix-and-match |
+| `docs/features/product-search.md` | Search modal spec |
+| `docs/features/returns-and-refunds.md` | Return workflow, refund scenarios |
+| `docs/features/stax-activation.md` | Auth flow spec |
+| `docs/features/stax-integration.md` | Stax API endpoints, test cards, webhooks |
 
-When adding a new feature: create a doc in `docs/` and add it to the index in `docs/README.md`.
+### Documentation Conventions
+
+- All doc files use **kebab-case** naming
+- Feature specs go in `docs/features/`
+- AI navigation indexes go in `docs/ai/`
+- E2E test docs go in `docs/tests/` (auto-maintained by `update-test-docs` agent)
+
+---
+
+## Documentation Workflow — Mandatory for All Changes
+
+AI agents (Claude Code, Copilot, any LLM) MUST follow this workflow. These are not suggestions -- they are required steps that happen automatically as part of every task.
+
+### When implementing a new feature
+
+1. Create a feature spec in `docs/features/<feature-name>.md` before writing code
+2. Add it to the index in `docs/README.md`
+3. Add it to the Documentation table in this file (CLAUDE.md)
+
+### When modifying an existing feature
+
+1. Update the corresponding doc in `docs/features/` to reflect the changes
+2. If the change affects types, update `docs/ai/repo-map.md` if IPC channels changed
+
+### When writing or updating tests
+
+1. Write unit tests for all new code (coverage must stay >= 80%)
+2. Write E2E tests for user-facing workflow changes
+3. After E2E test changes, run the `update-test-docs` agent to sync `docs/tests/`
+
+### When adding new IPC channels, types, or stores
+
+1. Update `docs/ai/repo-map.md` with new IPC channels
+2. Update `docs/ai/testing-map.md` if new test files were added
+3. Update the feature-specific AI map if one exists (`inventory-map.md`, `stax-map.md`)
+
+### When completing a task
+
+Before finalizing, verify:
+- [ ] Relevant docs in `docs/features/` are up to date
+- [ ] `docs/README.md` index reflects any new or renamed docs
+- [ ] CLAUDE.md references are correct if docs were added/moved
+- [ ] Test docs are synced (run `update-test-docs` if E2E tests changed)
+
+### What NOT to document
+
+- Code patterns derivable from reading the source
+- Git history (use `git log` / `git blame`)
+- Debugging solutions (the fix is in the code; the commit message has context)
+- Ephemeral task details or conversation context
 
 ---
 
@@ -459,4 +508,4 @@ Branch naming: `feature/name`, `fix/name`
 - The Electron app uses `ApiKeyAuth` (per-merchant key) for transactions
 - `PartnerApiKey` is used on the backend server only — never expose it in the Electron app
 - Test cards: Visa `4111111111111111`, Mastercard `5555555555554444`
-- See `docs/stax-integration-plan.md` for the full endpoint reference
+- See `docs/features/stax-integration.md` for the full endpoint reference

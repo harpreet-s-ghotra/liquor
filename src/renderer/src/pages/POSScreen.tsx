@@ -28,6 +28,7 @@ export function POSScreen(): React.JSX.Element {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSalesHistoryOpen, setIsSalesHistoryOpen] = useState(false)
   const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false)
+  const [alwaysPrint, setAlwaysPrint] = useState(false)
   const [searchKey, setSearchKey] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
   const [skuError, setSkuError] = useState('')
@@ -104,6 +105,13 @@ export function POSScreen(): React.JSX.Element {
   // Load held transactions on mount so the badge is accurate on startup
   useEffect(() => {
     loadHeldTransactions()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load alwaysPrint setting on mount
+  useEffect(() => {
+    void window.api?.getReceiptConfig?.()?.then((cfg) => {
+      if (cfg) setAlwaysPrint(cfg.alwaysPrint ?? false)
+    })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const focusSearch = useCallback(() => {
@@ -200,34 +208,36 @@ export function POSScreen(): React.JSX.Element {
             items: lineItems
           })
           .then((savedTxn) => {
-            void window.api
-              ?.printReceipt?.({
-                transaction_number: savedTxn.transaction_number,
-                store_name: merchantConfig?.merchant_name ?? 'Liquor Store',
-                cashier_name: currentCashier?.name ?? '',
-                items: lineItems.map((li) => ({
-                  product_name: li.product_name,
-                  quantity: li.quantity,
-                  unit_price: li.unit_price,
-                  total_price: li.total_price
-                })),
-                subtotal: subtotalDiscounted,
-                subtotal_before_discount:
-                  subtotalBeforeDiscount > subtotalDiscounted ? subtotalBeforeDiscount : null,
-                discount_amount:
-                  subtotalBeforeDiscount > subtotalDiscounted
-                    ? Math.round((subtotalBeforeDiscount - subtotalDiscounted) * 100) / 100
-                    : null,
-                tax_amount: tax,
-                total,
-                payment_method: result.method,
-                card_last_four: result.card_last_four ?? null,
-                card_type: result.card_type ?? null
-              })
-              ?.catch((err: unknown) => {
-                console.error('Receipt print failed:', err)
-                showError('Transaction saved. Receipt failed to print.')
-              })
+            if (alwaysPrint || result.shouldPrint) {
+              void window.api
+                ?.printReceipt?.({
+                  transaction_number: savedTxn.transaction_number,
+                  store_name: merchantConfig?.merchant_name ?? 'Liquor Store',
+                  cashier_name: currentCashier?.name ?? '',
+                  items: lineItems.map((li) => ({
+                    product_name: li.product_name,
+                    quantity: li.quantity,
+                    unit_price: li.unit_price,
+                    total_price: li.total_price
+                  })),
+                  subtotal: subtotalDiscounted,
+                  subtotal_before_discount:
+                    subtotalBeforeDiscount > subtotalDiscounted ? subtotalBeforeDiscount : null,
+                  discount_amount:
+                    subtotalBeforeDiscount > subtotalDiscounted
+                      ? Math.round((subtotalBeforeDiscount - subtotalDiscounted) * 100) / 100
+                      : null,
+                  tax_amount: tax,
+                  total,
+                  payment_method: result.method,
+                  card_last_four: result.card_last_four ?? null,
+                  card_type: result.card_type ?? null
+                })
+                ?.catch((err: unknown) => {
+                  console.error('Receipt print failed:', err)
+                  showError('Transaction saved. Receipt failed to print.')
+                })
+            }
           })
           .catch((err) => {
             console.error('Failed to save transaction:', err)
@@ -242,6 +252,7 @@ export function POSScreen(): React.JSX.Element {
       focusSearch()
     },
     [
+      alwaysPrint,
       cart,
       subtotalBeforeDiscount,
       subtotalDiscounted,
@@ -473,7 +484,12 @@ export function POSScreen(): React.JSX.Element {
 
       <PrinterSettingsModal
         isOpen={isPrinterSettingsOpen}
-        onClose={() => setIsPrinterSettingsOpen(false)}
+        onClose={() => {
+          setIsPrinterSettingsOpen(false)
+          void window.api?.getReceiptConfig?.()?.then((cfg) => {
+            if (cfg) setAlwaysPrint(cfg.alwaysPrint ?? false)
+          })
+        }}
       />
 
       <InventoryModal
@@ -530,6 +546,7 @@ export function POSScreen(): React.JSX.Element {
         onCancel={handlePaymentCancel}
         onStatusChange={handlePaymentStatusChange}
         isRefund={isReturning}
+        alwaysPrint={alwaysPrint}
       />
 
       <ErrorModal

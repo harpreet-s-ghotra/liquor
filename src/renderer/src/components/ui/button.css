@@ -45,9 +45,9 @@
 }
 
 .btn--neutral {
-  border-color: var(--border-default);
+  border-color: rgba(255, 255, 255, 0.3);
   background: var(--bg-surface);
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 .btn--ghost {

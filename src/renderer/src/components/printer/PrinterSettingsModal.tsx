@@ -1,5 +1,6 @@
 import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
 import { AppButton } from '@renderer/components/common/AppButton'
+import { Checkbox } from '@renderer/components/ui/checkbox'
 import { SuccessModal } from '@renderer/components/common/SuccessModal'
 import { ErrorModal } from '@renderer/components/common/ErrorModal'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -20,7 +21,8 @@ const DEFAULT_CONFIG: ReceiptConfig = {
   paddingY: 4,
   paddingX: 4,
   storeName: '',
-  footerMessage: ''
+  footerMessage: '',
+  alwaysPrint: false
 }
 
 type PrinterSettingsModalProps = {
@@ -241,7 +243,6 @@ export function PrinterSettingsModal({
           <div className="printer-settings-modal__section">
             <h3 className="printer-settings-modal__section-title">Printer Status</h3>
             <div className="printer-settings-modal__status-row">
-              <span className="printer-settings-modal__status-label">Status</span>
               <span
                 className={
                   connected
@@ -252,13 +253,25 @@ export function PrinterSettingsModal({
                 <span className="printer-settings-modal__status-dot" />
                 {connected ? 'Connected' : 'Not Connected'}
               </span>
-            </div>
-            {printerName && (
-              <div className="printer-settings-modal__status-row">
-                <span className="printer-settings-modal__status-label">Printer Name</span>
+              {printerName && (
                 <span className="printer-settings-modal__status-value">{printerName}</span>
-              </div>
-            )}
+              )}
+            </div>
+          </div>
+
+          {/* ── Always Print ── */}
+          <div className="printer-settings-modal__section">
+            <h3 className="printer-settings-modal__section-title">Receipt Printing</h3>
+            <label className="printer-settings-modal__toggle-row">
+              <Checkbox
+                checked={cfg.alwaysPrint}
+                onCheckedChange={(v) => updateCfg({ alwaysPrint: v === true })}
+                data-testid="always-print-checkbox"
+              />
+              <span className="printer-settings-modal__toggle-label">
+                Always print receipt after payment
+              </span>
+            </label>
           </div>
 
           {/* ── Store Name ── */}

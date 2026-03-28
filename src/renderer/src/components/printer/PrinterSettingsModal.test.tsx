@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PrinterSettingsModal } from './PrinterSettingsModal'
 import type { ReceiptConfig } from '../../../../shared/types'
@@ -8,7 +8,8 @@ const baseConfig: ReceiptConfig = {
   paddingY: 4,
   paddingX: 4,
   storeName: 'Liquor POS',
-  footerMessage: 'Thanks for shopping'
+  footerMessage: 'Thanks for shopping',
+  alwaysPrint: false
 }
 
 describe('PrinterSettingsModal', () => {
@@ -245,5 +246,28 @@ describe('PrinterSettingsModal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders always-print checkbox matching loaded config (unchecked by default)', async () => {
+    render(<PrinterSettingsModal isOpen={true} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('always-print-checkbox')).toBeInTheDocument()
+    })
+
+    expect(screen.getByTestId('always-print-checkbox')).not.toBeChecked()
+  })
+
+  it('renders always-print checkbox as checked when config has alwaysPrint true', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.getReceiptConfig = vi
+      .fn()
+      .mockResolvedValue({ ...baseConfig, alwaysPrint: true })
+
+    render(<PrinterSettingsModal isOpen={true} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('always-print-checkbox')).toBeChecked()
+    })
   })
 })

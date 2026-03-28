@@ -97,6 +97,7 @@ export type ReceiptConfig = {
   paddingX: number // left + right margin in pts, default 4
   storeName: string // receipt header name override ('' = use merchant name)
   footerMessage: string // default footer message ('' = no footer message)
+  alwaysPrint: boolean // auto-print receipt after every completed payment
 }
 
 /** Input for printing a receipt on the Star receipt printer */

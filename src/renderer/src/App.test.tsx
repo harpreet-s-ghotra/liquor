@@ -8,7 +8,15 @@ const mockApi = {
   getCashiers: vi.fn(),
   getProducts: vi.fn(),
   getDepartments: vi.fn().mockResolvedValue([]),
-  getVendors: vi.fn().mockResolvedValue([])
+  getVendors: vi.fn().mockResolvedValue([]),
+  getReceiptConfig: vi.fn().mockResolvedValue({
+    fontSize: 10,
+    paddingY: 4,
+    paddingX: 4,
+    storeName: '',
+    footerMessage: '',
+    alwaysPrint: false
+  })
 }
 
 beforeEach(() => {

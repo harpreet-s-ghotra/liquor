@@ -35,6 +35,7 @@ type PaymentModalProps = {
   onCancel: () => void
   onStatusChange?: (status: PaymentStatus) => void
   isRefund?: boolean
+  alwaysPrint?: boolean
 }
 
 const TENDER_DENOMINATIONS = [1, 2, 5, 10, 20, 50, 100]
@@ -62,7 +63,8 @@ export function PaymentModal({
   onComplete,
   onCancel,
   onStatusChange,
-  isRefund
+  isRefund,
+  alwaysPrint = false
 }: PaymentModalProps): React.JSX.Element | null {
   const nextPaymentIdRef = useRef(1)
   const [payments, setPayments] = useState<PaymentEntry[]>([])
@@ -93,7 +95,13 @@ export function PaymentModal({
   }, [onCancel, resetState])
 
   const handleOk = useCallback(() => {
-    const result = { ...paymentResultRef.current }
+    const result = { ...paymentResultRef.current, shouldPrint: false }
+    resetState()
+    onComplete(result)
+  }, [onComplete, resetState])
+
+  const handlePrint = useCallback(() => {
+    const result = { ...paymentResultRef.current, shouldPrint: true }
     resetState()
     onComplete(result)
   }, [onComplete, resetState])
@@ -105,11 +113,9 @@ export function PaymentModal({
       }
       setStatus('complete')
       if (shouldOpenRegister) {
-        window.api
-          ?.openCashDrawer?.()
-          ?.catch((err: unknown) => {
-            console.error('Cash drawer failed to open:', err)
-          })
+        window.api?.openCashDrawer?.()?.catch((err: unknown) => {
+          console.error('Cash drawer failed to open:', err)
+        })
       }
       // TODO: Integrate with receipt printer hardware
       onStatusChange?.('complete')
@@ -358,14 +364,26 @@ export function PaymentModal({
                       ? `Refund of $${Math.abs(total).toFixed(2)} processed!`
                       : `Payment complete!${change > 0 ? ` Change: $${change.toFixed(2)}` : ''}`}
                   </span>
-                  <Button
-                    variant="success"
-                    className="payment-modal__ok-btn"
-                    data-testid="payment-ok-btn"
-                    onClick={handleOk}
-                  >
-                    OK
-                  </Button>
+                  <div className="payment-modal__complete-actions">
+                    {!isRefund && !alwaysPrint && (
+                      <Button
+                        variant="neutral"
+                        className="payment-modal__ok-btn"
+                        data-testid="payment-print-btn"
+                        onClick={handlePrint}
+                      >
+                        Print Receipt
+                      </Button>
+                    )}
+                    <Button
+                      variant="success"
+                      className="payment-modal__ok-btn"
+                      data-testid="payment-ok-btn"
+                      onClick={handleOk}
+                    >
+                      OK
+                    </Button>
+                  </div>
                 </div>
               )}
               {(status === 'idle' || status === 'collecting') && remaining > 0 && !cardError && (

@@ -104,7 +104,15 @@ describe('POSScreen', () => {
         held_at: ''
       }),
       deleteHeldTransaction: vi.fn().mockResolvedValue(undefined),
-      clearAllHeldTransactions: vi.fn().mockResolvedValue(undefined)
+      clearAllHeldTransactions: vi.fn().mockResolvedValue(undefined),
+      getReceiptConfig: vi.fn().mockResolvedValue({
+        fontSize: 10,
+        paddingY: 4,
+        paddingX: 4,
+        storeName: '',
+        footerMessage: '',
+        alwaysPrint: false
+      })
     }
   })
 

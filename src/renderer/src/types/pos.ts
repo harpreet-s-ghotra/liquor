@@ -75,4 +75,6 @@ export type PaymentResult = {
   card_last_four?: string | null
   /** Card brand: visa, mastercard, etc. */
   card_type?: string | null
+  /** True when the user explicitly clicked "Print Receipt" (false = OK only) */
+  shouldPrint?: boolean
 }

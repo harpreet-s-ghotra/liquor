@@ -85,8 +85,8 @@ InventoryModal (modal shell, 4 outer tabs)
 
 | Doc | Content |
 |-----|---------|
-| `docs/inventory-management-v1.md` | Original spec (v1) |
-| `docs/inventory-modal-v2-plan.md` | Active redesign plan |
+| `docs/features/inventory-v1.md` | Original spec (v1) |
+| `docs/features/inventory-v2.md` | Active redesign plan |
 
 ## Key Hooks
 

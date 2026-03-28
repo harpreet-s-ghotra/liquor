@@ -188,6 +188,13 @@
   color: var(--semantic-success-text);
 }
 
+.payment-modal__complete-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .payment-modal__ok-btn {
   min-height: 2.75rem;
   padding: 0 2rem;

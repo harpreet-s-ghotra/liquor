@@ -6,7 +6,7 @@
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
   background: var(--bg-panel);
   padding: 0;
-  width: 560px;
+  width: 800px;
   max-height: 90vh;
   overflow: hidden;
 }
@@ -70,24 +70,38 @@
 /* ── Status ── */
 .printer-settings-modal__status-row {
   display: flex;
+  gap: 0.75rem;
   align-items: center;
-  justify-content: space-between;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
   background: var(--bg-surface-soft);
   padding: 0.5rem 0.75rem;
 }
 
-.printer-settings-modal__status-label {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
 .printer-settings-modal__status-value {
+  margin-left: auto;
   color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 600;
+}
+
+/* ── Always-print toggle ── */
+.printer-settings-modal__toggle-row {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-surface-soft);
+  cursor: pointer;
+  padding: 0.625rem 0.75rem;
+}
+
+.printer-settings-modal__toggle-label {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  user-select: none;
 }
 
 .printer-settings-modal__status-badge--connected,

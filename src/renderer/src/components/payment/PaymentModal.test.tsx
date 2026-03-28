@@ -512,6 +512,78 @@ describe('PaymentModal', () => {
     })
   })
 
+  // ── Print Receipt button tests ──
+
+  describe('Print Receipt button', () => {
+    it('shows Print Receipt button alongside OK when alwaysPrint is false (default)', () => {
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cash (Exact)' }))
+
+      expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+      expect(screen.getByTestId('payment-print-btn')).toBeInTheDocument()
+      expect(screen.getByTestId('payment-ok-btn')).toBeInTheDocument()
+    })
+
+    it('does not show Print Receipt button when alwaysPrint is true', () => {
+      render(
+        <PaymentModal
+          isOpen={true}
+          total={10.0}
+          onComplete={vi.fn()}
+          onCancel={vi.fn()}
+          alwaysPrint={true}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cash (Exact)' }))
+
+      expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+      expect(screen.queryByTestId('payment-print-btn')).not.toBeInTheDocument()
+      expect(screen.getByTestId('payment-ok-btn')).toBeInTheDocument()
+    })
+
+    it('does not show Print Receipt button in refund mode', () => {
+      render(
+        <PaymentModal
+          isOpen={true}
+          total={10.0}
+          onComplete={vi.fn()}
+          onCancel={vi.fn()}
+          isRefund={true}
+          initialMethod="cash"
+        />
+      )
+
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
+
+      expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+      expect(screen.queryByTestId('payment-print-btn')).not.toBeInTheDocument()
+    })
+
+    it('clicking Print Receipt calls onComplete with shouldPrint: true', () => {
+      const onComplete = vi.fn()
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={onComplete} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cash (Exact)' }))
+      fireEvent.click(screen.getByTestId('payment-print-btn'))
+
+      expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ shouldPrint: true }))
+    })
+
+    it('clicking OK calls onComplete with shouldPrint: false', () => {
+      const onComplete = vi.fn()
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={onComplete} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cash (Exact)' }))
+      fireEvent.click(screen.getByTestId('payment-ok-btn'))
+
+      expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ shouldPrint: false }))
+    })
+  })
+
   describe('refund mode', () => {
     it('shows "Process Refund" header and refund amount when isRefund', () => {
       render(

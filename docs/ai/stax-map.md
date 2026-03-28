@@ -86,8 +86,8 @@ POSScreen → checkout → chargeTerminal → saveTransaction
 
 | Doc | Content |
 |-----|---------|
-| `docs/stax-activation-and-login.md` | Auth flow spec |
-| `docs/stax-integration-plan.md` | API endpoints, account model, two-phase plan, test cards |
+| `docs/features/stax-activation.md` | Auth flow spec |
+| `docs/features/stax-integration.md` | API endpoints, account model, two-phase plan, test cards |
 
 ## API Details
 
