@@ -21,6 +21,7 @@ function createTestDb(): void {
 const base: SaveInventoryItemInput = {
   sku: 'WINE-001',
   item_name: 'Test Wine',
+  item_type: '',
   dept_id: '',
   distributor_number: null,
   cost: 8,
@@ -30,7 +31,10 @@ const base: SaveInventoryItemInput = {
   special_pricing: [],
   additional_skus: [],
   bottles_per_case: 12,
-  case_discount_price: null
+  case_discount_price: null,
+  size: '',
+  case_cost: null,
+  nysla_discounts: null
 }
 
 describe('saveInventoryItem', () => {
@@ -230,5 +234,50 @@ describe('getInventoryProductDetail', () => {
     expect(detail!.sales_history).toEqual([])
     expect(detail!.additional_skus).toEqual([])
     expect(detail!.special_pricing).toEqual([])
+  })
+})
+
+describe('NYSLA fields', () => {
+  beforeEach(() => createTestDb())
+
+  it('saves and returns item_type, size, case_cost, nysla_discounts', () => {
+    const item = saveInventoryItem({
+      ...base,
+      item_type: 'Table Red and Rose Wine',
+      size: '750ML',
+      case_cost: 84.0,
+      nysla_discounts: '[{"amount":8,"min_cases":3}]'
+    })
+
+    const detail = getInventoryProductDetail(item.item_number)
+    expect(detail!.item_type).toBe('Table Red and Rose Wine')
+    expect(detail!.size).toBe('750ML')
+    expect(detail!.case_cost).toBe(84.0)
+    expect(detail!.nysla_discounts).toBe('[{"amount":8,"min_cases":3}]')
+  })
+
+  it('returns null for optional NYSLA fields when not set', () => {
+    const item = saveInventoryItem(base)
+    const detail = getInventoryProductDetail(item.item_number)
+
+    expect(detail!.item_type).toBeNull()
+    expect(detail!.size).toBeNull()
+    expect(detail!.case_cost).toBeNull()
+    expect(detail!.nysla_discounts).toBeNull()
+  })
+
+  it('updates NYSLA fields on subsequent saves', () => {
+    const created = saveInventoryItem({ ...base, item_type: 'Sparkling Wine', size: '750ML' })
+    const updated = saveInventoryItem({
+      ...base,
+      item_number: created.item_number,
+      item_type: 'Table White Wine',
+      size: '1.5L',
+      case_cost: 120.0
+    })
+
+    expect(updated.item_type).toBe('Table White Wine')
+    expect(updated.size).toBe('1.5L')
+    expect(updated.case_cost).toBe(120.0)
   })
 })

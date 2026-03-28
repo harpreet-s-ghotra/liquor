@@ -21,6 +21,7 @@ Coverage threshold: **>= 80%** (statements, branches, functions, lines).
 | -------------------------------- | -------------------------------------------------------- |
 | `products.repo.test.ts`          | Product CRUD, search, inventory queries, special pricing |
 | `held-transactions.repo.test.ts` | Hold save/list/delete/clear                              |
+| `sessions.repo.test.ts`          | Session CRUD, report generation, cash reconciliation     |
 
 Pattern: `createTestDb()` with in-memory SQLite, `foreign_keys = ON`.
 
@@ -36,6 +37,7 @@ Pattern: `createTestDb()` with in-memory SQLite, `foreign_keys = ON`.
 | Components/payment               | `payment/PaymentModal.test.tsx`                                             |
 | Components/search                | `search/SearchModal.test.tsx`                                               |
 | Components/hold                  | `hold/HoldLookupModal.test.tsx`                                             |
+| Components/clock-out             | `clock-out/{ClockOutModal,ClockOutReport}.test.tsx`                         |
 | Components/layout                | `layout/HeaderBar.test.tsx`                                                 |
 | Components/common                | `common/{AppButton,ValidatedInput,FormField,TabBar,ConfirmDialog}.test.tsx` |
 | Components/inventory             | `inventory/{InventoryModal,FooterActionBar}.test.tsx`                       |
@@ -58,6 +60,7 @@ Pattern: Mock `window.api` in `beforeEach`, use `vi.mocked()`, Zustand `setState
 | `inventory-management.spec.ts`     | Departments, Tax Codes, Distributors CRUD |
 | `hold-transactions.spec.ts`        | Hold and recall                           |
 | `search-open-in-inventory.spec.ts` | Search → open in inventory                |
+| `clock-out.spec.ts`                | Clock out flow, PIN, report, print        |
 
 Pattern: `page.addInitScript()` to inject mock `window.api`. `loginWithPin` helper for auth bypass.
 

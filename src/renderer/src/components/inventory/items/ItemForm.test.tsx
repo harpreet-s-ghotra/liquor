@@ -25,7 +25,11 @@ const baseInventoryItem: InventoryProduct = {
   description: null,
   special_pricing_enabled: 0,
   special_price: null,
-  is_active: 1
+  is_active: 1,
+  item_type: null,
+  size: null,
+  case_cost: null,
+  nysla_discounts: null
 }
 
 const baseDetail = {

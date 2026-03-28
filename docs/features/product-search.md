@@ -79,10 +79,10 @@ A centered overlay modal following the existing modal pattern (like InventoryMod
 
 Two dropdown selects side by side:
 
-| Filter      | Source               | Default |
-| ----------- | -------------------- | ------- |
-| Department  | `getDepartments()`   | All     |
-| Distributor | `getDistributors()`  | All     |
+| Filter      | Source              | Default |
+| ----------- | ------------------- | ------- |
+| Department  | `getDepartments()`  | All     |
+| Distributor | `getDistributors()` | All     |
 
 Filters are applied _in combination_ with the search text. Changing a filter re-runs the search automatically if there is existing search text.
 
@@ -110,11 +110,11 @@ Positioned at the bottom of the modal (same pattern as other modals):
 [ Search items...                              ] [Go]
 ```
 
-| Element   | Spec                                                                       |
-| --------- | -------------------------------------------------------------------------- |
-| Input     | Full width minus Go button, `text-lg`, autofocus                           |
-| Go button | `size="md"`, triggers search                                               |
-| Enter key | Also triggers search                                                       |
+| Element   | Spec                                                                            |
+| --------- | ------------------------------------------------------------------------------- |
+| Input     | Full width minus Go button, `text-lg`, autofocus                                |
+| Go button | `size="md"`, triggers search                                                    |
+| Enter key | Also triggers search                                                            |
 | Behavior  | Searches by item name (LIKE %query%) with active department/distributor filters |
 
 ## Data Contract

@@ -6,7 +6,7 @@ import { tmpdir } from 'os'
 const bwipjs = require('bwip-js')
 import PDFDocument from 'pdfkit'
 import { getCashDrawerConfig, getReceiptConfig } from './cash-drawer'
-import type { PrintReceiptInput, ReceiptConfig } from '../../shared/types'
+import type { PrintReceiptInput, PrintClockOutReportInput, ReceiptConfig } from '../../shared/types'
 
 // Star TSP654: 72mm paper = ~204pt
 const PAGE_WIDTH = 204
@@ -200,7 +200,194 @@ function generateReceiptPdf(
   })
 }
 
+// ── Clock-out report PDF builder ─────────────────────────────────────────────
+
+function renderClockOutContent(
+  doc: PDFKit.PDFDocument,
+  input: PrintClockOutReportInput,
+  cfg: ReceiptConfig
+): void {
+  const contentWidth = PAGE_WIDTH - 2 * cfg.paddingX
+  const fmt = (n: number): string => (n < 0 ? `-$${Math.abs(n).toFixed(2)}` : `$${n.toFixed(2)}`)
+  const report = input.report
+  const session = report.session
+
+  const startDate = new Date(session.started_at)
+  const dateStr = startDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric'
+  })
+  const startTime = startDate.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  })
+  const endTime = session.ended_at
+    ? new Date(session.ended_at).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      })
+    : 'Active'
+
+  const storeName = (cfg.storeName || input.store_name).toUpperCase()
+
+  // Header
+  doc.font('Helvetica-Bold').fontSize(cfg.fontSize + 3)
+  doc.text(storeName, { align: 'center' })
+  doc.font('Helvetica-Bold').fontSize(cfg.fontSize + 1)
+  doc.text('END OF DAY REPORT', { align: 'center' })
+  doc.font('Helvetica').fontSize(cfg.fontSize)
+  doc.text(dateStr, { align: 'center' })
+  doc.text(`${startTime} - ${endTime}`, { align: 'center' })
+  doc.moveDown(0.2)
+  doc.text(`Opened by: ${session.opened_by_cashier_name}`, { align: 'center' })
+  if (session.closed_by_cashier_name) {
+    doc.text(`Closed by: ${session.closed_by_cashier_name}`, { align: 'center' })
+  }
+  doc.moveDown(0.3)
+  drawLine(doc, cfg.paddingX)
+
+  // Sales by Department
+  if (report.sales_by_department.length > 0) {
+    doc.font('Helvetica-Bold').fontSize(cfg.fontSize)
+    doc.text('SALES BY DEPARTMENT', cfg.paddingX)
+    doc.font('Helvetica').fontSize(cfg.fontSize)
+    for (const row of report.sales_by_department) {
+      const y = doc.y
+      doc.text(row.department_name, cfg.paddingX, y)
+      doc.text(fmt(row.total_amount), cfg.paddingX, y, { width: contentWidth, align: 'right' })
+    }
+    doc.moveDown(0.2)
+    drawLine(doc, cfg.paddingX)
+  }
+
+  // Payment Breakdown
+  doc.font('Helvetica-Bold').fontSize(cfg.fontSize)
+  doc.text('PAYMENT BREAKDOWN', cfg.paddingX)
+  doc.font('Helvetica').fontSize(cfg.fontSize)
+  labelValue(doc, 'Cash:', fmt(report.cash_total), cfg.paddingX)
+  labelValue(doc, 'Credit:', fmt(report.credit_total), cfg.paddingX)
+  labelValue(doc, 'Debit:', fmt(report.debit_total), cfg.paddingX)
+  doc.moveDown(0.2)
+  drawLine(doc, cfg.paddingX)
+
+  // Summary
+  doc.font('Helvetica-Bold').fontSize(cfg.fontSize)
+  doc.text('SUMMARY', cfg.paddingX)
+  doc.font('Helvetica').fontSize(cfg.fontSize)
+  labelValue(doc, 'Total Sales:', String(report.total_sales_count), cfg.paddingX)
+  labelValue(doc, 'Gross Sales:', fmt(report.gross_sales), cfg.paddingX)
+  labelValue(doc, 'Tax Collected:', fmt(report.total_tax_collected), cfg.paddingX)
+  labelValue(doc, 'Net Sales:', fmt(report.net_sales), cfg.paddingX)
+  labelValue(doc, 'Avg Transaction:', fmt(report.average_transaction_value), cfg.paddingX)
+  doc.moveDown(0.2)
+
+  // Refunds
+  if (report.total_refund_count > 0) {
+    labelValue(doc, 'Refunds:', String(report.total_refund_count), cfg.paddingX)
+    labelValue(doc, 'Refund Total:', fmt(report.total_refund_amount), cfg.paddingX)
+    doc.moveDown(0.2)
+  }
+  drawLine(doc, cfg.paddingX)
+
+  // Cash Reconciliation
+  doc.font('Helvetica-Bold').fontSize(cfg.fontSize)
+  doc.text('CASH RECONCILIATION', cfg.paddingX)
+  doc.font('Helvetica').fontSize(cfg.fontSize)
+  labelValue(doc, 'Cash Sales:', fmt(report.cash_total), cfg.paddingX)
+  const cashRefunds = report.cash_total - report.expected_cash_at_close
+  if (cashRefunds > 0) {
+    labelValue(doc, 'Cash Refunds:', `-${fmt(cashRefunds)}`, cfg.paddingX)
+  }
+  doc.font('Helvetica-Bold').fontSize(cfg.fontSize)
+  labelValue(doc, 'Expected Cash:', fmt(report.expected_cash_at_close), cfg.paddingX)
+  drawLine(doc, cfg.paddingX)
+
+  // Footer
+  doc.moveDown(0.3)
+  doc.font('Helvetica').fontSize(cfg.fontSize - 1)
+  doc.text(`Session #${session.id}`, cfg.paddingX, doc.y, {
+    width: contentWidth,
+    align: 'center'
+  })
+}
+
+function measureClockOutHeight(input: PrintClockOutReportInput, cfg: ReceiptConfig): number {
+  const doc = new PDFDocument({
+    size: [PAGE_WIDTH, 2000],
+    margins: { top: cfg.paddingY, bottom: 0, left: cfg.paddingX, right: cfg.paddingX }
+  })
+  doc.on('data', () => {})
+  renderClockOutContent(doc, input, cfg)
+  const finalY = doc.y
+  doc.end()
+  return finalY
+}
+
+function generateClockOutPdf(input: PrintClockOutReportInput, cfg: ReceiptConfig): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const contentEndY = measureClockOutHeight(input, cfg)
+    const pageHeight = Math.ceil(contentEndY + cfg.paddingY)
+
+    const doc = new PDFDocument({
+      size: [PAGE_WIDTH, pageHeight],
+      margins: {
+        top: cfg.paddingY,
+        bottom: cfg.paddingY,
+        left: cfg.paddingX,
+        right: cfg.paddingX
+      }
+    })
+
+    const chunks: Buffer[] = []
+    doc.on('data', (c: Buffer) => chunks.push(c))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+
+    renderClockOutContent(doc, input, cfg)
+    doc.end()
+  })
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
+
+export async function printClockOutReport(input: PrintClockOutReportInput): Promise<void> {
+  const config = getCashDrawerConfig()
+  if (!config || config.type !== 'usb') {
+    throw new Error('Receipt printer not configured')
+  }
+
+  const cfg = getReceiptConfig()
+  const pdf = await generateClockOutPdf(input, cfg)
+  const tmpFile = join(tmpdir(), `clock-out-report-${Date.now()}.pdf`)
+  writeFileSync(tmpFile, pdf)
+
+  return new Promise((resolve, reject) => {
+    execFile(
+      'lp',
+      [
+        '-d',
+        config.printerName,
+        '-o',
+        'DocCutType=1PartialCutDoc',
+        '-o',
+        'PageCutType=0NoCutPage',
+        tmpFile
+      ],
+      (err) => {
+        try {
+          unlinkSync(tmpFile)
+        } catch {
+          /* ignore cleanup errors */
+        }
+        if (err) reject(new Error(`Print failed: ${err.message}`))
+        else resolve()
+      }
+    )
+  })
+}
 
 export async function printReceipt(input: PrintReceiptInput): Promise<void> {
   const config = getCashDrawerConfig()

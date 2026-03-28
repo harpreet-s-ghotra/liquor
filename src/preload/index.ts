@@ -37,7 +37,13 @@ import type {
   TransactionListFilter,
   TransactionListResult,
   PrintReceiptInput,
-  ReceiptConfig
+  ReceiptConfig,
+  Session,
+  CreateSessionInput,
+  CloseSessionInput,
+  ClockOutReport,
+  SessionListResult,
+  PrintClockOutReportInput
 } from '../shared/types'
 
 // Custom APIs for renderer
@@ -158,7 +164,20 @@ const api = {
   saveReceiptConfig: (config: ReceiptConfig): Promise<void> =>
     ipcRenderer.invoke('peripheral:save-receipt-config', config),
   getPrinterStatus: (): Promise<{ connected: boolean; printerName: string | null }> =>
-    ipcRenderer.invoke('peripheral:get-printer-status')
+    ipcRenderer.invoke('peripheral:get-printer-status'),
+
+  // Sessions
+  getActiveSession: (): Promise<Session | null> => ipcRenderer.invoke('sessions:get-active'),
+  createSession: (input: CreateSessionInput): Promise<Session> =>
+    ipcRenderer.invoke('sessions:create', input),
+  closeSession: (input: CloseSessionInput): Promise<Session> =>
+    ipcRenderer.invoke('sessions:close', input),
+  listSessions: (limit?: number, offset?: number): Promise<SessionListResult> =>
+    ipcRenderer.invoke('sessions:list', limit, offset),
+  getSessionReport: (sessionId: number): Promise<ClockOutReport> =>
+    ipcRenderer.invoke('sessions:report', sessionId),
+  printClockOutReport: (input: PrintClockOutReportInput): Promise<void> =>
+    ipcRenderer.invoke('sessions:print-report', input)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

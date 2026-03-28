@@ -46,7 +46,12 @@ import {
   saveHeldTransaction,
   getHeldTransactions,
   deleteHeldTransaction,
-  clearAllHeldTransactions
+  clearAllHeldTransactions,
+  createSession,
+  getActiveSession,
+  closeSession,
+  listSessions,
+  generateClockOutReport
 } from './database'
 import {
   validateApiKey,
@@ -63,7 +68,7 @@ import {
   checkPrinterConnected
 } from './services/cash-drawer'
 import type { CashDrawerConfig } from './services/cash-drawer'
-import { printReceipt } from './services/receipt-printer'
+import { printReceipt, printClockOutReport } from './services/receipt-printer'
 import type {
   DirectChargeInput,
   TerminalChargeInput,
@@ -73,7 +78,10 @@ import type {
   SearchProductFilters,
   TransactionListFilter,
   PrintReceiptInput,
-  ReceiptConfig
+  ReceiptConfig,
+  CreateSessionInput,
+  CloseSessionInput,
+  PrintClockOutReportInput
 } from '../shared/types'
 
 function createWindow(): void {
@@ -478,6 +486,55 @@ app.whenReady().then(() => {
       clearAllHeldTransactions()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to clear held transactions')
+    }
+  })
+
+  // Sessions
+  ipcMain.handle('sessions:get-active', async () => {
+    try {
+      return getActiveSession()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get active session')
+    }
+  })
+
+  ipcMain.handle('sessions:create', async (_, input: CreateSessionInput) => {
+    try {
+      return createSession(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to create session')
+    }
+  })
+
+  ipcMain.handle('sessions:close', async (_, input: CloseSessionInput) => {
+    try {
+      return closeSession(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to close session')
+    }
+  })
+
+  ipcMain.handle('sessions:list', async (_, limit?: number, offset?: number) => {
+    try {
+      return listSessions(limit ?? 25, offset ?? 0)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list sessions')
+    }
+  })
+
+  ipcMain.handle('sessions:report', async (_, sessionId: number) => {
+    try {
+      return generateClockOutReport(sessionId)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to generate report')
+    }
+  })
+
+  ipcMain.handle('sessions:print-report', async (_, input: PrintClockOutReportInput) => {
+    try {
+      await printClockOutReport(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to print report')
     }
   })
 

@@ -11,6 +11,7 @@
  *   distributors.repo.ts - distributor CRUD
  *   sales-reps.repo.ts  - sales rep CRUD
  *   transactions.repo.ts - transaction saving & history
+ *   sessions.repo.ts     - register session CRUD & clock-out reports
  */
 
 // Schema / lifecycle
@@ -87,6 +88,15 @@ export {
   deleteCashier
 } from './cashiers.repo'
 
+// Sessions
+export {
+  createSession,
+  getActiveSession,
+  closeSession,
+  listSessions,
+  generateClockOutReport
+} from './sessions.repo'
+
 // Re-export shared types so existing consumers (main/index.ts) don't break
 export type {
   SaveInventoryItemInput,
@@ -110,5 +120,11 @@ export type {
   UpdateCashierInput,
   SaveTransactionInput,
   SavedTransaction,
-  TransactionHistoryItem
+  TransactionHistoryItem,
+  Session,
+  CreateSessionInput,
+  CloseSessionInput,
+  ClockOutReport,
+  SessionListResult,
+  PrintClockOutReportInput
 } from '../../shared/types'

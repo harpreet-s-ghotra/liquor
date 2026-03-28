@@ -18,8 +18,10 @@
 | [Pricing Engine](features/pricing-engine.md)           | Complete    | Special pricing, mix-and-match, pricing engine architecture     |
 | [Product Search](features/product-search.md)           | Complete    | Search modal, filters, product lookup flow                      |
 | [Returns and Refunds](features/returns-and-refunds.md) | Complete    | Return workflow, refund scenarios, inventory impact             |
+| [Clock In/Clock Out](features/clock-in-clock-out.md)   | Complete    | Register sessions, end-of-day report, cash reconciliation       |
 | [Stax Activation](features/stax-activation.md)         | Complete    | Merchant activation flow, cashier PIN login, auth state machine |
 | [Stax Integration](features/stax-integration.md)       | In Progress | Partner API, endpoints, test cards, webhooks                    |
+| [NYSLA Schema Alignment](features/nysla-schema-alignment.md) | Complete | Inventory fields aligned with NYSLA Price Postings for future import |
 
 ## AI Navigation
 

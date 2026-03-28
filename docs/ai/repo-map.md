@@ -55,6 +55,7 @@ Channels follow `entity:action` pattern:
 - `merchant:get-config`, `merchant:activate`, `merchant:deactivate`
 - `transactions:save`, `transactions:recent`, `transactions:get-by-number`, `transactions:save-refund`, `transactions:list`
 - `held-transactions:save`, `held-transactions:list`, `held-transactions:delete`, `held-transactions:clear-all`
+- `sessions:get-active`, `sessions:create`, `sessions:close`, `sessions:list`, `sessions:report`, `sessions:print-report`
 - `stax:terminal:registers`, `stax:terminal:charge`
 
 ## Auth State Machine

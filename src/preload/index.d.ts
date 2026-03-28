@@ -36,7 +36,13 @@ import type {
   TransactionListFilter,
   TransactionListResult,
   PrintReceiptInput,
-  ReceiptConfig
+  ReceiptConfig,
+  Session,
+  CreateSessionInput,
+  CloseSessionInput,
+  ClockOutReport,
+  SessionListResult,
+  PrintClockOutReportInput
 } from '../shared/types'
 
 type AppApi = {
@@ -109,6 +115,14 @@ type AppApi = {
   getReceiptConfig: () => Promise<ReceiptConfig>
   saveReceiptConfig: (config: ReceiptConfig) => Promise<void>
   getPrinterStatus: () => Promise<{ connected: boolean; printerName: string | null }>
+
+  // Sessions
+  getActiveSession: () => Promise<Session | null>
+  createSession: (input: CreateSessionInput) => Promise<Session>
+  closeSession: (input: CloseSessionInput) => Promise<Session>
+  listSessions: (limit?: number, offset?: number) => Promise<SessionListResult>
+  getSessionReport: (sessionId: number) => Promise<ClockOutReport>
+  printClockOutReport: (input: PrintClockOutReportInput) => Promise<void>
 }
 
 declare global {

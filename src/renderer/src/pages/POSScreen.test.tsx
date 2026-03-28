@@ -112,7 +112,9 @@ describe('POSScreen', () => {
         storeName: '',
         footerMessage: '',
         alwaysPrint: false
-      })
+      }),
+      listSessions: vi.fn().mockResolvedValue({ sessions: [], total_count: 0 }),
+      createSession: vi.fn().mockResolvedValue({ id: 1, status: 'active' })
     }
   })
 
@@ -354,10 +356,8 @@ describe('POSScreen', () => {
   it('prints viewed transaction when Receipt button is clicked', () => {
     const printReceipt = vi.fn().mockResolvedValue(undefined)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).api = {
-      ...(window as any).api,
-      printReceipt
-    }
+    const win = window as any
+    win.api = { ...win.api, printReceipt }
 
     mockUsePosScreen.mockReturnValue(
       createDefaultMock({
@@ -509,5 +509,16 @@ describe('POSScreen', () => {
         ])
       })
     )
+  })
+
+  it('opens clock out modal when F3 is pressed', async () => {
+    mockUsePosScreen.mockReturnValue(createDefaultMock())
+    render(<POSScreen />)
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'F3' })
+    })
+
+    expect(screen.getByRole('dialog', { name: 'Sessions' })).toBeInTheDocument()
   })
 })

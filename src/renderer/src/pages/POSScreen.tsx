@@ -1,3 +1,4 @@
+import { ClockOutModal } from '@renderer/components/clock-out/ClockOutModal'
 import { InventoryModal } from '@renderer/components/inventory/InventoryModal'
 import { PaymentModal } from '@renderer/components/payment/PaymentModal'
 import { PrinterSettingsModal } from '@renderer/components/printer/PrinterSettingsModal'
@@ -27,6 +28,7 @@ export function POSScreen(): React.JSX.Element {
   const [isPaymentComplete, setIsPaymentComplete] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSalesHistoryOpen, setIsSalesHistoryOpen] = useState(false)
+  const [isClockOutOpen, setIsClockOutOpen] = useState(false)
   const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false)
   const [alwaysPrint, setAlwaysPrint] = useState(false)
   const [searchKey, setSearchKey] = useState(0)
@@ -39,12 +41,16 @@ export function POSScreen(): React.JSX.Element {
   const logout = useAuthStore((s) => s.logout)
   const showError = useAlertStore((s) => s.showError)
 
-  // Ctrl+L keyboard shortcut for logout
+  // Keyboard shortcuts: Ctrl+L for logout, F3 for clock out
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
         e.preventDefault()
         logout()
+      }
+      if (e.key === 'F3') {
+        e.preventDefault()
+        setIsClockOutOpen(true)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -112,7 +118,7 @@ export function POSScreen(): React.JSX.Element {
     void window.api?.getReceiptConfig?.()?.then((cfg) => {
       if (cfg) setAlwaysPrint(cfg.alwaysPrint ?? false)
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   const focusSearch = useCallback(() => {
     setTimeout(() => searchRef.current?.focus(), 0)
@@ -479,6 +485,7 @@ export function POSScreen(): React.JSX.Element {
 
       <BottomShortcutBar
         onInventoryClick={() => setIsInventoryOpen(true)}
+        onClockOutClick={() => setIsClockOutOpen(true)}
         onSalesHistoryClick={() => setIsSalesHistoryOpen(true)}
       />
 
@@ -547,6 +554,14 @@ export function POSScreen(): React.JSX.Element {
         onStatusChange={handlePaymentStatusChange}
         isRefund={isReturning}
         alwaysPrint={alwaysPrint}
+      />
+
+      <ClockOutModal
+        isOpen={isClockOutOpen}
+        onClose={() => {
+          setIsClockOutOpen(false)
+          focusSearch()
+        }}
       />
 
       <ErrorModal

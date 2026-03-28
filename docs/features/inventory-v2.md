@@ -94,17 +94,17 @@ type InventoryFormState = {
 
 **Unit / Component tests (Vitest + Testing Library):**
 
-| File                       | What it covers                                                          |
-| -------------------------- | ----------------------------------------------------------------------- |
-| `InventoryModal.test.tsx`  | Tab switching between Items / Departments / Tax Codes / Distributors    |
-| `ItemForm.test.tsx`        | Form validation, field errors, currency parsing, save flow, search      |
-| `DepartmentPanel.test.tsx` | CRUD: create, edit, delete, search filter                               |
-| `TaxCodePanel.test.tsx`    | CRUD: create, edit, delete                                              |
-| `DistributorPanel.test.tsx` | CRUD: create, edit, delete, validation                                 |
-| `TabBar.test.tsx`          | Tab switching, aria attributes                                          |
-| `currency.test.ts`         | formatCurrency, parseCurrencyDigitsToDollars, normalizeCurrencyForInput |
-| `pricing-engine.test.ts`   | Group deals, special pricing application, totals                        |
-| `POSScreen.test.tsx`       | Inventory modal open/close, product reload on close                     |
+| File                        | What it covers                                                          |
+| --------------------------- | ----------------------------------------------------------------------- |
+| `InventoryModal.test.tsx`   | Tab switching between Items / Departments / Tax Codes / Distributors    |
+| `ItemForm.test.tsx`         | Form validation, field errors, currency parsing, save flow, search      |
+| `DepartmentPanel.test.tsx`  | CRUD: create, edit, delete, search filter                               |
+| `TaxCodePanel.test.tsx`     | CRUD: create, edit, delete                                              |
+| `DistributorPanel.test.tsx` | CRUD: create, edit, delete, validation                                  |
+| `TabBar.test.tsx`           | Tab switching, aria attributes                                          |
+| `currency.test.ts`          | formatCurrency, parseCurrencyDigitsToDollars, normalizeCurrencyForInput |
+| `pricing-engine.test.ts`    | Group deals, special pricing application, totals                        |
+| `POSScreen.test.tsx`        | Inventory modal open/close, product reload on close                     |
 
 **E2E tests (Playwright):**
 
@@ -351,17 +351,17 @@ All button text: Work Sans Black, 9–11px, uppercase.
 
 ### Unit / Component Tests
 
-| File                       | What changes                                                                                                                                                                                                                                                                                                                                                                |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `InventoryModal.test.tsx`  | Button assertions: "New Item" / "Save Item" no longer in header; assert they exist in footer instead. Modal sizing assertions.                                                                                                                                                                                                                                              |
-| `ItemForm.test.tsx`        | **Most impacted.** Update: (1) field label queries (`item_name` label becomes "Description"), (2) dept/tax selectors now single-select, (3) search bar render location (now in footer, not ItemForm), (4) new fields (item_type, checkboxes, bonus points, etc.), (5) computed fields (final price, profit margin) update on input change, (6) "Discard" button resets form |
-| `TabBar.test.tsx`          | Tab styling assertions — aria patterns stay the same but CSS class assertions change if any exist                                                                                                                                                                                                                                                                           |
-| `DepartmentPanel.test.tsx` | Visual/wrapper changes only; CRUD logic unchanged — check if any class-based selectors break                                                                                                                                                                                                                                                                                |
-| `TaxCodePanel.test.tsx`    | Same as above                                                                                                                                                                                                                                                                                                                                                               |
-| `DistributorPanel.test.tsx` | Same as above                                                                                                                                                                                                                                                                                                                                                              |
-| `POSScreen.test.tsx`       | No functional changes; verify inventory modal open/close still works                                                                                                                                                                                                                                                                                                        |
-| `currency.test.ts`         | No changes needed                                                                                                                                                                                                                                                                                                                                                           |
-| `pricing-engine.test.ts`   | No changes needed                                                                                                                                                                                                                                                                                                                                                           |
+| File                        | What changes                                                                                                                                                                                                                                                                                                                                                                |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `InventoryModal.test.tsx`   | Button assertions: "New Item" / "Save Item" no longer in header; assert they exist in footer instead. Modal sizing assertions.                                                                                                                                                                                                                                              |
+| `ItemForm.test.tsx`         | **Most impacted.** Update: (1) field label queries (`item_name` label becomes "Description"), (2) dept/tax selectors now single-select, (3) search bar render location (now in footer, not ItemForm), (4) new fields (item_type, checkboxes, bonus points, etc.), (5) computed fields (final price, profit margin) update on input change, (6) "Discard" button resets form |
+| `TabBar.test.tsx`           | Tab styling assertions — aria patterns stay the same but CSS class assertions change if any exist                                                                                                                                                                                                                                                                           |
+| `DepartmentPanel.test.tsx`  | Visual/wrapper changes only; CRUD logic unchanged — check if any class-based selectors break                                                                                                                                                                                                                                                                                |
+| `TaxCodePanel.test.tsx`     | Same as above                                                                                                                                                                                                                                                                                                                                                               |
+| `DistributorPanel.test.tsx` | Same as above                                                                                                                                                                                                                                                                                                                                                               |
+| `POSScreen.test.tsx`        | No functional changes; verify inventory modal open/close still works                                                                                                                                                                                                                                                                                                        |
+| `currency.test.ts`          | No changes needed                                                                                                                                                                                                                                                                                                                                                           |
+| `pricing-engine.test.ts`    | No changes needed                                                                                                                                                                                                                                                                                                                                                           |
 
 **New unit tests to write:**
 
@@ -378,7 +378,7 @@ All button text: Work Sans Black, 9–11px, uppercase.
 | File                           | What changes                                                                                                                                   |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `inventory.spec.ts`            | Search bar selector changes (it's now in the footer, not inside the form body). Update locator. Verify product selection still populates form. |
-| `inventory-management.spec.ts` | Department / Tax Code / Distributor CRUD selectors may change if locators relied on specific layout classes. Verify.                            |
+| `inventory-management.spec.ts` | Department / Tax Code / Distributor CRUD selectors may change if locators relied on specific layout classes. Verify.                           |
 | `transactions.spec.ts`         | No changes expected — this doesn't touch the inventory modal UI.                                                                               |
 
 **New E2E tests to write:**

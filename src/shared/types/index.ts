@@ -31,6 +31,15 @@ export type InventoryProduct = {
   special_pricing_enabled: number
   special_price: number | null
   is_active: number
+  item_type: string | null
+  size: string | null
+  case_cost: number | null
+  nysla_discounts: string | null
+}
+
+export type NyslaDiscount = {
+  amount: number
+  min_cases: number
 }
 
 export type InventorySalesHistory = {
@@ -61,6 +70,7 @@ export type SaveTransactionInput = {
   card_last_four?: string | null
   card_type?: string | null
   notes?: string | null
+  session_id?: number | null
   items: Array<{
     product_id: number
     product_name: string
@@ -81,6 +91,7 @@ export type SaveRefundInput = {
   stax_transaction_id?: string | null
   card_last_four?: string | null
   card_type?: string | null
+  session_id?: number | null
   items: Array<{
     product_id: number
     product_name: string
@@ -221,6 +232,10 @@ export type SaveInventoryItemInput = {
   additional_skus: string[]
   bottles_per_case: number
   case_discount_price: number | null
+  item_type: string
+  size: string
+  case_cost: number | null
+  nysla_discounts: string | null
 }
 
 export type InventoryTaxCode = {
@@ -455,4 +470,76 @@ export type TerminalChargeResult = {
   message: string
   /** Final terminal status */
   status: 'approved' | 'declined' | 'timeout' | 'error'
+}
+
+// ── Sessions (Clock In / Clock Out) ──
+
+/** A register session record stored in the database */
+export type Session = {
+  id: number
+  opened_by_cashier_id: number
+  opened_by_cashier_name: string
+  closed_by_cashier_id: number | null
+  closed_by_cashier_name: string | null
+  started_at: string
+  ended_at: string | null
+  status: 'active' | 'closed'
+}
+
+/** Input for creating a new session (on first login after clock-out or app launch) */
+export type CreateSessionInput = {
+  cashier_id: number
+  cashier_name: string
+}
+
+/** Input for closing a session (clock out) */
+export type CloseSessionInput = {
+  session_id: number
+  cashier_id: number
+  cashier_name: string
+}
+
+/** Sales breakdown by department for the End-of-Day report */
+export type DepartmentSalesRow = {
+  department_name: string
+  transaction_count: number
+  total_amount: number
+}
+
+/** Sales breakdown by payment method */
+export type PaymentMethodSalesRow = {
+  payment_method: string
+  transaction_count: number
+  total_amount: number
+}
+
+/** Full End-of-Day (clock-out) report data */
+export type ClockOutReport = {
+  session: Session
+  sales_by_department: DepartmentSalesRow[]
+  sales_by_payment_method: PaymentMethodSalesRow[]
+  total_sales_count: number
+  gross_sales: number
+  total_tax_collected: number
+  net_sales: number
+  total_refund_count: number
+  total_refund_amount: number
+  average_transaction_value: number
+  expected_cash_at_close: number
+  cash_total: number
+  credit_total: number
+  debit_total: number
+}
+
+/** Paginated list of sessions */
+export type SessionListResult = {
+  sessions: Session[]
+  total_count: number
+}
+
+/** Input for printing the clock-out report */
+export type PrintClockOutReportInput = {
+  store_name: string
+  cashier_name: string
+  report: ClockOutReport
 }

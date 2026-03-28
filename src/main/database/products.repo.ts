@@ -63,7 +63,11 @@ export function getInventoryProducts(): InventoryProduct[] {
         products.description,
         COALESCE(products.special_pricing_enabled, 0) AS special_pricing_enabled,
         products.special_price,
-        products.is_active
+        products.is_active,
+        products.item_type,
+        products.size,
+        products.case_cost,
+        products.nysla_discounts
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
@@ -168,7 +172,11 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
         products.description,
         COALESCE(products.special_pricing_enabled, 0) AS special_pricing_enabled,
         products.special_price,
-        products.is_active
+        products.is_active,
+        products.item_type,
+        products.size,
+        products.case_cost,
+        products.nysla_discounts
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
@@ -203,7 +211,11 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         products.description,
         COALESCE(products.special_pricing_enabled, 0) AS special_pricing_enabled,
         products.special_price,
-        products.is_active
+        products.is_active,
+        products.item_type,
+        products.size,
+        products.case_cost,
+        products.nysla_discounts
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.id = ?
@@ -500,7 +512,11 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
       quantity: payload.in_stock,
       distributor_number: payload.distributor_number,
       bottles_per_case: payload.bottles_per_case,
-      case_discount_price: payload.case_discount_price
+      case_discount_price: payload.case_discount_price,
+      item_type: payload.item_type || null,
+      size: payload.size || null,
+      case_cost: payload.case_cost,
+      nysla_discounts: payload.nysla_discounts
     }
 
     let productId = payload.item_number ?? inactiveMatch?.id
@@ -527,6 +543,10 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           distributor_number = @distributor_number,
           bottles_per_case = @bottles_per_case,
           case_discount_price = @case_discount_price,
+          item_type = @item_type,
+          size = @size,
+          case_cost = @case_cost,
+          nysla_discounts = @nysla_discounts,
           is_active = 1,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = @id
@@ -540,13 +560,15 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
             sku, name, category, price, cost, quantity, tax_rate,
             dept_id, retail_price, in_stock, tax_1, tax_2,
             special_pricing_enabled, special_price, distributor_number,
-            bottles_per_case, case_discount_price
+            bottles_per_case, case_discount_price,
+            item_type, size, case_cost, nysla_discounts
           )
           VALUES (
             @sku, @name, @category, @retail_price, @cost, @quantity, @tax_1,
             @dept_id, @retail_price, @in_stock, @tax_1, @tax_2,
             @special_pricing_enabled, @special_price, @distributor_number,
-            @bottles_per_case, @case_discount_price
+            @bottles_per_case, @case_discount_price,
+            @item_type, @size, @case_cost, @nysla_discounts
           )
           `
         )

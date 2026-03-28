@@ -411,6 +411,7 @@ All documentation lives in `docs/`. See `docs/README.md` for the full index.
 | `docs/features/pricing-engine.md`      | Special pricing rules, mix-and-match                             |
 | `docs/features/product-search.md`      | Search modal spec                                                |
 | `docs/features/returns-and-refunds.md` | Return workflow, refund scenarios                                |
+| `docs/features/clock-in-clock-out.md`  | Register sessions, end-of-day report, cash reconciliation        |
 | `docs/features/stax-activation.md`     | Auth flow spec                                                   |
 | `docs/features/stax-integration.md`    | Stax API endpoints, test cards, webhooks                         |
 

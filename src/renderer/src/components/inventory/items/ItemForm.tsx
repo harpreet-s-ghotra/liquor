@@ -5,7 +5,6 @@ import { Label } from '@renderer/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@renderer/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@renderer/components/ui/toggle-group'
 import { FormField } from '@renderer/components/common/FormField'
-import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
 import { InventoryInput, InventorySelect } from '@renderer/components/common/InventoryInput'
 import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { ErrorModal } from '@renderer/components/common/ErrorModal'
@@ -14,6 +13,7 @@ import type {
   InventoryProduct,
   InventoryProductDetail,
   InventoryTaxCode,
+  NyslaDiscount,
   SaveInventoryItemInput,
   SpecialPricingRule,
   Distributor,
@@ -52,6 +52,9 @@ type InventoryFormState = {
   bottles_per_case: string
   case_discount_price: string
   case_discount_mode: CaseDiscountMode
+  size: string
+  case_cost: string
+  nysla_discounts: string
 }
 
 const emptyFormState: InventoryFormState = {
@@ -68,7 +71,10 @@ const emptyFormState: InventoryFormState = {
   additional_skus: [],
   bottles_per_case: '12',
   case_discount_price: '',
-  case_discount_mode: 'percent'
+  case_discount_mode: 'percent',
+  size: '',
+  case_cost: '',
+  nysla_discounts: ''
 }
 
 export type ItemFormHandle = {
@@ -173,7 +179,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       item_number: detail.item_number,
       sku: detail.sku,
       item_name: detail.item_name,
-      item_type: '',
+      item_type: detail.item_type ?? '',
       dept_id: detail.dept_id
         ? (detail.dept_id
             .split(',')
@@ -197,7 +203,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         detail.case_discount_price != null ? formatCurrency(detail.case_discount_price) : '',
       case_discount_mode: (detail.case_discount_price != null
         ? 'dollar'
-        : 'percent') as CaseDiscountMode
+        : 'percent') as CaseDiscountMode,
+      size: detail.size ?? '',
+      case_cost: detail.case_cost != null ? formatCurrency(detail.case_cost) : '',
+      nysla_discounts: detail.nysla_discounts ?? ''
     })
   }
 
@@ -347,6 +356,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       item_number: formState.item_number,
       sku: formState.sku.trim(),
       item_name: formState.item_name.trim(),
+      item_type: formState.item_type.trim(),
       dept_id: formState.dept_id,
       distributor_number: formState.distributor_number
         ? Number.parseInt(formState.distributor_number, 10)
@@ -372,7 +382,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           return Math.round(fullCasePrice * (1 - pct / 100) * 100) / 100
         }
         return parseCurrencyDigitsToDollars(formState.case_discount_price)
-      })()
+      })(),
+      size: formState.size.trim(),
+      case_cost: formState.case_cost ? parseCurrencyDigitsToDollars(formState.case_cost) : null,
+      nysla_discounts: formState.nysla_discounts.trim() || null
     }
   }
 
@@ -409,7 +422,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   }
 
   const updateCurrencyField = (
-    field: 'cost' | 'retail_price' | 'case_discount_price',
+    field: 'cost' | 'retail_price' | 'case_discount_price' | 'case_cost',
     value: string
   ): void => {
     setFormState((current) => ({
@@ -565,7 +578,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         </div>
 
         <div className="item-form__fields">
-          {/* ── Row 1: Department | Item Type | SKU | Cost ── */}
+          {/* ── Row 1: Department | Item Type | SKU | Size ── */}
 
           {/* Department */}
           <div>
@@ -621,9 +634,45 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             {showValidation && fieldErrors.sku && <p className={errCls}>{fieldErrors.sku}</p>}
           </div>
 
-          {/* Cost */}
+          {/* Size */}
           <div>
-            <label className={labelCls}>Cost {requiredStar}</label>
+            <label className={labelCls}>Size</label>
+            <InventorySelect
+              aria-label="Size"
+              value={formState.size}
+              onChange={(e) => setFormState((c) => ({ ...c, size: e.target.value }))}
+            >
+              <option value="">None</option>
+              {['50ML', '187ML', '200ML', '500ML', '750ML', '1L', '1.5L', '2L', '4L'].map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </InventorySelect>
+          </div>
+
+          {/* ── Row 2: Item (×2) | Per Bottle Cost | Per Case ── */}
+
+          {/* Item */}
+          <div className="item-form__field-span-2">
+            <label className={labelCls}>Item {requiredStar}</label>
+            <InventoryInput
+              type="text"
+              aria-label="Name"
+              hasError={showValidation && !!fieldErrors.item_name}
+              value={formState.item_name}
+              onChange={(e) => setFormState((c) => ({ ...c, item_name: e.target.value }))}
+              maxLength={NAME_MAX_LENGTH}
+              placeholder="Item name"
+            />
+            {showValidation && fieldErrors.item_name && (
+              <p className={errCls}>{fieldErrors.item_name}</p>
+            )}
+          </div>
+
+          {/* Per Bottle Cost */}
+          <div>
+            <label className={labelCls}>Per Bottle Cost {requiredStar}</label>
             <InventoryInput
               type="text"
               aria-label="Cost"
@@ -637,23 +686,33 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             {showValidation && fieldErrors.cost && <p className={errCls}>{fieldErrors.cost}</p>}
           </div>
 
-          {/* ── Row 2: Description (×2) | Price You Charge | # In Stock ── */}
-
-          {/* Description */}
-          <div className="item-form__field-span-2">
-            <label className={labelCls}>Description {requiredStar}</label>
+          {/* Per Case */}
+          <div>
+            <label className={labelCls}>Per Case</label>
             <InventoryInput
               type="text"
-              aria-label="Name"
-              hasError={showValidation && !!fieldErrors.item_name}
-              value={formState.item_name}
-              onChange={(e) => setFormState((c) => ({ ...c, item_name: e.target.value }))}
-              maxLength={NAME_MAX_LENGTH}
-              placeholder="Item description"
+              aria-label="Per Case Cost"
+              inputMode="numeric"
+              className="item-form__cost-input"
+              value={formState.case_cost}
+              onChange={(e) => updateCurrencyField('case_cost', e.target.value)}
+              placeholder="$0.00"
             />
-            {showValidation && fieldErrors.item_name && (
-              <p className={errCls}>{fieldErrors.item_name}</p>
-            )}
+          </div>
+
+          {/* ── Row 3: Bottle Per Case | Price You Charge | # In Stock | Tax Profile ── */}
+
+          {/* Bottle Per Case */}
+          <div>
+            <label className={labelCls}>Bottle Per Case</label>
+            <InventoryInput
+              type="text"
+              aria-label="Bottles Per Case"
+              inputMode="numeric"
+              value={formState.bottles_per_case}
+              onChange={(e) => setFormState((c) => ({ ...c, bottles_per_case: e.target.value }))}
+              placeholder="e.g. 12"
+            />
           </div>
 
           {/* Price You Charge */}
@@ -698,8 +757,6 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             )}
           </div>
 
-          {/* ── Row 3: Tax Profile | Final w/ Tax | Profit Margin (×2) ── */}
-
           {/* Tax Profile */}
           <div>
             <label className={labelCls}>Tax Profile</label>
@@ -720,6 +777,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               <p className={errCls}>{fieldErrors.tax_rate}</p>
             )}
           </div>
+
+          {/* ── Row 4: Final w/ Tax | Profit Margin (×2) | Discounts ── */}
 
           {/* Final w/ Tax */}
           <div>
@@ -752,6 +811,29 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               {profitMargin != null ? `${profitMargin.toFixed(1)}%` : '—'}
             </div>
           </div>
+
+          {/* Discounts */}
+          <div>
+            <label className={labelCls}>Discounts</label>
+            <div className="item-form__discounts-display" aria-label="NYSLA Discounts">
+              {formState.nysla_discounts ? (
+                (() => {
+                  try {
+                    const tiers = JSON.parse(formState.nysla_discounts) as NyslaDiscount[]
+                    return tiers.map((tier, i) => (
+                      <span key={i} className="item-form__discount-tier">
+                        {formatCurrency(tier.amount)} on {tier.min_cases} Case
+                      </span>
+                    ))
+                  } catch {
+                    return <span className="item-form__discount-tier">—</span>
+                  }
+                })()
+              ) : (
+                <span className="item-form__discount-tier item-form__discount-tier--none">—</span>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -776,17 +858,6 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           {/* Case & Quantity */}
           <TabsContent value="case-settings" className="item-form__tab-panel">
             <div className="item-form__case-grid">
-              <FormField label="Bottles Per Case">
-                <ValidatedInput
-                  fieldType="integer"
-                  aria-label="Bottles Per Case"
-                  value={formState.bottles_per_case}
-                  onChange={(value) =>
-                    setFormState((current) => ({ ...current, bottles_per_case: value }))
-                  }
-                  placeholder="e.g. 12"
-                />
-              </FormField>
               <FormField label="Case Discount">
                 <div
                   className="item-form__case-mode-field"

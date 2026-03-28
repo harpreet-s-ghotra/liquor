@@ -1,4 +1,5 @@
 import { getDb } from './connection'
+import { normalizeTimestamp, toSqliteFormat } from './utils'
 import type {
   SaveRefundInput,
   SaveTransactionInput,
@@ -21,18 +22,24 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
   const txNumber = `TXN-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
   const tx = db.transaction(() => {
+    // Attach to active session if one exists
+    const activeSession = db
+      .prepare("SELECT id FROM sessions WHERE status = 'active' ORDER BY started_at DESC LIMIT 1")
+      .get() as { id: number } | undefined
+    const sessionId = input.session_id ?? activeSession?.id ?? null
+
     const result = db
       .prepare(
         `
         INSERT INTO transactions (
           transaction_number, subtotal, tax_amount, total,
           payment_method, stax_transaction_id, card_last_four, card_type,
-          status, notes
+          status, notes, session_id
         )
         VALUES (
           @transaction_number, @subtotal, @tax_amount, @total,
           @payment_method, @stax_transaction_id, @card_last_four, @card_type,
-          'completed', @notes
+          'completed', @notes, @session_id
         )
         `
       )
@@ -45,7 +52,8 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
         stax_transaction_id: input.stax_transaction_id ?? null,
         card_last_four: input.card_last_four ?? null,
         card_type: input.card_type ?? null,
-        notes: input.notes ?? null
+        notes: input.notes ?? null,
+        session_id: sessionId
       })
 
     const transactionId = Number(result.lastInsertRowid)
@@ -108,9 +116,10 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
  * Get recent transactions, most recent first.
  */
 export function getRecentTransactions(limit = 50): SavedTransaction[] {
-  return getDb()
-    .prepare(
-      `
+  return (
+    getDb()
+      .prepare(
+        `
       SELECT
         id, transaction_number, subtotal, tax_amount, total,
         payment_method, stax_transaction_id, card_last_four, card_type,
@@ -119,8 +128,9 @@ export function getRecentTransactions(limit = 50): SavedTransaction[] {
       ORDER BY created_at DESC
       LIMIT ?
       `
-    )
-    .all(limit) as SavedTransaction[]
+      )
+      .all(limit) as SavedTransaction[]
+  ).map((r) => ({ ...r, created_at: normalizeTimestamp(r.created_at) }))
 }
 
 /**
@@ -145,6 +155,8 @@ export function getTransactionByNumber(txnNumber: string): TransactionDetail | n
 
   if (!row) return null
 
+  const normalizedRow = { ...row, created_at: normalizeTimestamp(row.created_at) }
+
   const items = db
     .prepare(
       `
@@ -156,16 +168,17 @@ export function getTransactionByNumber(txnNumber: string): TransactionDetail | n
     )
     .all(row.id) as TransactionLineItem[]
 
-  return { ...row, items }
+  return { ...normalizedRow, items }
 }
 
 /**
  * Get detailed sales history for a specific product, including payment info.
  */
 export function getProductSalesHistory(productId: number, limit = 20): TransactionHistoryItem[] {
-  return getDb()
-    .prepare(
-      `
+  return (
+    getDb()
+      .prepare(
+        `
       SELECT
         t.id           AS transaction_id,
         t.transaction_number,
@@ -184,8 +197,9 @@ export function getProductSalesHistory(productId: number, limit = 20): Transacti
       ORDER BY t.created_at DESC
       LIMIT ?
       `
-    )
-    .all(productId, limit) as TransactionHistoryItem[]
+      )
+      .all(productId, limit) as TransactionHistoryItem[]
+  ).map((r) => ({ ...r, created_at: normalizeTimestamp(r.created_at) }))
 }
 
 /**
@@ -201,11 +215,11 @@ export function listTransactions(filter: TransactionListFilter = {}): Transactio
 
   if (date_from) {
     conditions.push('t.created_at >= @date_from')
-    params.date_from = date_from
+    params.date_from = toSqliteFormat(date_from)
   }
   if (date_to) {
     conditions.push('t.created_at <= @date_to')
-    params.date_to = date_to
+    params.date_to = toSqliteFormat(date_to)
   }
   if (status) {
     conditions.push('t.status = @status')
@@ -228,9 +242,10 @@ export function listTransactions(filter: TransactionListFilter = {}): Transactio
     .prepare(`SELECT COUNT(DISTINCT t.id) AS cnt FROM transactions t ${whereClause}`)
     .get(params) as { cnt: number }
 
-  const rows = db
-    .prepare(
-      `
+  const rows = (
+    db
+      .prepare(
+        `
       SELECT
         t.id, t.transaction_number, t.subtotal, t.tax_amount, t.total,
         t.payment_method, t.stax_transaction_id, t.card_last_four, t.card_type,
@@ -243,8 +258,9 @@ export function listTransactions(filter: TransactionListFilter = {}): Transactio
       ORDER BY t.created_at DESC
       LIMIT @limit OFFSET @offset
       `
-    )
-    .all({ ...params, limit, offset }) as TransactionSummary[]
+      )
+      .all({ ...params, limit, offset }) as TransactionSummary[]
+  ).map((r) => ({ ...r, created_at: normalizeTimestamp(r.created_at) }))
 
   return { transactions: rows, total_count: countRow.cnt }
 }
@@ -258,18 +274,24 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
   const txNumber = `TXN-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
   const tx = db.transaction(() => {
+    // Attach to active session if one exists
+    const activeSession = db
+      .prepare("SELECT id FROM sessions WHERE status = 'active' ORDER BY started_at DESC LIMIT 1")
+      .get() as { id: number } | undefined
+    const sessionId = input.session_id ?? activeSession?.id ?? null
+
     const result = db
       .prepare(
         `
         INSERT INTO transactions (
           transaction_number, subtotal, tax_amount, total,
           payment_method, stax_transaction_id, card_last_four, card_type,
-          status, original_transaction_id, notes
+          status, original_transaction_id, notes, session_id
         )
         VALUES (
           @transaction_number, @subtotal, @tax_amount, @total,
           @payment_method, @stax_transaction_id, @card_last_four, @card_type,
-          'refund', @original_transaction_id, @notes
+          'refund', @original_transaction_id, @notes, @session_id
         )
         `
       )
@@ -283,7 +305,8 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
         card_last_four: input.card_last_four ?? null,
         card_type: input.card_type ?? null,
         original_transaction_id: input.original_transaction_id,
-        notes: `Refund for ${input.original_transaction_number}`
+        notes: `Refund for ${input.original_transaction_number}`,
+        session_id: sessionId
       })
 
     const transactionId = Number(result.lastInsertRowid)

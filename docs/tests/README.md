@@ -13,8 +13,9 @@ Each file below documents one Playwright test spec. Every test is broken down in
 | [inventory-management.md](inventory-management.md)         | 9         | Full CRUD for departments, tax codes, vendors, items |
 | [search-open-in-inventory.md](search-open-in-inventory.md) | 1         | Search modal to inventory bridge                     |
 | [stax-payments.md](stax-payments.md)                       | 9         | Terminal card payments (Stax)                        |
+| [clock-out.md](clock-out.md)                               | 9         | Clock out, session list, EOD report                  |
 
-**Total: 70 test cases**
+**Total: 79 test cases**
 
 ---
 

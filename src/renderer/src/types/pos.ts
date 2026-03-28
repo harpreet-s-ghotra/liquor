@@ -6,6 +6,7 @@ export type {
   InventoryProduct,
   InventoryProductDetail,
   InventorySalesHistory,
+  NyslaDiscount,
   SpecialPricingRule,
   SaveInventoryItemInput,
   InventoryTaxCode,
@@ -32,7 +33,15 @@ export type {
   SavedTransaction,
   TransactionDetail,
   TransactionLineItem,
-  TransactionHistoryItem
+  TransactionHistoryItem,
+  Session,
+  CreateSessionInput,
+  CloseSessionInput,
+  ClockOutReport,
+  DepartmentSalesRow,
+  PaymentMethodSalesRow,
+  SessionListResult,
+  PrintClockOutReportInput
 } from '../../../shared/types'
 
 // ── Renderer-only types ──

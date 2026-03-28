@@ -10,6 +10,7 @@ type AuthStoreState = {
   appState: AppState
   merchantConfig: MerchantConfig | null
   currentCashier: Cashier | null
+  currentSessionId: number | null
   loginAttempts: number
   lockoutUntil: number | null
   error: string | null
@@ -22,6 +23,7 @@ type AuthStoreActions = {
   login: (pin: string) => Promise<boolean>
   logout: () => void
   clearError: () => void
+  setCurrentSessionId: (id: number | null) => void
 }
 
 type AuthStore = AuthStoreState & AuthStoreActions
@@ -31,6 +33,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   appState: 'loading',
   merchantConfig: null,
   currentCashier: null,
+  currentSessionId: null,
   loginAttempts: 0,
   lockoutUntil: null,
   error: null,
@@ -110,9 +113,25 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
       const cashier = await window.api!.validatePin(pin)
 
       if (cashier) {
+        // Check for or create an active session
+        let sessionId: number | null = null
+        try {
+          let session = await window.api!.getActiveSession()
+          if (!session) {
+            session = await window.api!.createSession({
+              cashier_id: cashier.id,
+              cashier_name: cashier.name
+            })
+          }
+          sessionId = session.id
+        } catch {
+          // Session management is non-critical — allow login to proceed
+        }
+
         set({
           appState: 'pos',
           currentCashier: cashier,
+          currentSessionId: sessionId,
           loginAttempts: 0,
           lockoutUntil: null,
           error: null
@@ -161,5 +180,12 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
    */
   clearError: () => {
     set({ error: null })
+  },
+
+  /**
+   * Update the current session ID (called after auto-creating a new session post-clock-out).
+   */
+  setCurrentSessionId: (id: number | null) => {
+    set({ currentSessionId: id })
   }
 }))

@@ -252,6 +252,19 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       item_count                   INTEGER NOT NULL,
       held_at                      DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      opened_by_cashier_id INTEGER NOT NULL,
+      opened_by_cashier_name TEXT NOT NULL,
+      closed_by_cashier_id INTEGER,
+      closed_by_cashier_name TEXT,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'closed')),
+      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      ended_at DATETIME,
+      FOREIGN KEY (opened_by_cashier_id) REFERENCES cashiers(id),
+      FOREIGN KEY (closed_by_cashier_id) REFERENCES cashiers(id)
+    );
   `)
 
   // ── Column migrations ──
@@ -260,6 +273,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('transactions', 'card_last_four', 'card_last_four TEXT')
   ensureColumn('transactions', 'card_type', 'card_type TEXT')
   ensureColumn('transactions', 'original_transaction_id', 'original_transaction_id INTEGER')
+  ensureColumn('transactions', 'session_id', 'session_id INTEGER')
 
   ensureColumn('products', 'dept_id', 'dept_id TEXT')
   ensureColumn('products', 'category_id', 'category_id INTEGER')
@@ -274,6 +288,10 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('products', 'special_pricing_enabled', 'special_pricing_enabled INTEGER DEFAULT 0')
   ensureColumn('products', 'special_price', 'special_price REAL')
   ensureColumn('products', 'is_active', 'is_active INTEGER NOT NULL DEFAULT 1')
+  ensureColumn('products', 'item_type', 'item_type TEXT')
+  ensureColumn('products', 'size', 'size TEXT')
+  ensureColumn('products', 'case_cost', 'case_cost REAL')
+  ensureColumn('products', 'nysla_discounts', 'nysla_discounts TEXT')
 
   // Special pricing column migrations
   ensureColumn('special_pricing', 'pricing_type', "pricing_type TEXT DEFAULT 'group'")
@@ -298,6 +316,9 @@ export function applySchema(database: InstanceType<typeof Database>): void {
     CREATE INDEX IF NOT EXISTS idx_product_alt_skus_alt_sku ON product_alt_skus(alt_sku);
     CREATE INDEX IF NOT EXISTS idx_special_pricing_product_id ON special_pricing(product_id);
     CREATE INDEX IF NOT EXISTS idx_sales_reps_distributor ON sales_reps(distributor_number);
+    CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
+    CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
+    CREATE INDEX IF NOT EXISTS idx_transactions_session_id ON transactions(session_id);
   `)
 
   // ── Backfill nullable columns ──

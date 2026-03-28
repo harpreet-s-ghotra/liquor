@@ -3,9 +3,9 @@
 .item-form {
   display: flex;
   flex-direction: column;
+  background: var(--bg-panel);
   height: 100%;
   overflow: hidden;
-  background: var(--bg-panel);
 }
 
 /* ── General Information section ── */
@@ -21,11 +21,11 @@
 }
 
 .item-form__section-title {
-  font-size: var(--text-sm);
-  font-weight: 900;
-  color: var(--text-label);
   text-transform: uppercase;
   letter-spacing: 1.5px;
+  color: var(--text-label);
+  font-size: var(--text-sm);
+  font-weight: 900;
 }
 
 .item-form__fields {
@@ -42,11 +42,11 @@
 .item-form__label {
   display: block;
   margin-bottom: 0.25rem;
-  font-size: var(--text-sm);
-  font-weight: 900;
-  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 1px;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 900;
 }
 
 .item-form__required-star {
@@ -54,19 +54,19 @@
 }
 
 .item-form__auto-badge {
+  opacity: 0.8;
   margin-left: 0.375rem;
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--accent-mint);
   text-transform: none;
   letter-spacing: normal;
-  opacity: 0.8;
+  color: var(--accent-mint);
+  font-size: 9px;
+  font-weight: 700;
 }
 
 .item-form__field-error {
   margin-top: 0.125rem;
-  font-size: 10px;
   color: var(--error);
+  font-size: 10px;
 }
 
 .item-form__sku-input {
@@ -74,35 +74,35 @@
 }
 
 .item-form__cost-input {
-  font-weight: 700;
   color: var(--semantic-danger-text);
+  font-weight: 700;
 }
 
 .item-form__price-input {
   background: var(--accent-mint-soft);
-  font-weight: 700;
   color: var(--accent-mint);
+  font-weight: 700;
 }
 
 .item-form__stock-input {
-  font-weight: 700;
   color: var(--accent-blue);
+  font-weight: 700;
 }
 
 .item-form__readonly-input {
   background: var(--bg-surface-soft);
-  font-weight: 700;
-  color: var(--text-muted);
   cursor: default;
+  color: var(--text-muted);
+  font-weight: 700;
 }
 
 .item-form__margin-display {
   display: flex;
   align-items: center;
-  height: 2.25rem;
   border-radius: var(--radius);
   background: var(--bg-surface);
   padding: 0 0.625rem;
+  height: 2.25rem;
   font-size: 14px;
   font-weight: 900;
 }
@@ -123,15 +123,34 @@
   color: var(--semantic-danger-text);
 }
 
+.item-form__discounts-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  height: 2.25rem;
+  overflow-y: auto;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+}
+
+.item-form__discount-tier {
+  display: block;
+  font-size: 0.75rem;
+}
+
+.item-form__discount-tier--none {
+  color: var(--text-muted);
+}
+
 /* ── Inner Tabs ── */
 
 .item-form__tabs {
   display: flex;
-  flex-direction: column;
   flex: 1;
+  flex-direction: column;
+  border-top: 1px solid var(--border-default);
   min-height: 0;
   overflow: hidden;
-  border-top: 1px solid var(--border-default);
 }
 
 .item-form__tab-list {
@@ -139,33 +158,33 @@
   flex-shrink: 0;
   gap: 0;
   justify-content: flex-start;
-  width: 100%;
-  height: auto;
   border-bottom: 1px solid var(--border-default);
   border-radius: 0;
   background: var(--bg-surface);
   padding: 0;
+  width: 100%;
+  height: auto;
 }
 
 .item-form__tab-trigger {
-  border-radius: 0;
   border-bottom: 3px solid transparent;
-  min-height: 44px;
+  border-radius: 0;
   background: transparent;
+  cursor: pointer;
   padding: 0.75rem 1.25rem;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-muted);
+  min-height: 44px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .item-form__tab-trigger[data-state='active'] {
   border-bottom-color: var(--btn-success-bg);
+  box-shadow: none;
   background: transparent;
   color: var(--text-primary);
-  box-shadow: none;
 }
 
 .item-form__tab-trigger:disabled {
@@ -195,38 +214,38 @@
 }
 
 .item-form__case-mode-field {
-  position: relative;
   display: flex;
+  position: relative;
   align-items: center;
-  min-height: 2.25rem;
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
-  background: var(--bg-input);
-  overflow: hidden;
   isolation: isolate;
+  background: var(--bg-input);
+  min-height: 2.25rem;
+  overflow: hidden;
 }
 
 .item-form__case-mode-field::before {
-  content: '';
   position: absolute;
   top: 0.375rem;
   right: 4.25rem;
   bottom: 0.375rem;
-  width: 1px;
-  background: var(--border-default);
   z-index: 1;
+  background: var(--border-default);
+  width: 1px;
+  content: '';
 }
 
 .item-form__case-mode-field::after {
-  content: '';
   position: absolute;
   top: 0.1875rem;
   right: 0.1875rem;
   bottom: 0.1875rem;
-  width: 4rem;
+  z-index: 0;
   border-radius: calc(var(--radius) - 0.125rem);
   background: var(--bg-surface-soft);
-  z-index: 0;
+  width: 4rem;
+  content: '';
 }
 
 .item-form__case-mode-field:focus-within {
@@ -236,12 +255,12 @@
 
 .item-form__case-mode-input {
   flex: 1;
-  min-width: 0;
+  z-index: 2;
   border: 0 !important;
+  box-shadow: none !important;
   background: transparent;
   padding-right: 4.5rem;
-  box-shadow: none !important;
-  z-index: 2;
+  min-width: 0;
 }
 
 .item-form__case-mode-input:focus {
@@ -261,9 +280,9 @@
   border-radius: 0;
   background: transparent;
   padding: 0 0.625rem;
+  color: var(--text-muted);
   font-size: 0.85rem;
   font-weight: 800;
-  color: var(--text-muted);
 }
 
 .item-form__case-mode-toggle-item:first-child {
@@ -285,20 +304,20 @@
 
 .item-form__case-hint {
   margin: 0;
+  color: var(--text-muted);
   font-size: 0.82rem;
   font-style: italic;
-  color: var(--text-muted);
 }
 
 .item-form__distributor-select {
   display: flex;
-  width: 100%;
-  border-radius: var(--radius);
+  outline: none;
   border: 1px solid var(--border-default);
+  border-radius: var(--radius);
   background: var(--bg-input);
   padding: 0.5rem 0.625rem;
+  width: 100%;
   color: var(--text-primary);
-  outline: none;
 }
 
 .item-form__distributor-select:focus {
@@ -324,29 +343,29 @@
 
 .item-form__sku-item {
   display: flex;
+  gap: 0.375rem;
   align-items: center;
   justify-content: space-between;
-  gap: 0.375rem;
   border-bottom: 1px solid var(--border-soft);
   padding: 0.25rem 0;
+  color: var(--text-primary);
   font-size: 0.92rem;
   font-weight: 600;
-  color: var(--text-primary);
 }
 
 /* ── Special Pricing tab ── */
 
 .item-form__sp-header {
   display: flex;
+  gap: 0.75rem;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
 }
 
 .item-form__sp-empty {
   margin: 0;
-  font-style: italic;
   color: var(--text-muted);
+  font-style: italic;
 }
 
 .item-form__sp-table {
@@ -357,10 +376,10 @@
 .item-form__sp-table th {
   border-bottom: 1px solid var(--border-soft);
   padding: 0.375rem 0.5rem;
+  text-align: left;
+  color: var(--text-primary);
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--text-primary);
-  text-align: left;
 }
 
 .item-form__sp-table td {
@@ -371,26 +390,26 @@
 
 .item-form__sh-empty {
   margin: 0;
-  font-style: italic;
   color: var(--text-muted);
+  font-style: italic;
 }
 
 .item-form__sh-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
   color: var(--text-primary);
+  font-size: 0.85rem;
 }
 
 .item-form__sh-table th {
   border-bottom: 1px solid var(--border-default);
   padding: 0.375rem 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
   text-align: left;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .item-form__sh-table td {
@@ -411,12 +430,12 @@
   appearance: none;
   border: none;
   background: transparent;
+  cursor: pointer;
   padding: 0;
+  text-decoration: underline;
+  color: var(--accent-blue);
   font-family: var(--font-mono);
   font-size: 0.8rem;
-  color: var(--accent-blue);
-  text-decoration: underline;
-  cursor: pointer;
 }
 
 .item-form__sh-refund-badge {
@@ -425,14 +444,14 @@
   border-radius: 0.25rem;
   background: rgba(127, 29, 29, 0.4);
   padding: 0.125rem 0.375rem;
+  color: #fca5a5;
   font-size: 0.7rem;
   font-weight: 700;
-  color: #fca5a5;
 }
 
 .item-form__sh-card-info {
-  font-size: 0.8rem;
   color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 /* ── Status messages ── */
@@ -448,14 +467,14 @@
 
 .item-form__status-success {
   margin: 0;
+  color: var(--semantic-success-text);
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--semantic-success-text);
 }
 
 .item-form__status-error {
   margin: 0;
+  color: var(--semantic-danger-text);
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--semantic-danger-text);
 }

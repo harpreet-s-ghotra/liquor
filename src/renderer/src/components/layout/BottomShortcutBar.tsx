@@ -4,12 +4,13 @@ import './bottom-shortcut-bar.css'
 
 type BottomShortcutBarProps = {
   onInventoryClick: () => void
+  onClockOutClick: () => void
   onSalesHistoryClick: () => void
 }
 
 const F_KEYS = [
   { key: 'F2', label: 'Inventory', action: 'inventory' },
-  { key: 'F3', label: 'Clock In/Out' },
+  { key: 'F3', label: 'Clock In/Out', action: 'clock-out' },
   { key: 'F4', label: 'Customers' },
   { key: 'F5', label: 'Reports' },
   { key: 'F6', label: 'Manager' },
@@ -33,6 +34,7 @@ function useCurrentTime(): string {
 
 export function BottomShortcutBar({
   onInventoryClick,
+  onClockOutClick,
   onSalesHistoryClick
 }: BottomShortcutBarProps): React.JSX.Element {
   const logout = useAuthStore((s) => s.logout)
@@ -50,9 +52,11 @@ export function BottomShortcutBar({
             onClick={
               action === 'inventory'
                 ? onInventoryClick
-                : action === 'sales-history'
-                  ? onSalesHistoryClick
-                  : undefined
+                : action === 'clock-out'
+                  ? onClockOutClick
+                  : action === 'sales-history'
+                    ? onSalesHistoryClick
+                    : undefined
             }
           >
             <span className="bottom-bar__key-badge">{key}</span>

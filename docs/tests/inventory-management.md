@@ -13,16 +13,16 @@ End-to-end CRUD tests for departments, tax codes, distributors, and items. Uses 
 
 Full round-trip: create supporting entities, create an item, close modal, verify on POS.
 
-| #   | Step                                                                           | Assertion                                              |
-| --- | ------------------------------------------------------------------------------ | ------------------------------------------------------ |
-| 1   | Log in, open inventory modal                                                   | Dialog visible                                         |
-| 2   | Switch to Departments tab                                                      | --                                                     |
-| 3   | Fill name "Wine", click Add                                                    | "Department created" toast; "Wine" in table            |
-| 4   | Switch to Tax Codes tab                                                        | --                                                     |
-| 5   | Fill code "HST", rate "13", click Add                                          | "Tax code created" toast; "HST" and "13%" in table     |
-| 6   | Switch to Distributors tab                                                     | --                                                     |
-| 7   | Fill distributor name "Premium Wines Inc", click Add                           | "Distributor created" toast; distributor in table      |
-| 8   | Switch to Items tab                                                            | --                                                     |
+| #   | Step                                                                           | Assertion                                          |
+| --- | ------------------------------------------------------------------------------ | -------------------------------------------------- |
+| 1   | Log in, open inventory modal                                                   | Dialog visible                                     |
+| 2   | Switch to Departments tab                                                      | --                                                 |
+| 3   | Fill name "Wine", click Add                                                    | "Department created" toast; "Wine" in table        |
+| 4   | Switch to Tax Codes tab                                                        | --                                                 |
+| 5   | Fill code "HST", rate "13", click Add                                          | "Tax code created" toast; "HST" and "13%" in table |
+| 6   | Switch to Distributors tab                                                     | --                                                 |
+| 7   | Fill distributor name "Premium Wines Inc", click Add                           | "Distributor created" toast; distributor in table  |
+| 8   | Switch to Items tab                                                            | --                                                 |
 | 9   | Fill SKU, name "Test Merlot 750ml", dept "Wine", cost, price, stock, tax "HST" | --                                                 |
 | 10  | Click Save                                                                     | "Item saved" toast                                 |
 | 11  | Click Close                                                                    | Inventory modal closes                             |
@@ -80,13 +80,13 @@ Full round-trip: create supporting entities, create an item, close modal, verify
 
 ## 6. Edits and deletes a distributor
 
-| #   | Step                                          | Assertion                                          |
-| --- | --------------------------------------------- | -------------------------------------------------- |
-| 1   | Open inventory, Distributors tab              | --                                                 |
-| 2   | Create distributor "ABC Dist"                 | "Distributor created"; "ABC Dist" in table         |
-| 3   | Click the "ABC Dist" row                      | Edit panel appears                                 |
-| 4   | Change name to "XYZ Distributors", click Save | "Distributor saved"; "XYZ Distributors" in table   |
-| 5   | Click Delete, confirm                         | "Distributor deleted"; "No distributors yet"       |
+| #   | Step                                          | Assertion                                        |
+| --- | --------------------------------------------- | ------------------------------------------------ |
+| 1   | Open inventory, Distributors tab              | --                                               |
+| 2   | Create distributor "ABC Dist"                 | "Distributor created"; "ABC Dist" in table       |
+| 3   | Click the "ABC Dist" row                      | Edit panel appears                               |
+| 4   | Change name to "XYZ Distributors", click Save | "Distributor saved"; "XYZ Distributors" in table |
+| 5   | Click Delete, confirm                         | "Distributor deleted"; "No distributors yet"     |
 
 ---
 
