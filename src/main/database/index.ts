@@ -8,7 +8,8 @@
  *   products.repo.ts - product / inventory queries & writes
  *   departments.repo.ts - department CRUD
  *   tax-codes.repo.ts   - tax code CRUD
- *   vendors.repo.ts     - vendor CRUD
+ *   distributors.repo.ts - distributor CRUD
+ *   sales-reps.repo.ts  - sales rep CRUD
  *   transactions.repo.ts - transaction saving & history
  */
 
@@ -40,8 +41,21 @@ export {
 // Tax codes
 export { getTaxCodes, createTaxCode, updateTaxCode, deleteTaxCode } from './tax-codes.repo'
 
-// Vendors
-export { getVendors, createVendor, updateVendor, deleteVendor } from './vendors.repo'
+// Distributors
+export {
+  getDistributors,
+  createDistributor,
+  updateDistributor,
+  deleteDistributor
+} from './distributors.repo'
+
+// Sales Reps
+export {
+  getSalesRepsByDistributor,
+  createSalesRep,
+  updateSalesRep,
+  deleteSalesRep
+} from './sales-reps.repo'
 
 // Transactions
 export {
@@ -79,13 +93,16 @@ export type {
   InventoryTaxCode,
   Department,
   TaxCode,
-  Vendor,
+  Distributor,
+  SalesRep,
   CreateDepartmentInput,
   UpdateDepartmentInput,
   CreateTaxCodeInput,
   UpdateTaxCodeInput,
-  CreateVendorInput,
-  UpdateVendorInput,
+  CreateDistributorInput,
+  UpdateDistributorInput,
+  CreateSalesRepInput,
+  UpdateSalesRepInput,
   MerchantConfig,
   SaveMerchantConfigInput,
   Cashier,

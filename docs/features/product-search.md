@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add a **Search** button to the main POS screen (TicketPanel) that opens a full-featured product search modal. This gives cashiers a fast way to find items by name with optional department and vendor filters — useful when the item isn't visible in the product grid or its SKU is unknown.
+Add a **Search** button to the main POS screen (TicketPanel) that opens a full-featured product search modal. This gives cashiers a fast way to find items by name with optional department and distributor filters — useful when the item isn't visible in the product grid or its SKU is unknown.
 
 ## Current Layout
 
@@ -49,7 +49,7 @@ A centered overlay modal following the existing modal pattern (like InventoryMod
 ├──────────────────────────────────────────────────┤
 │                                                  │
 │  Filters:                                        │
-│  [ Department ▾ ]  [ Vendor ▾ ]                  │
+│  [ Department ▾ ]  [ Distributor ▾ ]              │
 │                                                  │
 │  ┌──────────────────────────────────────────┐    │
 │  │  #   Name          Dept    Price   Qty   │    │
@@ -79,10 +79,10 @@ A centered overlay modal following the existing modal pattern (like InventoryMod
 
 Two dropdown selects side by side:
 
-| Filter     | Source             | Default |
-| ---------- | ------------------ | ------- |
-| Department | `getDepartments()` | All     |
-| Vendor     | `getVendors()`     | All     |
+| Filter      | Source               | Default |
+| ----------- | -------------------- | ------- |
+| Department  | `getDepartments()`   | All     |
+| Distributor | `getDistributors()`  | All     |
 
 Filters are applied _in combination_ with the search text. Changing a filter re-runs the search automatically if there is existing search text.
 
@@ -115,7 +115,7 @@ Positioned at the bottom of the modal (same pattern as other modals):
 | Input     | Full width minus Go button, `text-lg`, autofocus                           |
 | Go button | `size="md"`, triggers search                                               |
 | Enter key | Also triggers search                                                       |
-| Behavior  | Searches by item name (LIKE %query%) with active department/vendor filters |
+| Behavior  | Searches by item name (LIKE %query%) with active department/distributor filters |
 
 ## Data Contract
 
@@ -123,7 +123,7 @@ Positioned at the bottom of the modal (same pattern as other modals):
 
 ```typescript
 // Renderer → Main
-'db:searchProducts': (query: string, filters: { departmentId?: number; vendorNumber?: string }) => Product[]
+'db:searchProducts': (query: string, filters: { departmentId?: number; distributorNumber?: string }) => Product[]
 ```
 
 ### Backend Query
@@ -133,7 +133,7 @@ Extend `products.repo.ts` with a new function:
 ```typescript
 function searchProducts(
   query: string,
-  filters: { departmentId?: number; vendorNumber?: string }
+  filters: { departmentId?: number; distributorNumber?: string }
 ): Product[]
 ```
 
@@ -148,7 +148,7 @@ FROM products p
 WHERE p.active = 1
   AND (p.name LIKE '%' || ? || '%' OR p.sku LIKE '%' || ? || '%')
   AND (? IS NULL OR p.dept_id = ?)
-  AND (? IS NULL OR p.vendor = ?)
+  AND (? IS NULL OR p.distributor_number = ?)
 ORDER BY p.name ASC
 LIMIT 50
 ```
@@ -179,7 +179,7 @@ No global search state is needed — the modal manages its own search text, filt
 
 1. Cashier clicks **Search** button (or presses shortcut)
 2. Modal opens with focus on the search input at the bottom
-3. Cashier optionally selects Department and/or Vendor filters
+3. Cashier optionally selects Department and/or Distributor filters
 4. Cashier types item name and presses Enter (or clicks Go)
 5. Results appear in the table
 6. Cashier clicks a result row → item is added to cart at current quantity
@@ -204,7 +204,7 @@ No global search state is needed — the modal manages its own search text, filt
 
 - `SearchModal.test.tsx` — renders, opens/closes, search triggers IPC, results display, row click adds to cart
 - `SearchResultsTable.test.tsx` — renders columns, empty state, row click callback
-- `products.repo.test.ts` — `searchProducts` returns filtered results, respects department/vendor filters
+- `products.repo.test.ts` — `searchProducts` returns filtered results, respects department/distributor filters
 
 ### E2E
 

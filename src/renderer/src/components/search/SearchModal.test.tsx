@@ -28,13 +28,14 @@ const mockDepartments = [
   { id: 2, name: 'Beer', description: null, default_profit_margin: 25, default_tax_rate: 0.13 }
 ]
 
-const mockVendors = [
+const mockDistributors = [
   {
-    vendor_number: 1,
-    vendor_name: 'Wine Co',
-    contact_name: null,
-    phone: null,
-    email: null,
+    distributor_number: 1,
+    distributor_name: 'Wine Co',
+    license_id: null,
+    serial_number: null,
+    premises_name: null,
+    premises_address: null,
     is_active: 1
   }
 ]
@@ -45,7 +46,7 @@ describe('SearchModal', () => {
     ;(window as any).api = {
       searchProducts: vi.fn().mockResolvedValue(mockProducts),
       getDepartments: vi.fn().mockResolvedValue(mockDepartments),
-      getVendors: vi.fn().mockResolvedValue(mockVendors)
+      getDistributors: vi.fn().mockResolvedValue(mockDistributors)
     }
   })
 
@@ -95,7 +96,7 @@ describe('SearchModal', () => {
     expect(screen.getByText('Type a search term to find items.')).toBeInTheDocument()
   })
 
-  it('shows department and vendor filter dropdowns', async () => {
+  it('shows department and distributor filter dropdowns', async () => {
     render(
       <SearchModal
         isOpen={true}
@@ -107,7 +108,7 @@ describe('SearchModal', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText('Filter by department')).toBeInTheDocument()
-      expect(screen.getByLabelText('Filter by vendor')).toBeInTheDocument()
+      expect(screen.getByLabelText('Filter by distributor')).toBeInTheDocument()
     })
   })
 
@@ -127,7 +128,7 @@ describe('SearchModal', () => {
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledWith('cab', {
         departmentId: undefined,
-        vendorNumber: undefined
+        distributorNumber: undefined
       })
       expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
       expect(screen.getByText('IPA 6-pack')).toBeInTheDocument()
@@ -151,7 +152,7 @@ describe('SearchModal', () => {
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledWith('wine', {
         departmentId: undefined,
-        vendorNumber: undefined
+        distributorNumber: undefined
       })
     })
   })
@@ -361,12 +362,12 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('wine', {
         departmentId: 1,
-        vendorNumber: undefined
+        distributorNumber: undefined
       })
     })
   })
 
-  it('re-searches when vendor filter changes after a search', async () => {
+  it('re-searches when distributor filter changes after a search', async () => {
     render(
       <SearchModal
         isOpen={true}
@@ -377,7 +378,7 @@ describe('SearchModal', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Filter by vendor')).toBeInTheDocument()
+      expect(screen.getByLabelText('Filter by distributor')).toBeInTheDocument()
     })
 
     // Perform initial search
@@ -388,14 +389,14 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(1)
     })
 
-    // Change vendor filter — should trigger re-search
-    fireEvent.change(screen.getByLabelText('Filter by vendor'), { target: { value: '1' } })
+    // Change distributor filter — should trigger re-search
+    fireEvent.change(screen.getByLabelText('Filter by distributor'), { target: { value: '1' } })
 
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('beer', {
         departmentId: undefined,
-        vendorNumber: 1
+        distributorNumber: 1
       })
     })
   })
@@ -504,7 +505,7 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(3)
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('wine', {
         departmentId: undefined,
-        vendorNumber: undefined
+        distributorNumber: undefined
       })
     })
   })

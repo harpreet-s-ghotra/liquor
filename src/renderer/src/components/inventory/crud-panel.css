@@ -144,11 +144,53 @@
   align-items: center;
 }
 
-.crud-panel__new-form--vendor {
+.crud-panel__new-form--distributor {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+  grid-template-columns: 1fr auto;
   gap: 0.5rem;
   align-items: center;
+}
+
+/* Sales reps sub-section within distributor edit */
+.crud-panel__sales-reps {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.75rem;
+}
+
+.crud-panel__sales-reps-header {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.crud-panel__sales-reps-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.crud-panel__sales-reps-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.crud-panel__sales-reps-table th {
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--border-default);
+  font-weight: 600;
+  text-align: left;
+  color: var(--text-muted);
+}
+
+.crud-panel__sales-reps-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-primary);
 }
 
 .crud-panel__list-wrap {
@@ -266,6 +308,5 @@
 }
 
 .crud-panel__add-btn {
-  align-self: end;
-  min-width: 6rem;
+  min-width: 8rem;
 }

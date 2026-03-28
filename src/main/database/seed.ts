@@ -1,20 +1,20 @@
 import type Database from 'better-sqlite3'
 
 /**
- * Insert default vendors and sample products when the tables are empty.
+ * Insert default distributors and sample products when the tables are empty.
  * Called once during initializeDatabase().
  */
 export function seedData(database: Database.Database): void {
-  const vendorCount = database.prepare('SELECT COUNT(*) AS count FROM vendors').get() as {
+  const distributorCount = database.prepare('SELECT COUNT(*) AS count FROM distributors').get() as {
     count: number
   }
 
-  if (vendorCount.count === 0) {
+  if (distributorCount.count === 0) {
     database
       .prepare(
         `
-        INSERT INTO vendors (vendor_name, contact_name)
-        VALUES ('Default Vendor', 'Unassigned')
+        INSERT INTO distributors (distributor_name)
+        VALUES ('Default Distributor')
         `
       )
       .run()
@@ -30,12 +30,12 @@ export function seedData(database: Database.Database): void {
       INSERT INTO products (
         sku, name, description, category, price, cost, quantity, barcode,
         tax_rate, dept_id, category_id, category_name, retail_price, in_stock,
-        tax_1, tax_2, vendor_number, bottles_per_case
+        tax_1, tax_2, distributor_number, bottles_per_case
       )
       VALUES (
         @sku, @name, @description, @category, @price, @cost, @quantity, @barcode,
         @tax_rate, @dept_id, @category_id, @category_name, @retail_price, @in_stock,
-        @tax_1, @tax_2, @vendor_number, @bottles_per_case
+        @tax_1, @tax_2, @distributor_number, @bottles_per_case
       )
       `
     )
@@ -58,7 +58,7 @@ export function seedData(database: Database.Database): void {
         in_stock: 24,
         tax_1: 0.13,
         tax_2: 0,
-        vendor_number: 1,
+        distributor_number: 1,
         bottles_per_case: 12
       },
       {
@@ -78,7 +78,7 @@ export function seedData(database: Database.Database): void {
         in_stock: 40,
         tax_1: 0.13,
         tax_2: 0,
-        vendor_number: 1,
+        distributor_number: 1,
         bottles_per_case: 6
       },
       {
@@ -98,7 +98,7 @@ export function seedData(database: Database.Database): void {
         in_stock: 18,
         tax_1: 0.13,
         tax_2: 0,
-        vendor_number: 1,
+        distributor_number: 1,
         bottles_per_case: 12
       },
       {
@@ -118,7 +118,7 @@ export function seedData(database: Database.Database): void {
         in_stock: 96,
         tax_1: 0.13,
         tax_2: 0,
-        vendor_number: 1,
+        distributor_number: 1,
         bottles_per_case: 12
       },
       {
@@ -138,7 +138,7 @@ export function seedData(database: Database.Database): void {
         in_stock: 52,
         tax_1: 0.13,
         tax_2: 0,
-        vendor_number: 1,
+        distributor_number: 1,
         bottles_per_case: 12
       }
     ]

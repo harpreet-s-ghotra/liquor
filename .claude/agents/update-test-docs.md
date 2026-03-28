@@ -37,9 +37,9 @@ Each md file must follow this structure:
 ```markdown
 ## 3. Hold button becomes enabled after adding an item
 
-| # | Step | Assertion |
-|---|------|-----------|
-| 1 | Log in, add product to cart | Hold button is enabled |
+| #   | Step                        | Assertion              |
+| --- | --------------------------- | ---------------------- |
+| 1   | Log in, add product to cart | Hold button is enabled |
 ```
 
 ## Important

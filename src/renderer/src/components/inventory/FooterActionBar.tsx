@@ -9,7 +9,7 @@ const SEARCH_PLACEHOLDER: Record<InventoryTab, string> = {
   items: 'Scan or enter SKU / name...',
   departments: 'Filter departments...',
   'tax-codes': 'Filter tax codes...',
-  vendors: 'Filter vendors...'
+  distributors: 'Filter distributors...'
 }
 
 export type FooterActionBarProps = {

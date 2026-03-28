@@ -26,7 +26,7 @@ InventoryModal.tsx          ← Modal shell + tab container
 │   └── Tab: Sales History      (transaction history for this item)
 ├── DepartmentPanel.tsx     ← CRUD for departments (uses useCrudPanel hook)
 ├── TaxCodePanel.tsx        ← CRUD for tax codes (uses useCrudPanel hook)
-└── VendorPanel.tsx         ← CRUD for vendors (uses useCrudPanel hook)
+└── DistributorPanel.tsx    ← CRUD for distributors (uses useCrudPanel hook)
 ```
 
 ### Data Flow
@@ -38,11 +38,11 @@ ItemForm (React state)
   → window.api.saveInventoryItem()          [on save]
   → window.api.getInventoryDepartments()    [on mount]
   → window.api.getInventoryTaxCodes()       [on mount]
-  → window.api.getVendors()                 [on mount]
+  → window.api.getDistributors()             [on mount]
 
 IPC bridge (preload/index.ts)
   → ipcMain.handle in src/main/index.ts
-  → products.repo.ts / departments.repo.ts / tax-codes.repo.ts / vendors.repo.ts
+  → products.repo.ts / departments.repo.ts / tax-codes.repo.ts / distributors.repo.ts
   → SQLite via better-sqlite3
 ```
 
@@ -96,11 +96,11 @@ type InventoryFormState = {
 
 | File                       | What it covers                                                          |
 | -------------------------- | ----------------------------------------------------------------------- |
-| `InventoryModal.test.tsx`  | Tab switching between Items / Departments / Tax Codes / Vendors         |
+| `InventoryModal.test.tsx`  | Tab switching between Items / Departments / Tax Codes / Distributors    |
 | `ItemForm.test.tsx`        | Form validation, field errors, currency parsing, save flow, search      |
 | `DepartmentPanel.test.tsx` | CRUD: create, edit, delete, search filter                               |
 | `TaxCodePanel.test.tsx`    | CRUD: create, edit, delete                                              |
-| `VendorPanel.test.tsx`     | CRUD: create, edit, delete, validation                                  |
+| `DistributorPanel.test.tsx` | CRUD: create, edit, delete, validation                                 |
 | `TabBar.test.tsx`          | Tab switching, aria attributes                                          |
 | `currency.test.ts`         | formatCurrency, parseCurrencyDigitsToDollars, normalizeCurrencyForInput |
 | `pricing-engine.test.ts`   | Group deals, special pricing application, totals                        |
@@ -111,7 +111,7 @@ type InventoryFormState = {
 | File                           | What it covers                                                  |
 | ------------------------------ | --------------------------------------------------------------- |
 | `inventory.spec.ts`            | Search for a product, select for editing, verify form populates |
-| `inventory-management.spec.ts` | Department / Tax Code / Vendor CRUD end-to-end                  |
+| `inventory-management.spec.ts` | Department / Tax Code / Distributor CRUD end-to-end             |
 | `transactions.spec.ts`         | Full transaction flow (touches cart totals incl. tax)           |
 
 ---
@@ -164,7 +164,7 @@ The existing debounced search input (currently inside `ItemForm`) is moved into 
 
 - IPC channel names
 - `useCrudPanel` hook
-- `DepartmentPanel`, `TaxCodePanel`, `VendorPanel` — visual reskin only
+- `DepartmentPanel`, `TaxCodePanel`, `DistributorPanel` — visual reskin only
 - `pricing-engine.ts`
 - `currency.ts` utilities
 - Auth / payment flows
@@ -358,7 +358,7 @@ All button text: Work Sans Black, 9–11px, uppercase.
 | `TabBar.test.tsx`          | Tab styling assertions — aria patterns stay the same but CSS class assertions change if any exist                                                                                                                                                                                                                                                                           |
 | `DepartmentPanel.test.tsx` | Visual/wrapper changes only; CRUD logic unchanged — check if any class-based selectors break                                                                                                                                                                                                                                                                                |
 | `TaxCodePanel.test.tsx`    | Same as above                                                                                                                                                                                                                                                                                                                                                               |
-| `VendorPanel.test.tsx`     | Same as above                                                                                                                                                                                                                                                                                                                                                               |
+| `DistributorPanel.test.tsx` | Same as above                                                                                                                                                                                                                                                                                                                                                              |
 | `POSScreen.test.tsx`       | No functional changes; verify inventory modal open/close still works                                                                                                                                                                                                                                                                                                        |
 | `currency.test.ts`         | No changes needed                                                                                                                                                                                                                                                                                                                                                           |
 | `pricing-engine.test.ts`   | No changes needed                                                                                                                                                                                                                                                                                                                                                           |
@@ -378,7 +378,7 @@ All button text: Work Sans Black, 9–11px, uppercase.
 | File                           | What changes                                                                                                                                   |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `inventory.spec.ts`            | Search bar selector changes (it's now in the footer, not inside the form body). Update locator. Verify product selection still populates form. |
-| `inventory-management.spec.ts` | Department / Tax Code / Vendor CRUD selectors may change if locators relied on specific layout classes. Verify.                                |
+| `inventory-management.spec.ts` | Department / Tax Code / Distributor CRUD selectors may change if locators relied on specific layout classes. Verify.                            |
 | `transactions.spec.ts`         | No changes expected — this doesn't touch the inventory modal UI.                                                                               |
 
 **New E2E tests to write:**
@@ -403,7 +403,7 @@ All button text: Work Sans Black, 9–11px, uppercase.
 | `items/ItemForm.test.tsx`            | Update all affected assertions; add tests for computed fields, Discard, Delete, new fields                                                                                                                                                            |
 | `departments/DepartmentPanel.tsx`    | Visual reskin: input styles, label styles, card wrapper                                                                                                                                                                                               |
 | `tax-codes/TaxCodePanel.tsx`         | Same as DepartmentPanel                                                                                                                                                                                                                               |
-| `vendors/VendorPanel.tsx`            | Same as DepartmentPanel                                                                                                                                                                                                                               |
+| `distributors/DistributorPanel.tsx`  | Same as DepartmentPanel                                                                                                                                                                                                                               |
 | `crud-panel.css`                     | Update to new input/label styling or replace with inline Tailwind                                                                                                                                                                                     |
 | `src/renderer/src/styles/tokens.css` | Add/extend tokens for new colors if needed                                                                                                                                                                                                            |
 | `src/renderer/index.html`            | Add Work Sans + Liberation Mono font imports                                                                                                                                                                                                          |
@@ -431,7 +431,7 @@ All button text: Work Sans Black, 9–11px, uppercase.
 7. **Tab bar reskin** — Custom underline nav, same 4 tabs, new dark-green active style
 8. **Tab content reskin** — Card wrapper, sub-header styles, input styles inside tabs
 9. **New optional fields** — Checkboxes (food stamps, price prompt, scale) + bonus points / commission / location
-10. **CRUD panel reskin** — DepartmentPanel, TaxCodePanel, VendorPanel visual updates
+10. **CRUD panel reskin** — DepartmentPanel, TaxCodePanel, DistributorPanel visual updates
 11. **Backend / DB** — Add new columns to schema, update repos, update shared types
 12. **Tests** — Update all affected unit tests; add new unit + E2E tests
 

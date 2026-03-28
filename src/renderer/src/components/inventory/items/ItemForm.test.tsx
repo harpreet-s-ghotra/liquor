@@ -17,8 +17,8 @@ const baseInventoryItem: InventoryProduct = {
   in_stock: 6,
   tax_1: 0.13,
   tax_2: 0,
-  vendor_number: null,
-  vendor_name: null,
+  distributor_number: null,
+  distributor_name: null,
   bottles_per_case: 12,
   case_discount_price: null,
   barcode: null,
@@ -88,13 +88,14 @@ describe('ItemForm', () => {
         { code: 'RATE_0', rate: 0 },
         { code: 'RATE_0_13', rate: 0.13 }
       ]),
-      getVendors: vi.fn(async () => [
+      getDistributors: vi.fn(async () => [
         {
-          vendor_number: 1,
-          vendor_name: 'ABC Dist',
-          contact_name: null,
-          phone: null,
-          email: null,
+          distributor_number: 1,
+          distributor_name: 'ABC Dist',
+          license_id: null,
+          serial_number: null,
+          premises_name: null,
+          premises_address: null,
           is_active: 1
         }
       ])

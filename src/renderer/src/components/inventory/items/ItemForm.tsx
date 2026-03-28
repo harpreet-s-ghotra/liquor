@@ -16,7 +16,7 @@ import type {
   InventoryTaxCode,
   SaveInventoryItemInput,
   SpecialPricingRule,
-  Vendor,
+  Distributor,
   Department
 } from '@renderer/types/pos'
 import { SKU_PATTERN, SKU_MAX_LENGTH, NAME_MAX_LENGTH } from '../../../../../shared/constants'
@@ -42,7 +42,7 @@ type InventoryFormState = {
   item_name: string
   item_type: string
   dept_id: string
-  vendor_number: string
+  distributor_number: string
   cost: string
   retail_price: string
   in_stock: string
@@ -59,7 +59,7 @@ const emptyFormState: InventoryFormState = {
   item_name: '',
   item_type: '',
   dept_id: '',
-  vendor_number: '',
+  distributor_number: '',
   cost: '',
   retail_price: '',
   in_stock: '',
@@ -100,7 +100,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   const api = typeof window !== 'undefined' ? window.api : undefined
   const [departmentOptions, setDepartmentOptions] = useState<Department[]>([])
   const [taxCodeOptions, setTaxCodeOptions] = useState<InventoryTaxCode[]>([])
-  const [vendorOptions, setVendorOptions] = useState<Vendor[]>([])
+  const [distributorOptions, setDistributorOptions] = useState<Distributor[]>([])
   const [selectedItem, setSelectedItem] = useState<InventoryProductDetail | null>(null)
   const [formState, setFormState] = useState<InventoryFormState>(emptyFormState)
   const [additionalSkuInput, setAdditionalSkuInput] = useState('')
@@ -118,7 +118,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     typeof api?.saveInventoryItem === 'function' &&
     typeof api?.getDepartments === 'function' &&
     typeof api?.getInventoryTaxCodes === 'function' &&
-    typeof api?.getVendors === 'function'
+    typeof api?.getDistributors === 'function'
 
   const normalizedTaxRateOptions = useMemo(
     () => new Set(taxCodeOptions.map((option) => Number(option.rate.toFixed(6)))),
@@ -137,12 +137,12 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   useEffect(() => {
     if (!hasBackendApi) return
     let active = true
-    void Promise.all([api.getDepartments(), api.getInventoryTaxCodes(), api.getVendors()])
-      .then(([departments, taxCodes, vendors]) => {
+    void Promise.all([api.getDepartments(), api.getInventoryTaxCodes(), api.getDistributors()])
+      .then(([departments, taxCodes, distributors]) => {
         if (!active) return
         setDepartmentOptions(departments)
         setTaxCodeOptions(taxCodes)
-        setVendorOptions(vendors)
+        setDistributorOptions(distributors)
       })
       .catch(() => {
         if (!active) return
@@ -182,7 +182,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         : '',
       cost: formatCurrency(detail.cost),
       retail_price: formatCurrency(detail.retail_price),
-      vendor_number: detail.vendor_number != null ? String(detail.vendor_number) : '',
+      distributor_number:
+        detail.distributor_number != null ? String(detail.distributor_number) : '',
       in_stock: String(detail.in_stock),
       tax_rate: filteredTaxRates[0] != null ? String(filteredTaxRates[0]) : '',
       special_pricing: (detail.special_pricing ?? []).map((rule) => ({
@@ -347,7 +348,9 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       sku: formState.sku.trim(),
       item_name: formState.item_name.trim(),
       dept_id: formState.dept_id,
-      vendor_number: formState.vendor_number ? Number.parseInt(formState.vendor_number, 10) : null,
+      distributor_number: formState.distributor_number
+        ? Number.parseInt(formState.distributor_number, 10)
+        : null,
       cost,
       retail_price: retailPrice,
       in_stock: inStock,
@@ -844,19 +847,22 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                   </ToggleGroup>
                 </div>
               </FormField>
-              <FormField label="Vendor">
+              <FormField label="Distributor">
                 <select
-                  className="item-form__vendor-select"
-                  aria-label="Vendor"
-                  value={formState.vendor_number}
+                  className="item-form__distributor-select"
+                  aria-label="Distributor"
+                  value={formState.distributor_number}
                   onChange={(event) =>
-                    setFormState((current) => ({ ...current, vendor_number: event.target.value }))
+                    setFormState((current) => ({
+                      ...current,
+                      distributor_number: event.target.value
+                    }))
                   }
                 >
                   <option value="">None</option>
-                  {vendorOptions.map((v) => (
-                    <option key={v.vendor_number} value={String(v.vendor_number)}>
-                      {v.vendor_name}
+                  {distributorOptions.map((v) => (
+                    <option key={v.distributor_number} value={String(v.distributor_number)}>
+                      {v.distributor_name}
                     </option>
                   ))}
                 </select>

@@ -16,8 +16,8 @@ const sampleProduct: InventoryProduct = {
   in_stock: 10,
   tax_1: 0.08,
   tax_2: 0,
-  vendor_number: null,
-  vendor_name: null,
+  distributor_number: null,
+  distributor_name: null,
   bottles_per_case: 12,
   case_discount_price: null,
   special_pricing_enabled: 0,
@@ -150,7 +150,7 @@ describe('FooterActionBar', () => {
     render(
       <FooterActionBar
         {...makeProps({
-          activeTab: 'vendors',
+          activeTab: 'distributors',
           noResultsSku: 'XYZ-999'
         })}
       />
@@ -168,8 +168,8 @@ describe('FooterActionBar', () => {
     rerender(<FooterActionBar {...makeProps({ activeTab: 'tax-codes' })} />)
     expect(screen.getByPlaceholderText('Filter tax codes...')).toBeInTheDocument()
 
-    rerender(<FooterActionBar {...makeProps({ activeTab: 'vendors' })} />)
-    expect(screen.getByPlaceholderText('Filter vendors...')).toBeInTheDocument()
+    rerender(<FooterActionBar {...makeProps({ activeTab: 'distributors' })} />)
+    expect(screen.getByPlaceholderText('Filter distributors...')).toBeInTheDocument()
   })
 
   it('calls action handlers when buttons are clicked', () => {

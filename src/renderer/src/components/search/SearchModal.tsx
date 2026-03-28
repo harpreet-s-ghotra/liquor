@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/comp
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { cn } from '@renderer/lib/utils'
-import type { Product, Department, Vendor } from '@renderer/types/pos'
+import type { Product, Department, Distributor } from '@renderer/types/pos'
 import './search-modal.css'
 
 type SearchModalProps = {
@@ -24,13 +24,13 @@ export function SearchModal({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
-  const [vendors, setVendors] = useState<Vendor[]>([])
+  const [distributors, setDistributors] = useState<Distributor[]>([])
   const [departmentId, setDepartmentId] = useState<number | undefined>(undefined)
-  const [vendorNumber, setVendorNumber] = useState<number | undefined>(undefined)
+  const [distributorNumber, setDistributorNumber] = useState<number | undefined>(undefined)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastFiltersRef = useRef({
     departmentId: undefined as number | undefined,
-    vendorNumber: undefined as number | undefined
+    distributorNumber: undefined as number | undefined
   })
 
   // Load filter options on mount
@@ -42,8 +42,8 @@ export function SearchModal({
       .then(setDepartments)
       .catch(() => {})
     api
-      .getVendors()
-      .then(setVendors)
+      .getDistributors()
+      .then(setDistributors)
       .catch(() => {})
   }, [])
 
@@ -55,7 +55,10 @@ export function SearchModal({
   }, [isOpen])
 
   const runSearch = useCallback(
-    async (searchQuery: string, filters?: { departmentId?: number; vendorNumber?: number }) => {
+    async (
+      searchQuery: string,
+      filters?: { departmentId?: number; distributorNumber?: number }
+    ) => {
       const trimmed = searchQuery.trim()
       if (!trimmed) {
         setResults([])
@@ -64,7 +67,7 @@ export function SearchModal({
       }
       const api = window.api
       if (!api?.searchProducts) return
-      const f = filters ?? { departmentId, vendorNumber }
+      const f = filters ?? { departmentId, distributorNumber }
       try {
         const data = await api.searchProducts(trimmed, f)
         setResults(data)
@@ -75,7 +78,7 @@ export function SearchModal({
         setHasSearched(true)
       }
     },
-    [departmentId, vendorNumber]
+    [departmentId, distributorNumber]
   )
 
   const handleSubmit = useCallback(
@@ -91,18 +94,24 @@ export function SearchModal({
       setDepartmentId(value)
       lastFiltersRef.current.departmentId = value
       if (hasSearched && query.trim()) {
-        runSearch(query, { departmentId: value, vendorNumber: lastFiltersRef.current.vendorNumber })
+        runSearch(query, {
+          departmentId: value,
+          distributorNumber: lastFiltersRef.current.distributorNumber
+        })
       }
     },
     [hasSearched, query, runSearch]
   )
 
-  const handleVendorChange = useCallback(
+  const handleDistributorChange = useCallback(
     (value: number | undefined) => {
-      setVendorNumber(value)
-      lastFiltersRef.current.vendorNumber = value
+      setDistributorNumber(value)
+      lastFiltersRef.current.distributorNumber = value
       if (hasSearched && query.trim()) {
-        runSearch(query, { departmentId: lastFiltersRef.current.departmentId, vendorNumber: value })
+        runSearch(query, {
+          departmentId: lastFiltersRef.current.departmentId,
+          distributorNumber: value
+        })
       }
     },
     [hasSearched, query, runSearch]
@@ -163,17 +172,17 @@ export function SearchModal({
           </select>
 
           <select
-            value={vendorNumber ?? ''}
+            value={distributorNumber ?? ''}
             onChange={(e) =>
-              handleVendorChange(e.target.value ? Number(e.target.value) : undefined)
+              handleDistributorChange(e.target.value ? Number(e.target.value) : undefined)
             }
             className="search-modal__filter-select"
-            aria-label="Filter by vendor"
+            aria-label="Filter by distributor"
           >
-            <option value="">All Vendors</option>
-            {vendors.map((v) => (
-              <option key={v.vendor_number} value={v.vendor_number}>
-                {v.vendor_name}
+            <option value="">All Distributors</option>
+            {distributors.map((d) => (
+              <option key={d.distributor_number} value={d.distributor_number}>
+                {d.distributor_name}
               </option>
             ))}
           </select>

@@ -23,24 +23,36 @@ describe('InventoryModal', () => {
       createTaxCode: vi.fn(async () => ({ id: 1, code: 'TX', rate: 0.05 })),
       updateTaxCode: vi.fn(async () => ({ id: 1, code: 'TX', rate: 0.05 })),
       deleteTaxCode: vi.fn(async () => undefined),
-      getVendors: vi.fn(async () => []),
-      createVendor: vi.fn(async () => ({
-        vendor_number: 1,
-        vendor_name: 'V',
-        contact_name: null,
+      getDistributors: vi.fn(async () => []),
+      createDistributor: vi.fn(async () => ({
+        distributor_number: 1,
+        distributor_name: 'D',
+        license_id: null,
+        serial_number: null,
+        premises_name: null,
+        premises_address: null,
+        is_active: 1
+      })),
+      updateDistributor: vi.fn(async () => ({
+        distributor_number: 1,
+        distributor_name: 'D',
+        license_id: null,
+        serial_number: null,
+        premises_name: null,
+        premises_address: null,
+        is_active: 1
+      })),
+      deleteDistributor: vi.fn(async () => undefined),
+      getSalesRepsByDistributor: vi.fn(async () => []),
+      createSalesRep: vi.fn(async () => ({
+        sales_rep_id: 1,
+        distributor_number: 1,
+        rep_name: 'R',
         phone: null,
         email: null,
         is_active: 1
       })),
-      updateVendor: vi.fn(async () => ({
-        vendor_number: 1,
-        vendor_name: 'V',
-        contact_name: null,
-        phone: null,
-        email: null,
-        is_active: 1
-      })),
-      deleteVendor: vi.fn(async () => undefined)
+      deleteSalesRep: vi.fn(async () => undefined)
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = api
@@ -59,7 +71,7 @@ describe('InventoryModal', () => {
     expect(screen.getByRole('tab', { name: 'Items' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Departments' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Tax Codes' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Vendors' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Distributors' })).toBeInTheDocument()
   })
 
   it('defaults to Items tab showing the item form', async () => {
@@ -91,14 +103,14 @@ describe('InventoryModal', () => {
     expect(await screen.findByRole('tabpanel', { name: 'Tax Codes' })).toBeInTheDocument()
   })
 
-  it('switches to Vendors panel when tab is clicked', async () => {
+  it('switches to Distributors panel when tab is clicked', async () => {
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 
-    const tab = screen.getByRole('tab', { name: 'Vendors' })
+    const tab = screen.getByRole('tab', { name: 'Distributors' })
     await userEvent.click(tab)
 
     expect(tab).toHaveAttribute('aria-selected', 'true')
-    expect(await screen.findByRole('tabpanel', { name: 'Vendors' })).toBeInTheDocument()
+    expect(await screen.findByRole('tabpanel', { name: 'Distributors' })).toBeInTheDocument()
   })
 
   it('calls close handler when Close is clicked', async () => {
@@ -129,10 +141,10 @@ describe('InventoryModal', () => {
     expect(breadcrumbs.length).toBeGreaterThanOrEqual(2) // tab + breadcrumb
   })
 
-  it('shows "Vendors" breadcrumb when on vendors tab', async () => {
+  it('shows "Distributors" breadcrumb when on vendors tab', async () => {
     render(<InventoryModal isOpen onClose={vi.fn()} />)
-    await userEvent.click(screen.getByRole('tab', { name: 'Vendors' }))
-    const breadcrumbs = screen.getAllByText('Vendors')
+    await userEvent.click(screen.getByRole('tab', { name: 'Distributors' }))
+    const breadcrumbs = screen.getAllByText('Distributors')
     expect(breadcrumbs.length).toBeGreaterThanOrEqual(2) // tab + breadcrumb
   })
 
@@ -150,8 +162,8 @@ describe('InventoryModal', () => {
         in_stock: 10,
         tax_1: 0.08,
         tax_2: 0,
-        vendor_number: null,
-        vendor_name: null,
+        distributor_number: null,
+        distributor_name: null,
         bottles_per_case: 12,
         case_discount_price: null,
         special_pricing_enabled: 0,

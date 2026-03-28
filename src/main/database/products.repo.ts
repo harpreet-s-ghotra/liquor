@@ -55,8 +55,8 @@ export function getInventoryProducts(): InventoryProduct[] {
         COALESCE(products.in_stock, products.quantity, 0) AS in_stock,
         COALESCE(products.tax_1, products.tax_rate, 0) AS tax_1,
         COALESCE(products.tax_2, 0) AS tax_2,
-        products.vendor_number,
-        vendors.vendor_name,
+        products.distributor_number,
+        distributors.distributor_name,
         COALESCE(products.bottles_per_case, 12) AS bottles_per_case,
         products.case_discount_price,
         products.barcode,
@@ -65,7 +65,7 @@ export function getInventoryProducts(): InventoryProduct[] {
         products.special_price,
         products.is_active
       FROM products
-      LEFT JOIN vendors ON vendors.vendor_number = products.vendor_number
+      LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
       ORDER BY products.id
       `
@@ -100,7 +100,7 @@ export function getInventoryTaxCodes(): InventoryTaxCode[] {
 
 export function searchProducts(
   query: string,
-  filters: { departmentId?: number; vendorNumber?: number } = {}
+  filters: { departmentId?: number; distributorNumber?: number } = {}
 ): Product[] {
   const normalizedQuery = query.trim()
   if (!normalizedQuery) return []
@@ -112,9 +112,9 @@ export function searchProducts(
     conditions.push('d.id = @departmentId')
     params.departmentId = filters.departmentId
   }
-  if (filters.vendorNumber != null) {
-    conditions.push('p.vendor_number = @vendorNumber')
-    params.vendorNumber = filters.vendorNumber
+  if (filters.distributorNumber != null) {
+    conditions.push('p.distributor_number = @distributorNumber')
+    params.distributorNumber = filters.distributorNumber
   }
 
   return getDb()
@@ -160,8 +160,8 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
         COALESCE(products.in_stock, products.quantity, 0) AS in_stock,
         COALESCE(products.tax_1, products.tax_rate, 0) AS tax_1,
         COALESCE(products.tax_2, 0) AS tax_2,
-        products.vendor_number,
-        vendors.vendor_name,
+        products.distributor_number,
+        distributors.distributor_name,
         COALESCE(products.bottles_per_case, 12) AS bottles_per_case,
         products.case_discount_price,
         products.barcode,
@@ -170,7 +170,7 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
         products.special_price,
         products.is_active
       FROM products
-      LEFT JOIN vendors ON vendors.vendor_number = products.vendor_number
+      LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
         AND (products.sku LIKE @likeQuery OR products.name LIKE @likeQuery)
       ORDER BY products.id
@@ -195,8 +195,8 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         COALESCE(products.in_stock, products.quantity, 0) AS in_stock,
         COALESCE(products.tax_1, products.tax_rate, 0) AS tax_1,
         COALESCE(products.tax_2, 0) AS tax_2,
-        products.vendor_number,
-        vendors.vendor_name,
+        products.distributor_number,
+        distributors.distributor_name,
         COALESCE(products.bottles_per_case, 12) AS bottles_per_case,
         products.case_discount_price,
         products.barcode,
@@ -205,7 +205,7 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         products.special_price,
         products.is_active
       FROM products
-      LEFT JOIN vendors ON vendors.vendor_number = products.vendor_number
+      LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.id = ?
       `
     )
@@ -498,7 +498,7 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
       special_price: hasSpecialPricing ? payload.special_pricing[0].price : null,
       category: deptParts[0] ?? '',
       quantity: payload.in_stock,
-      vendor_number: payload.vendor_number,
+      distributor_number: payload.distributor_number,
       bottles_per_case: payload.bottles_per_case,
       case_discount_price: payload.case_discount_price
     }
@@ -524,7 +524,7 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           tax_2 = @tax_2,
           special_pricing_enabled = @special_pricing_enabled,
           special_price = @special_price,
-          vendor_number = @vendor_number,
+          distributor_number = @distributor_number,
           bottles_per_case = @bottles_per_case,
           case_discount_price = @case_discount_price,
           is_active = 1,
@@ -539,13 +539,13 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           INSERT INTO products (
             sku, name, category, price, cost, quantity, tax_rate,
             dept_id, retail_price, in_stock, tax_1, tax_2,
-            special_pricing_enabled, special_price, vendor_number,
+            special_pricing_enabled, special_price, distributor_number,
             bottles_per_case, case_discount_price
           )
           VALUES (
             @sku, @name, @category, @retail_price, @cost, @quantity, @tax_1,
             @dept_id, @retail_price, @in_stock, @tax_1, @tax_2,
-            @special_pricing_enabled, @special_price, @vendor_number,
+            @special_pricing_enabled, @special_price, @distributor_number,
             @bottles_per_case, @case_discount_price
           )
           `

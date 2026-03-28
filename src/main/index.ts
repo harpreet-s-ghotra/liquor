@@ -22,10 +22,14 @@ import {
   createTaxCode,
   updateTaxCode,
   deleteTaxCode,
-  getVendors,
-  createVendor,
-  updateVendor,
-  deleteVendor,
+  getDistributors,
+  createDistributor,
+  updateDistributor,
+  deleteDistributor,
+  getSalesRepsByDistributor,
+  createSalesRep,
+  updateSalesRep,
+  deleteSalesRep,
   getMerchantConfig,
   saveMerchantConfig,
   clearMerchantConfig,
@@ -266,36 +270,69 @@ app.whenReady().then(() => {
     }
   })
 
-  // Vendor CRUD
-  ipcMain.handle('vendors:list', async () => {
+  // Distributor CRUD
+  ipcMain.handle('distributors:list', async () => {
     try {
-      return getVendors()
+      return getDistributors()
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to list vendors')
+      throw new Error(err instanceof Error ? err.message : 'Failed to list distributors')
     }
   })
 
-  ipcMain.handle('vendors:create', async (_, input) => {
+  ipcMain.handle('distributors:create', async (_, input) => {
     try {
-      return createVendor(input)
+      return createDistributor(input)
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to create vendor')
+      throw new Error(err instanceof Error ? err.message : 'Failed to create distributor')
     }
   })
 
-  ipcMain.handle('vendors:update', async (_, input) => {
+  ipcMain.handle('distributors:update', async (_, input) => {
     try {
-      return updateVendor(input)
+      return updateDistributor(input)
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to update vendor')
+      throw new Error(err instanceof Error ? err.message : 'Failed to update distributor')
     }
   })
 
-  ipcMain.handle('vendors:delete', async (_, vendorNumber: number) => {
+  ipcMain.handle('distributors:delete', async (_, distributorNumber: number) => {
     try {
-      return deleteVendor(vendorNumber)
+      return deleteDistributor(distributorNumber)
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to delete vendor')
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete distributor')
+    }
+  })
+
+  // Sales Rep CRUD
+  ipcMain.handle('sales-reps:list-by-distributor', async (_, distributorNumber: number) => {
+    try {
+      return getSalesRepsByDistributor(distributorNumber)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list sales reps')
+    }
+  })
+
+  ipcMain.handle('sales-reps:create', async (_, input) => {
+    try {
+      return createSalesRep(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to create sales rep')
+    }
+  })
+
+  ipcMain.handle('sales-reps:update', async (_, input) => {
+    try {
+      return updateSalesRep(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to update sales rep')
+    }
+  })
+
+  ipcMain.handle('sales-reps:delete', async (_, salesRepId: number) => {
+    try {
+      return deleteSalesRep(salesRepId)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete sales rep')
     }
   })
 

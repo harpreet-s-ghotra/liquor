@@ -8,7 +8,7 @@ const mockApi = {
   getCashiers: vi.fn(),
   getProducts: vi.fn(),
   getDepartments: vi.fn().mockResolvedValue([]),
-  getVendors: vi.fn().mockResolvedValue([]),
+  getDistributors: vi.fn().mockResolvedValue([]),
   getReceiptConfig: vi.fn().mockResolvedValue({
     fontSize: 10,
     paddingY: 4,
@@ -22,7 +22,7 @@ const mockApi = {
 beforeEach(() => {
   Object.values(mockApi).forEach((fn) => fn.mockReset())
   mockApi.getDepartments.mockResolvedValue([])
-  mockApi.getVendors.mockResolvedValue([])
+  mockApi.getDistributors.mockResolvedValue([])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(window as any).api = mockApi
   // Prevent initialize() from overwriting our manually-set state

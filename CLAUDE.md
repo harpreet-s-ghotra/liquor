@@ -22,16 +22,16 @@ This file provides essential context for working on this project. Read it before
 
 ## Tech Stack
 
-| Layer         | Technology                                               |
-| ------------- | -------------------------------------------------------- |
-| Desktop shell | Electron 39 (electron-vite)                              |
-| UI            | React 19 + TypeScript                                    |
-| State         | Zustand 5                                                |
+| Layer         | Technology                                                                            |
+| ------------- | ------------------------------------------------------------------------------------- |
+| Desktop shell | Electron 39 (electron-vite)                                                           |
+| UI            | React 19 + TypeScript                                                                 |
+| State         | Zustand 5                                                                             |
 | Styling       | BEM CSS + custom CSS tokens (`styles/tokens.css`) + stylelint-config-concentric-order |
-| Database      | SQLite via better-sqlite3 (sync, main process only)      |
-| Payments      | Stax Partner API                                         |
-| Unit tests    | Vitest + React Testing Library                           |
-| E2E tests     | Playwright                                               |
+| Database      | SQLite via better-sqlite3 (sync, main process only)                                   |
+| Payments      | Stax Partner API                                                                      |
+| Unit tests    | Vitest + React Testing Library                                                        |
+| E2E tests     | Playwright                                                                            |
 
 ---
 
@@ -63,7 +63,7 @@ src/
       usePosScreen.ts Cart + product state (Zustand)
       useThemeStore.ts Theme preference (Zustand)
     hooks/
-      useCrudPanel.ts Generic CRUD state hook (used by Dept/Tax/Vendor panels)
+      useCrudPanel.ts Generic CRUD state hook (used by Dept/Tax/Distributor panels)
       useDebounce.ts  Debounce for search inputs
     utils/
       currency.ts     formatCurrency, parseCurrencyDigitsToDollars, normalizeCurrencyForInput
@@ -243,6 +243,7 @@ Property order is enforced by `stylelint-config-concentric-order`:
 ### When to Use Inline Styles
 
 Only use inline `style={{}}` for **truly dynamic values** — values computed at runtime from props or state. Examples:
+
 - Conditional backgrounds (`isSelected ? 'var(--active-bg)' : 'var(--bg)'`)
 - Dynamic `gridTemplateRows` / `gridTemplateColumns`
 - Color derived from component state
@@ -255,7 +256,7 @@ Use `cn()` from `@renderer/lib/utils` (which wraps `clsx`) for conditional class
 
 ```tsx
 import { cn } from '@renderer/lib/utils'
-<div className={cn('ticket-panel__line', isActive && 'ticket-panel__line--active')} />
+;<div className={cn('ticket-panel__line', isActive && 'ticket-panel__line--active')} />
 ```
 
 ### Design Tokens First
@@ -385,13 +386,13 @@ The inventory modal is being redesigned. See `docs/features/inventory-v2.md` for
 
 Before searching the codebase, read the relevant index doc in `docs/ai/`:
 
-| Index | Covers |
-| ----- | ------ |
-| `docs/ai/repo-map.md` | Architecture, layer entry points, IPC channels, module lookup table |
-| `docs/ai/testing-map.md` | Test locations, runners, patterns, how to add tests |
-| `docs/ai/inventory-map.md` | All inventory feature files, components, types, tests |
-| `docs/ai/stax-map.md` | Payment/auth files, Stax API, terminal flow |
-| `docs/ai/glossary.md` | Canonical terms and definitions |
+| Index                      | Covers                                                              |
+| -------------------------- | ------------------------------------------------------------------- |
+| `docs/ai/repo-map.md`      | Architecture, layer entry points, IPC channels, module lookup table |
+| `docs/ai/testing-map.md`   | Test locations, runners, patterns, how to add tests                 |
+| `docs/ai/inventory-map.md` | All inventory feature files, components, types, tests               |
+| `docs/ai/stax-map.md`      | Payment/auth files, Stax API, terminal flow                         |
+| `docs/ai/glossary.md`      | Canonical terms and definitions                                     |
 
 Routing: read `repo-map.md` first for general tasks. Read the feature-specific map for scoped work. Check `glossary.md` when a domain term is ambiguous.
 
@@ -401,17 +402,17 @@ Routing: read `repo-map.md` first for general tasks. Read the feature-specific m
 
 All documentation lives in `docs/`. See `docs/README.md` for the full index.
 
-| Doc | Covers |
-| --- | ------ |
-| `docs/project-plan.md` | Full project vision, roadmap, DB schema, Stax architecture |
-| `docs/design-system.md` | Visual spec -- colors, typography, layout rules, component specs |
-| `docs/features/inventory-v1.md` | Inventory CRUD spec (v1, historical) |
-| `docs/features/inventory-v2.md` | Inventory modal redesign (active) |
-| `docs/features/pricing-engine.md` | Special pricing rules, mix-and-match |
-| `docs/features/product-search.md` | Search modal spec |
-| `docs/features/returns-and-refunds.md` | Return workflow, refund scenarios |
-| `docs/features/stax-activation.md` | Auth flow spec |
-| `docs/features/stax-integration.md` | Stax API endpoints, test cards, webhooks |
+| Doc                                    | Covers                                                           |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `docs/project-plan.md`                 | Full project vision, roadmap, DB schema, Stax architecture       |
+| `docs/design-system.md`                | Visual spec -- colors, typography, layout rules, component specs |
+| `docs/features/inventory-v1.md`        | Inventory CRUD spec (v1, historical)                             |
+| `docs/features/inventory-v2.md`        | Inventory modal redesign (active)                                |
+| `docs/features/pricing-engine.md`      | Special pricing rules, mix-and-match                             |
+| `docs/features/product-search.md`      | Search modal spec                                                |
+| `docs/features/returns-and-refunds.md` | Return workflow, refund scenarios                                |
+| `docs/features/stax-activation.md`     | Auth flow spec                                                   |
+| `docs/features/stax-integration.md`    | Stax API endpoints, test cards, webhooks                         |
 
 ### Documentation Conventions
 
@@ -452,6 +453,7 @@ AI agents (Claude Code, Copilot, any LLM) MUST follow this workflow. These are n
 ### When completing a task
 
 Before finalizing, verify:
+
 - [ ] Relevant docs in `docs/features/` are up to date
 - [ ] `docs/README.md` index reflects any new or renamed docs
 - [ ] CLAUDE.md references are correct if docs were added/moved

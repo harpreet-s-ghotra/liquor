@@ -6,7 +6,7 @@ export const SKU_PATTERN = /^[A-Za-z0-9-]+$/
 /** Maximum length for SKU fields */
 export const SKU_MAX_LENGTH = 64
 
-/** Maximum length for name fields (product name, vendor name, etc.) */
+/** Maximum length for name fields (product name, distributor name, etc.) */
 export const NAME_MAX_LENGTH = 120
 
 /** Maximum length for department name */

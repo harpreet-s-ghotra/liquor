@@ -290,7 +290,7 @@
   color: var(--text-muted);
 }
 
-.item-form__vendor-select {
+.item-form__distributor-select {
   display: flex;
   width: 100%;
   border-radius: var(--radius);
@@ -301,7 +301,7 @@
   outline: none;
 }
 
-.item-form__vendor-select:focus {
+.item-form__distributor-select:focus {
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 1px var(--accent-blue);
 }

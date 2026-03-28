@@ -91,7 +91,7 @@ describe('POSScreen', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
       getDepartments: vi.fn().mockResolvedValue([]),
-      getVendors: vi.fn().mockResolvedValue([]),
+      getDistributors: vi.fn().mockResolvedValue([]),
       getHeldTransactions: vi.fn().mockResolvedValue([]),
       saveHeldTransaction: vi.fn().mockResolvedValue({
         id: 1,
@@ -416,7 +416,7 @@ describe('POSScreen', () => {
     ;(window as any).api = {
       saveTransaction,
       getDepartments: vi.fn().mockResolvedValue([]),
-      getVendors: vi.fn().mockResolvedValue([]),
+      getDistributors: vi.fn().mockResolvedValue([]),
       getHeldTransactions: vi.fn().mockResolvedValue([]),
       saveHeldTransaction: vi.fn().mockResolvedValue({}),
       deleteHeldTransaction: vi.fn().mockResolvedValue(undefined),
@@ -470,7 +470,7 @@ describe('POSScreen', () => {
     ;(window as any).api = {
       saveTransaction,
       getDepartments: vi.fn().mockResolvedValue([]),
-      getVendors: vi.fn().mockResolvedValue([]),
+      getDistributors: vi.fn().mockResolvedValue([]),
       getHeldTransactions: vi.fn().mockResolvedValue([]),
       saveHeldTransaction: vi.fn().mockResolvedValue({}),
       deleteHeldTransaction: vi.fn().mockResolvedValue(undefined),

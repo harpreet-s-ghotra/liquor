@@ -4,15 +4,15 @@ Desktop Point of Sale system for liquor stores. Built on Electron, inspired by P
 
 ## Tech Stack
 
-| Layer | Technology |
-| ----- | ---------- |
+| Layer         | Technology                  |
+| ------------- | --------------------------- |
 | Desktop shell | Electron 39 (electron-vite) |
-| UI | React 19 + TypeScript |
-| State | Zustand 5 |
-| Styling | BEM CSS + design tokens |
-| Database | SQLite via better-sqlite3 |
-| Payments | Stax Partner API |
-| Testing | Vitest + Playwright |
+| UI            | React 19 + TypeScript       |
+| State         | Zustand 5                   |
+| Styling       | BEM CSS + design tokens     |
+| Database      | SQLite via better-sqlite3   |
+| Payments      | Stax Partner API            |
+| Testing       | Vitest + Playwright         |
 
 ## Quick Start
 
@@ -42,9 +42,9 @@ For AI-assisted development, see [CLAUDE.md](CLAUDE.md) (Claude Code) and [.gith
 
 ## Project Status
 
-| Phase | Status |
-| ----- | ------ |
-| Phase 1 -- Core POS | Complete |
-| Phase 2 -- Inventory | Mostly Complete |
-| Phase 3 -- Stax Integration | In Progress |
-| Phase 4 -- Hardware and Polish | Planned |
+| Phase                          | Status          |
+| ------------------------------ | --------------- |
+| Phase 1 -- Core POS            | Complete        |
+| Phase 2 -- Inventory           | Mostly Complete |
+| Phase 3 -- Stax Integration    | In Progress     |
+| Phase 4 -- Hardware and Polish | Planned         |

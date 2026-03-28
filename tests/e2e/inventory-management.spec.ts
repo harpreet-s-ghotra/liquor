@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 
 /**
- * Full mock that covers POS products + inventory CRUD (departments, tax codes, vendors, items).
+ * Full mock that covers POS products + inventory CRUD (departments, tax codes, distributors, items).
  * Each store is an in-memory array so the test can create-then-verify round-trips.
  */
 const attachFullApiMock = async (page: Page): Promise<void> => {
@@ -16,10 +16,19 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
       default_tax_rate: number
     }> = []
     const taxCodes: Array<{ id: number; code: string; rate: number }> = []
-    const vendors: Array<{
-      vendor_number: number
-      vendor_name: string
-      contact_name: string | null
+    const distributors: Array<{
+      distributor_number: number
+      distributor_name: string
+      license_id: string | null
+      serial_number: string | null
+      premises_name: string | null
+      premises_address: string | null
+      is_active: number
+    }> = []
+    const salesReps: Array<{
+      sales_rep_id: number
+      distributor_number: number
+      rep_name: string
       phone: string | null
       email: string | null
       is_active: number
@@ -47,7 +56,8 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
 
     let nextDeptId = 1
     let nextTaxId = 1
-    let nextVendorId = 1
+    let nextDistributorId = 1
+    let nextSalesRepId = 1
     let nextItemId = 2
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -114,8 +124,8 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
           tax_1: taxRates[0] ?? 0,
           tax_2: taxRates[1] ?? 0,
           tax_rates: taxRates,
-          vendor_number: null,
-          vendor_name: null,
+          distributor_number: null,
+          distributor_name: null,
           bottles_per_case: payload.bottles_per_case ?? 12,
           case_discount_price: payload.case_discount_price ?? null,
           barcode: null,
@@ -209,44 +219,81 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
         if (idx >= 0) taxCodes.splice(idx, 1)
       },
 
-      /* ── Vendors CRUD ── */
-      getVendors: async () => vendors.map((v) => ({ ...v })),
-      createVendor: async (input: {
-        vendor_name: string
-        contact_name?: string
+      /* ── Distributors CRUD ── */
+      getDistributors: async () => distributors.map((d) => ({ ...d })),
+      createDistributor: async (input: { distributor_name: string }) => {
+        const d = {
+          distributor_number: nextDistributorId++,
+          distributor_name: input.distributor_name,
+          license_id: null,
+          serial_number: null,
+          premises_name: null,
+          premises_address: null,
+          is_active: 1
+        }
+        distributors.push(d)
+        return d
+      },
+      updateDistributor: async (input: {
+        distributor_number: number
+        distributor_name: string
+        license_id?: string
+        serial_number?: string
+        premises_name?: string
+        premises_address?: string
+      }) => {
+        const d = distributors.find((dn) => dn.distributor_number === input.distributor_number)
+        if (d) {
+          d.distributor_name = input.distributor_name
+          d.license_id = input.license_id ?? null
+          d.serial_number = input.serial_number ?? null
+          d.premises_name = input.premises_name ?? null
+          d.premises_address = input.premises_address ?? null
+        }
+        return d
+      },
+      deleteDistributor: async (distributorNumber: number) => {
+        const idx = distributors.findIndex((d) => d.distributor_number === distributorNumber)
+        if (idx >= 0) distributors.splice(idx, 1)
+      },
+
+      /* ── Sales Reps CRUD ── */
+      getSalesRepsByDistributor: async (distNum: number) =>
+        salesReps.filter((r) => r.distributor_number === distNum).map((r) => ({ ...r })),
+      createSalesRep: async (input: {
+        distributor_number: number
+        rep_name: string
         phone?: string
         email?: string
       }) => {
-        const v = {
-          vendor_number: nextVendorId++,
-          vendor_name: input.vendor_name,
-          contact_name: input.contact_name ?? null,
+        const rep = {
+          sales_rep_id: nextSalesRepId++,
+          distributor_number: input.distributor_number,
+          rep_name: input.rep_name,
           phone: input.phone ?? null,
           email: input.email ?? null,
           is_active: 1
         }
-        vendors.push(v)
-        return v
+        salesReps.push(rep)
+        return rep
       },
-      updateVendor: async (input: {
-        vendor_number: number
-        vendor_name: string
-        contact_name?: string
+      updateSalesRep: async (input: {
+        sales_rep_id: number
+        rep_name: string
         phone?: string
         email?: string
       }) => {
-        const v = vendors.find((vn) => vn.vendor_number === input.vendor_number)
-        if (v) {
-          v.vendor_name = input.vendor_name
-          v.contact_name = input.contact_name ?? null
-          v.phone = input.phone ?? null
-          v.email = input.email ?? null
+        const rep = salesReps.find((r) => r.sales_rep_id === input.sales_rep_id)
+        if (rep) {
+          rep.rep_name = input.rep_name
+          rep.phone = input.phone ?? null
+          rep.email = input.email ?? null
         }
-        return v
+        return rep
       },
-      deleteVendor: async (vendorNumber: number) => {
-        const idx = vendors.findIndex((v) => v.vendor_number === vendorNumber)
-        if (idx >= 0) vendors.splice(idx, 1)
+      deleteSalesRep: async (salesRepId: number) => {
+        const idx = salesReps.findIndex((r) => r.sales_rep_id === salesRepId)
+        if (idx >= 0) salesReps.splice(idx, 1)
       }
     }
   })
@@ -316,7 +363,7 @@ test.describe('Inventory Management – Full Workflow', () => {
     await gotoAndLogin(page)
   })
 
-  test('creates department, tax code, vendor, saves item, then verifies on POS screen', async ({
+  test('creates department, tax code, distributor, saves item, then verifies on POS screen', async ({
     page
   }) => {
     test.setTimeout(60_000)
@@ -343,17 +390,13 @@ test.describe('Inventory Management – Full Workflow', () => {
     await expect(taxTable.getByText('HST')).toBeVisible()
     await expect(taxTable.getByText('13%')).toBeVisible()
 
-    /* ── Step 4: Create a Vendor ── */
-    await clickTab(page, 'Vendors')
-    await fillInput(page.getByRole('textbox', { name: 'Vendor Name' }), 'Premium Wines Inc')
-    await fillInput(page.getByRole('textbox', { name: 'Contact Name' }), 'Jane Doe')
-    await fillInput(page.getByRole('textbox', { name: 'Phone' }), '555-0123')
-    await fillInput(page.getByRole('textbox', { name: 'Email' }), 'jane@premiumwines.com')
+    /* ── Step 4: Create a Distributor ── */
+    await clickTab(page, 'Distributors')
+    await fillInput(page.getByRole('textbox', { name: 'Distributor Name' }), 'Premium Wines Inc')
     await clickEl(page.getByRole('button', { name: 'Add' }))
-    await expect(page.getByText('Vendor created')).toBeVisible()
-    const vendorTable = page.getByRole('table', { name: 'Vendors list' })
-    await expect(vendorTable.getByText('Premium Wines Inc')).toBeVisible()
-    await expect(vendorTable.getByText('Jane Doe')).toBeVisible()
+    await expect(page.getByText('Distributor created')).toBeVisible()
+    const distTable = page.getByRole('table', { name: 'Distributors list' })
+    await expect(distTable.getByText('Premium Wines Inc')).toBeVisible()
 
     /* ── Step 5: Switch to Items tab and save a new item ── */
     await clickTab(page, 'Items')
@@ -479,10 +522,10 @@ test.describe('Inventory Management – Full Workflow', () => {
     await expect(page.getByText('Code is required')).toBeVisible()
     await expect(page.getByText('Rate is required')).toBeVisible()
 
-    // Vendor: empty name
-    await clickTab(page, 'Vendors')
+    // Distributor: empty name
+    await clickTab(page, 'Distributors')
     await clickEl(page.getByRole('button', { name: 'Add' }))
-    await expect(page.getByText('Vendor name is required')).toBeVisible()
+    await expect(page.getByText('Distributor name is required')).toBeVisible()
   })
 
   test('edits and deletes a tax code', async ({ page }) => {
@@ -514,31 +557,34 @@ test.describe('Inventory Management – Full Workflow', () => {
     await expect(page.getByText('No tax codes yet')).toBeVisible()
   })
 
-  test('edits and deletes a vendor', async ({ page }) => {
+  test('edits and deletes a distributor', async ({ page }) => {
     await page.getByRole('button', { name: 'F2 Inventory' }).click()
-    await clickTab(page, 'Vendors')
+    await clickTab(page, 'Distributors')
 
     // Create
-    await fillInput(page.getByRole('textbox', { name: 'Vendor Name' }), 'ABC Dist')
+    await fillInput(page.getByRole('textbox', { name: 'Distributor Name' }), 'ABC Dist')
     await clickEl(page.getByRole('button', { name: 'Add' }))
-    await expect(page.getByText('Vendor created')).toBeVisible()
+    await expect(page.getByText('Distributor created')).toBeVisible()
 
-    const vendorTable = page.getByRole('table', { name: 'Vendors list' })
+    const distTable = page.getByRole('table', { name: 'Distributors list' })
 
-    // Select vendor by clicking its row
-    await clickEl(vendorTable.locator('tr', { hasText: 'ABC Dist' }))
+    // Select distributor by clicking its row
+    await clickEl(distTable.locator('tr', { hasText: 'ABC Dist' }))
 
     // Edit in the bottom panel
-    await fillInput(page.getByRole('textbox', { name: 'Edit Vendor Name' }), 'XYZ Distributors')
+    await fillInput(
+      page.getByRole('textbox', { name: 'Edit Distributor Name' }),
+      'XYZ Distributors'
+    )
     await clickEl(page.getByRole('button', { name: 'Save' }))
-    await expect(page.getByText('Vendor saved')).toBeVisible()
-    await expect(vendorTable.getByText('XYZ Distributors')).toBeVisible()
+    await expect(page.getByText('Distributor saved')).toBeVisible()
+    await expect(distTable.getByText('XYZ Distributors')).toBeVisible()
 
     // Delete via bottom panel
     await clickEl(page.getByRole('button', { name: 'Delete' }))
     await clickEl(page.getByRole('button', { name: 'Yes, Delete' }))
-    await expect(page.getByText('Vendor deleted')).toBeVisible()
-    await expect(page.getByText('No vendors yet')).toBeVisible()
+    await expect(page.getByText('Distributor deleted')).toBeVisible()
+    await expect(page.getByText('No distributors yet')).toBeVisible()
   })
 
   test('items tab defaults to Case & Quantity sub-tab', async ({ page }) => {

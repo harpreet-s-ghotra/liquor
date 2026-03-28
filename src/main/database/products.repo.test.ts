@@ -22,7 +22,7 @@ const base: SaveInventoryItemInput = {
   sku: 'WINE-001',
   item_name: 'Test Wine',
   dept_id: '',
-  vendor_number: null,
+  distributor_number: null,
   cost: 8,
   retail_price: 15,
   in_stock: 10,

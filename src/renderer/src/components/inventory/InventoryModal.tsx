@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@renderer/components/u
 import { ItemForm, type ItemFormHandle, type ItemFormButtonState } from './items/ItemForm'
 import { DepartmentPanel } from './departments/DepartmentPanel'
 import { TaxCodePanel } from './tax-codes/TaxCodePanel'
-import { VendorPanel } from './vendors/VendorPanel'
+import { DistributorPanel } from './distributors/DistributorPanel'
 import { FooterActionBar } from './FooterActionBar'
 import { useDebounce } from '@renderer/hooks/useDebounce'
 import type { InventoryProduct } from '@renderer/types/pos'
@@ -173,8 +173,8 @@ export function InventoryModal({
                   ? 'Departments'
                   : activeTab === 'tax-codes'
                     ? 'Tax Codes'
-                    : activeTab === 'vendors'
-                      ? 'Vendors'
+                    : activeTab === 'distributors'
+                      ? 'Distributors'
                       : activeTab}
             </span>
           </div>
@@ -201,7 +201,7 @@ export function InventoryModal({
                   { value: INVENTORY_TABS[0], label: 'Items' },
                   { value: INVENTORY_TABS[1], label: 'Departments' },
                   { value: INVENTORY_TABS[2], label: 'Tax Codes' },
-                  { value: INVENTORY_TABS[3], label: 'Vendors' }
+                  { value: INVENTORY_TABS[3], label: 'Distributors' }
                 ] as const
               ).map(({ value, label }) => (
                 <TabsTrigger key={value} value={value} className="inventory-modal__tab-trigger">
@@ -239,10 +239,10 @@ export function InventoryModal({
             <TaxCodePanel searchFilter={searchTerm} />
           </TabsContent>
           <TabsContent
-            value="vendors"
+            value="distributors"
             className="inventory-modal__tab-content inventory-modal__tab-content--panel"
           >
-            <VendorPanel searchFilter={searchTerm} />
+            <DistributorPanel searchFilter={searchTerm} />
           </TabsContent>
         </Tabs>
 

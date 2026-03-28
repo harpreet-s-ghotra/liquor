@@ -79,44 +79,44 @@ Revenue impact: refunds reduce the merchant's transaction volume for Stax residu
 
 ### Scenario 1: Full Return (All Items)
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Recall transaction TXN-123 | Cart shows all 3 original items |
-| 2 | Click "Return All" | All 3 items checked, banner shows "Returning 3 items" |
-| 3 | Click "Cash Refund" | Payment modal shows negative total |
-| 4 | Confirm refund | Refund transaction saved, all 3 products restocked |
+| Step | Action                     | Expected Result                                       |
+| ---- | -------------------------- | ----------------------------------------------------- |
+| 1    | Recall transaction TXN-123 | Cart shows all 3 original items                       |
+| 2    | Click "Return All"         | All 3 items checked, banner shows "Returning 3 items" |
+| 3    | Click "Cash Refund"        | Payment modal shows negative total                    |
+| 4    | Confirm refund             | Refund transaction saved, all 3 products restocked    |
 
 ### Scenario 2: Partial Return (Some Items)
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Recall transaction TXN-123 (3 items) | Cart shows all items |
-| 2 | Check item #1 and item #3 only | 2 items marked, banner shows "Returning 2 items" |
-| 3 | Process refund | Only items #1 and #3 are restocked; item #2 is unaffected |
+| Step | Action                               | Expected Result                                           |
+| ---- | ------------------------------------ | --------------------------------------------------------- |
+| 1    | Recall transaction TXN-123 (3 items) | Cart shows all items                                      |
+| 2    | Check item #1 and item #3 only       | 2 items marked, banner shows "Returning 2 items"          |
+| 3    | Process refund                       | Only items #1 and #3 are restocked; item #2 is unaffected |
 
 ### Scenario 3: Partial Quantity Return
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Recall transaction (item A: qty 5) | Cart shows item A with qty 5 |
-| 2 | Check item A, then "Qty Change" to 2 | Return quantity set to 2 |
-| 3 | Process refund | Only 2 units of item A are restocked |
+| Step | Action                               | Expected Result                      |
+| ---- | ------------------------------------ | ------------------------------------ |
+| 1    | Recall transaction (item A: qty 5)   | Cart shows item A with qty 5         |
+| 2    | Check item A, then "Qty Change" to 2 | Return quantity set to 2             |
+| 3    | Process refund                       | Only 2 units of item A are restocked |
 
 ### Scenario 4: Return a Previously Returned Transaction
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Recall a refund transaction (status = 'refund') | Cart shows refund items |
-| 2 | Try to check any item | Nothing happens — return checkboxes are disabled |
-| 3 | — | Cannot return a refund (prevents double-refund) |
+| Step | Action                                          | Expected Result                                  |
+| ---- | ----------------------------------------------- | ------------------------------------------------ |
+| 1    | Recall a refund transaction (status = 'refund') | Cart shows refund items                          |
+| 2    | Try to check any item                           | Nothing happens — return checkboxes are disabled |
+| 3    | —                                               | Cannot return a refund (prevents double-refund)  |
 
 ### Scenario 5: Credit Card Refund (Stax Integration)
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Recall a credit card transaction | Banner shows "credit (visa ****1111)" |
-| 2 | Select items, click "Credit Refund" | Stax refund API called with original `stax_transaction_id` |
-| 3 | Stax confirms refund | Refund transaction saved with new `stax_transaction_id` from refund response |
+| Step | Action                              | Expected Result                                                              |
+| ---- | ----------------------------------- | ---------------------------------------------------------------------------- |
+| 1    | Recall a credit card transaction    | Banner shows "credit (visa \*\*\*\*1111)"                                    |
+| 2    | Select items, click "Credit Refund" | Stax refund API called with original `stax_transaction_id`                   |
+| 3    | Stax confirms refund                | Refund transaction saved with new `stax_transaction_id` from refund response |
 
 ### Scenario 6: Mixed Payment Return
 
@@ -181,14 +181,14 @@ Monetary amounts on refund transactions use `()` parentheses format (standard ac
 
 Refund rows and values are visually distinct across all views:
 
-| Location | Highlighting |
-|----------|-------------|
-| **TicketPanel** (cart) | Red left border, "RETURN" badge, negative qty in red, amounts in `()` red |
-| **ActionPanel** (totals box) | Labels change to "Refund Sub-Total" / "Refund Tax" / "Refund", all amounts red in `()` |
-| **PaymentModal** | Red background on total bar, amount shown as `($XX.XX)` |
-| **Sales History Modal** (rows) | Red-tinted row background, negative item count, total in `()` red, "Refund" badge |
-| **Sales History Modal** (expanded detail) | Negative qty, unit price and total in `()` red, subtotal/tax/total all in `()` red |
-| **Inventory Sales History tab** | Red-tinted row background, negative qty, price and total in `()` red, "REFUND" badge |
+| Location                                  | Highlighting                                                                           |
+| ----------------------------------------- | -------------------------------------------------------------------------------------- |
+| **TicketPanel** (cart)                    | Red left border, "RETURN" badge, negative qty in red, amounts in `()` red              |
+| **ActionPanel** (totals box)              | Labels change to "Refund Sub-Total" / "Refund Tax" / "Refund", all amounts red in `()` |
+| **PaymentModal**                          | Red background on total bar, amount shown as `($XX.XX)`                                |
+| **Sales History Modal** (rows)            | Red-tinted row background, negative item count, total in `()` red, "Refund" badge      |
+| **Sales History Modal** (expanded detail) | Negative qty, unit price and total in `()` red, subtotal/tax/total all in `()` red     |
+| **Inventory Sales History tab**           | Red-tinted row background, negative qty, price and total in `()` red, "REFUND" badge   |
 
 ### Database Storage
 
@@ -229,12 +229,12 @@ A standalone modal accessible from the POS footer bar that displays all past tra
 
 ### Filters
 
-| Filter | Options | Default |
-|--------|---------|---------|
-| Date Range | Today, Last 7 Days, Last 30 Days, Custom Range | Today |
-| Status | All, Sales Only, Refunds Only | All |
-| Payment Method | All, Cash, Credit, Debit | All |
-| Search | Free text — matches transaction number or product name | Empty |
+| Filter         | Options                                                | Default |
+| -------------- | ------------------------------------------------------ | ------- |
+| Date Range     | Today, Last 7 Days, Last 30 Days, Custom Range         | Today   |
+| Status         | All, Sales Only, Refunds Only                          | All     |
+| Payment Method | All, Cash, Credit, Debit                               | All     |
+| Search         | Free text — matches transaction number or product name | Empty   |
 
 ### Transaction Detail Drill-Down
 
@@ -252,13 +252,13 @@ Clicking a transaction row expands it (or opens an inline detail) showing:
 
 ```typescript
 type TransactionListFilter = {
-  date_from?: string    // ISO date string
-  date_to?: string      // ISO date string
-  status?: 'completed' | 'refund' | null  // null = all
-  payment_method?: string | null           // null = all
-  search?: string                          // matches txn number or product name
-  limit?: number                           // default 50
-  offset?: number                          // for pagination
+  date_from?: string // ISO date string
+  date_to?: string // ISO date string
+  status?: 'completed' | 'refund' | null // null = all
+  payment_method?: string | null // null = all
+  search?: string // matches txn number or product name
+  limit?: number // default 50
+  offset?: number // for pagination
 }
 
 type TransactionListResult = {
@@ -277,7 +277,7 @@ type TransactionSummary = {
   card_type: string | null
   status: string
   original_transaction_id: number | null
-  item_count: number        // COUNT of line items
+  item_count: number // COUNT of line items
   created_at: string
 }
 ```
@@ -351,13 +351,13 @@ type ErrorStore = {
 
 #### Where to Surface Errors
 
-| Operation | Current Behavior | Required Behavior |
-|-----------|-----------------|-------------------|
-| Save transaction fails | Console log only | Show error alert: "Failed to save transaction" |
-| Save refund fails | Console log only | Show error alert: "Failed to process refund" |
-| Recall transaction fails | Console log only | Show error alert: "Failed to recall transaction" |
-| Transaction not found | Silent (returns false) | Show warning: "Transaction not found" |
-| Stax API call fails | TBD | Show error alert with Stax error message |
+| Operation                | Current Behavior       | Required Behavior                                |
+| ------------------------ | ---------------------- | ------------------------------------------------ |
+| Save transaction fails   | Console log only       | Show error alert: "Failed to save transaction"   |
+| Save refund fails        | Console log only       | Show error alert: "Failed to process refund"     |
+| Recall transaction fails | Console log only       | Show error alert: "Failed to recall transaction" |
+| Transaction not found    | Silent (returns false) | Show warning: "Transaction not found"            |
+| Stax API call fails      | TBD                    | Show error alert with Stax error message         |
 
 ---
 
@@ -405,10 +405,10 @@ return_tax = SUM(item_return_price * item_tax_rate)
 
 ### Voided vs. Returned Transactions
 
-| Term | Meaning | When to Use |
-|------|---------|-------------|
-| **Void** | Cancel a transaction before it is completed | During payment (before final confirmation) |
-| **Return/Refund** | Reverse a completed transaction | After the sale is finalized |
+| Term              | Meaning                                     | When to Use                                |
+| ----------------- | ------------------------------------------- | ------------------------------------------ |
+| **Void**          | Cancel a transaction before it is completed | During payment (before final confirmation) |
+| **Return/Refund** | Reverse a completed transaction             | After the sale is finalized                |
 
 Currently, LiquorPOS only supports returns (post-completion). Void functionality (canceling mid-payment) is a future enhancement.
 
@@ -426,6 +426,7 @@ Currently, LiquorPOS only supports returns (post-completion). Void functionality
 ### End-of-Day Reporting (Future)
 
 Daily reports should include:
+
 - Total sales count and amount
 - Total refund count and amount
 - Net sales (sales - refunds)
@@ -437,19 +438,19 @@ Daily reports should include:
 
 ### Transaction Status Values
 
-| Status | Description |
-|--------|-------------|
-| `completed` | Normal sale transaction |
-| `refund` | Return/refund transaction (linked to original via `original_transaction_id`) |
+| Status      | Description                                                                  |
+| ----------- | ---------------------------------------------------------------------------- |
+| `completed` | Normal sale transaction                                                      |
+| `refund`    | Return/refund transaction (linked to original via `original_transaction_id`) |
 
 ### Key Fields
 
-| Field | Table | Purpose |
-|-------|-------|---------|
-| `status` | transactions | Distinguishes sales from refunds |
-| `original_transaction_id` | transactions | Links refund to its original sale |
-| `notes` | transactions | Auto-generated: "Refund for TXN-..." |
-| `product_id` | transaction_items | Links line item to product (for inventory updates and sales history) |
+| Field                     | Table             | Purpose                                                              |
+| ------------------------- | ----------------- | -------------------------------------------------------------------- |
+| `status`                  | transactions      | Distinguishes sales from refunds                                     |
+| `original_transaction_id` | transactions      | Links refund to its original sale                                    |
+| `notes`                   | transactions      | Auto-generated: "Refund for TXN-..."                                 |
+| `product_id`              | transaction_items | Links line item to product (for inventory updates and sales history) |
 
 ### Transaction-to-Product Relationship
 
@@ -470,6 +471,7 @@ transactions (1) ──── (N) transaction_items (N) ──── (1) product
 **Root Cause:** When a transaction is recalled, cart items get synthetic negative IDs (`-(index + 100)`). The `handleRefundComplete` function uses `cartItem.id` as the `product_id`, passing `-100`, `-101`, etc. to the database. Since no product has a negative ID, the foreign key constraint on `transaction_items.product_id → products.id` fails, and the entire DB transaction rolls back.
 
 **Location:**
+
 - `src/renderer/src/store/usePosScreen.ts:522` — assigns `id: -(index + 100)`
 - `src/renderer/src/pages/POSScreen.tsx:190` — uses `product_id: cartItem.id`
 

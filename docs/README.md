@@ -4,34 +4,34 @@
 
 ## Project
 
-| Doc | Covers |
-| --- | ------ |
-| [Project Plan](project-plan.md) | Full vision, roadmap, database schema, Stax architecture |
+| Doc                               | Covers                                                           |
+| --------------------------------- | ---------------------------------------------------------------- |
+| [Project Plan](project-plan.md)   | Full vision, roadmap, database schema, Stax architecture         |
 | [Design System](design-system.md) | Visual spec -- colors, typography, layout rules, component specs |
 
 ## Feature Specs
 
-| Doc | Status | Covers |
-| --- | ------ | ------ |
-| [Inventory V1](features/inventory-v1.md) | Complete | Inventory CRUD, search, form fields, data contracts |
-| [Inventory V2](features/inventory-v2.md) | Active | Inventory modal redesign, new fields, footer action bar |
-| [Pricing Engine](features/pricing-engine.md) | Complete | Special pricing, mix-and-match, pricing engine architecture |
-| [Product Search](features/product-search.md) | Complete | Search modal, filters, product lookup flow |
-| [Returns and Refunds](features/returns-and-refunds.md) | Complete | Return workflow, refund scenarios, inventory impact |
-| [Stax Activation](features/stax-activation.md) | Complete | Merchant activation flow, cashier PIN login, auth state machine |
-| [Stax Integration](features/stax-integration.md) | In Progress | Partner API, endpoints, test cards, webhooks |
+| Doc                                                    | Status      | Covers                                                          |
+| ------------------------------------------------------ | ----------- | --------------------------------------------------------------- |
+| [Inventory V1](features/inventory-v1.md)               | Complete    | Inventory CRUD, search, form fields, data contracts             |
+| [Inventory V2](features/inventory-v2.md)               | Active      | Inventory modal redesign, new fields, footer action bar         |
+| [Pricing Engine](features/pricing-engine.md)           | Complete    | Special pricing, mix-and-match, pricing engine architecture     |
+| [Product Search](features/product-search.md)           | Complete    | Search modal, filters, product lookup flow                      |
+| [Returns and Refunds](features/returns-and-refunds.md) | Complete    | Return workflow, refund scenarios, inventory impact             |
+| [Stax Activation](features/stax-activation.md)         | Complete    | Merchant activation flow, cashier PIN login, auth state machine |
+| [Stax Integration](features/stax-integration.md)       | In Progress | Partner API, endpoints, test cards, webhooks                    |
 
 ## AI Navigation
 
 AI agents should read these before searching the codebase:
 
-| Index | Covers |
-| ----- | ------ |
-| [Repo Map](ai/repo-map.md) | Architecture, entry points, IPC channels, module lookup |
-| [Testing Map](ai/testing-map.md) | Test locations, runners, patterns, how to add tests |
-| [Inventory Map](ai/inventory-map.md) | All inventory feature files, components, types, tests |
-| [Stax Map](ai/stax-map.md) | Payment/auth files, Stax API, terminal flow |
-| [Glossary](ai/glossary.md) | Canonical terms and definitions |
+| Index                                | Covers                                                  |
+| ------------------------------------ | ------------------------------------------------------- |
+| [Repo Map](ai/repo-map.md)           | Architecture, entry points, IPC channels, module lookup |
+| [Testing Map](ai/testing-map.md)     | Test locations, runners, patterns, how to add tests     |
+| [Inventory Map](ai/inventory-map.md) | All inventory feature files, components, types, tests   |
+| [Stax Map](ai/stax-map.md)           | Payment/auth files, Stax API, terminal flow             |
+| [Glossary](ai/glossary.md)           | Canonical terms and definitions                         |
 
 ## E2E Test Coverage
 

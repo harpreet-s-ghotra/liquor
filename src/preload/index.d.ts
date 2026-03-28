@@ -8,13 +8,16 @@ import type {
   InventoryTaxCode,
   Department,
   TaxCode,
-  Vendor,
+  Distributor,
+  SalesRep,
   CreateDepartmentInput,
   UpdateDepartmentInput,
   CreateTaxCodeInput,
   UpdateTaxCodeInput,
-  CreateVendorInput,
-  UpdateVendorInput,
+  CreateDistributorInput,
+  UpdateDistributorInput,
+  CreateSalesRepInput,
+  UpdateSalesRepInput,
   MerchantConfig,
   Cashier,
   CreateCashierInput,
@@ -55,10 +58,14 @@ type AppApi = {
   createTaxCode: (input: CreateTaxCodeInput) => Promise<TaxCode>
   updateTaxCode: (input: UpdateTaxCodeInput) => Promise<TaxCode>
   deleteTaxCode: (id: number) => Promise<void>
-  getVendors: () => Promise<Vendor[]>
-  createVendor: (input: CreateVendorInput) => Promise<Vendor>
-  updateVendor: (input: UpdateVendorInput) => Promise<Vendor>
-  deleteVendor: (vendorNumber: number) => Promise<void>
+  getDistributors: () => Promise<Distributor[]>
+  createDistributor: (input: CreateDistributorInput) => Promise<Distributor>
+  updateDistributor: (input: UpdateDistributorInput) => Promise<Distributor>
+  deleteDistributor: (distributorNumber: number) => Promise<void>
+  getSalesRepsByDistributor: (distributorNumber: number) => Promise<SalesRep[]>
+  createSalesRep: (input: CreateSalesRepInput) => Promise<SalesRep>
+  updateSalesRep: (input: UpdateSalesRepInput) => Promise<SalesRep>
+  deleteSalesRep: (salesRepId: number) => Promise<void>
 
   // Merchant Config
   getMerchantConfig: () => Promise<MerchantConfig | null>

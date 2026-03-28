@@ -117,7 +117,7 @@ Build a fast, reliable, and simple Point of Sale system specifically designed fo
 - ✅ Inventory Management (full CRUD — items, search, detail view)
 - ✅ Department Management (CRUD)
 - ✅ Tax Code Management (CRUD)
-- ✅ Vendor Management (CRUD)
+- ✅ Distributor Management (CRUD)
 - ✅ Special Pricing rules per product
 - ✅ Multiple SKU / alternate barcode support
 - ⏳ Customer Management
@@ -257,7 +257,7 @@ CREATE TABLE transaction_items (
 - [x] Full inventory management CRUD (InventoryModal, ItemForm)
 - [x] Department management CRUD (DepartmentPanel)
 - [x] Tax code management CRUD (TaxCodePanel)
-- [x] Vendor management CRUD (VendorPanel)
+- [x] Distributor management CRUD (DistributorPanel)
 - [x] Special pricing rules per product
 - [x] Alternate SKU / barcode support
 - [x] Inventory E2E tests

@@ -69,9 +69,7 @@ describe('SalesHistoryModal', () => {
   })
 
   it('loads and displays transaction rows when opened', async () => {
-    render(
-      <SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />
-    )
+    render(<SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />)
 
     await waitFor(() => {
       expect(window.api?.listTransactions).toHaveBeenCalledTimes(1)
@@ -88,9 +86,7 @@ describe('SalesHistoryModal', () => {
       .fn()
       .mockResolvedValue({ transactions: [], total_count: 0 })
 
-    render(
-      <SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />
-    )
+    render(<SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByTestId('sales-history-empty')).toBeInTheDocument()
@@ -99,9 +95,7 @@ describe('SalesHistoryModal', () => {
   })
 
   it('applies filters and can clear them', async () => {
-    render(
-      <SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />
-    )
+    render(<SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByTestId('sales-history-date-filter')).toBeInTheDocument()
@@ -153,9 +147,7 @@ describe('SalesHistoryModal', () => {
   })
 
   it('collapses expanded row when clicked again', async () => {
-    render(
-      <SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />
-    )
+    render(<SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByTestId('sales-history-row-1')).toBeInTheDocument()
@@ -178,9 +170,7 @@ describe('SalesHistoryModal', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api.getTransactionByNumber = vi.fn().mockRejectedValue(new Error('network'))
 
-    render(
-      <SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />
-    )
+    render(<SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByTestId('sales-history-row-1')).toBeInTheDocument()
@@ -203,9 +193,7 @@ describe('SalesHistoryModal', () => {
       .fn()
       .mockResolvedValue({ ...detail, ...refundTxn, items: detail.items, status: 'refund' })
 
-    render(
-      <SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />
-    )
+    render(<SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByText('Refund')).toBeInTheDocument()
@@ -226,9 +214,7 @@ describe('SalesHistoryModal', () => {
       .fn()
       .mockResolvedValue({ transactions: [saleTxn], total_count: 60 })
 
-    render(
-      <SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />
-    )
+    render(<SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByText('Showing 1-25 of 60')).toBeInTheDocument()

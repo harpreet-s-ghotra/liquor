@@ -4,10 +4,10 @@
 
 This document covers two features that gate access to the POS:
 
-| Phase | Feature                 | Description                                                                                                                                                          |
-| ----- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | **Merchant Activation** | First-launch screen where the merchant enters their Stax Pay API key. The key is validated against `GET /self` and stored locally.                                   |
-| **2** | **Cashier PIN Login**   | After activation, cashiers log in with a 4-digit PIN. Supports multiple cashiers per merchant.                                                                       |
+| Phase | Feature                 | Description                                                                                                                        |
+| ----- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **Merchant Activation** | First-launch screen where the merchant enters their Stax Pay API key. The key is validated against `GET /self` and stored locally. |
+| **2** | **Cashier PIN Login**   | After activation, cashiers log in with a 4-digit PIN. Supports multiple cashiers per merchant.                                     |
 
 > **Account model:** LiquorPOS uses **Stax Pay** (direct merchant account). The API key is obtained from the Stax Pay merchant dashboard and entered manually on first launch. No partner/ISV backend is required.
 

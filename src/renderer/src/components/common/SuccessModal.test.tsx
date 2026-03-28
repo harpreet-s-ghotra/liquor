@@ -13,12 +13,7 @@ describe('SuccessModal', () => {
 
   it('renders title and message when open', () => {
     render(
-      <SuccessModal
-        isOpen={true}
-        title="Saved"
-        message="Settings stored"
-        onDismiss={vi.fn()}
-      />
+      <SuccessModal isOpen={true} title="Saved" message="Settings stored" onDismiss={vi.fn()} />
     )
 
     expect(screen.getByText('Saved')).toBeInTheDocument()

@@ -9,13 +9,16 @@ import type {
   InventoryTaxCode,
   Department,
   TaxCode,
-  Vendor,
+  Distributor,
+  SalesRep,
   CreateDepartmentInput,
   UpdateDepartmentInput,
   CreateTaxCodeInput,
   UpdateTaxCodeInput,
-  CreateVendorInput,
-  UpdateVendorInput,
+  CreateDistributorInput,
+  UpdateDistributorInput,
+  CreateSalesRepInput,
+  UpdateSalesRepInput,
   MerchantConfig,
   Cashier,
   CreateCashierInput,
@@ -75,14 +78,24 @@ const api = {
     ipcRenderer.invoke('tax-codes:update', input),
   deleteTaxCode: (id: number): Promise<void> => ipcRenderer.invoke('tax-codes:delete', id),
 
-  // Vendor CRUD
-  getVendors: (): Promise<Vendor[]> => ipcRenderer.invoke('vendors:list'),
-  createVendor: (input: CreateVendorInput): Promise<Vendor> =>
-    ipcRenderer.invoke('vendors:create', input),
-  updateVendor: (input: UpdateVendorInput): Promise<Vendor> =>
-    ipcRenderer.invoke('vendors:update', input),
-  deleteVendor: (vendorNumber: number): Promise<void> =>
-    ipcRenderer.invoke('vendors:delete', vendorNumber),
+  // Distributor CRUD
+  getDistributors: (): Promise<Distributor[]> => ipcRenderer.invoke('distributors:list'),
+  createDistributor: (input: CreateDistributorInput): Promise<Distributor> =>
+    ipcRenderer.invoke('distributors:create', input),
+  updateDistributor: (input: UpdateDistributorInput): Promise<Distributor> =>
+    ipcRenderer.invoke('distributors:update', input),
+  deleteDistributor: (distributorNumber: number): Promise<void> =>
+    ipcRenderer.invoke('distributors:delete', distributorNumber),
+
+  // Sales Rep CRUD
+  getSalesRepsByDistributor: (distributorNumber: number): Promise<SalesRep[]> =>
+    ipcRenderer.invoke('sales-reps:list-by-distributor', distributorNumber),
+  createSalesRep: (input: CreateSalesRepInput): Promise<SalesRep> =>
+    ipcRenderer.invoke('sales-reps:create', input),
+  updateSalesRep: (input: UpdateSalesRepInput): Promise<SalesRep> =>
+    ipcRenderer.invoke('sales-reps:update', input),
+  deleteSalesRep: (salesRepId: number): Promise<void> =>
+    ipcRenderer.invoke('sales-reps:delete', salesRepId),
 
   // Merchant Config
   getMerchantConfig: (): Promise<MerchantConfig | null> =>

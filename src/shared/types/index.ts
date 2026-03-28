@@ -22,8 +22,8 @@ export type InventoryProduct = {
   in_stock: number
   tax_1: number
   tax_2: number
-  vendor_number: number | null
-  vendor_name: string | null
+  distributor_number: number | null
+  distributor_name: string | null
   bottles_per_case: number
   case_discount_price: number | null
   barcode: string | null
@@ -212,7 +212,7 @@ export type SaveInventoryItemInput = {
   sku: string
   item_name: string
   dept_id: string
-  vendor_number: number | null
+  distributor_number: number | null
   cost: number
   retail_price: number
   in_stock: number
@@ -242,10 +242,20 @@ export type TaxCode = {
   rate: number
 }
 
-export type Vendor = {
-  vendor_number: number
-  vendor_name: string
-  contact_name: string | null
+export type Distributor = {
+  distributor_number: number
+  distributor_name: string
+  license_id: string | null
+  serial_number: string | null
+  premises_name: string | null
+  premises_address: string | null
+  is_active: number
+}
+
+export type SalesRep = {
+  sales_rep_id: number
+  distributor_number: number
+  rep_name: string
   phone: string | null
   email: string | null
   is_active: number
@@ -266,16 +276,30 @@ export type UpdateDepartmentInput = {
 }
 export type CreateTaxCodeInput = { code: string; rate: number }
 export type UpdateTaxCodeInput = { id: number; code: string; rate: number }
-export type CreateVendorInput = {
-  vendor_name: string
-  contact_name?: string
+export type CreateDistributorInput = {
+  distributor_name: string
+  license_id?: string
+  serial_number?: string
+  premises_name?: string
+  premises_address?: string
+}
+export type UpdateDistributorInput = {
+  distributor_number: number
+  distributor_name: string
+  license_id?: string
+  serial_number?: string
+  premises_name?: string
+  premises_address?: string
+}
+export type CreateSalesRepInput = {
+  distributor_number: number
+  rep_name: string
   phone?: string
   email?: string
 }
-export type UpdateVendorInput = {
-  vendor_number: number
-  vendor_name: string
-  contact_name?: string
+export type UpdateSalesRepInput = {
+  sales_rep_id: number
+  rep_name: string
   phone?: string
   email?: string
 }
@@ -402,7 +426,7 @@ export type TerminalRegister = {
 /** Filters for the POS product search modal */
 export type SearchProductFilters = {
   departmentId?: number
-  vendorNumber?: number
+  distributorNumber?: number
 }
 
 /** Input for sending a charge to a physical card terminal */
