@@ -29,7 +29,12 @@ const baseInventoryItem: InventoryProduct = {
   item_type: null,
   size: null,
   case_cost: null,
-  nysla_discounts: null
+  nysla_discounts: null,
+  brand_name: null,
+  proof: null,
+  alcohol_pct: null,
+  vintage: null,
+  ttb_id: null
 }
 
 const baseDetail = {
@@ -112,7 +117,7 @@ describe('ItemForm', () => {
     render(<ItemForm />)
     expect(screen.getByLabelText('SKU')).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toBeInTheDocument()
-    expect(screen.getByLabelText('Cost')).toBeInTheDocument()
+    expect(screen.getByLabelText('Per Bottle Cost')).toBeInTheDocument()
     expect(screen.getByLabelText('Price Charged')).toBeInTheDocument()
     expect(screen.getByLabelText('In Stock')).toBeInTheDocument()
     expect(screen.getByLabelText('Department')).toBeInTheDocument()
@@ -136,7 +141,7 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NEW' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Item' } })
-    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: 'abc' } })
     setTaxRate('0.13')
@@ -150,14 +155,14 @@ describe('ItemForm', () => {
     render(<ItemForm />)
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST' } })
-    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '999' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '999' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1234' } })
 
     await userEvent.click(screen.getByRole('tab', { name: 'Special Pricing' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Add Rule' }))
     fireEvent.change(screen.getByLabelText('Rule 1 Price'), { target: { value: '501' } })
 
-    expect(screen.getByLabelText('Cost')).toHaveValue('$9.99')
+    expect(screen.getByLabelText('Per Bottle Cost')).toHaveValue('$9.99')
     expect(screen.getByLabelText('Price Charged')).toHaveValue('$12.34')
     expect(screen.getByLabelText('Rule 1 Price')).toHaveValue('$5.01')
   })
@@ -171,7 +176,7 @@ describe('ItemForm', () => {
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NEW' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Item' } })
     setDept('02')
-    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
     setTaxRate('0.13')
@@ -201,6 +206,43 @@ describe('ItemForm', () => {
       })
     )
     expect(await screen.findByText('Item saved')).toBeInTheDocument()
+  })
+
+  it('includes new metadata fields in save payload', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (window as any).api
+
+    render(<ItemFormWithButtons />)
+
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-WINE' } })
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Premium Wine' } })
+    setDept('11')
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } })
+    fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '2500' } })
+    fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '5' } })
+    setTaxRate('0.13')
+
+    // Fill in new metadata fields
+    fireEvent.change(screen.getByLabelText('Brand'), { target: { value: 'Château Margaux' } })
+    fireEvent.change(screen.getByLabelText('Proof'), { target: { value: '86' } })
+    fireEvent.change(screen.getByLabelText('Alcohol Percentage'), { target: { value: '13.5' } })
+    fireEvent.change(screen.getByLabelText('Vintage'), { target: { value: '2015' } })
+    fireEvent.change(screen.getByLabelText('TTB ID'), { target: { value: 'TTB-12345' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
+
+    await waitFor(() => {
+      expect(api.saveInventoryItem).toHaveBeenCalled()
+    })
+    expect(api.saveInventoryItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brand_name: 'Château Margaux',
+        proof: 86,
+        alcohol_pct: 13.5,
+        vintage: '2015',
+        ttb_id: 'TTB-12345'
+      })
+    )
   })
 
   it('loads item detail and populates form via selectItem', async () => {
@@ -242,6 +284,35 @@ describe('ItemForm', () => {
     expect(table).toHaveTextContent('$30.00')
     expect(table).toHaveTextContent('credit')
     expect(table).toHaveTextContent('visa ****1111')
+  })
+
+  it('loads item detail and populates metadata fields', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (window as any).api
+    api.getInventoryProductDetail = vi.fn(async () => ({
+      ...baseDetail,
+      brand_name: 'Château Margaux',
+      proof: 86,
+      alcohol_pct: 13.5,
+      vintage: '2015',
+      ttb_id: 'TTB-12345-ABC'
+    }))
+
+    render(<ItemFormWithButtons />)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
+
+    await waitFor(() => {
+      expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
+    })
+
+    // Verify metadata fields are populated after loading
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Château Margaux')).toBeInTheDocument()
+    })
+    expect(screen.getByDisplayValue('86')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('13.5')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('2015')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('TTB-12345-ABC')).toBeInTheDocument()
   })
 
   it('falls back to legacy tax fields when tax_rates is missing', async () => {
@@ -396,7 +467,7 @@ describe('ItemForm', () => {
     setDept('11')
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-ERR' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Error Item' } })
-    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '500' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '500' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '1' } })
     setTaxRate('0.13')
@@ -474,7 +545,7 @@ describe('ItemForm', () => {
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-CASE' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Case Item' } })
     setDept('11')
-    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
     setTaxRate('0.13')
@@ -499,7 +570,7 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NOTAX' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'No Tax Item' } })
-    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '500' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '500' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '1' } })
 
@@ -528,7 +599,7 @@ describe('ItemForm', () => {
   it('displays computed profit margin', () => {
     render(<ItemForm />)
 
-    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '1000' } }) // $10
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } }) // $10
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '2000' } }) // $20
 
     // profit = (20-10)/20 * 100 = 50%
@@ -606,7 +677,7 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Spirits' } })
     // Enter cost $10.00 → price = 10 / (1 - 0.25) = $13.33
-    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '1000' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } })
 
     await waitFor(() => {
       expect(screen.getByLabelText('Price Charged')).toHaveValue('$13.33')
@@ -634,7 +705,7 @@ describe('ItemForm', () => {
     })
 
     // Enter cost first
-    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '2000' } }) // $20
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '2000' } }) // $20
 
     // Change dept to one with a margin — price = 20 / (1 - 0.40) = $33.33
     fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Whiskey' } })
@@ -664,7 +735,7 @@ describe('ItemForm', () => {
     })
 
     fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Wine' } })
-    fireEvent.change(screen.getByLabelText('Cost'), { target: { value: '1000' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } })
 
     // Auto label should appear
     await waitFor(() => {

@@ -34,7 +34,12 @@ const base: SaveInventoryItemInput = {
   case_discount_price: null,
   size: '',
   case_cost: null,
-  nysla_discounts: null
+  nysla_discounts: null,
+  brand_name: '',
+  proof: null,
+  alcohol_pct: null,
+  vintage: '',
+  ttb_id: ''
 }
 
 describe('saveInventoryItem', () => {
@@ -49,6 +54,11 @@ describe('saveInventoryItem', () => {
     expect(result.cost).toBe(8)
     expect(result.in_stock).toBe(10)
     expect(result.item_number).toBeGreaterThan(0)
+    expect(result.brand_name).toBeNull()
+    expect(result.proof).toBeNull()
+    expect(result.alcohol_pct).toBeNull()
+    expect(result.vintage).toBeNull()
+    expect(result.ttb_id).toBeNull()
   })
 
   it('updates an existing item', () => {
@@ -279,5 +289,61 @@ describe('NYSLA fields', () => {
     expect(updated.item_type).toBe('Table White Wine')
     expect(updated.size).toBe('1.5L')
     expect(updated.case_cost).toBe(120.0)
+  })
+
+  it('saves and retrieves NYSLA product metadata fields', () => {
+    const item = saveInventoryItem({
+      ...base,
+      brand_name: 'Château Margaux',
+      proof: 86,
+      alcohol_pct: 13.5,
+      vintage: '2015',
+      ttb_id: 'TTB-12345-ABC'
+    })
+
+    const detail = getInventoryProductDetail(item.item_number)
+    expect(detail!.brand_name).toBe('Château Margaux')
+    expect(detail!.proof).toBe(86)
+    expect(detail!.alcohol_pct).toBe(13.5)
+    expect(detail!.vintage).toBe('2015')
+    expect(detail!.ttb_id).toBe('TTB-12345-ABC')
+  })
+
+  it('returns null for optional metadata fields when not set', () => {
+    const item = saveInventoryItem(base)
+    const detail = getInventoryProductDetail(item.item_number)
+
+    expect(detail!.brand_name).toBeNull()
+    expect(detail!.proof).toBeNull()
+    expect(detail!.alcohol_pct).toBeNull()
+    expect(detail!.vintage).toBeNull()
+    expect(detail!.ttb_id).toBeNull()
+  })
+
+  it('updates metadata fields on subsequent saves', () => {
+    const created = saveInventoryItem({
+      ...base,
+      brand_name: 'Original Brand',
+      proof: 80,
+      alcohol_pct: 12.0,
+      vintage: '2010',
+      ttb_id: 'TTB-OLD'
+    })
+
+    const updated = saveInventoryItem({
+      ...base,
+      item_number: created.item_number,
+      brand_name: 'Updated Brand',
+      proof: 100,
+      alcohol_pct: 15.5,
+      vintage: '2020',
+      ttb_id: 'TTB-NEW'
+    })
+
+    expect(updated.brand_name).toBe('Updated Brand')
+    expect(updated.proof).toBe(100)
+    expect(updated.alcohol_pct).toBe(15.5)
+    expect(updated.vintage).toBe('2020')
+    expect(updated.ttb_id).toBe('TTB-NEW')
   })
 })

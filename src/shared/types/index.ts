@@ -35,6 +35,11 @@ export type InventoryProduct = {
   size: string | null
   case_cost: number | null
   nysla_discounts: string | null
+  brand_name: string | null
+  proof: number | null
+  alcohol_pct: number | null
+  vintage: string | null
+  ttb_id: string | null
 }
 
 export type NyslaDiscount = {
@@ -236,6 +241,11 @@ export type SaveInventoryItemInput = {
   size: string
   case_cost: number | null
   nysla_discounts: string | null
+  brand_name: string
+  proof: number | null
+  alcohol_pct: number | null
+  vintage: string
+  ttb_id: string
 }
 
 export type InventoryTaxCode = {

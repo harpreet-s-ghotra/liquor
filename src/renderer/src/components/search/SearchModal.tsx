@@ -37,14 +37,18 @@ export function SearchModal({
   useEffect(() => {
     const api = window.api
     if (!api) return
-    api
-      .getDepartments()
-      .then(setDepartments)
-      .catch(() => {})
-    api
-      .getDistributors()
-      .then(setDistributors)
-      .catch(() => {})
+    if (typeof api.getDepartments === 'function') {
+      api
+        .getDepartments()
+        .then(setDepartments)
+        .catch(() => {})
+    }
+    if (typeof api.getDistributors === 'function') {
+      api
+        .getDistributors()
+        .then(setDistributors)
+        .catch(() => {})
+    }
   }, [])
 
   // Focus input when modal opens

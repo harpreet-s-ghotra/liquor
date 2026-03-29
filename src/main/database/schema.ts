@@ -157,6 +157,11 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       special_pricing_enabled INTEGER DEFAULT 0,
       special_price REAL,
       is_active INTEGER DEFAULT 1,
+      brand_name TEXT,
+      proof REAL,
+      alcohol_pct REAL,
+      vintage TEXT,
+      ttb_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (distributor_number) REFERENCES distributors(distributor_number)
@@ -292,6 +297,11 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('products', 'size', 'size TEXT')
   ensureColumn('products', 'case_cost', 'case_cost REAL')
   ensureColumn('products', 'nysla_discounts', 'nysla_discounts TEXT')
+  ensureColumn('products', 'brand_name', 'brand_name TEXT')
+  ensureColumn('products', 'proof', 'proof REAL')
+  ensureColumn('products', 'alcohol_pct', 'alcohol_pct REAL')
+  ensureColumn('products', 'vintage', 'vintage TEXT')
+  ensureColumn('products', 'ttb_id', 'ttb_id TEXT')
 
   // Special pricing column migrations
   ensureColumn('special_pricing', 'pricing_type', "pricing_type TEXT DEFAULT 'group'")

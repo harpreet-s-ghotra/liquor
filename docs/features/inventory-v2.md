@@ -143,6 +143,11 @@ These are display-only and are **not saved to the backend**.
 | `commission_amount`       | `string`                | Same as above                                                            |
 | `commission_mode`         | `'dollar' \| 'percent'` | Same as above                                                            |
 | `physical_location`       | `string`                | Same as above                                                            |
+| `brand_name`              | `string`                | `InventoryFormState`, `SaveInventoryItemInput`, schema, products.repo.ts |
+| `proof`                   | `number \| null`        | Same as above                                                            |
+| `alcohol_pct`             | `number \| null`        | Same as above                                                            |
+| `vintage`                 | `string`                | Same as above                                                            |
+| `ttb_id`                  | `string`                | Same as above — TTB registration ID for NYSLA data matching              |
 
 ### 3. Field Renames / Type Changes
 

@@ -28,7 +28,12 @@ const sampleProduct: InventoryProduct = {
   item_type: null,
   size: null,
   case_cost: null,
-  nysla_discounts: null
+  nysla_discounts: null,
+  brand_name: null,
+  proof: null,
+  alcohol_pct: null,
+  vintage: null,
+  ttb_id: null
 }
 
 function makeProps(overrides?: Partial<FooterActionBarProps>): FooterActionBarProps {

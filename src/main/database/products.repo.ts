@@ -67,7 +67,12 @@ export function getInventoryProducts(): InventoryProduct[] {
         products.item_type,
         products.size,
         products.case_cost,
-        products.nysla_discounts
+        products.nysla_discounts,
+        products.brand_name,
+        products.proof,
+        products.alcohol_pct,
+        products.vintage,
+        products.ttb_id
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
@@ -176,11 +181,16 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
         products.item_type,
         products.size,
         products.case_cost,
-        products.nysla_discounts
+        products.nysla_discounts,
+        products.brand_name,
+        products.proof,
+        products.alcohol_pct,
+        products.vintage,
+        products.ttb_id
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
-        AND (products.sku LIKE @likeQuery OR products.name LIKE @likeQuery)
+        AND (products.sku LIKE @likeQuery OR products.name LIKE @likeQuery OR products.brand_name LIKE @likeQuery)
       ORDER BY products.id
       `
     )
@@ -215,7 +225,12 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         products.item_type,
         products.size,
         products.case_cost,
-        products.nysla_discounts
+        products.nysla_discounts,
+        products.brand_name,
+        products.proof,
+        products.alcohol_pct,
+        products.vintage,
+        products.ttb_id
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.id = ?
@@ -516,7 +531,12 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
       item_type: payload.item_type || null,
       size: payload.size || null,
       case_cost: payload.case_cost,
-      nysla_discounts: payload.nysla_discounts
+      nysla_discounts: payload.nysla_discounts,
+      brand_name: payload.brand_name || null,
+      proof: payload.proof,
+      alcohol_pct: payload.alcohol_pct,
+      vintage: payload.vintage || null,
+      ttb_id: payload.ttb_id || null
     }
 
     let productId = payload.item_number ?? inactiveMatch?.id
@@ -547,6 +567,11 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           size = @size,
           case_cost = @case_cost,
           nysla_discounts = @nysla_discounts,
+          brand_name = @brand_name,
+          proof = @proof,
+          alcohol_pct = @alcohol_pct,
+          vintage = @vintage,
+          ttb_id = @ttb_id,
           is_active = 1,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = @id
@@ -561,14 +586,16 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
             dept_id, retail_price, in_stock, tax_1, tax_2,
             special_pricing_enabled, special_price, distributor_number,
             bottles_per_case, case_discount_price,
-            item_type, size, case_cost, nysla_discounts
+            item_type, size, case_cost, nysla_discounts,
+            brand_name, proof, alcohol_pct, vintage, ttb_id
           )
           VALUES (
             @sku, @name, @category, @retail_price, @cost, @quantity, @tax_1,
             @dept_id, @retail_price, @in_stock, @tax_1, @tax_2,
             @special_pricing_enabled, @special_price, @distributor_number,
             @bottles_per_case, @case_discount_price,
-            @item_type, @size, @case_cost, @nysla_discounts
+            @item_type, @size, @case_cost, @nysla_discounts,
+            @brand_name, @proof, @alcohol_pct, @vintage, @ttb_id
           )
           `
         )

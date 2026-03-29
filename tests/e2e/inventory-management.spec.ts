@@ -411,7 +411,7 @@ test.describe('Inventory Management – Full Workflow', () => {
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
     await itemsPanel.getByLabel('Department').selectOption({ label: 'Wine' })
 
-    await fillInput(page.getByLabel('Cost'), '12.50')
+    await fillInput(page.getByLabel('Per Bottle Cost'), '12.50')
     await fillInput(page.getByLabel('Price Charged'), '24.99')
     await fillInput(page.getByLabel('In Stock'), '30')
 
@@ -655,7 +655,7 @@ test.describe('Inventory Management – Full Workflow', () => {
     const itemsPanel2 = page.getByRole('tabpanel', { name: 'Items' })
     await itemsPanel2.getByLabel('Department').selectOption({ label: 'Wine' })
 
-    await fillInput(page.getByLabel('Cost'), '10.00')
+    await fillInput(page.getByLabel('Per Bottle Cost'), '10.00')
     await fillInput(page.getByLabel('Price Charged'), '20.00')
     await fillInput(page.getByLabel('In Stock'), '10')
 

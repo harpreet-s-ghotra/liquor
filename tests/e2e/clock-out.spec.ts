@@ -89,7 +89,6 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
       getProducts: async () => products,
       getActiveSpecialPricing: async () => [],
       getDepartments: async () => [],
-      getVendors: async () => [],
       getTaxCodes: async () => [],
       getInventoryTaxCodes: async () => [],
       searchInventoryProducts: async () => [],

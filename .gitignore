@@ -6,6 +6,9 @@ out
 *.log*
 coverage/
 .playwright-mcp
+.nysla-playwright-profile/
+nysla_*_all_distributors_*.csv
+data/
 
 # Environment secrets
 .env

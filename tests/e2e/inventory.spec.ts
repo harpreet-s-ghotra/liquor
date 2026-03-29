@@ -279,7 +279,7 @@ test.describe('Inventory Management', () => {
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
     await itemsPanel.getByLabel('Department').selectOption({ label: 'Dept 11' })
 
-    await page.getByLabel('Cost').fill('9.99')
+    await page.getByLabel('Per Bottle Cost').fill('9.99')
     await page.getByLabel('Price Charged').fill('15.99')
     await page.getByLabel('In Stock').fill('8')
 
@@ -290,13 +290,17 @@ test.describe('Inventory Management', () => {
     if (rate13) await taxSel.selectOption({ label: rate13 })
 
     // Navigate to Additional SKUs tab (default is now Case & Quantity)
-    await page.getByRole('tab', { name: 'Additional SKUs' }).focus()
+    const skusTab = page.getByRole('tab', { name: 'Additional SKUs' })
+    await skusTab.focus()
+    await expect(skusTab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await page.getByLabel('Additional SKU Input').fill(`${sku}-ALT-1`)
-    await page.getByRole('button', { name: 'Add Additional SKU' }).click()
+    await page.getByRole('button', { name: 'Add Additional SKU' }).evaluate((el) => (el as HTMLElement).click())
 
     // Switch to Special Pricing tab and add a rule
-    await page.getByRole('tab', { name: 'Special Pricing' }).focus()
-    await page.getByRole('button', { name: 'Add Rule' }).click()
+    const pricingTab = page.getByRole('tab', { name: 'Special Pricing' })
+    await pricingTab.focus()
+    await expect(pricingTab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
+    await page.getByRole('button', { name: 'Add Rule' }).evaluate((el) => (el as HTMLElement).click())
     await page.getByLabel('Rule 1 Quantity').fill('2')
     await page.getByLabel('Rule 1 Price').fill('1399')
     await page.getByLabel('Rule 1 Duration').fill('20')
@@ -324,14 +328,16 @@ test.describe('Inventory Management', () => {
     await page.getByLabel('Name').fill('New Item')
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
     await itemsPanel.getByLabel('Department').selectOption({ label: 'Dept 11' })
-    await page.getByLabel('Cost').fill('5.00')
+    await page.getByLabel('Per Bottle Cost').fill('5.00')
     await page.getByLabel('Price Charged').fill('10.00')
     await page.getByLabel('In Stock').fill('5')
 
     // Add an additional SKU that matches an existing product's primary SKU
-    await page.getByRole('tab', { name: 'Additional SKUs' }).focus()
+    const skusTab2 = page.getByRole('tab', { name: 'Additional SKUs' })
+    await skusTab2.focus()
+    await expect(skusTab2).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await page.getByLabel('Additional SKU Input').fill('SKU-001')
-    await page.getByRole('button', { name: 'Add Additional SKU' }).click()
+    await page.getByRole('button', { name: 'Add Additional SKU' }).evaluate((el) => (el as HTMLElement).click())
 
     await page.getByRole('button', { name: 'Save' }).click()
 
@@ -352,14 +358,16 @@ test.describe('Inventory Management', () => {
     await page.getByLabel('Name').fill('Another New Item')
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
     await itemsPanel.getByLabel('Department').selectOption({ label: 'Dept 11' })
-    await page.getByLabel('Cost').fill('6.00')
+    await page.getByLabel('Per Bottle Cost').fill('6.00')
     await page.getByLabel('Price Charged').fill('11.00')
     await page.getByLabel('In Stock').fill('3')
 
     // Add an additional SKU that matches another product's alt SKU
-    await page.getByRole('tab', { name: 'Additional SKUs' }).focus()
+    const skusTab3 = page.getByRole('tab', { name: 'Additional SKUs' })
+    await skusTab3.focus()
+    await expect(skusTab3).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await page.getByLabel('Additional SKU Input').fill('SKU-001-ALT')
-    await page.getByRole('button', { name: 'Add Additional SKU' }).click()
+    await page.getByRole('button', { name: 'Add Additional SKU' }).evaluate((el) => (el as HTMLElement).click())
 
     await page.getByRole('button', { name: 'Save' }).click()
 

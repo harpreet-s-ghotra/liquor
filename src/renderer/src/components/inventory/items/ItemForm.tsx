@@ -55,6 +55,11 @@ type InventoryFormState = {
   size: string
   case_cost: string
   nysla_discounts: string
+  brand_name: string
+  proof: string
+  alcohol_pct: string
+  vintage: string
+  ttb_id: string
 }
 
 const emptyFormState: InventoryFormState = {
@@ -74,7 +79,12 @@ const emptyFormState: InventoryFormState = {
   case_discount_mode: 'percent',
   size: '',
   case_cost: '',
-  nysla_discounts: ''
+  nysla_discounts: '',
+  brand_name: '',
+  proof: '',
+  alcohol_pct: '',
+  vintage: '',
+  ttb_id: ''
 }
 
 export type ItemFormHandle = {
@@ -206,7 +216,12 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         : 'percent') as CaseDiscountMode,
       size: detail.size ?? '',
       case_cost: detail.case_cost != null ? formatCurrency(detail.case_cost) : '',
-      nysla_discounts: detail.nysla_discounts ?? ''
+      nysla_discounts: detail.nysla_discounts ?? '',
+      brand_name: detail.brand_name ?? '',
+      proof: detail.proof != null ? String(detail.proof) : '',
+      alcohol_pct: detail.alcohol_pct != null ? String(detail.alcohol_pct) : '',
+      vintage: detail.vintage ?? '',
+      ttb_id: detail.ttb_id ?? ''
     })
   }
 
@@ -385,7 +400,12 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       })(),
       size: formState.size.trim(),
       case_cost: formState.case_cost ? parseCurrencyDigitsToDollars(formState.case_cost) : null,
-      nysla_discounts: formState.nysla_discounts.trim() || null
+      nysla_discounts: formState.nysla_discounts.trim() || null,
+      brand_name: formState.brand_name.trim(),
+      proof: formState.proof ? parseFloat(formState.proof) : null,
+      alcohol_pct: formState.alcohol_pct ? parseFloat(formState.alcohol_pct) : null,
+      vintage: formState.vintage.trim(),
+      ttb_id: formState.ttb_id.trim()
     }
   }
 
@@ -651,7 +671,19 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             </InventorySelect>
           </div>
 
-          {/* ── Row 2: Item (×2) | Per Bottle Cost | Per Case ── */}
+          {/* ── Row 2: Brand (×2) | Item (×2) ── */}
+
+          {/* Brand Name */}
+          <div className="item-form__field-span-2">
+            <label className={labelCls}>Brand</label>
+            <InventoryInput
+              type="text"
+              aria-label="Brand"
+              value={formState.brand_name}
+              onChange={(e) => setFormState((c) => ({ ...c, brand_name: e.target.value }))}
+              placeholder="e.g. Jack Daniel's"
+            />
+          </div>
 
           {/* Item */}
           <div className="item-form__field-span-2">
@@ -675,7 +707,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             <label className={labelCls}>Per Bottle Cost {requiredStar}</label>
             <InventoryInput
               type="text"
-              aria-label="Cost"
+              aria-label="Per Bottle Cost"
               inputMode="numeric"
               hasError={showValidation && !!fieldErrors.cost}
               className="item-form__cost-input"
@@ -700,11 +732,63 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             />
           </div>
 
-          {/* ── Row 3: Bottle Per Case | Price You Charge | # In Stock | Tax Profile ── */}
+          {/* ── Row: Proof | ABV % | Vintage | TTB ID ── */}
+
+          {/* Proof */}
+          <div>
+            <label className={labelCls}>Proof</label>
+            <InventoryInput
+              type="text"
+              aria-label="Proof"
+              inputMode="numeric"
+              value={formState.proof}
+              onChange={(e) => setFormState((c) => ({ ...c, proof: e.target.value }))}
+              placeholder="e.g. 80"
+            />
+          </div>
+
+          {/* ABV % */}
+          <div>
+            <label className={labelCls}>ABV %</label>
+            <InventoryInput
+              type="text"
+              aria-label="Alcohol Percentage"
+              inputMode="numeric"
+              value={formState.alcohol_pct}
+              onChange={(e) => setFormState((c) => ({ ...c, alcohol_pct: e.target.value }))}
+              placeholder="e.g. 40"
+            />
+          </div>
+
+          {/* Vintage */}
+          <div>
+            <label className={labelCls}>Vintage</label>
+            <InventoryInput
+              type="text"
+              aria-label="Vintage"
+              value={formState.vintage}
+              onChange={(e) => setFormState((c) => ({ ...c, vintage: e.target.value }))}
+              placeholder="e.g. 2019"
+            />
+          </div>
+
+          {/* TTB ID */}
+          <div>
+            <label className={labelCls}>TTB ID</label>
+            <InventoryInput
+              type="text"
+              aria-label="TTB ID"
+              value={formState.ttb_id}
+              onChange={(e) => setFormState((c) => ({ ...c, ttb_id: e.target.value }))}
+              placeholder="e.g. 21259001000745"
+            />
+          </div>
+
+          {/* ── Row: Bottle Per Case | Price You Charge | # In Stock | Tax Profile ── */}
 
           {/* Bottle Per Case */}
           <div>
-            <label className={labelCls}>Bottle Per Case</label>
+            <label className={labelCls}>Bottles Per Case</label>
             <InventoryInput
               type="text"
               aria-label="Bottles Per Case"
