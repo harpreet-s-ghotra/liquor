@@ -7,18 +7,18 @@
 }
 
 .tab-bar__tab {
-  padding: 0.5rem 1rem;
   border: none;
   border-radius: var(--radius);
   background: transparent;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  color: var(--text-muted);
   font-size: 0.92rem;
   font-weight: 700;
-  color: var(--text-muted);
-  cursor: pointer;
 }
 
 .tab-bar__tab--active {
-  background: var(--btn-bg);
   box-shadow: var(--shadow-xs);
+  background: var(--btn-bg);
   color: var(--btn-text);
 }

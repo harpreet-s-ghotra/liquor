@@ -7,7 +7,7 @@ import './footer-action-bar.css'
 
 const SEARCH_PLACEHOLDER: Record<InventoryTab, string> = {
   items: 'Scan or enter SKU / name...',
-  departments: 'Filter departments...',
+  'item-types': 'Filter item types...',
   'tax-codes': 'Filter tax codes...',
   distributors: 'Filter distributors...'
 }

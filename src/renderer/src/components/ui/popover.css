@@ -2,12 +2,12 @@
 
 .popover__content {
   z-index: 50;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  background: var(--bg-surface);
+  padding: 0.25rem;
   width: var(--radix-popover-trigger-width);
   max-height: 12rem;
   overflow: auto;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius);
-  background: var(--bg-surface);
-  padding: 0.25rem;
-  box-shadow: var(--shadow-md);
 }

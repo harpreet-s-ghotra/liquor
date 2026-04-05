@@ -23,7 +23,7 @@ const mockProducts = [
   }
 ]
 
-const mockDepartments = [
+const mockItemTypes = [
   { id: 1, name: 'Wine', description: null, default_profit_margin: 30, default_tax_rate: 0.13 },
   { id: 2, name: 'Beer', description: null, default_profit_margin: 25, default_tax_rate: 0.13 }
 ]
@@ -40,12 +40,32 @@ const mockDistributors = [
   }
 ]
 
+const renderOpenSearchModal = async (
+  props?: Partial<React.ComponentProps<typeof SearchModal>>
+): Promise<void> => {
+  render(
+    <SearchModal
+      isOpen={true}
+      onClose={vi.fn()}
+      onAddToCart={vi.fn()}
+      onOpenInInventory={vi.fn()}
+      {...props}
+    />
+  )
+
+  await waitFor(() => {
+    expect(window.api!.getItemTypes).toHaveBeenCalled()
+    expect(window.api!.getDistributors).toHaveBeenCalled()
+  })
+}
+
 describe('SearchModal', () => {
   beforeEach(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
       searchProducts: vi.fn().mockResolvedValue(mockProducts),
-      getDepartments: vi.fn().mockResolvedValue(mockDepartments),
+      getItemTypes: vi.fn().mockResolvedValue(mockItemTypes),
+      getDepartments: vi.fn().mockResolvedValue(mockItemTypes),
       getDistributors: vi.fn().mockResolvedValue(mockDistributors)
     }
   })
@@ -67,15 +87,8 @@ describe('SearchModal', () => {
     expect(container.innerHTML).toBe('')
   })
 
-  it('renders the modal with header and search input', () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+  it('renders the modal with header and search input', async () => {
+    await renderOpenSearchModal()
 
     expect(screen.getByText('Product Search')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Search items...')).toBeInTheDocument()
@@ -83,44 +96,23 @@ describe('SearchModal', () => {
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
-  it('shows initial state message before any search', () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+  it('shows initial state message before any search', async () => {
+    await renderOpenSearchModal()
 
     expect(screen.getByText('Type a search term to find items.')).toBeInTheDocument()
   })
 
-  it('shows department and distributor filter dropdowns', async () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+  it('shows item type and distributor filter dropdowns', async () => {
+    await renderOpenSearchModal()
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Filter by department')).toBeInTheDocument()
+      expect(screen.getByLabelText('Filter by item type')).toBeInTheDocument()
       expect(screen.getByLabelText('Filter by distributor')).toBeInTheDocument()
     })
   })
 
   it('searches products when Go button is clicked', async () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal()
 
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'cab' } })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
@@ -136,14 +128,7 @@ describe('SearchModal', () => {
   })
 
   it('searches products on Enter key', async () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal()
 
     const input = screen.getByPlaceholderText('Search items...')
     fireEvent.change(input, { target: { value: 'wine' } })
@@ -158,14 +143,7 @@ describe('SearchModal', () => {
   })
 
   it('highlights selected item and shows action buttons', async () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal()
 
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'cab' } })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
@@ -184,14 +162,7 @@ describe('SearchModal', () => {
     const onAddToCart = vi.fn()
     const onClose = vi.fn()
 
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={onClose}
-        onAddToCart={onAddToCart}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal({ onClose, onAddToCart })
 
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'cab' } })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
@@ -211,14 +182,7 @@ describe('SearchModal', () => {
     const onOpenInInventory = vi.fn()
     const onClose = vi.fn()
 
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={onClose}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={onOpenInInventory}
-      />
-    )
+    await renderOpenSearchModal({ onClose, onOpenInInventory })
 
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'cab' } })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
@@ -238,14 +202,7 @@ describe('SearchModal', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api.searchProducts = vi.fn().mockResolvedValue([])
 
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal()
 
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'xyz' } })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
@@ -256,14 +213,7 @@ describe('SearchModal', () => {
   })
 
   it('deselects item when clicking the same row again', async () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal()
 
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'cab' } })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
@@ -281,30 +231,16 @@ describe('SearchModal', () => {
     expect(screen.queryByRole('button', { name: 'Add to Cart' })).not.toBeInTheDocument()
   })
 
-  it('calls onClose when Close button is clicked', () => {
+  it('calls onClose when Close button is clicked', async () => {
     const onClose = vi.fn()
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={onClose}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal({ onClose })
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('displays correct price and quantity in results', async () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal()
 
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'cab' } })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
@@ -318,14 +254,7 @@ describe('SearchModal', () => {
   })
 
   it('does not search when query is empty', async () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal()
 
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
 
@@ -333,19 +262,8 @@ describe('SearchModal', () => {
     expect(screen.getByText('Type a search term to find items.')).toBeInTheDocument()
   })
 
-  it('re-searches when department filter changes after a search', async () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Filter by department')).toBeInTheDocument()
-    })
+  it('re-searches when item type filter changes after a search', async () => {
+    await renderOpenSearchModal()
 
     // Perform initial search
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'wine' } })
@@ -355,8 +273,8 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(1)
     })
 
-    // Change department filter — should trigger re-search
-    fireEvent.change(screen.getByLabelText('Filter by department'), { target: { value: '1' } })
+    // Change item type filter — should trigger re-search
+    fireEvent.change(screen.getByLabelText('Filter by item type'), { target: { value: '1' } })
 
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
@@ -368,18 +286,7 @@ describe('SearchModal', () => {
   })
 
   it('re-searches when distributor filter changes after a search', async () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Filter by distributor')).toBeInTheDocument()
-    })
+    await renderOpenSearchModal()
 
     // Perform initial search
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'beer' } })
@@ -405,14 +312,7 @@ describe('SearchModal', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api.searchProducts = vi.fn().mockRejectedValue(new Error('API error'))
 
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal()
 
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'test' } })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
@@ -452,14 +352,7 @@ describe('SearchModal', () => {
       }
     ])
 
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
+    await renderOpenSearchModal()
 
     fireEvent.change(screen.getByPlaceholderText('Search items...'), {
       target: { value: 'refund' }
@@ -471,19 +364,8 @@ describe('SearchModal', () => {
     })
   })
 
-  it('resets department filter to all when cleared', async () => {
-    render(
-      <SearchModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onAddToCart={vi.fn()}
-        onOpenInInventory={vi.fn()}
-      />
-    )
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Filter by department')).toBeInTheDocument()
-    })
+  it('resets item type filter to all when cleared', async () => {
+    await renderOpenSearchModal()
 
     // Search, then set filter, then clear it
     fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'wine' } })
@@ -493,13 +375,13 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(1)
     })
 
-    fireEvent.change(screen.getByLabelText('Filter by department'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Filter by item type'), { target: { value: '1' } })
 
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
     })
 
-    fireEvent.change(screen.getByLabelText('Filter by department'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('Filter by item type'), { target: { value: '' } })
 
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(3)

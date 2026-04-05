@@ -1,6 +1,9 @@
 import { getDb } from './connection'
+import { getDeviceConfig } from './device-config.repo'
+import { enqueueSyncItem } from './sync-queue.repo'
 import { TAX_CODE_MAX_LENGTH } from '../../shared/constants'
 import type { TaxCode, CreateTaxCodeInput, UpdateTaxCodeInput } from '../../shared/types'
+import type { TaxCodeSyncPayload } from '../services/sync/types'
 
 function normalizeTaxRate(value: number): number {
   return Number(value.toFixed(6))
@@ -36,7 +39,9 @@ export function createTaxCode(input: CreateTaxCodeInput): TaxCode {
 
   const rate = normalizeTaxRate(input.rate)
   const result = db.prepare('INSERT INTO tax_codes (code, rate) VALUES (?, ?)').run(code, rate)
-  return { id: Number(result.lastInsertRowid), code, rate }
+  const newId = Number(result.lastInsertRowid)
+  enqueueTaxCodeSync(newId, 'INSERT')
+  return { id: newId, code, rate }
 }
 
 export function updateTaxCode(input: UpdateTaxCodeInput): TaxCode {
@@ -68,6 +73,7 @@ export function updateTaxCode(input: UpdateTaxCodeInput): TaxCode {
     'UPDATE tax_codes SET code = ?, rate = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
   ).run(code, rate, input.id)
 
+  enqueueTaxCodeSync(input.id, 'UPDATE')
   return { id: input.id, code, rate }
 }
 
@@ -82,5 +88,40 @@ export function deleteTaxCode(id: number): void {
     throw new Error('Tax code not found')
   }
 
+  enqueueTaxCodeSync(id, 'DELETE')
   db.prepare('DELETE FROM tax_codes WHERE id = ?').run(id)
+}
+
+// ── Sync helpers ──
+
+function getTaxCodeSyncPayload(id: number): TaxCodeSyncPayload {
+  const db = getDb()
+  const row = db
+    .prepare(
+      `SELECT id, cloud_id,
+              code, rate,
+              COALESCE(updated_at, CURRENT_TIMESTAMP) AS updated_at
+       FROM tax_codes WHERE id = ? LIMIT 1`
+    )
+    .get(id) as TaxCodeSyncPayload['tax_code'] | undefined
+
+  if (!row) throw new Error(`Tax code ${id} not found for sync`)
+  return { tax_code: row }
+}
+
+export function enqueueTaxCodeSync(id: number, operation: 'INSERT' | 'UPDATE' | 'DELETE'): void {
+  const device = getDeviceConfig()
+  if (!device) return
+  try {
+    const payload = getTaxCodeSyncPayload(id)
+    enqueueSyncItem({
+      entity_type: 'tax_code',
+      entity_id: String(id),
+      operation,
+      payload: JSON.stringify(payload),
+      device_id: device.device_id
+    })
+  } catch {
+    // Local save already succeeded — enqueue failure is non-blocking
+  }
 }

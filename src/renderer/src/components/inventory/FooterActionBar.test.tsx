@@ -8,7 +8,6 @@ const sampleProduct: InventoryProduct = {
   item_number: 1,
   sku: 'WINE-001',
   item_name: 'Red Wine',
-  dept_id: null,
   category_id: null,
   category_name: null,
   cost: 5,
@@ -33,7 +32,8 @@ const sampleProduct: InventoryProduct = {
   proof: null,
   alcohol_pct: null,
   vintage: null,
-  ttb_id: null
+  ttb_id: null,
+  display_name: null
 }
 
 function makeProps(overrides?: Partial<FooterActionBarProps>): FooterActionBarProps {
@@ -114,7 +114,7 @@ describe('FooterActionBar', () => {
     render(
       <FooterActionBar
         {...makeProps({
-          activeTab: 'departments',
+          activeTab: 'item-types',
           showSearchDropdown: true,
           searchTerm: 'dept',
           searchResults: [sampleProduct]
@@ -171,8 +171,8 @@ describe('FooterActionBar', () => {
     const { rerender } = render(<FooterActionBar {...makeProps({ activeTab: 'items' })} />)
     expect(screen.getByPlaceholderText('Scan or enter SKU / name...')).toBeInTheDocument()
 
-    rerender(<FooterActionBar {...makeProps({ activeTab: 'departments' })} />)
-    expect(screen.getByPlaceholderText('Filter departments...')).toBeInTheDocument()
+    rerender(<FooterActionBar {...makeProps({ activeTab: 'item-types' })} />)
+    expect(screen.getByPlaceholderText('Filter item types...')).toBeInTheDocument()
 
     rerender(<FooterActionBar {...makeProps({ activeTab: 'tax-codes' })} />)
     expect(screen.getByPlaceholderText('Filter tax codes...')).toBeInTheDocument()

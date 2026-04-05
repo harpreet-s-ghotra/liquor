@@ -19,9 +19,9 @@ function createMockReport(overrides?: Partial<ClockOutReport>): ClockOutReport {
       ended_at: '2026-03-28T17:00:00Z',
       status: 'closed'
     },
-    sales_by_department: [
-      { department_name: 'Spirits', transaction_count: 10, total_amount: 250.5 },
-      { department_name: 'Wine', transaction_count: 8, total_amount: 180.25 }
+    sales_by_item_type: [
+      { item_type_name: 'Spirits', transaction_count: 10, total_amount: 250.5 },
+      { item_type_name: 'Wine', transaction_count: 8, total_amount: 180.25 }
     ],
     sales_by_payment_method: [
       { payment_method: 'cash', transaction_count: 10, total_amount: 200 },
@@ -128,25 +128,25 @@ describe('ClockOutReportView', () => {
     })
   })
 
-  describe('Sales by Department Section', () => {
-    it('renders department sales table when sales_by_department is not empty', () => {
+  describe('Sales by Item Type Section', () => {
+    it('renders item type sales table when sales_by_item_type is not empty', () => {
       const report = createMockReport({
-        sales_by_department: [
-          { department_name: 'Spirits', transaction_count: 10, total_amount: 250.5 }
+        sales_by_item_type: [
+          { item_type_name: 'Spirits', transaction_count: 10, total_amount: 250.5 }
         ]
       })
       render(<ClockOutReportView report={report} />)
 
       expect(screen.getByTestId('dept-sales-table')).toBeInTheDocument()
-      expect(screen.getByText('Sales by Department')).toBeInTheDocument()
+      expect(screen.getByText('Sales by Item Type')).toBeInTheDocument()
     })
 
-    it('renders all department rows with correct data', () => {
+    it('renders all item type rows with correct data', () => {
       const report = createMockReport({
-        sales_by_department: [
-          { department_name: 'Spirits', transaction_count: 10, total_amount: 250.5 },
-          { department_name: 'Wine', transaction_count: 8, total_amount: 180.25 },
-          { department_name: 'Beer', transaction_count: 5, total_amount: 99.75 }
+        sales_by_item_type: [
+          { item_type_name: 'Spirits', transaction_count: 10, total_amount: 250.5 },
+          { item_type_name: 'Wine', transaction_count: 8, total_amount: 180.25 },
+          { item_type_name: 'Beer', transaction_count: 5, total_amount: 99.75 }
         ]
       })
       render(<ClockOutReportView report={report} />)
@@ -156,10 +156,10 @@ describe('ClockOutReportView', () => {
       expect(screen.getByText('Beer')).toBeInTheDocument()
     })
 
-    it('formats department total_amount as currency', () => {
+    it('formats item type total_amount as currency', () => {
       const report = createMockReport({
-        sales_by_department: [
-          { department_name: 'Spirits', transaction_count: 10, total_amount: 250.5 }
+        sales_by_item_type: [
+          { item_type_name: 'Spirits', transaction_count: 10, total_amount: 250.5 }
         ]
       })
       render(<ClockOutReportView report={report} />)
@@ -167,10 +167,10 @@ describe('ClockOutReportView', () => {
       expect(screen.getByText('$250.50')).toBeInTheDocument()
     })
 
-    it('displays transaction count for each department', () => {
+    it('displays transaction count for each item type', () => {
       const report = createMockReport({
-        sales_by_department: [
-          { department_name: 'Spirits', transaction_count: 15, total_amount: 250.5 }
+        sales_by_item_type: [
+          { item_type_name: 'Spirits', transaction_count: 15, total_amount: 250.5 }
         ]
       })
       render(<ClockOutReportView report={report} />)
@@ -178,20 +178,20 @@ describe('ClockOutReportView', () => {
       expect(screen.getByText('15')).toBeInTheDocument()
     })
 
-    it('does not render department table when sales_by_department is empty', () => {
+    it('does not render item type table when sales_by_item_type is empty', () => {
       const report = createMockReport({
-        sales_by_department: []
+        sales_by_item_type: []
       })
       render(<ClockOutReportView report={report} />)
 
       expect(screen.queryByTestId('dept-sales-table')).not.toBeInTheDocument()
-      expect(screen.queryByText('Sales by Department')).not.toBeInTheDocument()
+      expect(screen.queryByText('Sales by Item Type')).not.toBeInTheDocument()
     })
 
     it('renders table headers correctly', () => {
       const report = createMockReport({
-        sales_by_department: [
-          { department_name: 'Spirits', transaction_count: 10, total_amount: 250.5 }
+        sales_by_item_type: [
+          { item_type_name: 'Spirits', transaction_count: 10, total_amount: 250.5 }
         ]
       })
       render(<ClockOutReportView report={report} />)
@@ -201,7 +201,7 @@ describe('ClockOutReportView', () => {
       // Check for header text
       const headers = table.querySelectorAll('th')
       expect(headers.length).toBe(3) // Department, Transactions, Total
-      expect(headers[0].textContent).toBe('Department')
+      expect(headers[0].textContent).toBe('Item Type')
       expect(headers[1].textContent).toBe('Transactions')
       expect(headers[2].textContent).toBe('Total')
     })
@@ -539,7 +539,7 @@ describe('ClockOutReportView', () => {
         total_refund_count: 0,
         total_refund_amount: 0,
         expected_cash_at_close: 0,
-        sales_by_department: []
+        sales_by_item_type: []
       })
       render(<ClockOutReportView report={report} />)
 
@@ -572,14 +572,14 @@ describe('ClockOutReportView', () => {
       expect(payTable).toHaveTextContent('$0.50')
     })
 
-    it('handles many departments in the sales breakdown', () => {
+    it('handles many item types in the sales breakdown', () => {
       const report = createMockReport({
-        sales_by_department: [
-          { department_name: 'Spirits', transaction_count: 10, total_amount: 250.5 },
-          { department_name: 'Wine', transaction_count: 8, total_amount: 180.25 },
-          { department_name: 'Beer', transaction_count: 5, total_amount: 99.75 },
-          { department_name: 'Accessories', transaction_count: 3, total_amount: 45.0 },
-          { department_name: 'Mixers', transaction_count: 2, total_amount: 20.0 }
+        sales_by_item_type: [
+          { item_type_name: 'Spirits', transaction_count: 10, total_amount: 250.5 },
+          { item_type_name: 'Wine', transaction_count: 8, total_amount: 180.25 },
+          { item_type_name: 'Beer', transaction_count: 5, total_amount: 99.75 },
+          { item_type_name: 'Accessories', transaction_count: 3, total_amount: 45.0 },
+          { item_type_name: 'Mixers', transaction_count: 2, total_amount: 20.0 }
         ]
       })
       render(<ClockOutReportView report={report} />)
@@ -591,11 +591,11 @@ describe('ClockOutReportView', () => {
       expect(screen.getByText('Mixers')).toBeInTheDocument()
     })
 
-    it('handles department names with special characters', () => {
+    it('handles item type names with special characters', () => {
       const report = createMockReport({
-        sales_by_department: [
-          { department_name: 'Wine & Spirits', transaction_count: 5, total_amount: 100.0 },
-          { department_name: 'Non-Alcoholic', transaction_count: 3, total_amount: 50.0 }
+        sales_by_item_type: [
+          { item_type_name: 'Wine & Spirits', transaction_count: 5, total_amount: 100.0 },
+          { item_type_name: 'Non-Alcoholic', transaction_count: 3, total_amount: 50.0 }
         ]
       })
       render(<ClockOutReportView report={report} />)
@@ -646,15 +646,15 @@ describe('ClockOutReportView', () => {
       expect(screen.getByTestId('cash-reconciliation')).toBeInTheDocument()
     })
 
-    it('renders report with no departments and no refunds', () => {
+    it('renders report with no item types and no refunds', () => {
       const report = createMockReport({
-        sales_by_department: [],
+        sales_by_item_type: [],
         total_refund_count: 0,
         total_refund_amount: 0
       })
       render(<ClockOutReportView report={report} />)
 
-      // Department and refund sections should not exist
+      // Item type and refund sections should not exist
       expect(screen.queryByTestId('dept-sales-table')).not.toBeInTheDocument()
       expect(screen.queryByTestId('refund-section')).not.toBeInTheDocument()
 
@@ -680,19 +680,19 @@ describe('ClockOutReportView', () => {
       expect(screen.queryByText(/Closed by:/)).not.toBeInTheDocument()
     })
 
-    it('displays multiple departments with varied transaction counts', () => {
+    it('displays multiple item types with varied transaction counts', () => {
       const report = createMockReport({
-        sales_by_department: [
-          { department_name: 'High Volume Dept', transaction_count: 250, total_amount: 5000.0 },
-          { department_name: 'Low Volume Dept', transaction_count: 3, total_amount: 75.0 }
+        sales_by_item_type: [
+          { item_type_name: 'High Volume Type', transaction_count: 250, total_amount: 5000.0 },
+          { item_type_name: 'Low Volume Type', transaction_count: 3, total_amount: 75.0 }
         ]
       })
       render(<ClockOutReportView report={report} />)
 
       const table = screen.getByTestId('dept-sales-table')
       expect(table).toHaveTextContent('250')
-      expect(table).toHaveTextContent('High Volume Dept')
-      expect(table).toHaveTextContent('Low Volume Dept')
+      expect(table).toHaveTextContent('High Volume Type')
+      expect(table).toHaveTextContent('Low Volume Type')
     })
   })
 })

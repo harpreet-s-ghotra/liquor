@@ -6,16 +6,16 @@
 }
 
 .toggle-group__item {
-  min-width: 2rem;
   border: 1px solid var(--border-default);
   border-left-width: 0;
   background: var(--bg-surface-soft);
+  cursor: pointer;
   padding: 0.375rem 0.625rem;
+  min-width: 2rem;
+  text-align: center;
+  color: var(--text-primary);
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text-primary);
-  text-align: center;
-  cursor: pointer;
 }
 
 .toggle-group__item:first-child {

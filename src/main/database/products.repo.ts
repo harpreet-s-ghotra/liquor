@@ -1,4 +1,7 @@
 import { getDb } from './connection'
+import { getDeviceConfig } from './device-config.repo'
+import { getInventoryDeltaSyncPayload, recordDelta } from './inventory-deltas.repo'
+import { enqueueSyncItem } from './sync-queue.repo'
 import { SKU_PATTERN, SKU_MAX_LENGTH, NAME_MAX_LENGTH } from '../../shared/constants'
 import type {
   Product,
@@ -10,6 +13,7 @@ import type {
   InventoryTaxCode,
   SaveInventoryItemInput
 } from '../../shared/types'
+import type { ProductSyncPayload } from '../services/sync/types'
 
 // ── Helpers ──
 
@@ -26,11 +30,14 @@ export function getProducts(): Product[] {
       SELECT
         id,
         sku,
-        name,
+        COALESCE(display_name, name) AS name,
         category,
+        size,
         COALESCE(retail_price, price) AS price,
         COALESCE(in_stock, quantity) AS quantity,
-        COALESCE(tax_1, tax_rate) AS tax_rate
+        COALESCE(tax_1, tax_rate) AS tax_rate,
+        COALESCE(bottles_per_case, 12) AS bottles_per_case,
+        case_discount_price
       FROM products
       WHERE is_active = 1
       ORDER BY name
@@ -47,7 +54,7 @@ export function getInventoryProducts(): InventoryProduct[] {
         products.id AS item_number,
         products.sku,
         products.name AS item_name,
-        products.dept_id,
+        products.item_type,
         products.category_id,
         products.category_name,
         COALESCE(products.cost, 0) AS cost,
@@ -72,7 +79,8 @@ export function getInventoryProducts(): InventoryProduct[] {
         products.proof,
         products.alcohol_pct,
         products.vintage,
-        products.ttb_id
+        products.ttb_id,
+        products.display_name
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
@@ -82,12 +90,22 @@ export function getInventoryProducts(): InventoryProduct[] {
     .all() as InventoryProduct[]
 }
 
-export function getInventoryDepartments(): string[] {
+export function getInventoryItemTypes(): string[] {
   return getDb()
     .prepare(
       `
       SELECT name
-      FROM departments
+      FROM (
+        SELECT TRIM(name) AS name
+        FROM item_types
+
+        UNION
+
+        SELECT COALESCE(NULLIF(TRIM(item_type), ''), NULLIF(TRIM(dept_id), '')) AS name
+        FROM products
+        WHERE is_active = 1
+      )
+      WHERE name IS NOT NULL AND name != ''
       ORDER BY name
       `
     )
@@ -118,7 +136,7 @@ export function searchProducts(
   const params: Record<string, unknown> = { likeQuery: `%${normalizedQuery}%` }
 
   if (filters.departmentId != null) {
-    conditions.push('d.id = @departmentId')
+    conditions.push('it.id = @departmentId')
     params.departmentId = filters.departmentId
   }
   if (filters.distributorNumber != null) {
@@ -132,13 +150,18 @@ export function searchProducts(
       SELECT
         p.id,
         p.sku,
-        p.name,
+        COALESCE(p.display_name, p.name) AS name,
         p.category,
+        p.size,
+        d.distributor_name,
         COALESCE(p.retail_price, p.price) AS price,
         COALESCE(p.in_stock, p.quantity) AS quantity,
-        COALESCE(p.tax_1, p.tax_rate) AS tax_rate
+        COALESCE(p.tax_1, p.tax_rate) AS tax_rate,
+        COALESCE(p.bottles_per_case, 12) AS bottles_per_case,
+        p.case_discount_price
       FROM products p
-      LEFT JOIN departments d ON d.name = p.category
+      LEFT JOIN item_types it ON it.name = p.item_type
+      LEFT JOIN distributors d ON d.distributor_number = p.distributor_number
       WHERE ${conditions.join(' AND ')}
       ORDER BY p.name ASC
       LIMIT 50
@@ -161,7 +184,7 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
         products.id AS item_number,
         products.sku,
         products.name AS item_name,
-        products.dept_id,
+        products.item_type,
         products.category_id,
         products.category_name,
         COALESCE(products.cost, 0) AS cost,
@@ -186,7 +209,8 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
         products.proof,
         products.alcohol_pct,
         products.vintage,
-        products.ttb_id
+        products.ttb_id,
+        products.display_name
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
@@ -205,7 +229,7 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         products.id AS item_number,
         products.sku,
         products.name AS item_name,
-        products.dept_id,
+        products.item_type,
         products.category_id,
         products.category_name,
         COALESCE(products.cost, 0) AS cost,
@@ -230,7 +254,8 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         products.proof,
         products.alcohol_pct,
         products.vintage,
-        products.ttb_id
+        products.ttb_id,
+        products.display_name
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.id = ?
@@ -329,6 +354,107 @@ export function getActiveSpecialPricing(): ActiveSpecialPricingRule[] {
     .all() as ActiveSpecialPricingRule[]
 }
 
+function getProductSyncPayload(itemNumber: number): ProductSyncPayload {
+  const db = getDb()
+  const product = db
+    .prepare(
+      `
+      SELECT
+        id,
+        cloud_id,
+        sku,
+        name,
+        description,
+        category,
+        price,
+        cost,
+        COALESCE(retail_price, price) AS retail_price,
+        COALESCE(in_stock, quantity, 0) AS in_stock,
+        tax_1,
+        tax_2,
+        distributor_number,
+        COALESCE(bottles_per_case, 12) AS bottles_per_case,
+        case_discount_price,
+        special_pricing_enabled,
+        special_price,
+        barcode,
+        is_active,
+        item_type,
+        size,
+        case_cost,
+        brand_name,
+        proof,
+        alcohol_pct,
+        vintage,
+        ttb_id,
+        updated_at
+      FROM products
+      WHERE id = ?
+      LIMIT 1
+      `
+    )
+    .get(itemNumber) as ProductSyncPayload['product'] | undefined
+
+  if (!product) {
+    throw new Error('Product not found for sync')
+  }
+
+  const alt_skus = db
+    .prepare(
+      `
+      SELECT alt_sku
+      FROM product_alt_skus
+      WHERE product_id = ?
+      ORDER BY alt_sku
+      `
+    )
+    .all(itemNumber)
+    .map((row) => String((row as { alt_sku: string }).alt_sku))
+
+  const special_pricing = db
+    .prepare(
+      `
+      SELECT quantity, price, duration_days
+      FROM special_pricing
+      WHERE product_id = ?
+      ORDER BY quantity
+      `
+    )
+    .all(itemNumber) as ProductSyncPayload['special_pricing']
+
+  return { product, alt_skus, special_pricing }
+}
+
+function enqueueProductSync(itemNumber: number, operation: 'INSERT' | 'UPDATE' | 'DELETE'): void {
+  const device = getDeviceConfig()
+  if (!device) return
+
+  const payload = getProductSyncPayload(itemNumber)
+  enqueueSyncItem({
+    entity_type: 'product',
+    entity_id: String(itemNumber),
+    operation,
+    payload: JSON.stringify(payload),
+    device_id: device.device_id
+  })
+}
+
+function enqueueInventoryDeltaSync(deltaId: number): void {
+  const device = getDeviceConfig()
+  if (!device) return
+
+  const payload = getInventoryDeltaSyncPayload(deltaId)
+  if (!payload) return
+
+  enqueueSyncItem({
+    entity_type: 'inventory_delta',
+    entity_id: String(deltaId),
+    operation: 'INSERT',
+    payload: JSON.stringify(payload),
+    device_id: device.device_id
+  })
+}
+
 // ── Write operations ──
 
 export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProductDetail {
@@ -336,7 +462,7 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
 
   const normalizedSku = input.sku.trim()
   const normalizedName = input.item_name.trim()
-  const normalizedDept = input.dept_id.trim()
+  const normalizedItemType = input.item_type.trim()
 
   if (!normalizedSku) {
     throw new Error('SKU is required')
@@ -384,20 +510,20 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     throw new Error('Special pricing rules must have valid quantity, price, and duration')
   }
 
-  if (normalizedDept) {
-    const allowedDepartments = new Set(getInventoryDepartments())
-    const deptParts = normalizedDept
+  if (normalizedItemType) {
+    const allowedItemTypes = new Set(getInventoryItemTypes())
+    const itemTypeParts = normalizedItemType
       .split(',')
       .map((d) => d.trim())
       .filter(Boolean)
-    for (const part of deptParts) {
-      if (!allowedDepartments.has(part)) {
-        throw new Error('Department must be selected from available departments')
+    for (const part of itemTypeParts) {
+      if (!allowedItemTypes.has(part)) {
+        throw new Error('Item type must be selected from available item types')
       }
     }
   }
 
-  const deptParts = normalizedDept
+  const itemTypeParts = normalizedItemType
     .split(',')
     .map((d) => d.trim())
     .filter(Boolean)
@@ -507,6 +633,22 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     }
   }
 
+  const targetProductId = input.item_number ?? inactiveMatch?.id ?? null
+  const existingProduct = targetProductId
+    ? (db
+        .prepare(
+          `
+          SELECT id, COALESCE(in_stock, quantity, 0) AS in_stock
+          FROM products
+          WHERE id = ?
+          LIMIT 1
+          `
+        )
+        .get(targetProductId) as { id: number; in_stock: number } | undefined)
+    : undefined
+  const previousInStock = existingProduct?.in_stock ?? 0
+  const syncOperation = input.item_number == null && inactiveMatch == null ? 'INSERT' : 'UPDATE'
+
   const tx = db.transaction((payload: SaveInventoryItemInput) => {
     const primaryTaxRate = normalizedTaxRates.length > 0 ? normalizedTaxRates[0] : null
     const secondaryTaxRate = normalizedTaxRates.length > 1 ? normalizedTaxRates[1] : null
@@ -515,7 +657,6 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     const statementPayload = {
       sku: normalizedSku,
       name: normalizedName,
-      dept_id: normalizedDept,
       cost: payload.cost,
       retail_price: payload.retail_price,
       in_stock: payload.in_stock,
@@ -523,12 +664,12 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
       tax_2: secondaryTaxRate,
       special_pricing_enabled: hasSpecialPricing ? 1 : 0,
       special_price: hasSpecialPricing ? payload.special_pricing[0].price : null,
-      category: deptParts[0] ?? '',
+      category: itemTypeParts[0] ?? '',
       quantity: payload.in_stock,
       distributor_number: payload.distributor_number,
       bottles_per_case: payload.bottles_per_case,
       case_discount_price: payload.case_discount_price,
-      item_type: payload.item_type || null,
+      item_type: normalizedItemType || null,
       size: payload.size || null,
       case_cost: payload.case_cost,
       nysla_discounts: payload.nysla_discounts,
@@ -536,7 +677,8 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
       proof: payload.proof,
       alcohol_pct: payload.alcohol_pct,
       vintage: payload.vintage || null,
-      ttb_id: payload.ttb_id || null
+      ttb_id: payload.ttb_id || null,
+      display_name: payload.display_name || null
     }
 
     let productId = payload.item_number ?? inactiveMatch?.id
@@ -548,7 +690,6 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
         SET
           sku = @sku,
           name = @name,
-          dept_id = @dept_id,
           category = @category,
           cost = @cost,
           price = @retail_price,
@@ -572,6 +713,7 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           alcohol_pct = @alcohol_pct,
           vintage = @vintage,
           ttb_id = @ttb_id,
+          display_name = @display_name,
           is_active = 1,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = @id
@@ -583,19 +725,19 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           `
           INSERT INTO products (
             sku, name, category, price, cost, quantity, tax_rate,
-            dept_id, retail_price, in_stock, tax_1, tax_2,
+            retail_price, in_stock, tax_1, tax_2,
             special_pricing_enabled, special_price, distributor_number,
             bottles_per_case, case_discount_price,
             item_type, size, case_cost, nysla_discounts,
-            brand_name, proof, alcohol_pct, vintage, ttb_id
+            brand_name, proof, alcohol_pct, vintage, ttb_id, display_name
           )
           VALUES (
             @sku, @name, @category, @retail_price, @cost, @quantity, @tax_1,
-            @dept_id, @retail_price, @in_stock, @tax_1, @tax_2,
+            @retail_price, @in_stock, @tax_1, @tax_2,
             @special_pricing_enabled, @special_price, @distributor_number,
             @bottles_per_case, @case_discount_price,
             @item_type, @size, @case_cost, @nysla_discounts,
-            @brand_name, @proof, @alcohol_pct, @vintage, @ttb_id
+            @brand_name, @proof, @alcohol_pct, @vintage, @ttb_id, @display_name
           )
           `
         )
@@ -641,10 +783,51 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
     throw new Error('Failed to load saved inventory item')
   }
 
+  const device = getDeviceConfig()
+  const stockDelta = detail.in_stock - previousInStock
+
+  try {
+    enqueueProductSync(detail.item_number, syncOperation)
+  } catch {
+    // Sync enqueue failure must never block inventory saves
+  }
+
+  if (stockDelta !== 0) {
+    const deltaId = recordDelta({
+      product_id: detail.item_number,
+      product_sku: detail.sku,
+      delta: stockDelta,
+      reason: 'manual_adjustment',
+      device_id: device?.device_id ?? null
+    })
+
+    try {
+      enqueueInventoryDeltaSync(deltaId)
+    } catch {
+      // Sync enqueue failure must never block inventory saves
+    }
+  }
+
   return detail
+}
+
+export function applyTaxToAllProducts(taxRate: number): number {
+  const db = getDb()
+  const result = db
+    .prepare(`UPDATE products SET tax_1 = ?, updated_at = CURRENT_TIMESTAMP WHERE is_active = 1`)
+    .run(taxRate)
+  return result.changes
 }
 
 export function deleteInventoryItem(itemNumber: number): void {
   const db = getDb()
-  db.prepare('UPDATE products SET is_active = 0 WHERE id = ?').run(itemNumber)
+  db.prepare('UPDATE products SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(
+    itemNumber
+  )
+
+  try {
+    enqueueProductSync(itemNumber, 'DELETE')
+  } catch {
+    // Sync enqueue failure must never block inventory deletes
+  }
 }

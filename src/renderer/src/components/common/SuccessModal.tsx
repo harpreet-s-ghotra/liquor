@@ -1,5 +1,11 @@
 import { useEffect } from 'react'
-import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@renderer/components/ui/dialog'
 import { AppButton } from './AppButton'
 import './success-modal.css'
 
@@ -31,7 +37,7 @@ export function SuccessModal({
         aria-label={title}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <div className="success-modal__header">
+        <DialogHeader className="success-modal__header">
           <div className="success-modal__icon">
             <svg
               width="16"
@@ -47,11 +53,11 @@ export function SuccessModal({
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           </div>
-          <h2 className="success-modal__title">{title}</h2>
-        </div>
+          <DialogTitle className="success-modal__title">{title}</DialogTitle>
+        </DialogHeader>
 
         <div className="success-modal__body">
-          <p className="success-modal__message">{message}</p>
+          <DialogDescription className="success-modal__message">{message}</DialogDescription>
         </div>
 
         <div className="success-modal__footer">

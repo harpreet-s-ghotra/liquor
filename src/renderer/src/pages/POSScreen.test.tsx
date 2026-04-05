@@ -9,7 +9,12 @@ const mockLogout = vi.fn()
 
 const authStoreState = {
   currentCashier: { id: 1, name: 'Cashier 1', pin: '1234', created_at: '', updated_at: '' },
-  merchantConfig: { id: 1, stax_api_key: 'key', merchant_id: 'm1', merchant_name: 'My Store' },
+  merchantConfig: {
+    id: 1,
+    payment_processing_api_key: 'key',
+    merchant_id: 'm1',
+    merchant_name: 'My Store'
+  },
   logout: mockLogout
 }
 
@@ -164,7 +169,7 @@ describe('POSScreen', () => {
     expect(screen.queryByText('Failed to load products')).not.toBeInTheDocument()
   })
 
-  it('opens payment modal when Pay is clicked and cart has items', () => {
+  it('opens payment modal when Pay is clicked and cart has items', async () => {
     mockUsePosScreen.mockReturnValue(
       createDefaultMock({
         cart: [sampleCartItem],
@@ -173,9 +178,15 @@ describe('POSScreen', () => {
     )
     render(<POSScreen />)
 
-    fireEvent.click(screen.getByText('Pay Now'))
+    await act(async () => {
+      await Promise.resolve()
+    })
 
-    // PaymentModal renders a dialog with aria-label="Payment"
+    await act(async () => {
+      fireEvent.click(screen.getByText('Pay Now'))
+      await Promise.resolve()
+    })
+
     expect(screen.getByRole('dialog', { name: 'Payment' })).toBeInTheDocument()
   })
 
@@ -197,7 +208,7 @@ describe('POSScreen', () => {
     expect(screen.getByText('Inventory Maintenance')).toBeInTheDocument()
   })
 
-  it('calls clearTransaction and closes payment on payment complete', () => {
+  it('calls clearTransaction and closes payment on payment complete', async () => {
     const clearTransaction = vi.fn()
     mockUsePosScreen.mockReturnValue(
       createDefaultMock({
@@ -208,14 +219,27 @@ describe('POSScreen', () => {
     )
     render(<POSScreen />)
 
+    await act(async () => {
+      await Promise.resolve()
+    })
+
     // Open payment
-    fireEvent.click(screen.getByText('Pay Now'))
+    await act(async () => {
+      fireEvent.click(screen.getByText('Pay Now'))
+      await Promise.resolve()
+    })
 
     // Pay with exact cash
-    fireEvent.click(screen.getByText('Cash (Exact)'))
+    await act(async () => {
+      fireEvent.click(screen.getByText('Cash (Exact)'))
+      await Promise.resolve()
+    })
 
     // Click OK to complete
-    fireEvent.click(screen.getByTestId('payment-ok-btn'))
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('payment-ok-btn'))
+      await Promise.resolve()
+    })
 
     act(() => {
       vi.advanceTimersByTime(100)
@@ -242,7 +266,7 @@ describe('POSScreen', () => {
     expect(reloadProducts).toHaveBeenCalled()
   })
 
-  it('cancels payment and closes modal', () => {
+  it('cancels payment and closes modal', async () => {
     mockUsePosScreen.mockReturnValue(
       createDefaultMock({
         cart: [sampleCartItem],
@@ -251,11 +275,21 @@ describe('POSScreen', () => {
     )
     render(<POSScreen />)
 
-    fireEvent.click(screen.getByText('Pay Now'))
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Pay Now'))
+      await Promise.resolve()
+    })
     expect(screen.getByRole('dialog', { name: 'Payment' })).toBeInTheDocument()
 
     // Cancel payment
-    fireEvent.click(screen.getByText('Cancel'))
+    await act(async () => {
+      fireEvent.click(screen.getByText('Cancel'))
+      await Promise.resolve()
+    })
 
     act(() => {
       vi.advanceTimersByTime(100)
@@ -265,7 +299,7 @@ describe('POSScreen', () => {
     expect(screen.queryByRole('dialog', { name: 'Payment' })).not.toBeInTheDocument()
   })
 
-  it('clears transaction on addToCart when payment is complete', () => {
+  it('clears transaction on addToCart when payment is complete', async () => {
     const clearTransaction = vi.fn()
     const addToCart = vi.fn()
     const product = {
@@ -289,16 +323,29 @@ describe('POSScreen', () => {
     )
     render(<POSScreen />)
 
+    await act(async () => {
+      await Promise.resolve()
+    })
+
     // Open payment
-    fireEvent.click(screen.getByText('Pay Now'))
+    await act(async () => {
+      fireEvent.click(screen.getByText('Pay Now'))
+      await Promise.resolve()
+    })
 
     // Complete payment with exact cash
-    fireEvent.click(screen.getByText('Cash (Exact)'))
+    await act(async () => {
+      fireEvent.click(screen.getByText('Cash (Exact)'))
+      await Promise.resolve()
+    })
 
     // Now click a product tile in the action panel to trigger handleAddToCart
     // while payment is complete
     const productBtn = screen.getByText('Product B')
-    fireEvent.click(productBtn)
+    await act(async () => {
+      fireEvent.click(productBtn)
+      await Promise.resolve()
+    })
 
     act(() => {
       vi.advanceTimersByTime(100)

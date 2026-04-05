@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
 import type { HeldTransaction } from '../../../../shared/types'
 import './hold-lookup-modal.css'
 
@@ -26,10 +26,14 @@ export function HoldLookupModal({
 }: HoldLookupModalProps): React.JSX.Element {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="hold-lookup" aria-label="Transaction Hold Lookup">
+      <DialogContent
+        className="hold-lookup"
+        aria-label="Transaction Hold Lookup"
+        aria-describedby={undefined}
+      >
         {/* Header */}
-        <div className="hold-lookup__header">
-          <h2 className="hold-lookup__title">Transaction Hold Lookup</h2>
+        <DialogHeader className="hold-lookup__header">
+          <DialogTitle className="hold-lookup__title">Transaction Hold Lookup</DialogTitle>
           {heldTransactions.length > 0 && (
             <>
               <span className="hold-lookup__count">{heldTransactions.length} on hold</span>
@@ -43,7 +47,7 @@ export function HoldLookupModal({
               </button>
             </>
           )}
-        </div>
+        </DialogHeader>
 
         {/* Body */}
         <div className="hold-lookup__body">

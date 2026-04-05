@@ -10,31 +10,43 @@
 
 .dialog__content {
   position: fixed;
-  z-index: 50;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  z-index: 50;
   border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   background: var(--bg-panel);
   padding: 0.75rem;
-  box-shadow: var(--shadow-lg);
 }
 
 .dialog__header {
   display: flex;
+  gap: 0.75rem;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
 }
 
 .dialog__title {
   margin: 0;
+  color: var(--text-primary);
   font-size: 1.15rem;
   font-weight: 700;
-  color: var(--text-primary);
 }
 
 .dialog__description {
-  font-size: 0.875rem;
   color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.dialog__sr-only {
+  position: absolute;
+  margin: -1px;
+  border: 0;
+  padding: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  clip: rect(0, 0, 0, 0);
 }

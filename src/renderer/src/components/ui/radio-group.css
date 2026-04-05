@@ -7,14 +7,14 @@
 
 .radio-group__item {
   display: inline-flex;
-  width: 1.25rem;
-  height: 1.25rem;
-  aspect-ratio: 1;
   border: 1px solid var(--border-default);
   border-radius: 50%;
   background: var(--bg-surface);
-  color: var(--btn-bg);
   cursor: pointer;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--btn-bg);
+  aspect-ratio: 1;
 }
 
 .radio-group__item:disabled {
@@ -29,8 +29,8 @@
 }
 
 .radio-group__dot {
-  width: 0.625rem;
-  height: 0.625rem;
   border-radius: 50%;
   background: currentColor;
+  width: 0.625rem;
+  height: 0.625rem;
 }

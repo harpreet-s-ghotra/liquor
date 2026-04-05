@@ -145,12 +145,24 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
       // Auth APIs
       getMerchantConfig: async () => ({
         id: 1,
-        stax_api_key: 'test-api-key',
+        payment_processing_api_key: 'test-api-key',
         merchant_id: 'test-merchant-id',
         merchant_name: 'Test Liquor Store',
         activated_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z'
       }),
+      authCheckSession: async () => ({
+        user: { id: 'user-1', email: 'test@example.com' },
+        merchant: {
+          id: 1,
+          payment_processing_api_key: 'test-api-key',
+          merchant_id: 'test-merchant-id',
+          merchant_name: 'Test Liquor Store',
+          activated_at: '2025-01-01T00:00:00.000Z',
+          updated_at: '2025-01-01T00:00:00.000Z'
+        }
+      }),
+      onDeepLink: () => {},
       getCashiers: async () => [
         { id: 1, name: 'Test Cashier', role: 'admin', is_active: 1, created_at: '2025-01-01' }
       ],
@@ -164,7 +176,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
 
       getProducts: async () => products,
       getActiveSpecialPricing: async () => [],
-      getDepartments: async () => [],
+      getItemTypes: async () => [],
       getDistributors: async () => [],
       getTaxCodes: async () => [],
       getInventoryTaxCodes: async () => [],

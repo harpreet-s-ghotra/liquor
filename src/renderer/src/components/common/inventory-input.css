@@ -1,13 +1,13 @@
 .inventory-input {
-  width: 100%;
-  height: 2.25rem;
+  outline: none;
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
   background: var(--bg-input);
   padding: 0 0.625rem;
-  font-size: --var(--text-sm);
+  width: 100%;
+  height: 2.25rem;
   color: var(--text-primary);
-  outline: none;
+  font-size: --var(--text-sm);
 }
 
 .inventory-input::placeholder {
@@ -23,16 +23,16 @@
 }
 
 .inventory-select {
-  width: 100%;
-  height: 2.25rem;
+  outline: none;
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
   background: var(--bg-input);
-  padding: 0 0.625rem;
-  font-size: 13px;
-  color: var(--text-primary);
-  outline: none;
   cursor: pointer;
+  padding: 0 0.625rem;
+  width: 100%;
+  height: 2.25rem;
+  color: var(--text-primary);
+  font-size: 13px;
 }
 
 .inventory-select:focus {

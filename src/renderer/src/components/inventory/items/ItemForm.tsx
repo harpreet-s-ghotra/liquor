@@ -17,7 +17,7 @@ import type {
   SaveInventoryItemInput,
   SpecialPricingRule,
   Distributor,
-  Department
+  ItemType
 } from '@renderer/types/pos'
 import { SKU_PATTERN, SKU_MAX_LENGTH, NAME_MAX_LENGTH } from '../../../../../shared/constants'
 import {
@@ -41,7 +41,6 @@ type InventoryFormState = {
   sku: string
   item_name: string
   item_type: string
-  dept_id: string
   distributor_number: string
   cost: string
   retail_price: string
@@ -60,13 +59,13 @@ type InventoryFormState = {
   alcohol_pct: string
   vintage: string
   ttb_id: string
+  display_name: string
 }
 
 const emptyFormState: InventoryFormState = {
   sku: '',
   item_name: '',
   item_type: '',
-  dept_id: '',
   distributor_number: '',
   cost: '',
   retail_price: '',
@@ -84,7 +83,8 @@ const emptyFormState: InventoryFormState = {
   proof: '',
   alcohol_pct: '',
   vintage: '',
-  ttb_id: ''
+  ttb_id: '',
+  display_name: ''
 }
 
 export type ItemFormHandle = {
@@ -114,7 +114,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   ref
 ) {
   const api = typeof window !== 'undefined' ? window.api : undefined
-  const [departmentOptions, setDepartmentOptions] = useState<Department[]>([])
+  const [itemTypeOptions, setItemTypeOptions] = useState<ItemType[]>([])
   const [taxCodeOptions, setTaxCodeOptions] = useState<InventoryTaxCode[]>([])
   const [distributorOptions, setDistributorOptions] = useState<Distributor[]>([])
   const [selectedItem, setSelectedItem] = useState<InventoryProductDetail | null>(null)
@@ -122,7 +122,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   const [additionalSkuInput, setAdditionalSkuInput] = useState('')
   const [showValidation, setShowValidation] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
-  // Tracks whether the current retail_price was auto-calculated from cost + dept margin
+  // Tracks whether the current retail_price was auto-calculated from cost + item type margin
   const [priceAutoCalc, setPriceAutoCalc] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [activeTab, setActiveTab] = useState('case-settings')
@@ -132,7 +132,6 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     typeof api?.searchInventoryProducts === 'function' &&
     typeof api?.getInventoryProductDetail === 'function' &&
     typeof api?.saveInventoryItem === 'function' &&
-    typeof api?.getDepartments === 'function' &&
     typeof api?.getInventoryTaxCodes === 'function' &&
     typeof api?.getDistributors === 'function'
 
@@ -151,12 +150,13 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   )
 
   useEffect(() => {
-    if (!hasBackendApi) return
+    if (!hasBackendApi || typeof api?.getItemTypes !== 'function') return
     let active = true
-    void Promise.all([api.getDepartments(), api.getInventoryTaxCodes(), api.getDistributors()])
-      .then(([departments, taxCodes, distributors]) => {
+
+    void Promise.all([api.getItemTypes(), api.getInventoryTaxCodes(), api.getDistributors()])
+      .then(([itemTypes, taxCodes, distributors]) => {
         if (!active) return
-        setDepartmentOptions(departments)
+        setItemTypeOptions(itemTypes)
         setTaxCodeOptions(taxCodes)
         setDistributorOptions(distributors)
       })
@@ -190,12 +190,6 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       sku: detail.sku,
       item_name: detail.item_name,
       item_type: detail.item_type ?? '',
-      dept_id: detail.dept_id
-        ? (detail.dept_id
-            .split(',')
-            .map((d) => d.trim())
-            .filter(Boolean)[0] ?? '')
-        : '',
       cost: formatCurrency(detail.cost),
       retail_price: formatCurrency(detail.retail_price),
       distributor_number:
@@ -209,11 +203,15 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       })),
       additional_skus: [...detail.additional_skus],
       bottles_per_case: String(detail.bottles_per_case ?? 12),
-      case_discount_price:
-        detail.case_discount_price != null ? formatCurrency(detail.case_discount_price) : '',
-      case_discount_mode: (detail.case_discount_price != null
-        ? 'dollar'
-        : 'percent') as CaseDiscountMode,
+      case_discount_price: (() => {
+        if (detail.case_discount_price == null) return ''
+        const bpc = detail.bottles_per_case ?? 12
+        const fullCasePrice = detail.retail_price * bpc
+        if (fullCasePrice <= 0) return ''
+        const pct = parseFloat(((1 - detail.case_discount_price / fullCasePrice) * 100).toFixed(4))
+        return pct > 0 ? String(pct) : ''
+      })(),
+      case_discount_mode: 'percent' as CaseDiscountMode,
       size: detail.size ?? '',
       case_cost: detail.case_cost != null ? formatCurrency(detail.case_cost) : '',
       nysla_discounts: detail.nysla_discounts ?? '',
@@ -221,7 +219,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       proof: detail.proof != null ? String(detail.proof) : '',
       alcohol_pct: detail.alcohol_pct != null ? String(detail.alcohol_pct) : '',
       vintage: detail.vintage ?? '',
-      ttb_id: detail.ttb_id ?? ''
+      ttb_id: detail.ttb_id ?? '',
+      display_name: detail.display_name ?? ''
     })
   }
 
@@ -307,11 +306,11 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     }
 
     if (
-      formState.dept_id &&
-      departmentOptions.length > 0 &&
-      !departmentOptions.some((d) => d.name === formState.dept_id)
+      formState.item_type &&
+      itemTypeOptions.length > 0 &&
+      !itemTypeOptions.some((itemType) => itemType.name === formState.item_type)
     ) {
-      errors.dept_id = 'Department must be selected from available values'
+      errors.item_type = 'Item type must be selected from available values'
     }
 
     if (!formState.cost.trim()) {
@@ -336,7 +335,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     }
 
     return errors
-  }, [departmentOptions, formState, isAllowedTaxRate, taxCodeOptions.length])
+  }, [formState, isAllowedTaxRate, itemTypeOptions, taxCodeOptions.length])
 
   const hasFieldErrors = Object.keys(fieldErrors).length > 0
   const isFormEmpty = !formState.sku.trim() && !formState.item_name.trim()
@@ -372,7 +371,6 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       sku: formState.sku.trim(),
       item_name: formState.item_name.trim(),
       item_type: formState.item_type.trim(),
-      dept_id: formState.dept_id,
       distributor_number: formState.distributor_number
         ? Number.parseInt(formState.distributor_number, 10)
         : null,
@@ -387,16 +385,18 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         : 12,
       case_discount_price: (() => {
         if (!formState.case_discount_price) return null
+        const bpc = formState.bottles_per_case
+          ? Number.parseInt(formState.bottles_per_case, 10)
+          : 12
+        const fullCasePrice = retailPrice * bpc
         if (formState.case_discount_mode === 'percent') {
           const pct = Number.parseFloat(formState.case_discount_price)
           if (Number.isNaN(pct) || pct <= 0) return null
-          const bpc = formState.bottles_per_case
-            ? Number.parseInt(formState.bottles_per_case, 10)
-            : 12
-          const fullCasePrice = retailPrice * bpc
           return Math.round(fullCasePrice * (1 - pct / 100) * 100) / 100
         }
-        return parseCurrencyDigitsToDollars(formState.case_discount_price)
+        // Dollar mode: entered amount is the discount off the total case price
+        const discountAmount = parseCurrencyDigitsToDollars(formState.case_discount_price)
+        return Math.max(0, Math.round((fullCasePrice - discountAmount) * 100) / 100)
       })(),
       size: formState.size.trim(),
       case_cost: formState.case_cost ? parseCurrencyDigitsToDollars(formState.case_cost) : null,
@@ -405,7 +405,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       proof: formState.proof ? parseFloat(formState.proof) : null,
       alcohol_pct: formState.alcohol_pct ? parseFloat(formState.alcohol_pct) : null,
       vintage: formState.vintage.trim(),
-      ttb_id: formState.ttb_id.trim()
+      ttb_id: formState.ttb_id.trim(),
+      display_name: formState.display_name.trim()
     }
   }
 
@@ -451,17 +452,17 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     }))
   }
 
-  /** Handle cost change — auto-calculate retail price if a dept with margin is selected.
+  /** Handle cost change — auto-calculate retail price if an item type with margin is selected.
    *  Formula: price = cost / (1 - margin%), e.g. $10 cost at 30% margin → $14.29 price. */
   const handleCostChange = (value: string): void => {
     const normalized = normalizeCurrencyForInput(value)
     setFormState((current) => {
       const updates: Partial<InventoryFormState> = { cost: normalized }
-      const dept = departmentOptions.find((d) => d.name === current.dept_id)
-      if (dept && dept.default_profit_margin > 0) {
+      const itemType = itemTypeOptions.find((option) => option.name === current.item_type)
+      if (itemType && itemType.default_profit_margin > 0) {
         const costVal = parseCurrencyDigitsToDollars(normalized)
         if (!Number.isNaN(costVal) && costVal > 0) {
-          const margin = dept.default_profit_margin / 100
+          const margin = itemType.default_profit_margin / 100
           updates.retail_price = formatCurrency(costVal / (1 - margin))
           setPriceAutoCalc(true)
           return { ...current, ...updates }
@@ -472,18 +473,19 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     })
   }
 
-  /** Handle dept selection — auto-fill default tax code and recalculate price from margin.
+  /** Handle item type selection — auto-fill default tax code and recalculate price from margin.
    *  Formula: price = cost / (1 - margin%), applied when cost is already entered. */
-  const handleDeptChange = (deptName: string): void => {
-    const dept = departmentOptions.find((d) => d.name === deptName)
+  const handleItemTypeChange = (itemTypeName: string): void => {
+    const itemType = itemTypeOptions.find((option) => option.name === itemTypeName)
     setFormState((current) => {
-      const updates: Partial<InventoryFormState> = { dept_id: deptName }
-      if (dept) {
-        updates.tax_rate = dept.default_tax_rate > 0 ? String(dept.default_tax_rate / 100) : ''
-        if (dept.default_profit_margin > 0) {
+      const updates: Partial<InventoryFormState> = { item_type: itemTypeName }
+      if (itemType) {
+        updates.tax_rate =
+          itemType.default_tax_rate > 0 ? String(itemType.default_tax_rate / 100) : ''
+        if (itemType.default_profit_margin > 0) {
           const costVal = parseCurrencyDigitsToDollars(current.cost)
           if (!Number.isNaN(costVal) && costVal > 0) {
-            const margin = dept.default_profit_margin / 100
+            const margin = itemType.default_profit_margin / 100
             updates.retail_price = formatCurrency(costVal / (1 - margin))
             setPriceAutoCalc(true)
             return { ...current, ...updates }
@@ -598,39 +600,27 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         </div>
 
         <div className="item-form__fields">
-          {/* ── Row 1: Department | Item Type | SKU | Size ── */}
-
-          {/* Department */}
-          <div>
-            <label className={labelCls}>Department</label>
-            <InventorySelect
-              aria-label="Department"
-              value={formState.dept_id}
-              hasError={showValidation && !!fieldErrors.dept_id}
-              onChange={(e) => handleDeptChange(e.target.value)}
-            >
-              <option value="">None</option>
-              {departmentOptions.map((dept) => (
-                <option key={dept.id} value={dept.name}>
-                  {dept.name}
-                </option>
-              ))}
-            </InventorySelect>
-            {showValidation && fieldErrors.dept_id && (
-              <p className={errCls}>{fieldErrors.dept_id}</p>
-            )}
-          </div>
+          {/* ── Row 1: Item Type | SKU | Size ── */}
 
           {/* Item Type */}
           <div>
             <label className={labelCls}>Item Type</label>
-            <InventoryInput
-              type="text"
+            <InventorySelect
               aria-label="Item Type"
               value={formState.item_type}
-              onChange={(e) => setFormState((c) => ({ ...c, item_type: e.target.value }))}
-              placeholder="e.g. Wine"
-            />
+              hasError={showValidation && !!fieldErrors.item_type}
+              onChange={(e) => handleItemTypeChange(e.target.value)}
+            >
+              <option value="">None</option>
+              {itemTypeOptions.map((itemType) => (
+                <option key={itemType.id} value={itemType.name}>
+                  {itemType.name}
+                </option>
+              ))}
+            </InventorySelect>
+            {showValidation && fieldErrors.item_type && (
+              <p className={errCls}>{fieldErrors.item_type}</p>
+            )}
           </div>
 
           {/* SKU */}
@@ -702,6 +692,19 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             )}
           </div>
 
+          {/* Display Name (POS override) */}
+          <div className="item-form__field-span-2">
+            <label className={labelCls}>Display Name</label>
+            <InventoryInput
+              type="text"
+              aria-label="Display Name"
+              value={formState.display_name}
+              onChange={(e) => setFormState((c) => ({ ...c, display_name: e.target.value }))}
+              maxLength={NAME_MAX_LENGTH}
+              placeholder="Optional — overrides Item name on POS"
+            />
+          </div>
+
           {/* Per Bottle Cost */}
           <div>
             <label className={labelCls}>Per Bottle Cost {requiredStar}</label>
@@ -718,86 +721,24 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             {showValidation && fieldErrors.cost && <p className={errCls}>{fieldErrors.cost}</p>}
           </div>
 
-          {/* Per Case */}
+          {/* Distributor (moved up from Case & Quantity) */}
           <div>
-            <label className={labelCls}>Per Case</label>
-            <InventoryInput
-              type="text"
-              aria-label="Per Case Cost"
-              inputMode="numeric"
-              className="item-form__cost-input"
-              value={formState.case_cost}
-              onChange={(e) => updateCurrencyField('case_cost', e.target.value)}
-              placeholder="$0.00"
-            />
+            <label className={labelCls}>Distributor</label>
+            <InventorySelect
+              aria-label="Distributor"
+              value={formState.distributor_number}
+              onChange={(e) => setFormState((c) => ({ ...c, distributor_number: e.target.value }))}
+            >
+              <option value="">None</option>
+              {distributorOptions.map((v) => (
+                <option key={v.distributor_number} value={String(v.distributor_number)}>
+                  {v.distributor_name}
+                </option>
+              ))}
+            </InventorySelect>
           </div>
 
-          {/* ── Row: Proof | ABV % | Vintage | TTB ID ── */}
-
-          {/* Proof */}
-          <div>
-            <label className={labelCls}>Proof</label>
-            <InventoryInput
-              type="text"
-              aria-label="Proof"
-              inputMode="numeric"
-              value={formState.proof}
-              onChange={(e) => setFormState((c) => ({ ...c, proof: e.target.value }))}
-              placeholder="e.g. 80"
-            />
-          </div>
-
-          {/* ABV % */}
-          <div>
-            <label className={labelCls}>ABV %</label>
-            <InventoryInput
-              type="text"
-              aria-label="Alcohol Percentage"
-              inputMode="numeric"
-              value={formState.alcohol_pct}
-              onChange={(e) => setFormState((c) => ({ ...c, alcohol_pct: e.target.value }))}
-              placeholder="e.g. 40"
-            />
-          </div>
-
-          {/* Vintage */}
-          <div>
-            <label className={labelCls}>Vintage</label>
-            <InventoryInput
-              type="text"
-              aria-label="Vintage"
-              value={formState.vintage}
-              onChange={(e) => setFormState((c) => ({ ...c, vintage: e.target.value }))}
-              placeholder="e.g. 2019"
-            />
-          </div>
-
-          {/* TTB ID */}
-          <div>
-            <label className={labelCls}>TTB ID</label>
-            <InventoryInput
-              type="text"
-              aria-label="TTB ID"
-              value={formState.ttb_id}
-              onChange={(e) => setFormState((c) => ({ ...c, ttb_id: e.target.value }))}
-              placeholder="e.g. 21259001000745"
-            />
-          </div>
-
-          {/* ── Row: Bottle Per Case | Price You Charge | # In Stock | Tax Profile ── */}
-
-          {/* Bottle Per Case */}
-          <div>
-            <label className={labelCls}>Bottles Per Case</label>
-            <InventoryInput
-              type="text"
-              aria-label="Bottles Per Case"
-              inputMode="numeric"
-              value={formState.bottles_per_case}
-              onChange={(e) => setFormState((c) => ({ ...c, bottles_per_case: e.target.value }))}
-              placeholder="e.g. 12"
-            />
-          </div>
+          {/* ── Row: Price You Charge | # In Stock | Tax Profile ── */}
 
           {/* Price You Charge */}
           <div>
@@ -933,6 +874,9 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           <TabsTrigger value="special-pricing" disabled={isFormEmpty} className={tabTriggerCls}>
             Special Pricing
           </TabsTrigger>
+          <TabsTrigger value="additional-info" disabled={isFormEmpty} className={tabTriggerCls}>
+            Additional Info
+          </TabsTrigger>
           <TabsTrigger value="sales-history" disabled={isFormEmpty} className={tabTriggerCls}>
             Sales History
           </TabsTrigger>
@@ -942,6 +886,31 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           {/* Case & Quantity */}
           <TabsContent value="case-settings" className="item-form__tab-panel">
             <div className="item-form__case-grid">
+              <FormField label="Bottles Per Case">
+                <InventoryInput
+                  type="text"
+                  aria-label="Bottles Per Case"
+                  inputMode="numeric"
+                  value={formState.bottles_per_case}
+                  onChange={(e) =>
+                    setFormState((c) => ({
+                      ...c,
+                      bottles_per_case: e.target.value.replace(/[^0-9]/g, '')
+                    }))
+                  }
+                  placeholder="e.g. 12"
+                />
+              </FormField>
+              <FormField label="Per Case Cost">
+                <InventoryInput
+                  type="text"
+                  aria-label="Per Case Cost"
+                  inputMode="numeric"
+                  value={formState.case_cost}
+                  onChange={(e) => updateCurrencyField('case_cost', e.target.value)}
+                  placeholder="$0.00"
+                />
+              </FormField>
               <FormField label="Case Discount">
                 <div
                   className="item-form__case-mode-field"
@@ -1001,26 +970,6 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                     </ToggleGroupItem>
                   </ToggleGroup>
                 </div>
-              </FormField>
-              <FormField label="Distributor">
-                <select
-                  className="item-form__distributor-select"
-                  aria-label="Distributor"
-                  value={formState.distributor_number}
-                  onChange={(event) =>
-                    setFormState((current) => ({
-                      ...current,
-                      distributor_number: event.target.value
-                    }))
-                  }
-                >
-                  <option value="">None</option>
-                  {distributorOptions.map((v) => (
-                    <option key={v.distributor_number} value={String(v.distributor_number)}>
-                      {v.distributor_name}
-                    </option>
-                  ))}
-                </select>
               </FormField>
             </div>
             <p className="item-form__case-hint">
@@ -1130,6 +1079,69 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                 </tbody>
               </table>
             )}
+          </TabsContent>
+
+          {/* Additional Info */}
+          <TabsContent value="additional-info" className="item-form__tab-panel">
+            <div className="item-form__case-grid">
+              <FormField label="Proof">
+                <InventoryInput
+                  type="text"
+                  aria-label="Proof"
+                  inputMode="decimal"
+                  value={formState.proof}
+                  onChange={(e) =>
+                    setFormState((c) => ({ ...c, proof: e.target.value.replace(/[^0-9.]/g, '') }))
+                  }
+                  placeholder="e.g. 80"
+                />
+              </FormField>
+              <FormField label="ABV %">
+                <InventoryInput
+                  type="text"
+                  aria-label="ABV Percent"
+                  inputMode="decimal"
+                  value={formState.alcohol_pct}
+                  onChange={(e) =>
+                    setFormState((c) => ({
+                      ...c,
+                      alcohol_pct: e.target.value.replace(/[^0-9.]/g, '')
+                    }))
+                  }
+                  placeholder="e.g. 40"
+                />
+              </FormField>
+              <FormField label="Vintage">
+                <InventoryInput
+                  type="text"
+                  aria-label="Vintage"
+                  inputMode="numeric"
+                  value={formState.vintage}
+                  onChange={(e) =>
+                    setFormState((c) => ({
+                      ...c,
+                      vintage: e.target.value.replace(/[^0-9]/g, '')
+                    }))
+                  }
+                  placeholder="e.g. 2020"
+                  maxLength={4}
+                />
+              </FormField>
+              <FormField label="TTB ID">
+                <InventoryInput
+                  type="text"
+                  aria-label="TTB ID"
+                  value={formState.ttb_id}
+                  onChange={(e) =>
+                    setFormState((c) => ({
+                      ...c,
+                      ttb_id: e.target.value.replace(/[^0-9]/g, '')
+                    }))
+                  }
+                  placeholder="e.g. 12345678"
+                />
+              </FormField>
+            </div>
           </TabsContent>
 
           {/* Sales History */}

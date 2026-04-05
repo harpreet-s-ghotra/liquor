@@ -135,18 +135,18 @@ describe('ActionPanel', () => {
     expect(smallBtn).toBeInTheDocument()
     expect(largeBtn).toBeInTheDocument()
 
-    // Small is active by default (uses BEM modifier for active state)
-    expect(smallBtn.className).toContain('action-panel__size-btn--active')
-    expect(largeBtn.className).not.toContain('action-panel__size-btn--active')
+    // Large is active by default (uses BEM modifier for active state)
+    expect(largeBtn.className).toContain('action-panel__size-btn--active')
+    expect(smallBtn.className).not.toContain('action-panel__size-btn--active')
 
     // Product button is present and clickable
     fireEvent.click(screen.getByRole('button', { name: /Cabernet Sauvignon/i }))
     expect(addToCart).toHaveBeenCalledTimes(1)
 
-    // Switch to large
-    fireEvent.click(largeBtn)
-    expect(largeBtn.className).toContain('action-panel__size-btn--active')
-    expect(smallBtn.className).not.toContain('action-panel__size-btn--active')
+    // Switch to small
+    fireEvent.click(smallBtn)
+    expect(smallBtn.className).toContain('action-panel__size-btn--active')
+    expect(largeBtn.className).not.toContain('action-panel__size-btn--active')
   })
 
   it('shows discount amount in totals', () => {

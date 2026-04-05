@@ -1,12 +1,20 @@
 import Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { getDb, setDatabase } from './connection'
+import { saveDeviceConfig } from './device-config.repo'
+import { getDeltasByProduct } from './inventory-deltas.repo'
 import { applySchema } from './schema'
+import { getPendingItems } from './sync-queue.repo'
 import {
   deleteInventoryItem,
+  getActiveSpecialPricing,
+  getInventoryItemTypes,
   getInventoryProductDetail,
   getInventoryProducts,
+  getInventoryTaxCodes,
+  getProducts,
   saveInventoryItem,
+  searchProducts,
   searchInventoryProducts
 } from './products.repo'
 import type { SaveInventoryItemInput } from '../../shared/types'
@@ -22,7 +30,6 @@ const base: SaveInventoryItemInput = {
   sku: 'WINE-001',
   item_name: 'Test Wine',
   item_type: '',
-  dept_id: '',
   distributor_number: null,
   cost: 8,
   retail_price: 15,
@@ -39,7 +46,8 @@ const base: SaveInventoryItemInput = {
   proof: null,
   alcohol_pct: null,
   vintage: '',
-  ttb_id: ''
+  ttb_id: '',
+  display_name: ''
 }
 
 describe('saveInventoryItem', () => {
@@ -108,6 +116,45 @@ describe('saveInventoryItem', () => {
       'Price must be a non-negative number'
     )
   })
+
+  it('enqueues product sync and manual adjustment delta when device is registered', () => {
+    saveDeviceConfig({
+      device_id: 'device-1',
+      device_name: 'Register 1',
+      device_fingerprint: 'fp-1'
+    })
+
+    const result = saveInventoryItem(base)
+
+    const pending = getPendingItems()
+    expect(pending.map((item) => item.entity_type)).toEqual(['product', 'inventory_delta'])
+
+    const deltas = getDeltasByProduct(result.item_number)
+    expect(deltas).toHaveLength(1)
+    expect(deltas[0].delta).toBe(10)
+    expect(deltas[0].reason).toBe('manual_adjustment')
+  })
+
+  it('only enqueues product sync when stock does not change on update', () => {
+    saveDeviceConfig({
+      device_id: 'device-1',
+      device_name: 'Register 1',
+      device_fingerprint: 'fp-1'
+    })
+
+    const created = saveInventoryItem(base)
+    getDb().prepare('DELETE FROM sync_queue').run()
+
+    saveInventoryItem({
+      ...base,
+      item_number: created.item_number,
+      item_name: 'Renamed Wine',
+      in_stock: 10
+    })
+
+    const pending = getPendingItems()
+    expect(pending.map((item) => item.entity_type)).toEqual(['product'])
+  })
 })
 
 describe('deleteInventoryItem', () => {
@@ -169,6 +216,24 @@ describe('deleteInventoryItem', () => {
       .get(txn.id) as { product_id: number }
 
     expect(historyRow.product_id).toBe(item.item_number)
+  })
+
+  it('enqueues a delete sync event when device is registered', () => {
+    saveDeviceConfig({
+      device_id: 'device-1',
+      device_name: 'Register 1',
+      device_fingerprint: 'fp-1'
+    })
+
+    const item = saveInventoryItem(base)
+    getDb().prepare('DELETE FROM sync_queue').run()
+
+    deleteInventoryItem(item.item_number)
+
+    const pending = getPendingItems()
+    expect(pending).toHaveLength(1)
+    expect(pending[0].entity_type).toBe('product')
+    expect(pending[0].operation).toBe('DELETE')
   })
 })
 
@@ -247,10 +312,179 @@ describe('getInventoryProductDetail', () => {
   })
 })
 
+describe('inventory read queries', () => {
+  beforeEach(() => createTestDb())
+
+  it('getProducts returns only active products with normalized price, quantity, and tax rate', () => {
+    getDb().prepare('INSERT INTO tax_codes (code, rate) VALUES (?, ?)').run('STANDARD', 0.13)
+
+    saveInventoryItem({
+      ...base,
+      sku: 'ACTIVE-001',
+      item_name: 'Active Wine',
+      retail_price: 18,
+      in_stock: 7,
+      tax_rates: [0.13]
+    })
+
+    const inactive = saveInventoryItem({
+      ...base,
+      sku: 'INACTIVE-001',
+      item_name: 'Inactive Wine',
+      retail_price: 22,
+      in_stock: 3
+    })
+    deleteInventoryItem(inactive.item_number)
+
+    expect(getProducts()).toEqual([
+      expect.objectContaining({
+        sku: 'ACTIVE-001',
+        name: 'Active Wine',
+        price: 18,
+        quantity: 7,
+        tax_rate: 0.13
+      })
+    ])
+  })
+
+  it('getInventoryProducts and searchInventoryProducts include distributor and brand metadata', () => {
+    getDb()
+      .prepare(
+        'INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?), (?, ?)'
+      )
+      .run(101, 'North Wines', 102, 'Craft Beer Co')
+
+    saveInventoryItem({
+      ...base,
+      sku: 'WINE-META-1',
+      item_name: 'Reserve Red',
+      distributor_number: 101,
+      brand_name: 'Estate Cellars'
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'BEER-META-1',
+      item_name: 'Hazy IPA',
+      distributor_number: 102,
+      brand_name: 'Cloudburst'
+    })
+
+    const inventory = getInventoryProducts()
+    expect(inventory).toHaveLength(2)
+    expect(inventory[0]).toHaveProperty('distributor_name')
+
+    expect(searchInventoryProducts('Estate')).toEqual([
+      expect.objectContaining({
+        sku: 'WINE-META-1',
+        item_name: 'Reserve Red',
+        distributor_name: 'North Wines',
+        brand_name: 'Estate Cellars'
+      })
+    ])
+
+    expect(searchInventoryProducts('')).toHaveLength(2)
+  })
+
+  it('getInventoryTaxCodes returns codes ordered by rate', () => {
+    getDb()
+      .prepare('INSERT INTO tax_codes (code, rate) VALUES (?, ?), (?, ?), (?, ?)')
+      .run('HIGH', 0.13, 'LOW', 0.04, 'MID', 0.08)
+
+    expect(getInventoryTaxCodes()).toEqual([
+      { code: 'LOW', rate: 0.04 },
+      { code: 'MID', rate: 0.08 },
+      { code: 'HIGH', rate: 0.13 }
+    ])
+  })
+
+  it('searchProducts filters by item type id and distributor number', () => {
+    getDb()
+      .prepare(
+        'INSERT INTO item_types (id, name, description, default_profit_margin, default_tax_rate) VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)'
+      )
+      .run(1, 'Wine', null, 0, 0, 2, 'Beer', null, 0, 0)
+    getDb()
+      .prepare(
+        'INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?), (?, ?)'
+      )
+      .run(201, 'Wine House', 202, 'Beer House')
+
+    saveInventoryItem({
+      ...base,
+      sku: 'FILTER-WINE',
+      item_name: 'Cabernet',
+      item_type: 'Wine',
+      distributor_number: 201
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'FILTER-BEER',
+      item_name: 'Pilsner',
+      item_type: 'Beer',
+      distributor_number: 202
+    })
+
+    expect(searchProducts('ernet', { departmentId: 1 })).toEqual([
+      expect.objectContaining({ sku: 'FILTER-WINE', name: 'Cabernet' })
+    ])
+    expect(searchProducts('Pils', { distributorNumber: 202 })).toEqual([
+      expect.objectContaining({ sku: 'FILTER-BEER', name: 'Pilsner' })
+    ])
+  })
+
+  it('getActiveSpecialPricing returns only unexpired rules', () => {
+    const created = saveInventoryItem({
+      ...base,
+      sku: 'SPECIAL-001',
+      item_name: 'Promo Bottle',
+      special_pricing: [{ quantity: 2, price: 20, duration_days: 7 }]
+    })
+
+    getDb()
+      .prepare(
+        `
+        INSERT INTO special_pricing (product_id, quantity, price, duration_days, created_at)
+        VALUES (?, ?, ?, ?, datetime('now', '-10 days'))
+        `
+      )
+      .run(created.item_number, 3, 27, 5)
+
+    expect(getActiveSpecialPricing()).toEqual([
+      { product_id: created.item_number, quantity: 2, price: 20 }
+    ])
+  })
+})
+
+describe('getInventoryItemTypes', () => {
+  beforeEach(() => createTestDb())
+
+  it('includes hydrated item types from onboarded products', () => {
+    getDb()
+      .prepare(
+        `
+      INSERT INTO products (sku, name, category, price, quantity, in_stock, tax_rate, item_type, dept_id)
+      VALUES
+        ('SKU-1', 'Imported Wine', 'Wine', 10, 5, 5, 0, 'Wine', ''),
+        ('SKU-2', 'Imported Beer', 'Beer', 11, 6, 6, 0, 'Beer', NULL),
+        ('SKU-3', 'Legacy Spirit', 'Spirits', 12, 7, 7, 0, '', 'Legacy Spirits')
+      `
+      )
+      .run()
+
+    expect(getInventoryItemTypes()).toEqual(['Beer', 'Legacy Spirits', 'Wine'])
+  })
+})
+
 describe('NYSLA fields', () => {
   beforeEach(() => createTestDb())
 
   it('saves and returns item_type, size, case_cost, nysla_discounts', () => {
+    getDb()
+      .prepare(
+        'INSERT INTO item_types (name, description, default_profit_margin, default_tax_rate) VALUES (?, ?, ?, ?)'
+      )
+      .run('Table Red and Rose Wine', null, 0, 0)
+
     const item = saveInventoryItem({
       ...base,
       item_type: 'Table Red and Rose Wine',
@@ -277,6 +511,12 @@ describe('NYSLA fields', () => {
   })
 
   it('updates NYSLA fields on subsequent saves', () => {
+    getDb()
+      .prepare(
+        'INSERT INTO item_types (name, description, default_profit_margin, default_tax_rate) VALUES (?, ?, ?, ?), (?, ?, ?, ?)'
+      )
+      .run('Sparkling Wine', null, 0, 0, 'Table White Wine', null, 0, 0)
+
     const created = saveInventoryItem({ ...base, item_type: 'Sparkling Wine', size: '750ML' })
     const updated = saveInventoryItem({
       ...base,

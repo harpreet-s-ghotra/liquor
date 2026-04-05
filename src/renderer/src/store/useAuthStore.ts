@@ -1,10 +1,18 @@
 import { create } from 'zustand'
 import type { MerchantConfig, Cashier } from '../types/pos'
 import { MAX_PIN_ATTEMPTS, PIN_LOCKOUT_MS } from '../../../shared/constants'
+import { stripIpcPrefix } from '../utils/ipc-error'
 
 // ── State shape ──
 
-export type AppState = 'loading' | 'not-activated' | 'login' | 'pos'
+export type AppState =
+  | 'loading'
+  | 'auth'
+  | 'set-password'
+  | 'pin-setup'
+  | 'distributor-onboarding'
+  | 'login'
+  | 'pos'
 
 type AuthStoreState = {
   appState: AppState
@@ -18,8 +26,12 @@ type AuthStoreState = {
 
 type AuthStoreActions = {
   initialize: () => Promise<void>
-  activate: (apiKey: string) => Promise<void>
-  deactivate: () => Promise<void>
+  emailLogin: (email: string, password: string) => Promise<void>
+  handleInviteLink: (accessToken: string, refreshToken: string) => Promise<void>
+  setPassword: (password: string) => Promise<void>
+  signOut: () => Promise<void>
+  completeSetup: () => Promise<void>
+  completeOnboarding: () => void
   login: (pin: string) => Promise<boolean>
   logout: () => void
   clearError: () => void
@@ -27,6 +39,24 @@ type AuthStoreActions = {
 }
 
 type AuthStore = AuthStoreState & AuthStoreActions
+
+// ── Helpers ──
+
+/**
+ * Determine which post-auth state to transition to based on local data.
+ * - No cashiers → pin-setup
+ * - No products → distributor-onboarding
+ * - Otherwise → login
+ */
+async function resolvePostAuthState(): Promise<'pin-setup' | 'distributor-onboarding' | 'login'> {
+  const cashiers = await window.api!.getCashiers()
+  if (cashiers.length === 0) return 'pin-setup'
+
+  const products = await window.api!.getProducts()
+  if (products.length === 0) return 'distributor-onboarding'
+
+  return 'login'
+}
 
 export const useAuthStore = create<AuthStore>()((set, get) => ({
   // ── Initial state ──
@@ -41,47 +71,87 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   // ── Actions ──
 
   /**
-   * Called on app start. Checks if the POS is activated and sets the right screen.
+   * Called on app start. Checks for a valid Supabase session and sets the right screen.
    */
   initialize: async () => {
     try {
-      const config = await window.api!.getMerchantConfig()
+      const result = await window.api!.authCheckSession()
 
-      if (!config) {
-        set({ appState: 'not-activated', merchantConfig: null })
+      if (!result) {
+        set({ appState: 'auth', merchantConfig: null })
         return
       }
 
-      set({ appState: 'login', merchantConfig: config })
+      set({ merchantConfig: result.merchant })
+      const nextState = await resolvePostAuthState()
+      set({ appState: nextState })
     } catch {
-      set({ appState: 'not-activated', merchantConfig: null, error: null })
+      set({ appState: 'auth', merchantConfig: null, error: null })
     }
   },
 
   /**
-   * Validate a Stax API key, store the config, and transition to login.
+   * Sign in with email + password via Supabase.
+   * On success, auto-transitions to the appropriate next screen.
    */
-  activate: async (apiKey: string) => {
+  emailLogin: async (email: string, password: string) => {
     try {
       set({ error: null })
-      const config = await window.api!.activateMerchant(apiKey)
-      set({ appState: 'login', merchantConfig: config, error: null })
+      const result = await window.api!.authLogin(email, password)
+      set({ merchantConfig: result.merchant })
+      const nextState = await resolvePostAuthState()
+      set({ appState: nextState })
+    } catch (err) {
+      set({ error: err instanceof Error ? stripIpcPrefix(err.message) : 'Sign in failed' })
+    }
+  },
+
+  /**
+   * Called when the app opens via a liquorpos://auth/callback deep link.
+   * Exchanges the invite tokens for a live session and shows the set-password screen.
+   */
+  handleInviteLink: async (accessToken: string, refreshToken: string) => {
+    try {
+      const { email } = await window.api!.authSetSession(accessToken, refreshToken)
+      set({ appState: 'set-password', error: null, merchantConfig: null })
+      // Store email in error field temporarily so SetPasswordScreen can show it
+      // (avoids adding a new state field just for this)
+      set({ error: null })
+      // Expose email via a dedicated field would be cleaner, but we keep state minimal
+      // The screen can call authCheckSession if it needs the email
+      void email
     } catch (err) {
       set({
-        appState: 'not-activated',
-        error: err instanceof Error ? err.message : 'Activation failed'
+        appState: 'auth',
+        error: err instanceof Error ? stripIpcPrefix(err.message) : 'Invalid invite link'
       })
     }
   },
 
   /**
-   * Remove the merchant config and go back to activation screen.
+   * Set the password after accepting an email invite.
+   * On success, transitions to the appropriate onboarding step.
    */
-  deactivate: async () => {
+  setPassword: async (password: string) => {
     try {
-      await window.api!.deactivateMerchant()
+      set({ error: null })
+      const result = await window.api!.authSetPassword(password)
+      set({ merchantConfig: result.merchant })
+      const nextState = await resolvePostAuthState()
+      set({ appState: nextState })
+    } catch (err) {
+      set({ error: err instanceof Error ? stripIpcPrefix(err.message) : 'Failed to set password' })
+    }
+  },
+
+  /**
+   * Sign out from Supabase and return to the auth screen.
+   */
+  signOut: async () => {
+    try {
+      await window.api!.authLogout()
       set({
-        appState: 'not-activated',
+        appState: 'auth',
         merchantConfig: null,
         currentCashier: null,
         loginAttempts: 0,
@@ -89,8 +159,27 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
         error: null
       })
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Deactivation failed' })
+      set({ error: err instanceof Error ? stripIpcPrefix(err.message) : 'Sign out failed' })
     }
+  },
+
+  /**
+   * Called after PIN setup is complete. Advances to distributor-onboarding or login.
+   */
+  completeSetup: async () => {
+    try {
+      const products = await window.api!.getProducts()
+      set({ appState: products.length === 0 ? 'distributor-onboarding' : 'login' })
+    } catch {
+      set({ appState: 'distributor-onboarding' })
+    }
+  },
+
+  /**
+   * Called after distributor onboarding (import or skip). Advances to login.
+   */
+  completeOnboarding: () => {
+    set({ appState: 'login' })
   },
 
   /**

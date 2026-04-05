@@ -20,7 +20,6 @@ const attachApiMock = async (page: Page): Promise<void> => {
         item_number: 1,
         sku: 'WINE-001',
         item_name: 'Cabernet Sauvignon 750ml',
-        dept_id: 'Wine',
         category_id: null,
         category_name: 'Wine',
         cost: 12.0,
@@ -47,12 +46,24 @@ const attachApiMock = async (page: Page): Promise<void> => {
     ;(window as any).api = {
       getMerchantConfig: async () => ({
         id: 1,
-        stax_api_key: 'test-api-key',
+        payment_processing_api_key: 'test-api-key',
         merchant_id: 'test-merchant-id',
         merchant_name: 'Test Liquor Store',
         activated_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z'
       }),
+      authCheckSession: async () => ({
+        user: { id: 'user-1', email: 'test@example.com' },
+        merchant: {
+          id: 1,
+          payment_processing_api_key: 'test-api-key',
+          merchant_id: 'test-merchant-id',
+          merchant_name: 'Test Liquor Store',
+          activated_at: '2025-01-01T00:00:00.000Z',
+          updated_at: '2025-01-01T00:00:00.000Z'
+        }
+      }),
+      onDeepLink: () => {},
       getCashiers: async () => [
         { id: 1, name: 'Test Cashier', role: 'admin', is_active: 1, created_at: '2025-01-01' }
       ],
@@ -90,6 +101,7 @@ const attachApiMock = async (page: Page): Promise<void> => {
 
       getDepartments: async () => [],
       getInventoryDepartments: async () => [],
+      getItemTypes: async () => [],
       getInventoryTaxCodes: async () => [],
       getTaxCodes: async () => [],
       getDistributors: async () => [],

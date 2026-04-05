@@ -36,11 +36,11 @@
 *::after {
   box-sizing: border-box;
   margin: 0;
-  padding: 0;
-  font-weight: normal;
   border-width: 0;
   border-style: solid;
   border-color: var(--border-default, currentColor);
+  padding: 0;
+  font-weight: normal;
 }
 
 img,
@@ -60,12 +60,12 @@ ul {
 }
 
 body {
-  min-height: 100vh;
-  color: var(--color-text);
   background: var(--color-background);
-  line-height: 1.6;
-  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
+  min-height: 100vh;
   text-rendering: optimizeLegibility;
+  line-height: 1.6;
+  color: var(--color-text);
+  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -79,10 +79,10 @@ button {
 input,
 select,
 textarea {
-  background: var(--bg-input, #e0e3e5);
-  color: var(--text-primary, #181c1e);
   border: 1px solid var(--border-default, #d4d8db);
   border-radius: var(--radius, 0.5rem);
+  background: var(--bg-input, #e0e3e5);
+  color: var(--text-primary, #181c1e);
 }
 
 input:focus,

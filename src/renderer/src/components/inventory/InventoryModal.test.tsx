@@ -13,12 +13,11 @@ describe('InventoryModal', () => {
       searchInventoryProducts: vi.fn(async () => []),
       getInventoryProductDetail: vi.fn(async () => null),
       saveInventoryItem: vi.fn(async () => ({})),
-      getInventoryDepartments: vi.fn(async () => []),
-      getInventoryTaxCodes: vi.fn(async () => []),
-      getDepartments: vi.fn(async () => []),
-      createDepartment: vi.fn(async () => ({ id: 1, name: 'Dept' })),
-      updateDepartment: vi.fn(async () => ({ id: 1, name: 'Dept' })),
-      deleteDepartment: vi.fn(async () => undefined),
+      getInventoryItemTypes: vi.fn(async () => []),
+      getItemTypes: vi.fn(async () => []),
+      createItemType: vi.fn(async () => ({ id: 1, name: 'Type' })),
+      updateItemType: vi.fn(async () => ({ id: 1, name: 'Type' })),
+      deleteItemType: vi.fn(async () => undefined),
       getTaxCodes: vi.fn(async () => []),
       createTaxCode: vi.fn(async () => ({ id: 1, code: 'TX', rate: 0.05 })),
       updateTaxCode: vi.fn(async () => ({ id: 1, code: 'TX', rate: 0.05 })),
@@ -69,7 +68,7 @@ describe('InventoryModal', () => {
     expect(screen.getByRole('dialog', { name: 'Inventory Management' })).toBeInTheDocument()
     expect(screen.getByText('Inventory Maintenance')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Items' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Departments' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Item Types' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Tax Codes' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Distributors' })).toBeInTheDocument()
   })
@@ -83,14 +82,14 @@ describe('InventoryModal', () => {
     })
   })
 
-  it('switches to Departments panel when tab is clicked', async () => {
+  it('switches to Item Types panel when tab is clicked', async () => {
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 
-    const tab = screen.getByRole('tab', { name: 'Departments' })
+    const tab = screen.getByRole('tab', { name: 'Item Types' })
     await userEvent.click(tab)
 
     expect(tab).toHaveAttribute('aria-selected', 'true')
-    expect(await screen.findByRole('tabpanel', { name: 'Departments' })).toBeInTheDocument()
+    expect(await screen.findByRole('tabpanel', { name: 'Item Types' })).toBeInTheDocument()
   })
 
   it('switches to Tax Codes panel when tab is clicked', async () => {
@@ -126,11 +125,11 @@ describe('InventoryModal', () => {
     expect(screen.getByText('New Item')).toBeInTheDocument()
   })
 
-  it('shows "Departments" breadcrumb when on departments tab', async () => {
+  it('shows "Item Types" breadcrumb when on item types tab', async () => {
     render(<InventoryModal isOpen onClose={vi.fn()} />)
-    await userEvent.click(screen.getByRole('tab', { name: 'Departments' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Item Types' }))
     // The breadcrumb is in the header span with specific styling
-    const breadcrumbs = screen.getAllByText('Departments')
+    const breadcrumbs = screen.getAllByText('Item Types')
     expect(breadcrumbs.length).toBeGreaterThanOrEqual(2) // tab + breadcrumb
   })
 
@@ -154,7 +153,6 @@ describe('InventoryModal', () => {
         item_number: 1,
         sku: 'WINE-001',
         item_name: 'Red Wine',
-        dept_id: null,
         category_id: null,
         category_name: null,
         cost: 5,
@@ -216,7 +214,7 @@ describe('InventoryModal', () => {
     })
 
     // Switch tabs — should reset search
-    await userEvent.click(screen.getByRole('tab', { name: 'Departments' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Item Types' }))
     // Switch back
     await userEvent.click(screen.getByRole('tab', { name: 'Items' }))
 

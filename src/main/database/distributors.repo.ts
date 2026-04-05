@@ -1,10 +1,13 @@
 import { getDb } from './connection'
+import { getDeviceConfig } from './device-config.repo'
+import { enqueueSyncItem } from './sync-queue.repo'
 import { NAME_MAX_LENGTH } from '../../shared/constants'
 import type {
   Distributor,
   CreateDistributorInput,
   UpdateDistributorInput
 } from '../../shared/types'
+import type { DistributorSyncPayload } from '../services/sync/types'
 
 export function getDistributors(): Distributor[] {
   return getDb()
@@ -46,8 +49,10 @@ export function createDistributor(input: CreateDistributorInput): Distributor {
       input.premises_address ?? null
     )
 
+  const newDistributorNumber = Number(result.lastInsertRowid)
+  enqueueDistributorSync(newDistributorNumber, 'INSERT')
   return {
-    distributor_number: Number(result.lastInsertRowid),
+    distributor_number: newDistributorNumber,
     distributor_name: distributorName,
     license_id: input.license_id ?? null,
     serial_number: input.serial_number ?? null,
@@ -93,6 +98,7 @@ export function updateDistributor(input: UpdateDistributorInput): Distributor {
     input.distributor_number
   )
 
+  enqueueDistributorSync(input.distributor_number, 'UPDATE')
   return {
     distributor_number: input.distributor_number,
     distributor_name: distributorName,
@@ -126,5 +132,43 @@ export function deleteDistributor(distributorNumber: number): void {
   // Delete associated sales reps first
   db.prepare('DELETE FROM sales_reps WHERE distributor_number = ?').run(distributorNumber)
 
+  enqueueDistributorSync(distributorNumber, 'DELETE')
   db.prepare('DELETE FROM distributors WHERE distributor_number = ?').run(distributorNumber)
+}
+
+// ── Sync helpers ──
+
+function getDistributorSyncPayload(distributorNumber: number): DistributorSyncPayload {
+  const db = getDb()
+  const row = db
+    .prepare(
+      `SELECT distributor_number, cloud_id, distributor_name, license_id, serial_number,
+              premises_name, premises_address, is_active,
+              COALESCE(updated_at, CURRENT_TIMESTAMP) AS updated_at
+       FROM distributors WHERE distributor_number = ? LIMIT 1`
+    )
+    .get(distributorNumber) as DistributorSyncPayload['distributor'] | undefined
+
+  if (!row) throw new Error(`Distributor ${distributorNumber} not found for sync`)
+  return { distributor: row }
+}
+
+export function enqueueDistributorSync(
+  distributorNumber: number,
+  operation: 'INSERT' | 'UPDATE' | 'DELETE'
+): void {
+  const device = getDeviceConfig()
+  if (!device) return
+  try {
+    const payload = getDistributorSyncPayload(distributorNumber)
+    enqueueSyncItem({
+      entity_type: 'distributor',
+      entity_id: String(distributorNumber),
+      operation,
+      payload: JSON.stringify(payload),
+      device_id: device.device_id
+    })
+  } catch {
+    // Local save already succeeded — enqueue failure is non-blocking
+  }
 }

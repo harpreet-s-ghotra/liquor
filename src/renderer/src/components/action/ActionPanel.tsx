@@ -62,7 +62,7 @@ export function ActionPanel({
   const fmtMoney = (v: number): string =>
     v < 0 ? `($${Math.abs(v).toFixed(2)})` : `$${v.toFixed(2)}`
   const fmtRefundMoney = (v: number): string => `($${Math.abs(v).toFixed(2)})`
-  const [itemSize, setItemSize] = useState<ItemSize>('small')
+  const [itemSize, setItemSize] = useState<ItemSize>('large')
   const menuRef = useRef<HTMLDivElement>(null)
 
   const categoryToneMap = useMemo(() => {
@@ -321,7 +321,12 @@ export function ActionPanel({
             disabled={!!isViewingTransaction}
             onClick={() => addToCart(product)}
           >
-            <span>{product.name}</span>
+            <span className="action-panel__product-name">{product.name}</span>
+            {product.size ? (
+              <span className="action-panel__product-size">{product.size}</span>
+            ) : (
+              <span />
+            )}
             <strong
               className={cn(
                 'action-panel__product-price',

@@ -32,22 +32,22 @@ export function ClockOutReportView({ report }: ClockOutReportProps): React.JSX.E
         </div>
       </div>
 
-      {/* Sales by Department */}
-      {report.sales_by_department.length > 0 && (
+      {/* Sales by Item Type */}
+      {report.sales_by_item_type.length > 0 && (
         <div className="clock-out-report__section">
-          <h3 className="clock-out-report__section-title">Sales by Department</h3>
+          <h3 className="clock-out-report__section-title">Sales by Item Type</h3>
           <table className="clock-out-report__table" data-testid="dept-sales-table">
             <thead>
               <tr>
-                <th>Department</th>
+                <th>Item Type</th>
                 <th>Transactions</th>
                 <th>Total</th>
               </tr>
             </thead>
             <tbody>
-              {report.sales_by_department.map((row) => (
-                <tr key={row.department_name}>
-                  <td>{row.department_name}</td>
+              {report.sales_by_item_type.map((row) => (
+                <tr key={row.item_type_name}>
+                  <td>{row.item_type_name}</td>
                   <td>{row.transaction_count}</td>
                   <td>{formatCurrency(row.total_amount)}</td>
                 </tr>

@@ -58,7 +58,7 @@ const attachTerminalMock = async (
 
       const merchantConfig = {
         id: 1,
-        stax_api_key: 'test-api-key',
+        payment_processing_api_key: 'test-api-key',
         merchant_id: 'test-merchant-id',
         merchant_name: 'Test Liquor Store',
         activated_at: '2025-01-01T00:00:00.000Z',
@@ -77,13 +77,18 @@ const attachTerminalMock = async (
       ;(window as any).api = {
         // Auth APIs
         getMerchantConfig: async () => merchantConfig,
+        authCheckSession: async () => ({
+          user: { id: 'user-1', email: 'test@example.com' },
+          merchant: merchantConfig
+        }),
+        onDeepLink: () => {},
         getCashiers: async () => [testCashier],
         validatePin: async () => testCashier,
 
         // Product APIs
         getProducts: async () => products,
         getActiveSpecialPricing: async () => [],
-        getDepartments: async () => [],
+        getItemTypes: async () => [],
         getDistributors: async () => [],
         getTaxCodes: async () => [],
         getInventoryTaxCodes: async () => [],

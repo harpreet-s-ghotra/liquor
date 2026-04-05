@@ -4,13 +4,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius);
   border: 1px solid transparent;
-  white-space: nowrap;
-  font-weight: 700;
-  font-family: var(--font-display);
-  cursor: pointer;
+  border-radius: var(--radius);
   box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 .btn:disabled {
@@ -45,42 +45,42 @@
 }
 
 .btn--neutral {
-  border-color: rgba(255, 255, 255, 0.3);
-  background: var(--bg-surface);
-  color: #ffffff;
+  border-color: var(--btn-neutral-border);
+  background: var(--btn-neutral-bg);
+  color: var(--btn-neutral-text);
 }
 
 .btn--ghost {
   border: none;
+  box-shadow: none;
   background: transparent;
   color: var(--text-primary);
-  box-shadow: none;
 }
 
 .btn--outline {
   border-color: var(--border-strong);
+  box-shadow: none;
   background: transparent;
   color: var(--text-primary);
-  box-shadow: none;
 }
 
 /* ── Sizes ── */
 
 .btn--sm {
-  min-height: 2.25rem;
   padding: 0 0.75rem;
+  min-height: 2.25rem;
   font-size: 0.95rem;
 }
 
 .btn--md {
-  min-height: 2.75rem;
   padding: 0 0.875rem;
+  min-height: 2.75rem;
   font-size: 1rem;
 }
 
 .btn--lg {
-  min-height: 4.5rem;
   padding: 1rem;
+  min-height: 4.5rem;
   font-size: 1.3125rem;
 }
 

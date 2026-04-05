@@ -19,11 +19,28 @@ Coverage threshold: **>= 80%** (statements, branches, functions, lines).
 
 | Test file                        | Tests                                                    |
 | -------------------------------- | -------------------------------------------------------- |
+| `inventory-deltas.repo.test.ts`  | Inventory delta insert/query/sync-marking helpers        |
 | `products.repo.test.ts`          | Product CRUD, search, inventory queries, special pricing |
+| `transactions.repo.test.ts`      | Transaction sync queue hooks and inventory delta writes  |
 | `held-transactions.repo.test.ts` | Hold save/list/delete/clear                              |
 | `sessions.repo.test.ts`          | Session CRUD, report generation, cash reconciliation     |
+| `tax-codes.repo.test.ts`         | Tax code CRUD + `enqueueTaxCodeSync` hook coverage       |
+| `item-types.repo.test.ts`        | Item type CRUD + `enqueueItemTypeSync` hook coverage     |
+| `distributors.repo.test.ts`      | Distributor CRUD + `enqueueDistributorSync` hook         |
+| `cashiers.repo.test.ts`          | Cashier CRUD + `enqueueCashierSync` hook coverage        |
 
 Pattern: `createTestDb()` with in-memory SQLite, `foreign_keys = ON`.
+
+### Sync Services — `src/main/services/sync/`
+
+| Test file                    | Tests                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| `tax-code-sync.test.ts`      | `uploadTaxCode` success/error, `applyRemoteTaxCodeChange` LWW logic      |
+| `item-type-sync.test.ts`     | `uploadItemType` success/error, apply LWW + name-rename product update   |
+| `distributor-sync.test.ts`   | `uploadDistributor` success/error, `applyRemoteDistributorChange` LWW    |
+| `cashier-sync.test.ts`       | `uploadCashier` success/error, `applyRemoteCashierChange` LWW + pin_hash |
+
+Pattern: Mock Supabase client via `vi.fn()` chains, `createTestDb()` for apply-side SQLite tests.
 
 ### Renderer — `src/renderer/src/`
 

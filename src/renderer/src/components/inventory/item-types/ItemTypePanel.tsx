@@ -6,26 +6,20 @@ import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { Input } from '@renderer/components/ui/input'
 import { useCrudPanel } from '@renderer/hooks/useCrudPanel'
 import { cn } from '@renderer/lib/utils'
-import type { Department, TaxCode } from '@renderer/types/pos'
+import type { ItemType, TaxCode } from '@renderer/types/pos'
 import '../crud-panel.css'
 
-type DepartmentPanelProps = {
+type ItemTypePanelProps = {
   searchFilter?: string
 }
 
-export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): React.JSX.Element {
+export function ItemTypePanel({ searchFilter = '' }: ItemTypePanelProps): React.JSX.Element {
   const api = typeof window !== 'undefined' ? window.api : undefined
-  const hasApi = typeof api?.getDepartments === 'function'
+  const hasApi = typeof api?.getItemTypes === 'function'
 
-  const loadDepartments = useCallback(async (): Promise<Department[]> => {
-    const a = window.api
-    if (typeof a?.getDepartments !== 'function') return []
-    return a.getDepartments()
-  }, [])
-
-  const crud = useCrudPanel<Department>({
-    entityName: 'department',
-    loadFn: hasApi ? loadDepartments : undefined
+  const crud = useCrudPanel<ItemType>({
+    entityName: 'item type',
+    loadFn: hasApi ? () => window.api!.getItemTypes() : undefined
   })
 
   // Tax codes from backend for the dropdown
@@ -40,14 +34,14 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
         if (!stale) setTaxCodes(data)
       })
       .catch(() => {
-        /* ignore – dropdown will just be empty */
+        /* ignore - dropdown will just be empty */
       })
     return (): void => {
       stale = true
     }
   }, [])
 
-  const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Edit form fields
@@ -57,40 +51,42 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
   const [editTaxRate, setEditTaxRate] = useState('')
   const [showEditValidation, setShowEditValidation] = useState(false)
 
-  // New department form
+  // New item type form
   const [newName, setNewName] = useState('')
   const [newDescription, setNewDescription] = useState('')
   const [newProfitMargin, setNewProfitMargin] = useState('')
   const [newTaxRate, setNewTaxRate] = useState('')
 
-  const filteredDepartments = useMemo(() => {
+  const filteredItemTypes = useMemo(() => {
     const q = searchFilter.trim().toLowerCase()
     if (!q) return crud.items
     return crud.items.filter(
-      (dept) =>
-        dept.name.toLowerCase().includes(q) ||
-        (dept.description && dept.description.toLowerCase().includes(q))
+      (itemType) =>
+        itemType.name.toLowerCase().includes(q) ||
+        (itemType.description && itemType.description.toLowerCase().includes(q))
     )
   }, [crud.items, searchFilter])
 
-  const selectedDept = useMemo(
-    () => crud.items.find((d) => d.id === selectedDeptId) ?? null,
-    [crud.items, selectedDeptId]
+  const selectedItemType = useMemo(
+    () => crud.items.find((d) => d.id === selectedId) ?? null,
+    [crud.items, selectedId]
   )
 
   const hasEditChanges = useMemo(() => {
-    if (!selectedDept) return false
-    const origMargin = selectedDept.default_profit_margin
-      ? String(selectedDept.default_profit_margin)
+    if (!selectedItemType) return false
+    const origMargin = selectedItemType.default_profit_margin
+      ? String(selectedItemType.default_profit_margin)
       : ''
-    const origRate = selectedDept.default_tax_rate ? String(selectedDept.default_tax_rate) : ''
+    const origRate = selectedItemType.default_tax_rate
+      ? String(selectedItemType.default_tax_rate)
+      : ''
     return (
-      editName !== selectedDept.name ||
-      editDescription !== (selectedDept.description ?? '') ||
+      editName !== selectedItemType.name ||
+      editDescription !== (selectedItemType.description ?? '') ||
       editProfitMargin !== origMargin ||
       editTaxRate !== origRate
     )
-  }, [selectedDept, editName, editDescription, editProfitMargin, editTaxRate])
+  }, [selectedItemType, editName, editDescription, editProfitMargin, editTaxRate])
 
   /** Resolve a tax rate to its tax code label, or show the raw rate if no match. */
   const taxRateLabel = useCallback(
@@ -106,7 +102,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
 
   const { clearMessages } = crud
   const clearSelection = useCallback((): void => {
-    setSelectedDeptId(null)
+    setSelectedId(null)
     setEditName('')
     setEditDescription('')
     setEditProfitMargin('')
@@ -117,19 +113,21 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
 
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape' && selectedDeptId !== null) clearSelection()
+      if (e.key === 'Escape' && selectedId !== null) clearSelection()
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [selectedDeptId, clearSelection])
+  }, [selectedId, clearSelection])
 
-  const selectDepartment = (dept: Department): void => {
+  const selectItemType = (itemType: ItemType): void => {
     crud.clearMessages()
-    setSelectedDeptId(dept.id)
-    setEditName(dept.name)
-    setEditDescription(dept.description ?? '')
-    setEditProfitMargin(dept.default_profit_margin ? String(dept.default_profit_margin) : '')
-    setEditTaxRate(dept.default_tax_rate ? String(dept.default_tax_rate) : '')
+    setSelectedId(itemType.id)
+    setEditName(itemType.name)
+    setEditDescription(itemType.description ?? '')
+    setEditProfitMargin(
+      itemType.default_profit_margin ? String(itemType.default_profit_margin) : ''
+    )
+    setEditTaxRate(itemType.default_tax_rate ? String(itemType.default_tax_rate) : '')
     setShowEditValidation(false)
   }
 
@@ -155,13 +153,13 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
 
     const freshItems = await crud.runAction(
       () =>
-        api.createDepartment({
+        window.api!.createItemType({
           name: trimmed,
           description: newDescription.trim() || null,
           default_profit_margin: profitMargin,
           default_tax_rate: taxRate
         }),
-      'Department created'
+      'Item type created'
     )
     if (freshItems) {
       setNewName('')
@@ -176,11 +174,11 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
     crud.clearMessages()
     setShowEditValidation(true)
 
-    if (!hasApi || !selectedDeptId) return
+    if (!hasApi || !selectedId) return
 
     const trimmedName = editName.trim()
     if (!trimmedName) {
-      crud.setError('Department name is required')
+      crud.setError('Item type name is required')
       return
     }
 
@@ -192,22 +190,21 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
       return
     }
 
-    const deptId = selectedDeptId
+    const id = selectedId
     const freshItems = await crud.runAction(
       () =>
-        api.updateDepartment({
-          id: deptId,
+        window.api!.updateItemType({
+          id,
           name: trimmedName,
           description: editDescription.trim() || null,
           default_profit_margin: profitMargin,
           default_tax_rate: taxRate
         }),
-      'Department saved'
+      'Item type saved'
     )
     if (freshItems) {
       setShowEditValidation(false)
-      // Refresh edit form from the just-reloaded data so the UI is fully in sync
-      const saved = freshItems.find((d) => d.id === deptId)
+      const saved = freshItems.find((d) => d.id === id)
       if (saved) {
         setEditName(saved.name)
         setEditDescription(saved.description ?? '')
@@ -218,20 +215,20 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
   }
 
   const handleDelete = (): void => {
-    if (!hasApi || !selectedDeptId) return
+    if (!hasApi || !selectedId) return
     setShowDeleteConfirm(true)
   }
 
   const handleDeleteConfirmed = async (): Promise<void> => {
     setShowDeleteConfirm(false)
-    if (!hasApi || !selectedDeptId) return
+    if (!hasApi || !selectedId) return
 
     const freshItems = await crud.runAction(
-      () => api.deleteDepartment(selectedDeptId),
-      'Department deleted'
+      () => window.api!.deleteItemType(selectedId),
+      'Item type deleted'
     )
     if (freshItems) {
-      setSelectedDeptId(null)
+      setSelectedId(null)
       setEditName('')
       setEditDescription('')
       setEditProfitMargin('')
@@ -243,18 +240,18 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
   const editNameError = showEditValidation && !editName.trim() ? 'Name is required' : undefined
 
   return (
-    <div className="crud-panel__root" aria-label="Departments">
+    <div className="crud-panel__root" aria-label="Item Types">
       {/* Section 1: New entry form */}
       <div className="crud-panel__new-form--dept">
         <FormField
-          label="Department Name"
+          label="Item Type Name"
           required
           error={nameError}
           showError={crud.showValidation}
         >
           <ValidatedInput
             fieldType="name"
-            aria-label="Department Name"
+            aria-label="Item Type Name"
             placeholder="e.g. Wine, Beer, Spirits"
             value={newName}
             onChange={setNewName}
@@ -265,7 +262,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
         </FormField>
         <FormField label="Description">
           <Input
-            aria-label="Department Description"
+            aria-label="Item Type Description"
             placeholder="Optional description"
             maxLength={30}
             value={newDescription}
@@ -312,16 +309,16 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
         </AppButton>
       </div>
 
-      {/* Section 2: Scrollable department list */}
+      {/* Section 2: Scrollable item type list */}
       <div className="crud-panel__list-wrap">
-        {filteredDepartments.length === 0 ? (
+        {filteredItemTypes.length === 0 ? (
           <p className="crud-panel__empty-text">
             {crud.items.length === 0
-              ? 'No departments yet. Add one above to get started.'
-              : 'No departments match your search.'}
+              ? 'No item types yet. Add one above to get started.'
+              : 'No item types match your search.'}
           </p>
         ) : (
-          <table className="crud-panel__table" aria-label="Departments list">
+          <table className="crud-panel__table" aria-label="Item types list">
             <thead>
               <tr>
                 <th>Name</th>
@@ -331,19 +328,19 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
               </tr>
             </thead>
             <tbody>
-              {filteredDepartments.map((dept) => (
+              {filteredItemTypes.map((it) => (
                 <tr
-                  key={dept.id}
+                  key={it.id}
                   className={cn(
                     'crud-panel__row',
-                    selectedDeptId === dept.id && 'crud-panel__row--selected'
+                    selectedId === it.id && 'crud-panel__row--selected'
                   )}
-                  onClick={() => selectDepartment(dept)}
+                  onClick={() => selectItemType(it)}
                 >
-                  <td>{dept.name}</td>
-                  <td className="crud-panel__td--muted">{dept.description || '—'}</td>
-                  <td>{dept.default_profit_margin ? `${dept.default_profit_margin}%` : '—'}</td>
-                  <td>{taxRateLabel(dept.default_tax_rate)}</td>
+                  <td>{it.name}</td>
+                  <td className="crud-panel__td--muted">{it.description || '—'}</td>
+                  <td>{it.default_profit_margin ? `${it.default_profit_margin}%` : '—'}</td>
+                  <td>{taxRateLabel(it.default_tax_rate)}</td>
                 </tr>
               ))}
             </tbody>
@@ -353,10 +350,10 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
 
       {/* Section 3: Edit section */}
       <div className="crud-panel__edit-section">
-        {selectedDept ? (
+        {selectedItemType ? (
           <div className="crud-panel__edit-grid">
             <div className="crud-panel__edit-header">
-              <span className="crud-panel__edit-title">Editing: {selectedDept.name}</span>
+              <span className="crud-panel__edit-title">Editing: {selectedItemType.name}</span>
               <div className="crud-panel__edit-actions">
                 <AppButton
                   size="sm"
@@ -378,7 +375,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
               <FormField label="Name" required error={editNameError} showError={showEditValidation}>
                 <ValidatedInput
                   fieldType="name"
-                  aria-label="Edit Department Name"
+                  aria-label="Edit Item Type Name"
                   value={editName}
                   onChange={setEditName}
                   onKeyDown={(e) => {
@@ -388,7 +385,7 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
               </FormField>
               <FormField label="Description" error={undefined} showError={false}>
                 <Input
-                  aria-label="Edit Department Description"
+                  aria-label="Edit Item Type Description"
                   placeholder="Optional description"
                   maxLength={30}
                   value={editDescription}
@@ -435,9 +432,9 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
         ) : (
           <div className="crud-panel__edit-placeholder">
             <p className="crud-panel__edit-placeholder-text">
-              Select a department above to view and edit its details.
+              Select an item type above to view and edit its details.
             </p>
-            {/* Status messages when no dept selected */}
+            {/* Status messages when no item type selected */}
             <div className="crud-panel__status-area--mt">
               {crud.success && <p className="crud-panel__msg--success">{crud.success}</p>}
               {crud.error && <p className="crud-panel__msg--error">{crud.error}</p>}
@@ -448,8 +445,8 @@ export function DepartmentPanel({ searchFilter = '' }: DepartmentPanelProps): Re
 
       <ConfirmDialog
         isOpen={showDeleteConfirm}
-        title="Delete Department"
-        message={`Are you sure you want to delete "${selectedDept?.name}"? This cannot be undone.`}
+        title="Delete Item Type"
+        message={`Are you sure you want to delete "${selectedItemType?.name}"? This cannot be undone.`}
         confirmLabel="Yes, Delete"
         cancelLabel="Cancel"
         variant="danger"

@@ -132,8 +132,14 @@ describe('DistributorPanel', () => {
 
   /** Helper: click a table row to select a distributor */
   const selectRow = async (name: string): Promise<void> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (window as any).api
+    const priorCallCount = api.getSalesRepsByDistributor.mock.calls.length
     const cell = await screen.findByText(name)
     fireEvent.click(cell.closest('tr')!)
+    await waitFor(() => {
+      expect(api.getSalesRepsByDistributor).toHaveBeenCalledTimes(priorCallCount + 1)
+    })
   }
 
   it('loads and displays distributors', async () => {

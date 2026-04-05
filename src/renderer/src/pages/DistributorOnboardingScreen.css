@@ -1,0 +1,234 @@
+/* ── Distributor Onboarding Screen ── */
+
+.dist-onboarding {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: var(--bg-app);
+  padding: 2rem 1rem;
+  min-height: 100vh;
+}
+
+.dist-onboarding__card {
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  background: var(--bg-panel);
+  padding: 2rem;
+  width: 100%;
+  max-width: 680px;
+}
+
+/* ── Header ── */
+
+.dist-onboarding__brand {
+  margin: 0 0 1.25rem;
+  text-align: center;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.dist-onboarding__title {
+  margin: 0 0 0.375rem;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.dist-onboarding__description {
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.dist-onboarding__header {
+  margin-bottom: 0.5rem;
+}
+
+/* ── Search row ── */
+
+.dist-onboarding__search-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.dist-onboarding__search {
+  flex: 1;
+  outline: none;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-input);
+  padding: 0.5rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.dist-onboarding__search:focus {
+  border-color: var(--accent-blue);
+}
+
+.dist-onboarding__count {
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* ── List ── */
+
+.dist-onboarding__select-all {
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 0.375rem;
+}
+
+.dist-onboarding__list {
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.dist-onboarding__row {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+}
+
+.dist-onboarding__row:last-child {
+  border-bottom: none;
+}
+
+.dist-onboarding__row:hover {
+  background: var(--bg-surface-soft);
+}
+
+.dist-onboarding__select-all .dist-onboarding__row {
+  background: none;
+  padding: 0.375rem 0;
+}
+
+.dist-onboarding__checkbox {
+  flex-shrink: 0;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-blue);
+}
+
+.dist-onboarding__row-name {
+  flex: 1;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.dist-onboarding__row-name--all {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.dist-onboarding__row-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.dist-onboarding__row-tag {
+  border-radius: 4px;
+  background: var(--btn-bg);
+  padding: 0.125rem 0.375rem;
+  color: var(--text-on-dark);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.dist-onboarding__empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.dist-onboarding__loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* ── Status messages ── */
+
+.dist-onboarding__progress {
+  margin-bottom: 0.75rem;
+  border: 1px solid rgba(0, 100, 50, 0.2);
+  border-radius: 6px;
+  background: rgba(0, 100, 50, 0.06);
+  padding: 0.5rem 0.75rem;
+  color: var(--semantic-success-text);
+  font-size: 0.825rem;
+}
+
+.dist-onboarding__error {
+  margin-bottom: 0.75rem;
+  border: 1px solid rgba(134, 0, 13, 0.2);
+  border-radius: 6px;
+  background: rgba(134, 0, 13, 0.06);
+  padding: 0.5rem 0.75rem;
+  color: var(--semantic-danger-text);
+  font-size: 0.825rem;
+}
+
+/* ── Actions ── */
+
+.dist-onboarding__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dist-onboarding__btn {
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0.75rem;
+  width: 100%;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.dist-onboarding__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dist-onboarding__btn--primary {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+}
+
+.dist-onboarding__btn--primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.dist-onboarding__btn--secondary {
+  border: 1px solid var(--border-default);
+  background: transparent;
+  padding: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.dist-onboarding__btn--secondary:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}

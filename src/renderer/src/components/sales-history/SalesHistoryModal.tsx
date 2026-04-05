@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { formatCurrency } from '@renderer/utils/currency'
 import { cn } from '@renderer/lib/utils'
@@ -151,14 +151,18 @@ export function SalesHistoryModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sales-history" aria-label="Sales History">
+      <DialogContent
+        className="sales-history"
+        aria-label="Sales History"
+        aria-describedby={undefined}
+      >
         {/* Header */}
-        <div className="sales-history__header">
-          <h2 className="sales-history__title">Sales History</h2>
+        <DialogHeader className="sales-history__header">
+          <DialogTitle className="sales-history__title">Sales History</DialogTitle>
           <span className="sales-history__count">
             {totalCount} transaction{totalCount !== 1 ? 's' : ''}
           </span>
-        </div>
+        </DialogHeader>
 
         {/* Filters */}
         <div className="sales-history__filters">

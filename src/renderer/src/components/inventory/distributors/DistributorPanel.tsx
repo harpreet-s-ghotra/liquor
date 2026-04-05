@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { useCrudPanel } from '@renderer/hooks/useCrudPanel'
 import { cn } from '@renderer/lib/utils'
 import type { Distributor, SalesRep } from '@renderer/types/pos'
+import { ImportDistributorsDialog } from './ImportDistributorsDialog'
 import '../crud-panel.css'
 
 type DistributorPanelProps = {
@@ -47,6 +48,9 @@ export function DistributorPanel({ searchFilter = '' }: DistributorPanelProps): 
   const [newRepPhone, setNewRepPhone] = useState('')
   const [newRepEmail, setNewRepEmail] = useState('')
   const [repError, setRepError] = useState<string | null>(null)
+
+  // Import dialog state
+  const [showImportDialog, setShowImportDialog] = useState(false)
 
   const filteredDistributors = useMemo(() => {
     const q = searchFilter.trim().toLowerCase()
@@ -271,6 +275,14 @@ export function DistributorPanel({ searchFilter = '' }: DistributorPanelProps): 
         >
           Add
         </AppButton>
+        <AppButton
+          size="md"
+          variant="default"
+          className="crud-panel__add-btn"
+          onClick={() => setShowImportDialog(true)}
+        >
+          Import from Catalog
+        </AppButton>
       </div>
 
       {/* Section 2: Scrollable distributor list */}
@@ -485,6 +497,12 @@ export function DistributorPanel({ searchFilter = '' }: DistributorPanelProps): 
         variant="danger"
         onConfirm={() => void handleDeleteConfirmed()}
         onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <ImportDistributorsDialog
+        isOpen={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={() => void crud.loadItems()}
       />
     </div>
   )

@@ -8,10 +8,10 @@
 .pos-screen__main {
   display: grid;
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
   gap: 0.5rem;
   padding: 0 0.5rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .pos-screen__error {
@@ -20,9 +20,9 @@
   bottom: 4.625rem;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
   background: var(--bg-surface-soft);
   padding: 0.25rem 0.5rem;
-  box-shadow: var(--shadow-sm);
-  font-size: 0.8125rem;
   color: var(--semantic-danger-text);
+  font-size: 0.8125rem;
 }

@@ -5,7 +5,7 @@ import type {
   CreateSessionInput,
   CloseSessionInput,
   ClockOutReport,
-  DepartmentSalesRow,
+  ItemTypeSalesRow,
   PaymentMethodSalesRow,
   SessionListResult
 } from '../../shared/types'
@@ -129,24 +129,23 @@ export function generateClockOutReport(sessionId: number): ClockOutReport {
 
   const session = normalizeSession(rawSession)
 
-  // Sales by department
-  const salesByDept = db
+  // Sales by item type
+  const salesByItemType = db
     .prepare(
       `
       SELECT
-        COALESCE(d.name, p.dept_id, 'Unknown') AS department_name,
+        COALESCE(p.item_type, 'Unknown') AS item_type_name,
         COUNT(DISTINCT t.id) AS transaction_count,
         COALESCE(SUM(ti.total_price), 0) AS total_amount
       FROM transactions t
       INNER JOIN transaction_items ti ON ti.transaction_id = t.id
       LEFT JOIN products p ON p.id = ti.product_id
-      LEFT JOIN departments d ON d.id = CAST(p.dept_id AS INTEGER)
       WHERE t.session_id = ? AND t.status = 'completed'
-      GROUP BY department_name
+      GROUP BY item_type_name
       ORDER BY total_amount DESC
       `
     )
-    .all(sessionId) as DepartmentSalesRow[]
+    .all(sessionId) as ItemTypeSalesRow[]
 
   // Sales by payment method
   const salesByPayment = db
@@ -222,7 +221,7 @@ export function generateClockOutReport(sessionId: number): ClockOutReport {
 
   return {
     session,
-    sales_by_department: salesByDept,
+    sales_by_item_type: salesByItemType,
     sales_by_payment_method: salesByPayment,
     total_sales_count: totals.total_sales_count,
     gross_sales: totals.gross_sales,

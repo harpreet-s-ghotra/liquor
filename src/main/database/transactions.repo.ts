@@ -1,5 +1,8 @@
 import { getDb } from './connection'
 import { normalizeTimestamp, toSqliteFormat } from './utils'
+import { enqueueSyncItem } from './sync-queue.repo'
+import { getDeviceConfig } from './device-config.repo'
+import { getInventoryDeltaSyncPayload, recordDelta } from './inventory-deltas.repo'
 import type {
   SaveRefundInput,
   SaveTransactionInput,
@@ -11,6 +14,78 @@ import type {
   TransactionListResult,
   TransactionSummary
 } from '../../shared/types'
+import type { TransactionSyncPayload } from '../services/sync/types'
+
+/**
+ * Enqueue a transaction for cloud sync. Called after the local save succeeds.
+ * Looks up product SKUs (the cloud uses SKUs, not local IDs) and builds the sync payload.
+ */
+function enqueueTransactionSync(
+  saved: SavedTransaction,
+  items: SaveTransactionInput['items'],
+  originalTxnNumber: string | null
+): void {
+  const device = getDeviceConfig()
+  if (!device) return // Not registered — skip sync
+
+  const db = getDb()
+  const findSku = db.prepare('SELECT sku FROM products WHERE id = ? LIMIT 1')
+
+  const syncItems = items.map((item) => {
+    const row = findSku.get(item.product_id) as { sku: string } | undefined
+    return {
+      product_sku: row?.sku ?? `UNKNOWN-${item.product_id}`,
+      product_name: item.product_name,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total_price: item.total_price
+    }
+  })
+
+  const payload: TransactionSyncPayload = {
+    transaction: {
+      id: saved.id,
+      transaction_number: saved.transaction_number,
+      subtotal: saved.subtotal,
+      tax_amount: saved.tax_amount,
+      total: saved.total,
+      payment_method: saved.payment_method,
+      stax_transaction_id: saved.stax_transaction_id,
+      card_last_four: saved.card_last_four,
+      card_type: saved.card_type,
+      status: saved.status,
+      notes: null,
+      original_transaction_number: originalTxnNumber,
+      session_id: null,
+      created_at: saved.created_at
+    },
+    items: syncItems
+  }
+
+  enqueueSyncItem({
+    entity_type: 'transaction',
+    entity_id: String(saved.id),
+    operation: 'INSERT',
+    payload: JSON.stringify(payload),
+    device_id: device.device_id
+  })
+}
+
+function enqueueInventoryDeltaSync(deltaId: number): void {
+  const device = getDeviceConfig()
+  if (!device) return
+
+  const payload = getInventoryDeltaSyncPayload(deltaId)
+  if (!payload) return
+
+  enqueueSyncItem({
+    entity_type: 'inventory_delta',
+    entity_id: String(deltaId),
+    operation: 'INSERT',
+    payload: JSON.stringify(payload),
+    device_id: device.device_id
+  })
+}
 
 /**
  * Save a completed transaction with line items and optional Stax payment data.
@@ -18,6 +93,8 @@ import type {
  */
 export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
   const db = getDb()
+  const device = getDeviceConfig()
+  const inventoryDeltaIds: number[] = []
 
   const txNumber = `TXN-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
@@ -89,6 +166,20 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
 
       // Decrement product stock for each sold item
       decrementStock.run(item.quantity, item.quantity, item.product_id)
+
+      const skuRow = db
+        .prepare('SELECT sku FROM products WHERE id = ? LIMIT 1')
+        .get(item.product_id) as { sku: string } | undefined
+
+      const deltaId = recordDelta({
+        product_id: item.product_id,
+        product_sku: skuRow?.sku ?? `UNKNOWN-${item.product_id}`,
+        delta: -item.quantity,
+        reason: 'sale',
+        reference_id: txNumber,
+        device_id: device?.device_id ?? null
+      })
+      inventoryDeltaIds.push(deltaId)
     }
 
     return transactionId
@@ -96,7 +187,7 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
 
   const transactionId = tx()
 
-  return {
+  const saved: SavedTransaction = {
     id: transactionId,
     transaction_number: txNumber,
     subtotal: input.subtotal,
@@ -110,6 +201,23 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
     original_transaction_id: null,
     created_at: new Date().toISOString()
   }
+
+  // Enqueue for cloud sync (non-blocking — if device not registered, silently skips)
+  try {
+    enqueueTransactionSync(saved, input.items, null)
+  } catch {
+    // Sync enqueue failure must never block a sale
+  }
+
+  for (const deltaId of inventoryDeltaIds) {
+    try {
+      enqueueInventoryDeltaSync(deltaId)
+    } catch {
+      // Sync enqueue failure must never block a sale
+    }
+  }
+
+  return saved
 }
 
 /**
@@ -270,6 +378,8 @@ export function listTransactions(filter: TransactionListFilter = {}): Transactio
  */
 export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction {
   const db = getDb()
+  const device = getDeviceConfig()
+  const inventoryDeltaIds: number[] = []
 
   const txNumber = `TXN-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
@@ -342,6 +452,20 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
 
       // Increment product stock for returned items
       incrementStock.run(item.quantity, item.quantity, item.product_id)
+
+      const skuRow = db
+        .prepare('SELECT sku FROM products WHERE id = ? LIMIT 1')
+        .get(item.product_id) as { sku: string } | undefined
+
+      const deltaId = recordDelta({
+        product_id: item.product_id,
+        product_sku: skuRow?.sku ?? `UNKNOWN-${item.product_id}`,
+        delta: item.quantity,
+        reason: 'refund',
+        reference_id: txNumber,
+        device_id: device?.device_id ?? null
+      })
+      inventoryDeltaIds.push(deltaId)
     }
 
     return transactionId
@@ -349,7 +473,7 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
 
   const transactionId = tx()
 
-  return {
+  const saved: SavedTransaction = {
     id: transactionId,
     transaction_number: txNumber,
     subtotal: input.subtotal,
@@ -363,4 +487,20 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
     original_transaction_id: input.original_transaction_id,
     created_at: new Date().toISOString()
   }
+
+  try {
+    enqueueTransactionSync(saved, input.items, input.original_transaction_number)
+  } catch {
+    // Sync enqueue failure must never block a refund
+  }
+
+  for (const deltaId of inventoryDeltaIds) {
+    try {
+      enqueueInventoryDeltaSync(deltaId)
+    } catch {
+      // Sync enqueue failure must never block a refund
+    }
+  }
+
+  return saved
 }

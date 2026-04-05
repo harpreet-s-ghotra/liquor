@@ -14,7 +14,7 @@ InventoryModal (modal shell, 4 outer tabs)
 │   │   ├── Special Pricing
 │   │   └── Sales History
 │   └── FooterActionBar (search + New/Save/Delete/Discard)
-├── Departments tab → DepartmentPanel (useCrudPanel)
+├── Item Types tab → DepartmentPanel (useCrudPanel, backed by departments repo)
 ├── Tax Codes tab → TaxCodePanel (useCrudPanel)
 └── Distributors tab → DistributorPanel (useCrudPanel + inline sales reps)
 ```
@@ -29,7 +29,7 @@ InventoryModal (modal shell, 4 outer tabs)
 | `FooterActionBar.tsx` + `.css`      | Search input, action buttons, search dropdown           |
 | `tabs.ts`                           | Tab enum/constants                                      |
 | `items/ItemForm.tsx` + `.css`       | Product form with 4 inner tabs                          |
-| `departments/DepartmentPanel.tsx`   | Department CRUD via `useCrudPanel`                      |
+| `departments/DepartmentPanel.tsx`   | Item type CRUD via `useCrudPanel` (compatibility layer) |
 | `tax-codes/TaxCodePanel.tsx`        | Tax code CRUD via `useCrudPanel`                        |
 | `distributors/DistributorPanel.tsx` | Distributor CRUD via `useCrudPanel` + inline sales reps |
 
@@ -43,31 +43,32 @@ InventoryModal (modal shell, 4 outer tabs)
 
 ### Backend — `src/main/database/`
 
-| File                   | Key functions                                                                                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `products.repo.ts`     | `getInventoryProducts`, `searchInventoryProducts`, `getInventoryProductDetail`, `saveInventoryItem`, `deleteInventoryItem`, `getInventoryDepartments`, `getInventoryTaxCodes` |
-| `departments.repo.ts`  | `getDepartments`, `createDepartment`, `updateDepartment`, `deleteDepartment`                                                                                                  |
-| `tax-codes.repo.ts`    | CRUD for tax codes                                                                                                                                                            |
-| `distributors.repo.ts` | CRUD for distributors                                                                                                                                                         |
-| `sales-reps.repo.ts`   | CRUD for sales reps (per distributor)                                                                                                                                         |
+| File                   | Key functions                                                                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `products.repo.ts`     | `getInventoryProducts`, `searchInventoryProducts`, `getInventoryProductDetail`, `saveInventoryItem`, `deleteInventoryItem`, `getInventoryItemTypes`, `getInventoryTaxCodes` |
+| `departments.repo.ts`  | `getItemTypes`, `createItemType`, `updateItemType`, `deleteItemType` plus legacy department aliases                                                                         |
+| `tax-codes.repo.ts`    | CRUD for tax codes                                                                                                                                                          |
+| `distributors.repo.ts` | CRUD for distributors                                                                                                                                                       |
+| `sales-reps.repo.ts`   | CRUD for sales reps (per distributor)                                                                                                                                       |
 
 ### IPC Channels
 
 - `inventory:products:search`, `inventory:products:detail`, `inventory:products:save`, `inventory:products:delete`
-- `inventory:departments:list`, `inventory:tax-codes:list`
-- `departments:list/create/update/delete`
+- `inventory:item-types:list`, `inventory:tax-codes:list`
+- `item-types:list/create/update/delete`
+- Legacy compatibility: `inventory:departments:list`, `departments:list/create/update/delete`
 - `tax-codes:list/create/update/delete`
 - `distributors:list/create/update/delete`
 - `sales-reps:list-by-distributor/create/update/delete`
 
 ### Shared Types — `src/shared/types/index.ts`
 
-| Type                                               | Used by                                  |
-| -------------------------------------------------- | ---------------------------------------- |
-| `InventoryProduct`                                 | Search results, FooterActionBar dropdown |
-| `InventoryProductDetail`                           | ItemForm (full product with relations)   |
-| `SaveInventoryItemInput`                           | Save payload from ItemForm               |
-| `Department`, `TaxCode`, `Distributor`, `SalesRep` | CRUD panels                              |
+| Type                                             | Used by                                  |
+| ------------------------------------------------ | ---------------------------------------- |
+| `InventoryProduct`                               | Search results, FooterActionBar dropdown |
+| `InventoryProductDetail`                         | ItemForm (full product with relations)   |
+| `SaveInventoryItemInput`                         | Save payload from ItemForm               |
+| `ItemType`, `TaxCode`, `Distributor`, `SalesRep` | CRUD panels                              |
 
 ### Tests
 
@@ -76,7 +77,7 @@ InventoryModal (modal shell, 4 outer tabs)
 | `InventoryModal.test.tsx`                | Tab switching, search, breadcrumbs      |
 | `FooterActionBar.test.tsx`               | Search input, action buttons, dropdown  |
 | `items/ItemForm.test.tsx`                | Form fields, tab switching, save/delete |
-| `departments/DepartmentPanel.test.tsx`   | Department CRUD                         |
+| `departments/DepartmentPanel.test.tsx`   | Item type CRUD                          |
 | `tax-codes/TaxCodePanel.test.tsx`        | Tax code CRUD                           |
 | `distributors/DistributorPanel.test.tsx` | Distributor CRUD + sales rep CRUD       |
 | `products.repo.test.ts`                  | Backend inventory queries               |
@@ -92,7 +93,7 @@ InventoryModal (modal shell, 4 outer tabs)
 
 ## Key Hooks
 
-- `useCrudPanel<T>` — generic CRUD state for Dept/Tax/Distributor panels (loading, editing, errors, success messages)
+- `useCrudPanel<T>` — generic CRUD state for Item Type/Tax/Distributor panels (loading, editing, errors, success messages)
 - `useDebounce<T>` — search input debouncing
 
 ## Currency Handling

@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/comp
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { cn } from '@renderer/lib/utils'
-import type { Product, Department, Distributor } from '@renderer/types/pos'
+import type { Product, ItemType, Distributor } from '@renderer/types/pos'
 import './search-modal.css'
 
 type SearchModalProps = {
@@ -23,46 +23,58 @@ export function SearchModal({
   const [results, setResults] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
-  const [departments, setDepartments] = useState<Department[]>([])
+  const [itemTypes, setItemTypes] = useState<ItemType[]>([])
   const [distributors, setDistributors] = useState<Distributor[]>([])
-  const [departmentId, setDepartmentId] = useState<number | undefined>(undefined)
+  const [itemTypeId, setItemTypeId] = useState<number | undefined>(undefined)
   const [distributorNumber, setDistributorNumber] = useState<number | undefined>(undefined)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastFiltersRef = useRef({
-    departmentId: undefined as number | undefined,
+    itemTypeId: undefined as number | undefined,
     distributorNumber: undefined as number | undefined
   })
 
   // Load filter options on mount
   useEffect(() => {
+    if (!isOpen) return
     const api = window.api
     if (!api) return
-    if (typeof api.getDepartments === 'function') {
-      api
-        .getDepartments()
-        .then(setDepartments)
+    let active = true
+    const getItemTypes =
+      typeof api.getItemTypes === 'function'
+        ? api.getItemTypes
+        : typeof api.getDepartments === 'function'
+          ? api.getDepartments
+          : null
+
+    if (getItemTypes) {
+      getItemTypes()
+        .then((data) => {
+          if (active) setItemTypes(data)
+        })
         .catch(() => {})
     }
     if (typeof api.getDistributors === 'function') {
       api
         .getDistributors()
-        .then(setDistributors)
+        .then((data) => {
+          if (active) setDistributors(data)
+        })
         .catch(() => {})
     }
-  }, [])
-
-  // Focus input when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 50)
+    return () => {
+      active = false
     }
   }, [isOpen])
 
+  // Focus input when modal opens
+  useEffect(() => {
+    if (!isOpen) return
+    const timeout = setTimeout(() => searchInputRef.current?.focus(), 50)
+    return () => clearTimeout(timeout)
+  }, [isOpen])
+
   const runSearch = useCallback(
-    async (
-      searchQuery: string,
-      filters?: { departmentId?: number; distributorNumber?: number }
-    ) => {
+    async (searchQuery: string, filters?: { itemTypeId?: number; distributorNumber?: number }) => {
       const trimmed = searchQuery.trim()
       if (!trimmed) {
         setResults([])
@@ -71,9 +83,12 @@ export function SearchModal({
       }
       const api = window.api
       if (!api?.searchProducts) return
-      const f = filters ?? { departmentId, distributorNumber }
+      const f = filters ?? { itemTypeId, distributorNumber }
       try {
-        const data = await api.searchProducts(trimmed, f)
+        const data = await api.searchProducts(trimmed, {
+          departmentId: f.itemTypeId,
+          distributorNumber: f.distributorNumber
+        })
         setResults(data)
         setSelectedProduct(null)
         setHasSearched(true)
@@ -82,7 +97,7 @@ export function SearchModal({
         setHasSearched(true)
       }
     },
-    [departmentId, distributorNumber]
+    [itemTypeId, distributorNumber]
   )
 
   const handleSubmit = useCallback(
@@ -93,13 +108,13 @@ export function SearchModal({
     [query, runSearch]
   )
 
-  const handleDepartmentChange = useCallback(
+  const handleItemTypeChange = useCallback(
     (value: number | undefined) => {
-      setDepartmentId(value)
-      lastFiltersRef.current.departmentId = value
+      setItemTypeId(value)
+      lastFiltersRef.current.itemTypeId = value
       if (hasSearched && query.trim()) {
         runSearch(query, {
-          departmentId: value,
+          itemTypeId: value,
           distributorNumber: lastFiltersRef.current.distributorNumber
         })
       }
@@ -113,7 +128,7 @@ export function SearchModal({
       lastFiltersRef.current.distributorNumber = value
       if (hasSearched && query.trim()) {
         runSearch(query, {
-          departmentId: lastFiltersRef.current.departmentId,
+          itemTypeId: lastFiltersRef.current.itemTypeId,
           distributorNumber: value
         })
       }
@@ -147,6 +162,7 @@ export function SearchModal({
       <DialogContent
         className="search-modal"
         aria-label="Product Search"
+        aria-describedby={undefined}
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
@@ -160,15 +176,15 @@ export function SearchModal({
         {/* Filters */}
         <div className="search-modal__filters">
           <select
-            value={departmentId ?? ''}
+            value={itemTypeId ?? ''}
             onChange={(e) =>
-              handleDepartmentChange(e.target.value ? Number(e.target.value) : undefined)
+              handleItemTypeChange(e.target.value ? Number(e.target.value) : undefined)
             }
             className="search-modal__filter-select"
-            aria-label="Filter by department"
+            aria-label="Filter by item type"
           >
-            <option value="">All Departments</option>
-            {departments.map((d) => (
+            <option value="">All Item Types</option>
+            {itemTypes.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
               </option>
@@ -196,9 +212,11 @@ export function SearchModal({
         <div className="search-modal__results" style={{ gridTemplateRows: '2.25rem 1fr' }}>
           <div
             className="search-modal__results-header"
-            style={{ gridTemplateColumns: '1fr 6rem 7rem' }}
+            style={{ gridTemplateColumns: '1fr 5rem minmax(0, 13rem) 5rem 7rem' }}
           >
             <span>Name</span>
+            <span>Size</span>
+            <span>Distributor</span>
             <span>Qty</span>
             <span>Price</span>
           </div>
@@ -219,11 +237,18 @@ export function SearchModal({
                     'search-modal__result-row',
                     selectedProduct?.id === product.id && 'search-modal__result-row--selected'
                   )}
-                  style={{ gridTemplateColumns: '1fr 6rem 7rem' }}
+                  style={{ gridTemplateColumns: '1fr 5rem minmax(0, 13rem) 5rem 7rem' }}
                   onClick={() => handleRowClick(product)}
                   data-testid={`search-result-${product.id}`}
                 >
                   <span className="search-modal__result-name">{product.name}</span>
+                  <span className="search-modal__result-size">{product.size ?? '—'}</span>
+                  <span
+                    className="search-modal__result-distributor"
+                    title={product.distributor_name ?? undefined}
+                  >
+                    {product.distributor_name ?? '—'}
+                  </span>
                   <span className="search-modal__result-qty">{product.quantity}</span>
                   <span className="search-modal__result-price">{formatMoney(product.price)}</span>
                 </button>

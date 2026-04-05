@@ -8,7 +8,6 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         item_number: 1,
         sku: 'SKU-001',
         item_name: 'Inventory Item',
-        dept_id: '11',
         category_id: null,
         category_name: null,
         cost: 10,
@@ -32,7 +31,6 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         item_number: 2,
         sku: 'SKU-002',
         item_name: 'Second Item',
-        dept_id: '11',
         category_id: null,
         category_name: null,
         cost: 8,
@@ -80,12 +78,24 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
       // Auth APIs
       getMerchantConfig: async () => ({
         id: 1,
-        stax_api_key: 'test-api-key',
+        payment_processing_api_key: 'test-api-key',
         merchant_id: 'test-merchant-id',
         merchant_name: 'Test Liquor Store',
         activated_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z'
       }),
+      authCheckSession: async () => ({
+        user: { id: 'user-1', email: 'test@example.com' },
+        merchant: {
+          id: 1,
+          payment_processing_api_key: 'test-api-key',
+          merchant_id: 'test-merchant-id',
+          merchant_name: 'Test Liquor Store',
+          activated_at: '2025-01-01T00:00:00.000Z',
+          updated_at: '2025-01-01T00:00:00.000Z'
+        }
+      }),
+      onDeepLink: () => {},
       getCashiers: async () => [
         { id: 1, name: 'Test Cashier', role: 'admin', is_active: 1, created_at: '2025-01-01' }
       ],
@@ -115,7 +125,6 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
             item_number: item.item_number,
             sku: item.sku,
             item_name: item.item_name,
-            dept_id: item.dept_id,
             category_id: item.category_id,
             category_name: item.category_name,
             cost: item.cost,
@@ -136,14 +145,25 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
       getInventoryProductDetail: async (itemNumber: number) => {
         return inventoryStore.find((item) => item.item_number === itemNumber) ?? null
       },
-      getInventoryDepartments: async () => ['11', '02'],
       getInventoryTaxCodes: async () => [
         { code: 'RATE_0', rate: 0 },
         { code: 'RATE_0_13', rate: 0.13 }
       ],
-      getDepartments: async () => [
-        { id: 11, name: 'Dept 11' },
-        { id: 2, name: 'Dept 02' }
+      getItemTypes: async () => [
+        {
+          id: 1,
+          name: 'Wine',
+          description: null,
+          default_profit_margin: 0.35,
+          default_tax_rate: 0.08
+        },
+        {
+          id: 2,
+          name: 'Spirits',
+          description: null,
+          default_profit_margin: 0.4,
+          default_tax_rate: 0.08
+        }
       ],
       getTaxCodes: async () => [],
       getDistributors: async () => [],
@@ -183,7 +203,6 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
           item_number: nextId,
           sku: payload.sku,
           item_name: payload.item_name,
-          dept_id: payload.dept_id,
           category_id: null,
           category_name: null,
           cost: payload.cost,
@@ -194,7 +213,8 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
           tax_rates: payload.tax_rates,
           distributor_number: null,
           distributor_name: null,
-          bottles_per_case: 12,
+          bottles_per_case: payload.bottles_per_case ?? 12,
+          case_discount_price: payload.case_discount_price ?? null,
           barcode: null,
           description: null,
           special_pricing_enabled: payload.special_pricing.length > 0 ? 1 : 0,
@@ -203,7 +223,17 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
           is_active: 1,
           additional_skus: payload.additional_skus,
           special_pricing: payload.special_pricing ?? [],
-          sales_history: []
+          sales_history: [],
+          display_name: payload.display_name ?? null,
+          proof: payload.proof ?? null,
+          alcohol_pct: payload.alcohol_pct ?? null,
+          vintage: payload.vintage ?? null,
+          ttb_id: payload.ttb_id ?? null,
+          size: null,
+          case_cost: null,
+          nysla_discounts: null,
+          brand_name: null,
+          item_type: null
         }
 
         if (existingIndex >= 0) {
@@ -274,10 +304,10 @@ test.describe('Inventory Management', () => {
 
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill(sku)
     await page.getByLabel('Name').fill(name)
-    // Department dropdown (standard select)
+    // Item type dropdown (standard select)
     // Scope inside Items tabpanel to avoid matching Radix tab panels
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
-    await itemsPanel.getByLabel('Department').selectOption({ label: 'Dept 11' })
+    await itemsPanel.getByLabel('Item Type').selectOption({ label: 'Wine' })
 
     await page.getByLabel('Per Bottle Cost').fill('9.99')
     await page.getByLabel('Price Charged').fill('15.99')
@@ -294,13 +324,17 @@ test.describe('Inventory Management', () => {
     await skusTab.focus()
     await expect(skusTab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await page.getByLabel('Additional SKU Input').fill(`${sku}-ALT-1`)
-    await page.getByRole('button', { name: 'Add Additional SKU' }).evaluate((el) => (el as HTMLElement).click())
+    await page
+      .getByRole('button', { name: 'Add Additional SKU' })
+      .evaluate((el) => (el as HTMLElement).click())
 
     // Switch to Special Pricing tab and add a rule
     const pricingTab = page.getByRole('tab', { name: 'Special Pricing' })
     await pricingTab.focus()
     await expect(pricingTab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
-    await page.getByRole('button', { name: 'Add Rule' }).evaluate((el) => (el as HTMLElement).click())
+    await page
+      .getByRole('button', { name: 'Add Rule' })
+      .evaluate((el) => (el as HTMLElement).click())
     await page.getByLabel('Rule 1 Quantity').fill('2')
     await page.getByLabel('Rule 1 Price').fill('1399')
     await page.getByLabel('Rule 1 Duration').fill('20')
@@ -327,17 +361,23 @@ test.describe('Inventory Management', () => {
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill('SKU-NEW')
     await page.getByLabel('Name').fill('New Item')
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
-    await itemsPanel.getByLabel('Department').selectOption({ label: 'Dept 11' })
+    await itemsPanel.getByLabel('Item Type').selectOption({ label: 'Wine' })
     await page.getByLabel('Per Bottle Cost').fill('5.00')
     await page.getByLabel('Price Charged').fill('10.00')
     await page.getByLabel('In Stock').fill('5')
+    const taxSel = itemsPanel.getByLabel('Tax Codes')
+    const taxOpts = await taxSel.locator('option').allTextContents()
+    const rate13 = taxOpts.find((t) => t.includes('13'))
+    if (rate13) await taxSel.selectOption({ label: rate13 })
 
     // Add an additional SKU that matches an existing product's primary SKU
     const skusTab2 = page.getByRole('tab', { name: 'Additional SKUs' })
     await skusTab2.focus()
     await expect(skusTab2).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await page.getByLabel('Additional SKU Input').fill('SKU-001')
-    await page.getByRole('button', { name: 'Add Additional SKU' }).evaluate((el) => (el as HTMLElement).click())
+    await page
+      .getByRole('button', { name: 'Add Additional SKU' })
+      .evaluate((el) => (el as HTMLElement).click())
 
     await page.getByRole('button', { name: 'Save' }).click()
 
@@ -357,17 +397,23 @@ test.describe('Inventory Management', () => {
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill('SKU-NEW-2')
     await page.getByLabel('Name').fill('Another New Item')
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
-    await itemsPanel.getByLabel('Department').selectOption({ label: 'Dept 11' })
+    await itemsPanel.getByLabel('Item Type').selectOption({ label: 'Wine' })
     await page.getByLabel('Per Bottle Cost').fill('6.00')
     await page.getByLabel('Price Charged').fill('11.00')
     await page.getByLabel('In Stock').fill('3')
+    const taxSel = itemsPanel.getByLabel('Tax Codes')
+    const taxOpts = await taxSel.locator('option').allTextContents()
+    const rate13 = taxOpts.find((t) => t.includes('13'))
+    if (rate13) await taxSel.selectOption({ label: rate13 })
 
     // Add an additional SKU that matches another product's alt SKU
     const skusTab3 = page.getByRole('tab', { name: 'Additional SKUs' })
     await skusTab3.focus()
     await expect(skusTab3).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await page.getByLabel('Additional SKU Input').fill('SKU-001-ALT')
-    await page.getByRole('button', { name: 'Add Additional SKU' }).evaluate((el) => (el as HTMLElement).click())
+    await page
+      .getByRole('button', { name: 'Add Additional SKU' })
+      .evaluate((el) => (el as HTMLElement).click())
 
     await page.getByRole('button', { name: 'Save' }).click()
 
@@ -375,5 +421,115 @@ test.describe('Inventory Management', () => {
     await expect(
       page.getByText('Additional SKU "SKU-001-ALT" is already used by "Inventory Item"')
     ).toBeVisible()
+  })
+
+  test('Additional Info tab shows Proof, ABV%, Vintage, TTB ID fields', async ({ page }) => {
+    await attachInventoryApiMock(page)
+    await gotoAndLogin(page)
+
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
+
+    // Navigate to Additional Info sub-tab
+    const addlInfoTab = page.getByRole('tab', { name: 'Additional Info' })
+    await addlInfoTab.focus()
+    await expect(addlInfoTab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
+
+    // All four fields should be visible
+    await expect(page.getByLabel('Proof')).toBeVisible()
+    await expect(page.getByLabel('ABV Percent')).toBeVisible()
+    await expect(page.getByLabel('Vintage')).toBeVisible()
+    await expect(page.getByLabel('TTB ID')).toBeVisible()
+  })
+
+  test('saves item with Additional Info fields and verifies on reload', async ({ page }) => {
+    await attachInventoryApiMock(page)
+    await gotoAndLogin(page)
+
+    const sku = `AI-${Date.now()}`
+
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
+
+    // Fill required General Info fields
+    await page.getByRole('textbox', { name: 'SKU', exact: true }).fill(sku)
+    await page.getByLabel('Name').fill('Test Whiskey')
+    const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
+    await itemsPanel.getByLabel('Item Type').selectOption({ label: 'Wine' })
+    await page.getByLabel('Per Bottle Cost').fill('25.00')
+    await page.getByLabel('Price Charged').fill('39.99')
+    await page.getByLabel('In Stock').fill('12')
+
+    const taxSel = itemsPanel.getByLabel('Tax Codes')
+    const taxOpts = await taxSel.locator('option').allTextContents()
+    const rate13 = taxOpts.find((t) => t.includes('13'))
+    if (rate13) await taxSel.selectOption({ label: rate13 })
+
+    // Navigate to Additional Info tab and fill fields
+    const addlInfoTab = page.getByRole('tab', { name: 'Additional Info' })
+    await addlInfoTab.focus()
+    await expect(addlInfoTab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
+
+    await page.getByLabel('Proof').fill('80')
+    await page.getByLabel('ABV Percent').fill('40')
+    await page.getByLabel('Vintage').fill('2020')
+    await page.getByLabel('TTB ID').fill('12345678')
+
+    // Save the item
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Item saved')).toBeVisible()
+
+    // Search for the saved item
+    await page.getByLabel('Search Inventory').fill(sku)
+    await page.getByRole('button', { name: 'Search' }).click()
+
+    // Wait for form to load
+    await expect(page.getByRole('textbox', { name: 'SKU', exact: true })).toHaveValue(sku)
+
+    // Navigate to Additional Info and verify persisted values
+    const addlInfoTab2 = page.getByRole('tab', { name: 'Additional Info' })
+    await addlInfoTab2.focus()
+    await expect(addlInfoTab2).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
+
+    await expect(page.getByLabel('Proof')).toHaveValue('80')
+    await expect(page.getByLabel('ABV Percent')).toHaveValue('40')
+    await expect(page.getByLabel('Vintage')).toHaveValue('2020')
+    await expect(page.getByLabel('TTB ID')).toHaveValue('12345678')
+  })
+
+  test('display_name field appears in General Info and saves correctly', async ({ page }) => {
+    await attachInventoryApiMock(page)
+    await gotoAndLogin(page)
+
+    const sku = `DN-${Date.now()}`
+
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
+
+    // Display Name should be visible in the General Info section
+    await expect(page.getByLabel('Display Name')).toBeVisible()
+
+    // Fill required fields
+    await page.getByRole('textbox', { name: 'SKU', exact: true }).fill(sku)
+    await page.getByLabel('Name').fill('Very Long Product Name That Is Hard To Read')
+    await page.getByLabel('Display Name').fill('Short Name')
+    const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
+    await itemsPanel.getByLabel('Item Type').selectOption({ label: 'Wine' })
+    await page.getByLabel('Per Bottle Cost').fill('10.00')
+    await page.getByLabel('Price Charged').fill('19.99')
+    await page.getByLabel('In Stock').fill('5')
+
+    const taxSel = itemsPanel.getByLabel('Tax Codes')
+    const taxOpts = await taxSel.locator('option').allTextContents()
+    const rate13 = taxOpts.find((t) => t.includes('13'))
+    if (rate13) await taxSel.selectOption({ label: rate13 })
+
+    // Save
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Item saved')).toBeVisible()
+
+    // Search for it and verify display_name loaded back
+    await page.getByLabel('Search Inventory').fill(sku)
+    await page.getByRole('button', { name: 'Search' }).click()
+
+    await expect(page.getByRole('textbox', { name: 'SKU', exact: true })).toHaveValue(sku)
+    await expect(page.getByLabel('Display Name')).toHaveValue('Short Name')
   })
 })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { FormField } from '@renderer/components/common/FormField'
 import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
@@ -29,6 +29,9 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
 
   const [selectedTcId, setSelectedTcId] = useState<number | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showApplyAllConfirm, setShowApplyAllConfirm] = useState(false)
+  const [applyingAll, setApplyingAll] = useState(false)
+  const applyAllResultRef = useRef<string | null>(null)
 
   // New entry form
   const [newCode, setNewCode] = useState('')
@@ -156,6 +159,22 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
     setShowDeleteConfirm(true)
   }
 
+  const handleApplyToAll = async (): Promise<void> => {
+    setShowApplyAllConfirm(false)
+    if (!hasApi || !selectedTc) return
+    setApplyingAll(true)
+    crud.clearMessages()
+    try {
+      const result = await window.api!.applyTaxToAll(selectedTc.rate)
+      applyAllResultRef.current = `${selectedTc.code} applied to ${result.updated.toLocaleString()} items.`
+      crud.setSuccess(applyAllResultRef.current)
+    } catch (err) {
+      crud.setError(err instanceof Error ? err.message : 'Failed to apply tax')
+    } finally {
+      setApplyingAll(false)
+    }
+  }
+
   const handleDeleteConfirmed = async (): Promise<void> => {
     setShowDeleteConfirm(false)
     if (!hasApi || !selectedTcId) return
@@ -271,6 +290,14 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
                 <AppButton size="sm" variant="neutral" onClick={clearSelection}>
                   Cancel
                 </AppButton>
+                <AppButton
+                  size="sm"
+                  variant="warning"
+                  disabled={applyingAll}
+                  onClick={() => setShowApplyAllConfirm(true)}
+                >
+                  {applyingAll ? 'Applying...' : 'Apply to All Items'}
+                </AppButton>
               </div>
             </div>
             <div className="crud-panel__edit-fields">
@@ -325,6 +352,17 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
         variant="danger"
         onConfirm={() => void handleDeleteConfirmed()}
         onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={showApplyAllConfirm}
+        title="Apply Tax to All Items"
+        message={`This will set "${selectedTc?.code}" (${selectedTc ? parseFloat((selectedTc.rate * 100).toFixed(4)) : 0}%) as the tax rate on every active product. This overwrites existing tax assignments. Continue?`}
+        confirmLabel="Yes, Apply to All"
+        cancelLabel="Cancel"
+        variant="warning"
+        onConfirm={() => void handleApplyToAll()}
+        onCancel={() => setShowApplyAllConfirm(false)}
       />
     </div>
   )

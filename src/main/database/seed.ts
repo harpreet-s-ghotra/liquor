@@ -1,31 +1,13 @@
 import type Database from 'better-sqlite3'
 
 /**
- * Insert default distributors and sample products when the tables are empty.
- * Called once during initializeDatabase().
+ * Seed function retained for schema compatibility — no longer inserts data.
+ * Products and distributors come from the catalog import flow.
  */
-export function seedData(database: Database.Database): void {
-  const distributorCount = database.prepare('SELECT COUNT(*) AS count FROM distributors').get() as {
-    count: number
-  }
-
-  if (distributorCount.count === 0) {
-    database
-      .prepare(
-        `
-        INSERT INTO distributors (distributor_name)
-        VALUES ('Default Distributor')
-        `
-      )
-      .run()
-  }
-
-  const productCount = database.prepare('SELECT COUNT(*) AS count FROM products').get() as {
-    count: number
-  }
-
-  if (productCount.count === 0) {
-    const insertProduct = database.prepare(
+export function seedData(_database: Database.Database): void {
+  // eslint-disable-next-line no-constant-condition
+  if (false) {
+    const insertProduct = _database.prepare(
       `
       INSERT INTO products (
         sku, name, description, category, price, cost, quantity, barcode,
@@ -143,7 +125,7 @@ export function seedData(database: Database.Database): void {
       }
     ]
 
-    const insertMany = database.transaction((items: typeof seedProducts) => {
+    const insertMany = _database.transaction((items: typeof seedProducts) => {
       for (const item of items) {
         insertProduct.run(item)
       }

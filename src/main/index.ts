@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import {
-  getInventoryDepartments,
+  getInventoryItemTypes,
   getInventoryProductDetail,
   getInventoryProducts,
   getInventoryTaxCodes,
@@ -14,10 +14,10 @@ import {
   deleteInventoryItem,
   searchInventoryProducts,
   getActiveSpecialPricing,
-  getDepartments,
-  createDepartment,
-  updateDepartment,
-  deleteDepartment,
+  getItemTypes,
+  createItemType,
+  updateItemType,
+  deleteItemType,
   getTaxCodes,
   createTaxCode,
   updateTaxCode,
@@ -51,7 +51,8 @@ import {
   getActiveSession,
   closeSession,
   listSessions,
-  generateClockOutReport
+  generateClockOutReport,
+  applyTaxToAllProducts
 } from './database'
 import {
   validateApiKey,
@@ -59,6 +60,17 @@ import {
   chargeTerminal,
   chargeWithCard
 } from './services/stax'
+import {
+  initializeSupabaseService,
+  supabaseSignIn,
+  supabaseSignOut,
+  supabaseCheckSession,
+  supabaseSetSession,
+  supabaseSetPassword,
+  getCatalogDistributors,
+  getCatalogProductsByDistributors
+} from './services/supabase'
+import { getDb } from './database/connection'
 import {
   openCashDrawer,
   getCashDrawerConfig,
@@ -69,6 +81,18 @@ import {
 } from './services/cash-drawer'
 import type { CashDrawerConfig } from './services/cash-drawer'
 import { printReceipt, printClockOutReport } from './services/receipt-printer'
+import {
+  startConnectivityMonitor,
+  stopConnectivityMonitor,
+  isOnline,
+  onConnectivityChange
+} from './services/connectivity'
+import { registerDevice } from './services/device-registration'
+import { getSupabaseClient, getMerchantCloudId } from './services/supabase'
+import { getLastSyncedAt, startSyncWorker, stopSyncWorker } from './services/sync-worker'
+import { runInitialSync } from './services/sync/initial-sync'
+import { getDeviceConfig } from './database/device-config.repo'
+import { getQueueStats } from './database/sync-queue.repo'
 import type {
   DirectChargeInput,
   TerminalChargeInput,
@@ -120,7 +144,10 @@ function createWindow(): void {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  initializeDatabase(app.getPath('userData'))
+  const userData = app.getPath('userData')
+  initializeDatabase(userData)
+  initializeSupabaseService(userData)
+  startConnectivityMonitor()
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
@@ -198,9 +225,17 @@ app.whenReady().then(() => {
 
   ipcMain.handle('inventory:departments:list', async () => {
     try {
-      return getInventoryDepartments()
+      return getInventoryItemTypes()
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to list departments')
+      throw new Error(err instanceof Error ? err.message : 'Failed to list item types')
+    }
+  })
+
+  ipcMain.handle('inventory:item-types:list', async () => {
+    try {
+      return getInventoryItemTypes()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list item types')
     }
   })
 
@@ -212,36 +247,68 @@ app.whenReady().then(() => {
     }
   })
 
-  // Department CRUD
+  // Department CRUD (legacy aliases — forward to item-types)
+  ipcMain.handle('item-types:list', async () => {
+    try {
+      return getItemTypes()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to list item types')
+    }
+  })
+
+  ipcMain.handle('item-types:create', async (_, input) => {
+    try {
+      return createItemType(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to create item type')
+    }
+  })
+
+  ipcMain.handle('item-types:update', async (_, input) => {
+    try {
+      return updateItemType(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to update item type')
+    }
+  })
+
+  ipcMain.handle('item-types:delete', async (_, id: number) => {
+    try {
+      return deleteItemType(id)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete item type')
+    }
+  })
+
   ipcMain.handle('departments:list', async () => {
     try {
-      return getDepartments()
+      return getItemTypes()
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to list departments')
+      throw new Error(err instanceof Error ? err.message : 'Failed to list item types')
     }
   })
 
   ipcMain.handle('departments:create', async (_, input) => {
     try {
-      return createDepartment(input)
+      return createItemType(input)
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to create department')
+      throw new Error(err instanceof Error ? err.message : 'Failed to create item type')
     }
   })
 
   ipcMain.handle('departments:update', async (_, input) => {
     try {
-      return updateDepartment(input)
+      return updateItemType(input)
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to update department')
+      throw new Error(err instanceof Error ? err.message : 'Failed to update item type')
     }
   })
 
   ipcMain.handle('departments:delete', async (_, id: number) => {
     try {
-      return deleteDepartment(id)
+      return deleteItemType(id)
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to delete department')
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete item type')
     }
   })
 
@@ -355,11 +422,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('merchant:activate', async (_, apiKey: string) => {
     try {
-      const staxInfo = await validateApiKey(apiKey)
+      const paymentInfo = await validateApiKey(apiKey)
       return saveMerchantConfig({
-        stax_api_key: apiKey,
-        merchant_id: staxInfo.merchant_id,
-        merchant_name: staxInfo.company_name
+        payment_processing_api_key: apiKey,
+        merchant_id: paymentInfo.merchant_id,
+        merchant_name: paymentInfo.company_name
       })
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to activate merchant')
@@ -371,6 +438,173 @@ app.whenReady().then(() => {
       return clearMerchantConfig()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to deactivate merchant')
+    }
+  })
+
+  // Supabase Auth
+  ipcMain.handle('auth:login', async (_, email: string, password: string) => {
+    try {
+      return await supabaseSignIn(email, password)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Sign in failed')
+    }
+  })
+
+  ipcMain.handle('auth:logout', async () => {
+    try {
+      await supabaseSignOut()
+      clearMerchantConfig()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Sign out failed')
+    }
+  })
+
+  ipcMain.handle('auth:check-session', async () => {
+    try {
+      return await supabaseCheckSession()
+    } catch {
+      return null
+    }
+  })
+
+  // Catalog
+  ipcMain.handle('catalog:distributors', async () => {
+    try {
+      return await getCatalogDistributors()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to fetch catalog distributors')
+    }
+  })
+
+  ipcMain.handle('catalog:import', async (_, distributorIds: number[]) => {
+    try {
+      const [catalogProducts, allCatalogDistributors] = await Promise.all([
+        getCatalogProductsByDistributors(distributorIds),
+        getCatalogDistributors()
+      ])
+
+      const selectedDistributors = allCatalogDistributors.filter((d) =>
+        distributorIds.includes(d.distributor_id)
+      )
+
+      const db = getDb()
+      let importedCount = 0
+      let distributorsCreated = 0
+      const distributorMap = new Map<number, number>()
+
+      const importTx = db.transaction(() => {
+        // Ensure a local distributor record exists for each selected catalog distributor
+        for (const catDist of selectedDistributors) {
+          const existing = db
+            .prepare('SELECT distributor_number FROM distributors WHERE distributor_name = ?')
+            .get(catDist.distributor_name) as { distributor_number: number } | undefined
+
+          if (existing) {
+            distributorMap.set(catDist.distributor_id, existing.distributor_number)
+          } else {
+            const result = db
+              .prepare('INSERT INTO distributors (distributor_name, license_id) VALUES (?, ?)')
+              .run(catDist.distributor_name, catDist.distributor_permit_id ?? null)
+            distributorMap.set(catDist.distributor_id, Number(result.lastInsertRowid))
+            distributorsCreated++
+          }
+        }
+
+        const insertProduct = db.prepare(`
+          INSERT INTO products (
+            sku, name, category, price, cost, case_cost, retail_price, in_stock,
+            distributor_number, bottles_per_case, brand_name, proof, alcohol_pct,
+            vintage, ttb_id, item_type, size, category_name, is_active
+          ) VALUES (?, ?, ?, 0, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        `)
+
+        const existsCheck = db.prepare(`
+          SELECT id FROM products
+          WHERE distributor_number = ? AND name = ? AND (size = ? OR (size IS NULL AND ? IS NULL))
+          LIMIT 1
+        `)
+
+        const skuExists = db.prepare(`SELECT id FROM products WHERE sku = ? LIMIT 1`)
+
+        for (const product of catalogProducts) {
+          const localDistributorNumber = distributorMap.get(product.distributor_id)
+          if (localDistributorNumber === undefined) continue
+
+          // Skip products with no meaningful name
+          const name = product.prod_name?.trim()
+          if (!name || name === '(unnamed)') continue
+
+          const size =
+            product.item_size && product.unit_of_measure
+              ? `${product.item_size}${product.unit_of_measure}`
+              : (product.item_size ?? null)
+
+          // Composite dedup: skip if (distributor, name, size) already exists
+          const duplicate = existsCheck.get(localDistributorNumber, name, size, size)
+          if (duplicate) continue
+
+          // Strict ttb_id validation: must be purely numeric and >= 8 digits
+          const trimmedTtbId = product.ttb_id?.trim()
+          const isValidTtbId = !!trimmedTtbId && /^\d{8,}$/.test(trimmedTtbId)
+
+          let sku = isValidTtbId ? trimmedTtbId! : `CAT-${product.id}`
+
+          // Guard against SKU collision (e.g. same TTB ID across distributors)
+          if (skuExists.get(sku)) {
+            sku = `CAT-${product.id}`
+          }
+
+          insertProduct.run(
+            sku,
+            name,
+            product.beverage_type ?? 'General',
+            product.bot_price ?? null,
+            product.case_price ?? null,
+            localDistributorNumber,
+            product.bottles_per_case ?? 12,
+            product.brand_name ?? null,
+            product.proof ?? null,
+            product.alcohol_pct ?? null,
+            product.vintage ?? null,
+            isValidTtbId ? trimmedTtbId : null,
+            product.item_type ?? null,
+            size,
+            product.beverage_type ?? null
+          )
+          importedCount++
+        }
+
+        // Hydrate item_types table from imported product item_type values
+        db.prepare(
+          `
+          INSERT OR IGNORE INTO item_types (name, description, default_profit_margin, default_tax_rate)
+          SELECT DISTINCT TRIM(item_type), NULL, 0, 0
+          FROM products
+          WHERE item_type IS NOT NULL AND TRIM(item_type) != ''
+        `
+        ).run()
+
+        // Apply each item_type's default_tax_rate to products that have no tax set yet
+        db.prepare(
+          `
+          UPDATE products
+          SET tax_1 = (
+            SELECT it.default_tax_rate / 100.0
+            FROM item_types it
+            WHERE TRIM(it.name) = TRIM(products.item_type)
+            LIMIT 1
+          )
+          WHERE is_active = 1
+            AND (tax_1 IS NULL OR tax_1 = 0)
+            AND item_type IS NOT NULL
+        `
+        ).run()
+      })
+
+      importTx()
+      return { imported: importedCount, distributors_created: distributorsCreated }
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to import catalog items')
     }
   })
 
@@ -545,7 +779,7 @@ app.whenReady().then(() => {
       if (!config) {
         throw new Error('Merchant not activated — cannot list terminals')
       }
-      return await getTerminalRegisters(config.stax_api_key)
+      return await getTerminalRegisters(config.payment_processing_api_key)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to get terminals')
     }
@@ -557,7 +791,7 @@ app.whenReady().then(() => {
       if (!config) {
         throw new Error('Merchant not activated — cannot process payments')
       }
-      return await chargeTerminal(config.stax_api_key, input)
+      return await chargeTerminal(config.payment_processing_api_key, input)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Payment failed')
     }
@@ -570,7 +804,7 @@ app.whenReady().then(() => {
       if (!config) {
         throw new Error('Merchant not activated — cannot process payments')
       }
-      return await chargeWithCard(config.stax_api_key, input)
+      return await chargeWithCard(config.payment_processing_api_key, input)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Payment failed')
     }
@@ -618,7 +852,57 @@ app.whenReady().then(() => {
     return { connected, printerName: config.printerName }
   })
 
+  // ── Cloud Sync IPC ──
+
+  ipcMain.handle('inventory:apply-tax-to-all', async (_, taxRate: number) => {
+    try {
+      const updated = applyTaxToAllProducts(taxRate)
+      return { updated }
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to apply tax')
+    }
+  })
+
+  ipcMain.handle('sync:get-status', async () => {
+    const stats = getQueueStats()
+    return {
+      online: isOnline(),
+      pending_count: stats.pending + stats.in_flight,
+      last_synced_at: getLastSyncedAt()
+    }
+  })
+
+  ipcMain.handle('sync:get-device-config', async () => {
+    return getDeviceConfig()
+  })
+
   createWindow()
+
+  // Forward connectivity changes to the renderer
+  onConnectivityChange((online) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) win.webContents.send('sync:connectivity-changed', online)
+  })
+
+  // Start sync worker after a short delay to let auth settle
+  setTimeout(async () => {
+    try {
+      const merchantCloudId = await getMerchantCloudId()
+      if (!merchantCloudId) return // Not authenticated or no merchant record
+
+      const client = getSupabaseClient()
+      const deviceId = await registerDevice(client, merchantCloudId)
+      startSyncWorker(client, merchantCloudId, deviceId)
+
+      // Run initial product reconciliation after the worker is started so the
+      // queue is already draining while we pull remote rows.
+      runInitialSync(client, merchantCloudId).catch((err) => {
+        console.error('[sync] Initial sync error:', err)
+      })
+    } catch (err) {
+      console.error('[sync] Failed to start sync worker:', err)
+    }
+  }, 3000)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -627,10 +911,78 @@ app.whenReady().then(() => {
   })
 })
 
+// ── Deep link handler (email invite / password reset) ──
+// Parses liquorpos://auth/callback#access_token=...&refresh_token=...
+// and forwards to the renderer so it can show the set-password screen.
+
+function handleDeepLink(url: string): void {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (!win) return
+  try {
+    // Tokens are in the URL fragment, e.g. #access_token=x&refresh_token=y&type=invite
+    const hash = url.split('#')[1] ?? ''
+    const params = new URLSearchParams(hash)
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+    const type = params.get('type') // 'invite' | 'recovery' | 'signup'
+    if (accessToken && refreshToken) {
+      win.webContents.send('auth:deep-link', { accessToken, refreshToken, type })
+    }
+  } catch {
+    // malformed URL — ignore
+  }
+}
+
+// Register liquorpos:// as the app's URL scheme
+app.setAsDefaultProtocolClient('liquorpos')
+
+// macOS: app already running — fired when user clicks the link
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleDeepLink(url)
+})
+
+// Windows/Linux: a second instance is launched with the URL as an argument
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const url = argv.find((arg) => arg.startsWith('liquorpos://'))
+    if (url) handleDeepLink(url)
+    // Focus the existing window
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.focus()
+    }
+  })
+}
+
+// IPC: renderer asks main to exchange tokens for a session
+ipcMain.handle('auth:set-session', async (_, accessToken: string, refreshToken: string) => {
+  try {
+    return await supabaseSetSession(accessToken, refreshToken)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to set session')
+  }
+})
+
+// IPC: renderer submits the new password after invite
+ipcMain.handle('auth:set-password', async (_, password: string) => {
+  try {
+    return await supabaseSetPassword(password)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to set password')
+  }
+})
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
+  stopSyncWorker()
+  stopConnectivityMonitor()
   if (process.platform !== 'darwin') {
     app.quit()
   }

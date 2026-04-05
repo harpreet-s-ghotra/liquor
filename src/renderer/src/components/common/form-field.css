@@ -10,7 +10,7 @@
 
 .form-field__error {
   min-height: 1.1rem;
+  color: var(--semantic-danger-text);
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--semantic-danger-text);
 }

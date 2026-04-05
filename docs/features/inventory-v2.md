@@ -24,7 +24,7 @@ InventoryModal.tsx          ← Modal shell + tab container
 │   ├── Tab: Additional SKUs    (alternate UPC/SKU codes)
 │   ├── Tab: Special Pricing    (quantity-based pricing rules table)
 │   └── Tab: Sales History      (transaction history for this item)
-├── DepartmentPanel.tsx     ← CRUD for departments (uses useCrudPanel hook)
+├── DepartmentPanel.tsx     ← CRUD for item types (uses useCrudPanel hook, backed by departments table)
 ├── TaxCodePanel.tsx        ← CRUD for tax codes (uses useCrudPanel hook)
 └── DistributorPanel.tsx    ← CRUD for distributors (uses useCrudPanel hook)
 ```
@@ -36,13 +36,13 @@ ItemForm (React state)
   → window.api.searchInventoryProducts()    [debounced 300ms, IPC invoke]
   → window.api.getInventoryProductDetail()  [on item select]
   → window.api.saveInventoryItem()          [on save]
-  → window.api.getInventoryDepartments()    [on mount]
+  → window.api.getInventoryItemTypes()      [on mount]
   → window.api.getInventoryTaxCodes()       [on mount]
   → window.api.getDistributors()             [on mount]
 
 IPC bridge (preload/index.ts)
   → ipcMain.handle in src/main/index.ts
-  → products.repo.ts / departments.repo.ts / tax-codes.repo.ts / distributors.repo.ts
+  → products.repo.ts / departments.repo.ts (item type compatibility layer) / tax-codes.repo.ts / distributors.repo.ts
   → SQLite via better-sqlite3
 ```
 
@@ -76,7 +76,7 @@ type InventoryFormState = {
   item_number?: number
   sku: string
   item_name: string
-  dept_ids: string[] // currently multi-select
+  item_type: string
   vendor_number: string
   cost: string
   retail_price: string
@@ -96,9 +96,9 @@ type InventoryFormState = {
 
 | File                        | What it covers                                                          |
 | --------------------------- | ----------------------------------------------------------------------- |
-| `InventoryModal.test.tsx`   | Tab switching between Items / Departments / Tax Codes / Distributors    |
+| `InventoryModal.test.tsx`   | Tab switching between Items / Item Types / Tax Codes / Distributors     |
 | `ItemForm.test.tsx`         | Form validation, field errors, currency parsing, save flow, search      |
-| `DepartmentPanel.test.tsx`  | CRUD: create, edit, delete, search filter                               |
+| `DepartmentPanel.test.tsx`  | CRUD: create, edit, delete, search filter for item types                |
 | `TaxCodePanel.test.tsx`     | CRUD: create, edit, delete                                              |
 | `DistributorPanel.test.tsx` | CRUD: create, edit, delete, validation                                  |
 | `TabBar.test.tsx`           | Tab switching, aria attributes                                          |
@@ -111,7 +111,7 @@ type InventoryFormState = {
 | File                           | What it covers                                                  |
 | ------------------------------ | --------------------------------------------------------------- |
 | `inventory.spec.ts`            | Search for a product, select for editing, verify form populates |
-| `inventory-management.spec.ts` | Department / Tax Code / Distributor CRUD end-to-end             |
+| `inventory-management.spec.ts` | Item Type / Tax Code / Distributor CRUD end-to-end              |
 | `transactions.spec.ts`         | Full transaction flow (touches cart totals incl. tax)           |
 
 ---
@@ -154,7 +154,7 @@ These are display-only and are **not saved to the backend**.
 | Field                 | Change                                                                                                                                       | Impact                                                                                        |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `item_name`           | Renamed to `description` in UI label only — keep internal key as `item_name` to avoid breaking IPC contracts                                 | Label only, no type change                                                                    |
-| `dept_ids: string[]`  | Changed to single-select (`dept_id: string`)                                                                                                 | `InventoryFormState`, `SaveInventoryItemInput`, products.repo.ts, DepartmentPanel integration |
+| `dept_ids: string[]`  | Replaced in the renderer by canonical `item_type: string`; saves still mirror the value into legacy `dept_id` for compatibility              | `InventoryFormState`, `SaveInventoryItemInput`, products.repo.ts, DepartmentPanel integration |
 | `tax_rates: string[]` | Changed to single-select (`tax_profile_id: string`) in UI, but the saved value is still a single-element array to avoid breaking the backend | UI change only; wrap in array on save                                                         |
 
 ### 4. Search Bar Relocation
@@ -169,7 +169,7 @@ The existing debounced search input (currently inside `ItemForm`) is moved into 
 
 - IPC channel names
 - `useCrudPanel` hook
-- `DepartmentPanel`, `TaxCodePanel`, `DistributorPanel` — visual reskin only
+- `DepartmentPanel`, `TaxCodePanel`, `DistributorPanel` — visual reskin only (`DepartmentPanel` now presents item types)
 - `pricing-engine.ts`
 - `currency.ts` utilities
 - Auth / payment flows
@@ -218,18 +218,17 @@ The existing debounced search input (currently inside `ItemForm`) is moved into 
 
 #### Form Grid — 4 columns, 4 rows, `gap-x-[16px] gap-y-[8px]`, `p-[16px]`
 
-| Position       | Field                       | Type                                | Notes                                                                                                                                                    |
-| -------------- | --------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Row 1, Col 1   | **Department**              | Single-select dropdown + "+" button | Blue `+` (32×32, `#005db7`) for quick-add. Was multi-select.                                                                                             |
-| Row 1, Col 2   | **Item Type**               | Dropdown                            | **New field.** Options TBD (e.g. Standard Item, Weighted, Service).                                                                                      |
-| Row 1, Col 3   | **Item Number / SKU**       | Text input                          | Font: Liberation Mono Bold, 12px.                                                                                                                        |
-| Row 1, Col 4   | **Cost**                    | Currency input                      | Right-aligned, red text `#86000d`.                                                                                                                       |
-| Row 2, Col 1–2 | **Description**             | Text input (spans 2 cols)           | Label renamed; internal key stays `item_name`. Uppercase display.                                                                                        |
-| Row 2, Col 3   | **Price You Charge**        | Currency input                      | Green bg `#a3f69c`, green text `#002204`, `$` prefix. 14px font.                                                                                         |
-| Row 2, Col 4   | **# In Stock**              | Number input                        | Blue text `#005db7`, centered, 14px.                                                                                                                     |
-| Row 3, Col 1   | **Tax Profile**             | Single-select dropdown              | Renamed from "Tax Codes". Single-select in UI; wrap in array on save.                                                                                    |
-| Row 3, Col 2   | **Final Price (after tax)** | Read-only display                   | **New computed field.** `retail_price × (1 + tax_rate)`. Updates live. Style: muted bg, italic or distinct label "FINAL W/ TAX".                         |
-| Row 3, Col 3–4 | **Profit Margin %**         | Read-only display                   | **New computed field.** `((price − cost) / price) × 100`. Updates live. Show `--` when price is 0. Color-code: green if > 20%, yellow 10–20%, red < 10%. |
+| Position       | Field                       | Type                      | Notes                                                                                                                                                    |
+| -------------- | --------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Row 1, Col 1   | **Item Type**               | Single-select dropdown    | Canonical inventory classification. Selecting an item type applies its default tax code and profit margin.                                               |
+| Row 1, Col 3   | **Item Number / SKU**       | Text input                | Font: Liberation Mono Bold, 12px.                                                                                                                        |
+| Row 1, Col 4   | **Cost**                    | Currency input            | Right-aligned, red text `#86000d`.                                                                                                                       |
+| Row 2, Col 1–2 | **Description**             | Text input (spans 2 cols) | Label renamed; internal key stays `item_name`. Uppercase display.                                                                                        |
+| Row 2, Col 3   | **Price You Charge**        | Currency input            | Green bg `#a3f69c`, green text `#002204`, `$` prefix. 14px font.                                                                                         |
+| Row 2, Col 4   | **# In Stock**              | Number input              | Blue text `#005db7`, centered, 14px.                                                                                                                     |
+| Row 3, Col 1   | **Tax Profile**             | Single-select dropdown    | Renamed from "Tax Codes". Single-select in UI; wrap in array on save.                                                                                    |
+| Row 3, Col 2   | **Final Price (after tax)** | Read-only display         | **New computed field.** `retail_price × (1 + tax_rate)`. Updates live. Style: muted bg, italic or distinct label "FINAL W/ TAX".                         |
+| Row 3, Col 3–4 | **Profit Margin %**         | Read-only display         | **New computed field.** `((price − cost) / price) × 100`. Updates live. Show `--` when price is 0. Color-code: green if > 20%, yellow 10–20%, red < 10%. |
 
 **Input styling (all editable fields):**
 

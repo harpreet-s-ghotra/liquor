@@ -114,15 +114,19 @@ All shared types live in `src/shared/types/index.ts`. Do not duplicate type defi
 
 ### Auth State Machine
 
-The app has exactly 4 states managed by `useAuthStore`:
+The app has 6 states managed by `useAuthStore`:
 
 ```
-loading → not-activated → login → pos
+loading → auth → pin-setup → distributor-onboarding → login → pos
 ```
 
-- `not-activated`: No Stax API key stored — shows `ActivationScreen`
-- `login`: Merchant activated, no cashier logged in — shows `LoginScreen`
+- `auth`: No valid Supabase session — shows `AuthScreen` (email + password)
+- `pin-setup`: Authenticated but no cashiers in SQLite — shows `PinSetupScreen`
+- `distributor-onboarding`: Cashiers exist but no products — shows `DistributorOnboardingScreen`
+- `login`: Fully set up, no cashier logged in — shows `LoginScreen`
 - `pos`: Cashier logged in — shows `POSScreen`
+
+Supabase service: `src/main/services/supabase.ts`. Session persisted in `userData/supabase-auth.json`.
 
 ---
 
@@ -402,18 +406,20 @@ Routing: read `repo-map.md` first for general tasks. Read the feature-specific m
 
 All documentation lives in `docs/`. See `docs/README.md` for the full index.
 
-| Doc                                    | Covers                                                           |
-| -------------------------------------- | ---------------------------------------------------------------- |
-| `docs/project-plan.md`                 | Full project vision, roadmap, DB schema, Stax architecture       |
-| `docs/design-system.md`                | Visual spec -- colors, typography, layout rules, component specs |
-| `docs/features/inventory-v1.md`        | Inventory CRUD spec (v1, historical)                             |
-| `docs/features/inventory-v2.md`        | Inventory modal redesign (active)                                |
-| `docs/features/pricing-engine.md`      | Special pricing rules, mix-and-match                             |
-| `docs/features/product-search.md`      | Search modal spec                                                |
-| `docs/features/returns-and-refunds.md` | Return workflow, refund scenarios                                |
-| `docs/features/clock-in-clock-out.md`  | Register sessions, end-of-day report, cash reconciliation        |
-| `docs/features/stax-activation.md`     | Auth flow spec                                                   |
-| `docs/features/stax-integration.md`    | Stax API endpoints, test cards, webhooks                         |
+| Doc                                    | Covers                                                            |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| `docs/project-plan.md`                 | Full project vision, roadmap, DB schema, Stax architecture        |
+| `docs/design-system.md`                | Visual spec -- colors, typography, layout rules, component specs  |
+| `docs/features/inventory-v1.md`        | Inventory CRUD spec (v1, historical)                              |
+| `docs/features/inventory-v2.md`        | Inventory modal redesign (active)                                 |
+| `docs/features/pricing-engine.md`      | Special pricing rules, mix-and-match                              |
+| `docs/features/product-search.md`      | Search modal spec                                                 |
+| `docs/features/returns-and-refunds.md` | Return workflow, refund scenarios                                 |
+| `docs/features/clock-in-clock-out.md`  | Register sessions, end-of-day report, cash reconciliation         |
+| `docs/features/stax-activation.md`     | Legacy auth flow spec (superseded by supabase-onboarding)         |
+| `docs/features/supabase-onboarding.md` | Supabase auth, PIN setup, distributor catalog import (Phase A)    |
+| `docs/features/cloud-sync.md`          | Multi-register transaction & inventory sync via Supabase Realtime |
+| `docs/features/stax-integration.md`    | Stax API endpoints, test cards, webhooks                          |
 
 ### Documentation Conventions
 

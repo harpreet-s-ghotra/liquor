@@ -3,79 +3,79 @@
 .inventory-modal {
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--border-default);
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  background: var(--bg-panel);
+  padding: 0;
   width: min(1152px, 100%);
   height: min(96vh, 920px);
   overflow: hidden;
-  border-radius: 1rem;
-  border: 1px solid var(--border-default);
-  background: var(--bg-panel);
-  padding: 0;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 .inventory-modal__header {
   display: flex;
-  align-items: center;
-  gap: 1rem;
   flex-shrink: 0;
+  gap: 1rem;
+  align-items: center;
   background: #2d3133;
   padding: 1rem 1.5rem;
 }
 
 .inventory-modal__header-icon {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  width: 2.25rem;
-  height: 2.25rem;
   border-radius: 0.5rem;
   background: #004b0f;
+  width: 2.25rem;
+  height: 2.25rem;
 }
 
 .inventory-modal__header-breadcrumb {
   display: flex;
   flex: 1;
-  align-items: center;
   gap: 0.5rem;
+  align-items: center;
   min-width: 0;
 }
 
 .inventory-modal__header-label {
   flex-shrink: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 2px;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .inventory-modal__header-separator {
   flex-shrink: 0;
-  font-size: 13px;
   color: #475569;
+  font-size: 13px;
 }
 
 .inventory-modal__header-title {
   overflow: hidden;
-  font-size: 14px;
-  font-weight: 700;
-  color: #e8ecf0;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #e8ecf0;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .inventory-modal__close-btn {
-  min-height: 2.75rem;
-  border-radius: 0.5rem;
+  outline: none;
   border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
   background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
   padding: 0 1.25rem;
+  min-height: 2.75rem;
+  color: #94a3b8;
   font-size: 13px;
   font-weight: 700;
-  color: #94a3b8;
-  cursor: pointer;
-  outline: none;
 }
 
 .inventory-modal__close-btn:hover {
@@ -84,8 +84,8 @@
 
 .inventory-modal__tabs {
   display: flex;
-  flex-direction: column;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
   overflow: hidden;
 }
@@ -100,33 +100,33 @@
   display: flex;
   gap: 0;
   justify-content: flex-start;
-  width: 100%;
-  height: auto;
   border-bottom: 1px solid rgba(194, 199, 202, 0.15);
   border-radius: 0;
   background: transparent;
   padding: 0;
+  width: 100%;
+  height: auto;
 }
 
 .inventory-modal__tab-trigger {
-  border-radius: 0;
   border-bottom: 3px solid transparent;
-  min-height: 3rem;
+  border-radius: 0;
   background: transparent;
+  cursor: pointer;
   padding: 0.75rem 1.5rem;
-  font-size: var(--text-sm);
-  font-weight: 700;
-  color: #6b7280;
+  min-height: 3rem;
   text-transform: uppercase;
   letter-spacing: 1px;
-  cursor: pointer;
+  color: #6b7280;
+  font-size: var(--text-sm);
+  font-weight: 700;
 }
 
 .inventory-modal__tab-trigger[data-state='active'] {
   border-bottom-color: #a3f69c;
+  box-shadow: none;
   background: transparent;
   color: #e8ecf0;
-  box-shadow: none;
 }
 
 .inventory-modal__tab-content {
@@ -141,6 +141,6 @@
 
 .inventory-modal__tab-content--panel {
   flex: 1;
-  overflow: auto;
   padding: 1rem;
+  overflow: auto;
 }

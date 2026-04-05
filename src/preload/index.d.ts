@@ -6,12 +6,12 @@ import type {
   InventoryProductDetail,
   SaveInventoryItemInput,
   InventoryTaxCode,
-  Department,
+  ItemType,
   TaxCode,
   Distributor,
   SalesRep,
-  CreateDepartmentInput,
-  UpdateDepartmentInput,
+  CreateItemTypeInput,
+  UpdateItemTypeInput,
   CreateTaxCodeInput,
   UpdateTaxCodeInput,
   CreateDistributorInput,
@@ -42,7 +42,12 @@ import type {
   CloseSessionInput,
   ClockOutReport,
   SessionListResult,
-  PrintClockOutReportInput
+  PrintClockOutReportInput,
+  AuthResult,
+  CatalogDistributor,
+  ImportResult,
+  SyncStatus,
+  DeviceConfig
 } from '../shared/types'
 
 type AppApi = {
@@ -55,15 +60,21 @@ type AppApi = {
   saveInventoryItem: (payload: SaveInventoryItemInput) => Promise<InventoryProductDetail>
   deleteInventoryItem: (itemNumber: number) => Promise<void>
   getInventoryDepartments: () => Promise<string[]>
+  getInventoryItemTypes: () => Promise<string[]>
   getInventoryTaxCodes: () => Promise<InventoryTaxCode[]>
-  getDepartments: () => Promise<Department[]>
-  createDepartment: (input: CreateDepartmentInput) => Promise<Department>
-  updateDepartment: (input: UpdateDepartmentInput) => Promise<Department>
+  getItemTypes: () => Promise<ItemType[]>
+  createItemType: (input: CreateItemTypeInput) => Promise<ItemType>
+  updateItemType: (input: UpdateItemTypeInput) => Promise<ItemType>
+  deleteItemType: (id: number) => Promise<void>
+  getDepartments: () => Promise<ItemType[]>
+  createDepartment: (input: CreateItemTypeInput) => Promise<ItemType>
+  updateDepartment: (input: UpdateItemTypeInput) => Promise<ItemType>
   deleteDepartment: (id: number) => Promise<void>
   getTaxCodes: () => Promise<TaxCode[]>
   createTaxCode: (input: CreateTaxCodeInput) => Promise<TaxCode>
   updateTaxCode: (input: UpdateTaxCodeInput) => Promise<TaxCode>
   deleteTaxCode: (id: number) => Promise<void>
+  applyTaxToAll: (taxRate: number) => Promise<{ updated: number }>
   getDistributors: () => Promise<Distributor[]>
   createDistributor: (input: CreateDistributorInput) => Promise<Distributor>
   updateDistributor: (input: UpdateDistributorInput) => Promise<Distributor>
@@ -72,6 +83,20 @@ type AppApi = {
   createSalesRep: (input: CreateSalesRepInput) => Promise<SalesRep>
   updateSalesRep: (input: UpdateSalesRepInput) => Promise<SalesRep>
   deleteSalesRep: (salesRepId: number) => Promise<void>
+
+  // Supabase Auth
+  authLogin: (email: string, password: string) => Promise<AuthResult>
+  authLogout: () => Promise<void>
+  authCheckSession: () => Promise<AuthResult | null>
+  authSetSession: (accessToken: string, refreshToken: string) => Promise<{ email: string }>
+  authSetPassword: (password: string) => Promise<AuthResult>
+  onDeepLink: (
+    callback: (payload: { accessToken: string; refreshToken: string; type: string | null }) => void
+  ) => void
+
+  // Catalog
+  getCatalogDistributors: () => Promise<CatalogDistributor[]>
+  importCatalogItems: (distributorIds: number[]) => Promise<ImportResult>
 
   // Merchant Config
   getMerchantConfig: () => Promise<MerchantConfig | null>
@@ -115,6 +140,11 @@ type AppApi = {
   getReceiptConfig: () => Promise<ReceiptConfig>
   saveReceiptConfig: (config: ReceiptConfig) => Promise<void>
   getPrinterStatus: () => Promise<{ connected: boolean; printerName: string | null }>
+
+  // Cloud Sync
+  getSyncStatus: () => Promise<SyncStatus>
+  getDeviceConfig: () => Promise<DeviceConfig | null>
+  onConnectivityChanged: (callback: (online: boolean) => void) => void
 
   // Sessions
   getActiveSession: () => Promise<Session | null>

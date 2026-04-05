@@ -98,8 +98,45 @@ export function evaluateSpecialPricing(
 }
 
 /**
+ * Evaluate case discount for a cart item.
+ * case_discount_price is the total dollar price for one full case.
+ * Remainder bottles past complete cases are charged at regular price.
+ */
+export function evaluateCaseDiscount(item: CartItem): PromoAnnotation | null {
+  const bpc = item.bottles_per_case
+  const casePrice = item.case_discount_price
+
+  if (!bpc || bpc < 2 || casePrice == null || casePrice <= 0) return null
+  if (item.lineQuantity < bpc) return null
+
+  // Skip if cashier manually changed the price
+  if (item.basePrice !== undefined && item.price !== item.basePrice) return null
+  // Skip if an item-level discount is already applied
+  if ((item.itemDiscountPercent ?? 0) > 0) return null
+
+  const completeCases = Math.floor(item.lineQuantity / bpc)
+  const remainder = item.lineQuantity % bpc
+  const totalPrice = completeCases * casePrice + remainder * item.price
+  const effectiveUnitPrice = totalPrice / item.lineQuantity
+
+  if (effectiveUnitPrice >= item.price) return null
+
+  const savings = (item.price - effectiveUnitPrice) * item.lineQuantity
+  const discountPct = Math.round((1 - casePrice / bpc / item.price) * 100)
+
+  return {
+    promoType: 'case-discount',
+    promoLabel: `Case of ${bpc} (-${discountPct}%)`,
+    promoUnitPrice: effectiveUnitPrice,
+    promoLineSavings: savings,
+    originalUnitPrice: item.price
+  }
+}
+
+/**
  * Apply all promotional pricing to the cart.
  * Returns annotated cart items with promo metadata and total promo savings.
+ * Best deal wins when both special pricing and case discount qualify.
  */
 export function applyPromotions(
   cart: CartItem[],
@@ -109,9 +146,17 @@ export function applyPromotions(
 
   const items = cart.map((item) => {
     const rules = specialPricingMap.get(item.id)
-    if (!rules || rules.length === 0) return item
+    const specialPromo = rules && rules.length > 0 ? evaluateSpecialPricing(item, rules) : null
+    const casePromo = evaluateCaseDiscount(item)
 
-    const promo = evaluateSpecialPricing(item, rules)
+    // Pick the best deal
+    let promo: PromoAnnotation | null = null
+    if (specialPromo && casePromo) {
+      promo = casePromo.promoUnitPrice < specialPromo.promoUnitPrice ? casePromo : specialPromo
+    } else {
+      promo = specialPromo ?? casePromo
+    }
+
     if (!promo) return item
 
     promoSavings += promo.promoLineSavings

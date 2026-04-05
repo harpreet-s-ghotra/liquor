@@ -2,13 +2,13 @@ import { expect, test } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 
 /**
- * Full mock that covers POS products + inventory CRUD (departments, tax codes, distributors, items).
+ * Full mock that covers POS products + inventory CRUD (item types, tax codes, distributors, items).
  * Each store is an in-memory array so the test can create-then-verify round-trips.
  */
 const attachFullApiMock = async (page: Page): Promise<void> => {
   await page.addInitScript(() => {
     /* ── In-memory stores ── */
-    const departments: Array<{
+    const itemTypes: Array<{
       id: number
       name: string
       description: string | null
@@ -54,7 +54,7 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
       }
     ]
 
-    let nextDeptId = 1
+    let nextItemTypeId = 1
     let nextTaxId = 1
     let nextDistributorId = 1
     let nextSalesRepId = 1
@@ -65,12 +65,24 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
       // Auth APIs
       getMerchantConfig: async () => ({
         id: 1,
-        stax_api_key: 'test-api-key',
+        payment_processing_api_key: 'test-api-key',
         merchant_id: 'test-merchant-id',
         merchant_name: 'Test Liquor Store',
         activated_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z'
       }),
+      authCheckSession: async () => ({
+        user: { id: 'user-1', email: 'test@example.com' },
+        merchant: {
+          id: 1,
+          payment_processing_api_key: 'test-api-key',
+          merchant_id: 'test-merchant-id',
+          merchant_name: 'Test Liquor Store',
+          activated_at: '2025-01-01T00:00:00.000Z',
+          updated_at: '2025-01-01T00:00:00.000Z'
+        }
+      }),
+      onDeepLink: () => {},
       getCashiers: async () => [
         { id: 1, name: 'Test Cashier', role: 'admin', is_active: 1, created_at: '2025-01-01' }
       ],
@@ -100,7 +112,6 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
       getInventoryProductDetail: async (itemNumber: number) =>
         inventoryItems.find((it) => it.item_number === itemNumber) ?? null,
 
-      getInventoryDepartments: async () => departments.map((d) => String(d.id)),
       getInventoryTaxCodes: async () => taxCodes.map((tc) => ({ code: tc.code, rate: tc.rate })),
 
       saveInventoryItem: async (payload: Record<string, unknown>) => {
@@ -115,7 +126,6 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
           item_number: id,
           sku: payload.sku,
           item_name: payload.item_name,
-          dept_id: payload.dept_id,
           category_id: null,
           category_name: null,
           cost: payload.cost,
@@ -146,8 +156,7 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
           id: id,
           sku: String(payload.sku),
           name: String(payload.item_name),
-          category:
-            departments.find((d) => String(d.id) === String(payload.dept_id))?.name ?? 'General',
+          category: payload.item_type ?? 'General',
           price: payload.retail_price as number,
           quantity: payload.in_stock as number,
           tax_rate: taxRates[0] ?? 0
@@ -160,43 +169,43 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
         return item
       },
 
-      /* ── Departments CRUD ── */
-      getDepartments: async () => departments.map((d) => ({ ...d })),
-      createDepartment: async (input: {
+      /* ── Item Types CRUD ── */
+      getItemTypes: async () => itemTypes.map((it) => ({ ...it })),
+      createItemType: async (input: {
         name: string
         description?: string | null
         default_profit_margin?: number
         default_tax_rate?: number
       }) => {
-        const dept = {
-          id: nextDeptId++,
+        const itemType = {
+          id: nextItemTypeId++,
           name: input.name,
           description: input.description ?? null,
           default_profit_margin: input.default_profit_margin ?? 0,
           default_tax_rate: input.default_tax_rate ?? 0
         }
-        departments.push(dept)
-        return { ...dept }
+        itemTypes.push(itemType)
+        return { ...itemType }
       },
-      updateDepartment: async (input: {
+      updateItemType: async (input: {
         id: number
         name: string
         description?: string | null
         default_profit_margin?: number
         default_tax_rate?: number
       }) => {
-        const dept = departments.find((d) => d.id === input.id)
-        if (dept) {
-          dept.name = input.name
-          dept.description = input.description ?? null
-          dept.default_profit_margin = input.default_profit_margin ?? 0
-          dept.default_tax_rate = input.default_tax_rate ?? 0
+        const itemType = itemTypes.find((it) => it.id === input.id)
+        if (itemType) {
+          itemType.name = input.name
+          itemType.description = input.description ?? null
+          itemType.default_profit_margin = input.default_profit_margin ?? 0
+          itemType.default_tax_rate = input.default_tax_rate ?? 0
         }
-        return dept ? { ...dept } : undefined
+        return itemType ? { ...itemType } : undefined
       },
-      deleteDepartment: async (id: number) => {
-        const idx = departments.findIndex((d) => d.id === id)
-        if (idx >= 0) departments.splice(idx, 1)
+      deleteItemType: async (id: number) => {
+        const idx = itemTypes.findIndex((it) => it.id === id)
+        if (idx >= 0) itemTypes.splice(idx, 1)
       },
 
       /* ── Tax Codes CRUD ── */
@@ -363,7 +372,7 @@ test.describe('Inventory Management – Full Workflow', () => {
     await gotoAndLogin(page)
   })
 
-  test('creates department, tax code, distributor, saves item, then verifies on POS screen', async ({
+  test('creates item type, tax code, distributor, saves item, then verifies on POS screen', async ({
     page
   }) => {
     test.setTimeout(60_000)
@@ -372,13 +381,13 @@ test.describe('Inventory Management – Full Workflow', () => {
     const dialog = page.getByRole('dialog', { name: 'Inventory Management' })
     await expect(dialog).toBeVisible()
 
-    /* ── Step 2: Create a Department ── */
-    await clickTab(page, 'Departments')
-    await fillInput(page.getByRole('textbox', { name: 'Department Name' }), 'Wine')
+    /* ── Step 2: Create an Item Type ── */
+    await clickTab(page, 'Item Types')
+    await fillInput(page.getByRole('textbox', { name: 'Item Type Name' }), 'Wine')
     await clickEl(page.getByRole('button', { name: 'Add' }))
-    await expect(page.getByText('Department created')).toBeVisible()
-    const deptTable = page.getByRole('table', { name: 'Departments list' })
-    await expect(deptTable.getByText('Wine')).toBeVisible()
+    await expect(page.getByText('Item type created')).toBeVisible()
+    const itemTypeTable = page.getByRole('table', { name: 'Item types list' })
+    await expect(itemTypeTable.getByText('Wine')).toBeVisible()
 
     /* ── Step 3: Create a Tax Code ── */
     await clickTab(page, 'Tax Codes')
@@ -407,9 +416,9 @@ test.describe('Inventory Management – Full Workflow', () => {
     await fillInput(page.getByRole('textbox', { name: 'SKU', exact: true }), sku)
     await fillInput(page.getByLabel('Name'), itemName)
 
-    // Department dropdown (scoped inside Items tabpanel)
+    // Item type dropdown (scoped inside Items tabpanel)
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
-    await itemsPanel.getByLabel('Department').selectOption({ label: 'Wine' })
+    await itemsPanel.getByLabel('Item Type').selectOption({ label: 'Wine' })
 
     await fillInput(page.getByLabel('Per Bottle Cost'), '12.50')
     await fillInput(page.getByLabel('Price Charged'), '24.99')
@@ -438,35 +447,35 @@ test.describe('Inventory Management – Full Workflow', () => {
     await expect(page.getByText(itemName)).toBeVisible()
   })
 
-  test('edits and deletes a department', async ({ page }) => {
+  test('edits and deletes an item type', async ({ page }) => {
     await page.getByRole('button', { name: 'F2 Inventory' }).click()
-    await clickTab(page, 'Departments')
+    await clickTab(page, 'Item Types')
 
     // Create
-    await fillInput(page.getByRole('textbox', { name: 'Department Name' }), 'Beer')
+    await fillInput(page.getByRole('textbox', { name: 'Item Type Name' }), 'Beer')
     await clickEl(page.getByRole('button', { name: 'Add' }))
-    await expect(page.getByText('Department created')).toBeVisible()
+    await expect(page.getByText('Item type created')).toBeVisible()
 
-    const deptTable = page.getByRole('table', { name: 'Departments list' })
-    await expect(deptTable.getByText('Beer')).toBeVisible()
+    const itemTypeTable = page.getByRole('table', { name: 'Item types list' })
+    await expect(itemTypeTable.getByText('Beer')).toBeVisible()
 
-    // Select the department by clicking its row
-    await clickEl(deptTable.locator('tr', { hasText: 'Beer' }))
+    // Select the item type by clicking its row
+    await clickEl(itemTypeTable.locator('tr', { hasText: 'Beer' }))
 
     // Edit the name in the bottom edit section
-    await fillInput(page.getByRole('textbox', { name: 'Edit Department Name' }), 'Craft Beer')
+    await fillInput(page.getByRole('textbox', { name: 'Edit Item Type Name' }), 'Craft Beer')
     await clickEl(page.getByRole('button', { name: 'Save' }))
-    await expect(page.getByText('Department saved')).toBeVisible()
-    await expect(deptTable.getByText('Craft Beer')).toBeVisible()
+    await expect(page.getByText('Item type saved')).toBeVisible()
+    await expect(itemTypeTable.getByText('Craft Beer')).toBeVisible()
 
     // Delete
     await clickEl(page.getByRole('button', { name: 'Delete' }))
     await clickEl(page.getByRole('button', { name: 'Yes, Delete' }))
-    await expect(page.getByText('Department deleted')).toBeVisible()
-    await expect(page.getByText('No departments yet')).toBeVisible()
+    await expect(page.getByText('Item type deleted')).toBeVisible()
+    await expect(page.getByText('No item types yet. Add one above to get started.')).toBeVisible()
   })
 
-  test('saves department with description, margin, and tax rate', async ({ page }) => {
+  test('saves item type with description, margin, and tax rate', async ({ page }) => {
     await page.getByRole('button', { name: 'F2 Inventory' }).click()
 
     // First create a tax code so the dropdown has options
@@ -476,43 +485,43 @@ test.describe('Inventory Management – Full Workflow', () => {
     await clickEl(page.getByRole('button', { name: 'Add' }))
     await expect(page.getByText('Tax code created')).toBeVisible()
 
-    // Now go to Departments
-    await clickTab(page, 'Departments')
+    // Now go to Item Types
+    await clickTab(page, 'Item Types')
 
-    // Create a department first
-    await fillInput(page.getByRole('textbox', { name: 'Department Name' }), 'Spirits')
+    // Create an item type first
+    await fillInput(page.getByRole('textbox', { name: 'Item Type Name' }), 'Spirits')
     await clickEl(page.getByRole('button', { name: 'Add' }))
-    await expect(page.getByText('Department created')).toBeVisible()
+    await expect(page.getByText('Item type created')).toBeVisible()
 
-    const deptTable = page.getByRole('table', { name: 'Departments list' })
-    await expect(deptTable.getByText('Spirits')).toBeVisible()
+    const itemTypeTable = page.getByRole('table', { name: 'Item types list' })
+    await expect(itemTypeTable.getByText('Spirits')).toBeVisible()
 
-    // Select the department to open the edit form
-    await clickEl(deptTable.locator('tr', { hasText: 'Spirits' }))
+    // Select the item type to open the edit form
+    await clickEl(itemTypeTable.locator('tr', { hasText: 'Spirits' }))
 
     // Fill all edit fields
-    await fillInput(page.getByRole('textbox', { name: 'Edit Department Name' }), 'Premium Spirits')
-    await fillInput(page.getByLabel('Edit Department Description'), 'Whiskey, vodka, and rum')
+    await fillInput(page.getByRole('textbox', { name: 'Edit Item Type Name' }), 'Premium Spirits')
+    await fillInput(page.getByLabel('Edit Item Type Description'), 'Whiskey, vodka, and rum')
     await fillInput(page.getByLabel('Edit Default Profit Margin'), '40')
     // Select HST (13%) from the dropdown
     await selectValue(page.getByLabel('Edit Default Tax Rate'), '13')
 
     // Save
     await clickEl(page.getByRole('button', { name: 'Save' }))
-    await expect(page.getByText('Department saved')).toBeVisible()
+    await expect(page.getByText('Item type saved')).toBeVisible()
 
     // Verify the table reflects all saved changes
-    await expect(deptTable.getByText('Premium Spirits')).toBeVisible()
-    await expect(deptTable.getByText('Whiskey, vodka, and rum')).toBeVisible()
-    await expect(deptTable.getByText('40%')).toBeVisible()
-    await expect(deptTable.getByText('HST (13%)')).toBeVisible()
+    await expect(itemTypeTable.getByText('Premium Spirits')).toBeVisible()
+    await expect(itemTypeTable.getByText('Whiskey, vodka, and rum')).toBeVisible()
+    await expect(itemTypeTable.getByText('40%')).toBeVisible()
+    await expect(itemTypeTable.getByText('13%')).toBeVisible()
   })
 
   test('validates required fields on CRUD panels', async ({ page }) => {
     await page.getByRole('button', { name: 'F2 Inventory' }).click()
 
-    // Department: empty name
-    await clickTab(page, 'Departments')
+    // Item type: empty name
+    await clickTab(page, 'Item Types')
     await clickEl(page.getByRole('button', { name: 'Add' }))
     await expect(page.getByText('Name is required')).toBeVisible()
 
@@ -640,20 +649,20 @@ test.describe('Inventory Management – Full Workflow', () => {
     await clickEl(page.getByRole('button', { name: 'Add' }))
     await expect(page.getByText('Tax code created')).toBeVisible()
 
-    /* Create a department */
-    await clickTab(page, 'Departments')
-    await fillInput(page.getByRole('textbox', { name: 'Department Name' }), 'Wine')
+    /* Create an item type */
+    await clickTab(page, 'Item Types')
+    await fillInput(page.getByRole('textbox', { name: 'Item Type Name' }), 'Wine')
     await clickEl(page.getByRole('button', { name: 'Add' }))
-    await expect(page.getByText('Department created')).toBeVisible()
+    await expect(page.getByText('Item type created')).toBeVisible()
 
     /* Switch to Items and create an item with a tax code */
     await clickTab(page, 'Items')
     await fillInput(page.getByRole('textbox', { name: 'SKU', exact: true }), 'TAX-TEST')
     await fillInput(page.getByLabel('Name'), 'Tax Test Item')
 
-    // Department dropdown (scoped inside Items tabpanel)
+    // Item type dropdown (scoped inside Items tabpanel)
     const itemsPanel2 = page.getByRole('tabpanel', { name: 'Items' })
-    await itemsPanel2.getByLabel('Department').selectOption({ label: 'Wine' })
+    await itemsPanel2.getByLabel('Item Type').selectOption({ label: 'Wine' })
 
     await fillInput(page.getByLabel('Per Bottle Cost'), '10.00')
     await fillInput(page.getByLabel('Price Charged'), '20.00')

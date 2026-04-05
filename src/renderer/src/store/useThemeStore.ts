@@ -10,9 +10,9 @@ type ThemeStore = {
 
 const getStoredTheme = (): Theme => {
   try {
-    return (localStorage.getItem('pos-theme') as Theme) ?? 'dark'
+    return (localStorage.getItem('pos-theme') as Theme) ?? 'light'
   } catch {
-    return 'dark'
+    return 'light'
   }
 }
 

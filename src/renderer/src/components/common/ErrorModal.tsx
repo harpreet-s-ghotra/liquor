@@ -1,4 +1,10 @@
-import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@renderer/components/ui/dialog'
 import { AppButton } from './AppButton'
 import './error-modal.css'
 
@@ -22,7 +28,7 @@ export function ErrorModal({
         aria-label={title}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <div className="error-modal__header">
+        <DialogHeader className="error-modal__header">
           <div className="error-modal__icon">
             <svg
               width="16"
@@ -39,11 +45,11 @@ export function ErrorModal({
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
           </div>
-          <h2 className="error-modal__title">{title}</h2>
-        </div>
+          <DialogTitle className="error-modal__title">{title}</DialogTitle>
+        </DialogHeader>
 
         <div className="error-modal__body">
-          <p className="error-modal__message">{message}</p>
+          <DialogDescription className="error-modal__message">{message}</DialogDescription>
         </div>
 
         <div className="error-modal__footer">

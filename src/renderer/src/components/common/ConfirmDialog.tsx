@@ -1,4 +1,10 @@
-import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@renderer/components/ui/dialog'
 import { cn } from '@renderer/lib/utils'
 import { AppButton } from './AppButton'
 import './confirm-dialog.css'
@@ -31,7 +37,7 @@ export function ConfirmDialog({
         aria-label={title}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <div className="confirm-dialog__header">
+        <DialogHeader className="confirm-dialog__header">
           <div
             className={cn(
               'confirm-dialog__icon',
@@ -55,11 +61,11 @@ export function ConfirmDialog({
               <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
           </div>
-          <h2 className="confirm-dialog__title">{title}</h2>
-        </div>
+          <DialogTitle className="confirm-dialog__title">{title}</DialogTitle>
+        </DialogHeader>
 
         <div className="confirm-dialog__body">
-          <p className="confirm-dialog__message">{message}</p>
+          <DialogDescription className="confirm-dialog__message">{message}</DialogDescription>
         </div>
 
         <div className="confirm-dialog__footer">

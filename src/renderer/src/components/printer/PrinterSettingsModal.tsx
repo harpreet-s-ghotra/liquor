@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import { SuccessModal } from '@renderer/components/common/SuccessModal'
@@ -229,10 +229,11 @@ export function PrinterSettingsModal({
       <DialogContent
         className="printer-settings-modal"
         aria-label="Printer Settings"
+        aria-describedby={undefined}
         onInteractOutside={(e) => e.preventDefault()}
       >
+        <DialogTitle className="printer-settings-modal__title">Printer Settings</DialogTitle>
         <div className="printer-settings-modal__header">
-          <h2 className="printer-settings-modal__title">Printer Settings</h2>
           <button type="button" className="printer-settings-modal__close-btn" onClick={onClose}>
             Close
           </button>

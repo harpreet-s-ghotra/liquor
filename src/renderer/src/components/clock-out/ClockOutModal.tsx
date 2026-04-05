@@ -224,6 +224,7 @@ export function ClockOutModal({ isOpen, onClose }: ClockOutModalProps): React.JS
       <DialogContent
         className="clock-out-modal"
         aria-label="Clock Out"
+        aria-describedby={undefined}
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

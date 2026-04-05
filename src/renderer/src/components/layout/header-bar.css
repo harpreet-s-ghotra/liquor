@@ -1,41 +1,41 @@
 .header-bar {
   display: flex;
+  gap: 1rem;
   align-items: center;
   justify-content: flex-end;
-  gap: 1rem;
-  height: 4rem;
   background: var(--header-bg);
   padding: 0 1.5rem;
+  height: 4rem;
 }
 
 .header-bar__left {
   display: flex;
-  align-items: center;
   gap: 0.75rem;
+  align-items: center;
   margin-right: auto;
 }
 
 .header-bar__status {
-  font-family: var(--font-body);
-  font-size: 0.75rem;
-  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--header-status);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .header-bar__right {
   display: flex;
-  align-items: center;
   gap: 1rem;
+  align-items: center;
 }
 
 .header-bar__icon-btn {
   border: none;
   background: transparent;
+  cursor: pointer;
   padding: 0.5rem;
   color: var(--text-label);
-  cursor: pointer;
 }
 
 .header-bar__settings-wrapper {
@@ -44,49 +44,49 @@
 
 .header-bar__dropdown {
   position: absolute;
-  right: 0;
   top: 100%;
+  right: 0;
   z-index: 30;
-  min-width: 12rem;
   margin-top: 0.25rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   background: var(--bg-panel);
   padding: 0.25rem;
-  box-shadow: var(--shadow-lg);
+  min-width: 12rem;
 }
 
 .header-bar__dropdown-item {
   display: flex;
-  align-items: center;
   gap: 0.5rem;
-  width: 100%;
+  align-items: center;
   border: none;
   border-radius: var(--radius);
   background: var(--bg-surface-soft);
+  cursor: pointer;
   padding: 0.5rem 0.75rem;
+  width: 100%;
+  color: var(--text-primary);
   font-family: var(--font-display);
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--text-primary);
-  cursor: pointer;
 }
 
 .header-bar__badge {
   display: flex;
-  align-items: center;
   gap: 0.5rem;
+  align-items: center;
   border: 1px solid var(--header-badge-border);
   border-radius: var(--radius);
   background: var(--header-badge-bg);
   padding: 0.375rem 0.75rem;
-  font-family: var(--font-display);
   color: var(--header-badge-text);
+  font-family: var(--font-display);
 }
 
 .header-bar__badge-name {
-  font-size: 0.75rem;
-  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  font-weight: 700;
 }

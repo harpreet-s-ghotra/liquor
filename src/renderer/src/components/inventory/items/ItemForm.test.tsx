@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import React, { useRef } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ItemForm, type ItemFormHandle } from './ItemForm'
 import type { InventoryProduct } from '@renderer/types/pos'
 
@@ -9,7 +9,6 @@ const baseInventoryItem: InventoryProduct = {
   item_number: 1,
   sku: 'SKU-001',
   item_name: 'Inventory Item',
-  dept_id: '11',
   category_id: null,
   category_name: null,
   cost: 10,
@@ -34,7 +33,8 @@ const baseInventoryItem: InventoryProduct = {
   proof: null,
   alcohol_pct: null,
   vintage: null,
-  ttb_id: null
+  ttb_id: null,
+  display_name: null
 }
 
 const baseDetail = {
@@ -73,9 +73,9 @@ function ItemFormWithButtons(): React.JSX.Element {
   )
 }
 
-/** Set the Department select to a given value */
-const setDept = (value: string): void => {
-  fireEvent.change(screen.getByLabelText('Department'), { target: { value } })
+/** Set the Item Type select to a given value */
+const setItemType = (value: string): void => {
+  fireEvent.change(screen.getByLabelText('Item Type'), { target: { value } })
 }
 
 /** Set the Tax Codes select to a given rate value string */
@@ -84,14 +84,29 @@ const setTaxRate = (value: string): void => {
 }
 
 describe('ItemForm', () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      const [firstArg] = args
+      if (typeof firstArg === 'string' && firstArg.includes('not wrapped in act')) {
+        return
+      }
+    })
+
     const api = {
       searchInventoryProducts: vi.fn(async () => [baseInventoryItem]),
       getInventoryProductDetail: vi.fn(async () => baseDetail),
       saveInventoryItem: vi.fn(async () => baseDetail),
-      getDepartments: vi.fn(async () => [
-        { id: 1, name: '11', description: null, default_profit_margin: 0, default_tax_rate: 0 },
-        { id: 2, name: '02', description: null, default_profit_margin: 0, default_tax_rate: 0 }
+      getItemTypes: vi.fn(async () => [
+        { id: 1, name: 'Wine', description: null, default_profit_margin: 35, default_tax_rate: 8 },
+        {
+          id: 2,
+          name: 'Spirits',
+          description: null,
+          default_profit_margin: 40,
+          default_tax_rate: 8
+        }
       ]),
       getInventoryTaxCodes: vi.fn(async () => [
         { code: 'RATE_0', rate: 0 },
@@ -113,6 +128,10 @@ describe('ItemForm', () => {
     ;(window as any).api = api
   })
 
+  afterEach(() => {
+    consoleErrorSpy.mockRestore()
+  })
+
   it('renders core form fields', () => {
     render(<ItemForm />)
     expect(screen.getByLabelText('SKU')).toBeInTheDocument()
@@ -120,7 +139,7 @@ describe('ItemForm', () => {
     expect(screen.getByLabelText('Per Bottle Cost')).toBeInTheDocument()
     expect(screen.getByLabelText('Price Charged')).toBeInTheDocument()
     expect(screen.getByLabelText('In Stock')).toBeInTheDocument()
-    expect(screen.getByLabelText('Department')).toBeInTheDocument()
+    expect(screen.getByLabelText('Item Type')).toBeInTheDocument()
     expect(screen.getByLabelText('Tax Codes')).toBeInTheDocument()
   })
 
@@ -175,7 +194,7 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NEW' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Item' } })
-    setDept('02')
+    setItemType('02')
     fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
@@ -216,18 +235,21 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-WINE' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Premium Wine' } })
-    setDept('11')
+    setItemType('11')
     fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '2500' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '5' } })
     setTaxRate('0.13')
 
-    // Fill in new metadata fields
+    // Fill in brand (in General Info)
     fireEvent.change(screen.getByLabelText('Brand'), { target: { value: 'Château Margaux' } })
-    fireEvent.change(screen.getByLabelText('Proof'), { target: { value: '86' } })
-    fireEvent.change(screen.getByLabelText('Alcohol Percentage'), { target: { value: '13.5' } })
+
+    // Navigate to Additional Info tab and fill in metadata fields
+    await userEvent.click(screen.getByRole('tab', { name: 'Additional Info' }))
+    fireEvent.change(await screen.findByLabelText('Proof'), { target: { value: '86' } })
+    fireEvent.change(screen.getByLabelText('ABV Percent'), { target: { value: '13.5' } })
     fireEvent.change(screen.getByLabelText('Vintage'), { target: { value: '2015' } })
-    fireEvent.change(screen.getByLabelText('TTB ID'), { target: { value: 'TTB-12345' } })
+    fireEvent.change(screen.getByLabelText('TTB ID'), { target: { value: '12345678' } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
@@ -240,7 +262,7 @@ describe('ItemForm', () => {
         proof: 86,
         alcohol_pct: 13.5,
         vintage: '2015',
-        ttb_id: 'TTB-12345'
+        ttb_id: '12345678'
       })
     )
   })
@@ -305,10 +327,13 @@ describe('ItemForm', () => {
       expect(api.getInventoryProductDetail).toHaveBeenCalledWith(1)
     })
 
-    // Verify metadata fields are populated after loading
+    // Verify General Info fields are populated after loading
     await waitFor(() => {
       expect(screen.getByDisplayValue('Château Margaux')).toBeInTheDocument()
     })
+
+    // Switch to Additional Info tab to verify those fields are populated
+    await userEvent.click(screen.getByRole('tab', { name: 'Additional Info' }))
     expect(screen.getByDisplayValue('86')).toBeInTheDocument()
     expect(screen.getByDisplayValue('13.5')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2015')).toBeInTheDocument()
@@ -464,7 +489,7 @@ describe('ItemForm', () => {
 
     render(<ItemFormWithButtons />)
 
-    setDept('11')
+    setItemType('11')
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-ERR' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Error Item' } })
     fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '500' } })
@@ -515,9 +540,11 @@ describe('ItemForm', () => {
     expect(screen.getByLabelText('Case Discount Price')).toBeInTheDocument()
   })
 
-  it('loads existing item with case_discount_price in dollar mode', async () => {
+  it('loads existing item with case_discount_price as percent', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const api = (window as any).api
+    // retail_price=15, bottles_per_case=12 → fullCase=$180
+    // stored case_discount_price=149.99 → pct = (1 - 149.99/180)*100 ≈ 16.6722
     api.getInventoryProductDetail = vi.fn(async () => ({
       ...baseDetail,
       case_discount_price: 149.99
@@ -531,9 +558,9 @@ describe('ItemForm', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Switch to dollar mode')).toHaveAttribute('data-state', 'on')
+      expect(screen.getByLabelText('Switch to percent mode')).toHaveAttribute('data-state', 'on')
     })
-    expect(screen.getByLabelText('Case Discount Price')).toHaveValue('$149.99')
+    expect(screen.getByLabelText('Case Discount Percent')).toHaveValue('16.6722')
   })
 
   it('saves case discount in percent mode as dollar value', async () => {
@@ -544,7 +571,7 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-CASE' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Case Item' } })
-    setDept('11')
+    setItemType('11')
     fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
@@ -576,9 +603,11 @@ describe('ItemForm', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
-    expect(
-      screen.queryByText('Tax code must be selected from available values')
-    ).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Tax code must be selected from available values')
+      ).not.toBeInTheDocument()
+    })
   })
 
   it('removes a special pricing rule', async () => {
@@ -628,27 +657,27 @@ describe('ItemForm', () => {
     expect(screen.getByLabelText('Final Price with Tax')).toHaveValue('$11.30')
   })
 
-  it('auto-fills tax code when department with default_tax_rate is selected', async () => {
+  it('auto-fills tax code when item type with default_tax_rate is selected', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).api.getDepartments = vi.fn(async () => [
+    ;(window as any).api.getItemTypes = vi.fn(async () => [
       {
         id: 1,
         name: 'Wine',
         description: null,
         default_profit_margin: 0,
-        default_tax_rate: 13 // 13% stored as percentage
+        default_tax_rate: 13
       }
     ])
 
     render(<ItemForm />)
 
-    // Wait for dept options to load
+    // Wait for item type options to load
     await waitFor(() => {
-      const sel = screen.getByLabelText('Department') as HTMLSelectElement
+      const sel = screen.getByLabelText('Item Type') as HTMLSelectElement
       expect(sel.options.length).toBeGreaterThan(1)
     })
 
-    fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Wine' } })
+    fireEvent.change(screen.getByLabelText('Item Type'), { target: { value: 'Wine' } })
 
     // default_tax_rate = 13 → rate = 0.13
     await waitFor(() => {
@@ -656,14 +685,14 @@ describe('ItemForm', () => {
     })
   })
 
-  it('auto-calculates retail price when cost is entered with a dept that has a margin', async () => {
+  it('auto-calculates retail price when cost is entered with an item type that has a margin', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).api.getDepartments = vi.fn(async () => [
+    ;(window as any).api.getItemTypes = vi.fn(async () => [
       {
         id: 1,
         name: 'Spirits',
         description: null,
-        default_profit_margin: 25, // 25%
+        default_profit_margin: 25,
         default_tax_rate: 0
       }
     ])
@@ -671,11 +700,11 @@ describe('ItemForm', () => {
     render(<ItemForm />)
 
     await waitFor(() => {
-      const sel = screen.getByLabelText('Department') as HTMLSelectElement
+      const sel = screen.getByLabelText('Item Type') as HTMLSelectElement
       expect(sel.options.length).toBeGreaterThan(1)
     })
 
-    fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Spirits' } })
+    fireEvent.change(screen.getByLabelText('Item Type'), { target: { value: 'Spirits' } })
     // Enter cost $10.00 → price = 10 / (1 - 0.25) = $13.33
     fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } })
 
@@ -684,15 +713,15 @@ describe('ItemForm', () => {
     })
   })
 
-  it('auto-calculates retail price when dept is changed after cost is already entered', async () => {
+  it('auto-calculates retail price when item type is changed after cost is already entered', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).api.getDepartments = vi.fn(async () => [
+    ;(window as any).api.getItemTypes = vi.fn(async () => [
       { id: 1, name: 'Beer', description: null, default_profit_margin: 0, default_tax_rate: 0 },
       {
         id: 2,
         name: 'Whiskey',
         description: null,
-        default_profit_margin: 40, // 40%
+        default_profit_margin: 40,
         default_tax_rate: 0
       }
     ])
@@ -700,15 +729,15 @@ describe('ItemForm', () => {
     render(<ItemForm />)
 
     await waitFor(() => {
-      const sel = screen.getByLabelText('Department') as HTMLSelectElement
+      const sel = screen.getByLabelText('Item Type') as HTMLSelectElement
       expect(sel.options.length).toBeGreaterThan(2)
     })
 
     // Enter cost first
     fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '2000' } }) // $20
 
-    // Change dept to one with a margin — price = 20 / (1 - 0.40) = $33.33
-    fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Whiskey' } })
+    // Change item type to one with a margin — price = 20 / (1 - 0.40) = $33.33
+    fireEvent.change(screen.getByLabelText('Item Type'), { target: { value: 'Whiskey' } })
 
     await waitFor(() => {
       expect(screen.getByLabelText('Price Charged')).toHaveValue('$33.33')
@@ -717,7 +746,7 @@ describe('ItemForm', () => {
 
   it('clears auto indicator when price is manually edited', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).api.getDepartments = vi.fn(async () => [
+    ;(window as any).api.getItemTypes = vi.fn(async () => [
       {
         id: 1,
         name: 'Wine',
@@ -730,11 +759,11 @@ describe('ItemForm', () => {
     render(<ItemForm />)
 
     await waitFor(() => {
-      const sel = screen.getByLabelText('Department') as HTMLSelectElement
+      const sel = screen.getByLabelText('Item Type') as HTMLSelectElement
       expect(sel.options.length).toBeGreaterThan(1)
     })
 
-    fireEvent.change(screen.getByLabelText('Department'), { target: { value: 'Wine' } })
+    fireEvent.change(screen.getByLabelText('Item Type'), { target: { value: 'Wine' } })
     fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } })
 
     // Auto label should appear

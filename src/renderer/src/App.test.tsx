@@ -7,7 +7,8 @@ const mockApi = {
   getMerchantConfig: vi.fn(),
   getCashiers: vi.fn(),
   getProducts: vi.fn(),
-  getDepartments: vi.fn().mockResolvedValue([]),
+  getHeldTransactions: vi.fn().mockResolvedValue([]),
+  getItemTypes: vi.fn().mockResolvedValue([]),
   getDistributors: vi.fn().mockResolvedValue([]),
   getReceiptConfig: vi.fn().mockResolvedValue({
     fontSize: 10,
@@ -16,12 +17,14 @@ const mockApi = {
     storeName: '',
     footerMessage: '',
     alwaysPrint: false
-  })
+  }),
+  onDeepLink: vi.fn()
 }
 
 beforeEach(() => {
   Object.values(mockApi).forEach((fn) => fn.mockReset())
-  mockApi.getDepartments.mockResolvedValue([])
+  mockApi.getHeldTransactions.mockResolvedValue([])
+  mockApi.getItemTypes.mockResolvedValue([])
   mockApi.getDistributors.mockResolvedValue([])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(window as any).api = mockApi
@@ -40,6 +43,7 @@ describe('App', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (window as any).api
     mockApi.getProducts.mockResolvedValue([])
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     useAuthStore.setState({
       appState: 'loading' as AppState,
@@ -56,6 +60,9 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('Tax')).toBeInTheDocument()
     })
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[loadHeldTransactions] window.api.getHeldTransactions is not available'
+    )
   })
 
   it('shows loading state initially', () => {
@@ -64,11 +71,11 @@ describe('App', () => {
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
-  it('shows activation screen when not activated', async () => {
-    useAuthStore.setState({ appState: 'not-activated' as AppState })
+  it('shows auth screen when not authenticated', async () => {
+    useAuthStore.setState({ appState: 'auth' as AppState })
     render(<App />)
     await waitFor(() => {
-      expect(screen.getByText('Activate Your POS')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Sign In' })).toBeInTheDocument()
     })
   })
 
@@ -80,7 +87,7 @@ describe('App', () => {
       appState: 'login' as AppState,
       merchantConfig: {
         id: 1,
-        stax_api_key: 'key',
+        payment_processing_api_key: 'key',
         merchant_id: 'merch-123',
         merchant_name: 'Test Store',
         activated_at: '2026-01-01',

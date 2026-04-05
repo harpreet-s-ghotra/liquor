@@ -52,7 +52,7 @@ const closedSession: Session = {
 
 const sampleReport: ClockOutReport = {
   session: closedSession,
-  sales_by_department: [{ department_name: 'Wine', transaction_count: 5, total_amount: 99.95 }],
+  sales_by_item_type: [{ item_type_name: 'Wine', transaction_count: 5, total_amount: 99.95 }],
   sales_by_payment_method: [{ payment_method: 'cash', transaction_count: 3, total_amount: 50 }],
   total_sales_count: 5,
   gross_sales: 99.95,
@@ -66,6 +66,16 @@ const sampleReport: ClockOutReport = {
   credit_total: 30,
   debit_total: 19.95
 }
+
+const buildSessionPage = (count: number, base: Session): Session[] =>
+  Array.from({ length: count }, (_, index) => ({
+    ...base,
+    id: base.id + index,
+    started_at: new Date(Date.parse(base.started_at) + index * 60_000).toISOString(),
+    ended_at: base.ended_at
+      ? new Date(Date.parse(base.ended_at) + index * 60_000).toISOString()
+      : null
+  }))
 
 describe('ClockOutModal', () => {
   beforeEach(() => {
@@ -95,9 +105,12 @@ describe('ClockOutModal', () => {
     expect(container.querySelector('[aria-label="Clock Out"]')).not.toBeInTheDocument()
   })
 
-  it('renders Dialog with aria-label when isOpen is true', () => {
+  it('renders Dialog with aria-label when isOpen is true', async () => {
     render(<ClockOutModal isOpen={true} onClose={vi.fn()} />)
-    expect(screen.getByRole('dialog')).toHaveAttribute('aria-label', 'Clock Out')
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toHaveAttribute('aria-label', 'Clock Out')
+    })
   })
 
   // ──────────────────────────────────────────
@@ -922,7 +935,7 @@ describe('ClockOutModal', () => {
 
   it('shows pagination controls when totalPages > 1', async () => {
     ;(window as any).api.listSessions.mockResolvedValue({
-      sessions: Array(25).fill(activeSession),
+      sessions: buildSessionPage(25, activeSession),
       total_count: 50
     })
 
@@ -937,7 +950,7 @@ describe('ClockOutModal', () => {
 
   it('disables Prev button on first page', async () => {
     ;(window as any).api.listSessions.mockResolvedValue({
-      sessions: Array(25).fill(activeSession),
+      sessions: buildSessionPage(25, activeSession),
       total_count: 50
     })
 
@@ -949,7 +962,7 @@ describe('ClockOutModal', () => {
   })
 
   it('enables Prev button on later pages', async () => {
-    const sessions = Array(25).fill(activeSession)
+    const sessions = buildSessionPage(25, activeSession)
 
     ;(window as any).api.listSessions.mockResolvedValue({
       sessions,
@@ -982,7 +995,7 @@ describe('ClockOutModal', () => {
 
   it('disables Next button on last page', async () => {
     ;(window as any).api.listSessions.mockResolvedValue({
-      sessions: Array(10).fill(activeSession),
+      sessions: buildSessionPage(10, activeSession),
       total_count: 35
     })
 
@@ -998,7 +1011,7 @@ describe('ClockOutModal', () => {
 
     // Mock page 2 response (last page)
     ;(window as any).api.listSessions.mockResolvedValue({
-      sessions: Array(10).fill(closedSession),
+      sessions: buildSessionPage(10, closedSession),
       total_count: 35
     })
 
@@ -1010,7 +1023,7 @@ describe('ClockOutModal', () => {
 
   it('loads correct page offset when Next is clicked', async () => {
     ;(window as any).api.listSessions.mockResolvedValue({
-      sessions: Array(25).fill(activeSession),
+      sessions: buildSessionPage(25, activeSession),
       total_count: 75
     })
 
@@ -1029,7 +1042,7 @@ describe('ClockOutModal', () => {
 
   it('loads correct page offset when Prev is clicked', async () => {
     ;(window as any).api.listSessions.mockResolvedValue({
-      sessions: Array(25).fill(activeSession),
+      sessions: buildSessionPage(25, activeSession),
       total_count: 75
     })
 
@@ -1043,7 +1056,7 @@ describe('ClockOutModal', () => {
     // Reset mock to track calls
     ;(window as any).api.listSessions.mockClear()
     ;(window as any).api.listSessions.mockResolvedValue({
-      sessions: Array(25).fill(activeSession),
+      sessions: buildSessionPage(25, activeSession),
       total_count: 75
     })
 

@@ -1,34 +1,29 @@
+/**
+ * @deprecated Replaced by AuthScreen. Kept to avoid breaking test infrastructure.
+ * App.tsx now routes 'auth' → AuthScreen, not 'not-activated' → ActivationScreen.
+ */
 import { useCallback, useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 import '../styles/auth.css'
 
 export function ActivationScreen(): React.JSX.Element {
-  const [apiKey, setApiKey] = useState('')
-  const [showKey, setShowKey] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   const error = useAuthStore((s) => s.error)
-  const activate = useAuthStore((s) => s.activate)
+  const emailLogin = useAuthStore((s) => s.emailLogin)
   const clearError = useAuthStore((s) => s.clearError)
 
-  const handleActivate = useCallback(async () => {
-    if (!apiKey.trim() || isLoading) return
+  const handleSignIn = useCallback(async () => {
+    if (!email.trim() || !password || isLoading) return
     setIsLoading(true)
     try {
-      await activate(apiKey.trim())
+      await emailLogin(email.trim(), password)
     } finally {
       setIsLoading(false)
     }
-  }, [apiKey, isLoading, activate])
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        handleActivate()
-      }
-    },
-    [handleActivate]
-  )
+  }, [email, password, isLoading, emailLogin])
 
   return (
     <div className="auth-screen">
@@ -38,56 +33,59 @@ export function ActivationScreen(): React.JSX.Element {
           <p className="auth-subtitle">Powered by Stax Payments</p>
         </div>
 
-        <h2 className="auth-title">Activate Your POS</h2>
-        <p className="auth-description">
-          Enter the Stax API key provided by your administrator to activate this terminal.
-        </p>
+        <h2 className="auth-title">Sign In</h2>
 
         <div className="auth-form">
           <div className="auth-input-group">
-            <label htmlFor="api-key-input" className="auth-label">
-              Stax API Key
+            <label htmlFor="email-input" className="auth-label">
+              Email
             </label>
-            <div className="auth-input-wrapper">
-              <input
-                id="api-key-input"
-                type={showKey ? 'text' : 'password'}
-                className="auth-input"
-                placeholder="Enter your Stax API key"
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value)
-                  if (error) clearError()
-                }}
-                onKeyDown={handleKeyDown}
-                autoFocus
-                disabled={isLoading}
-              />
-              <button
-                type="button"
-                className="auth-toggle-btn"
-                onClick={() => setShowKey(!showKey)}
-                aria-label="Toggle key visibility"
-              >
-                {showKey ? '🔒' : '👁️'}
-              </button>
-            </div>
+            <input
+              id="email-input"
+              type="email"
+              className="auth-input"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                if (error) clearError()
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleSignIn()}
+              autoFocus
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="auth-input-group">
+            <label htmlFor="password-input" className="auth-label">
+              Password
+            </label>
+            <input
+              id="password-input"
+              type="password"
+              className="auth-input"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                if (error) clearError()
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleSignIn()}
+              disabled={isLoading}
+            />
           </div>
 
           {error && <div className="auth-error">{error}</div>}
 
           <button
+            type="button"
             className="auth-submit-btn"
-            onClick={handleActivate}
-            disabled={!apiKey.trim() || isLoading}
+            onClick={handleSignIn}
+            disabled={!email.trim() || !password || isLoading}
           >
-            {isLoading ? 'Validating...' : 'Activate'}
+            {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </div>
-
-        <p className="auth-help">
-          Don&apos;t have an API key? Contact your administrator for activation credentials.
-        </p>
       </div>
     </div>
   )

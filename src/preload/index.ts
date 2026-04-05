@@ -7,12 +7,12 @@ import type {
   InventoryProductDetail,
   SaveInventoryItemInput,
   InventoryTaxCode,
-  Department,
+  ItemType,
   TaxCode,
   Distributor,
   SalesRep,
-  CreateDepartmentInput,
-  UpdateDepartmentInput,
+  CreateItemTypeInput,
+  UpdateItemTypeInput,
   CreateTaxCodeInput,
   UpdateTaxCodeInput,
   CreateDistributorInput,
@@ -43,7 +43,12 @@ import type {
   CloseSessionInput,
   ClockOutReport,
   SessionListResult,
-  PrintClockOutReportInput
+  PrintClockOutReportInput,
+  AuthResult,
+  CatalogDistributor,
+  ImportResult,
+  SyncStatus,
+  DeviceConfig
 } from '../shared/types'
 
 // Custom APIs for renderer
@@ -65,14 +70,23 @@ const api = {
     ipcRenderer.invoke('inventory:products:delete', itemNumber),
   getInventoryDepartments: (): Promise<string[]> =>
     ipcRenderer.invoke('inventory:departments:list'),
+  getInventoryItemTypes: (): Promise<string[]> => ipcRenderer.invoke('inventory:item-types:list'),
   getInventoryTaxCodes: (): Promise<InventoryTaxCode[]> =>
     ipcRenderer.invoke('inventory:tax-codes:list'),
 
-  // Department CRUD
-  getDepartments: (): Promise<Department[]> => ipcRenderer.invoke('departments:list'),
-  createDepartment: (input: CreateDepartmentInput): Promise<Department> =>
+  // Item Type CRUD
+  getItemTypes: (): Promise<ItemType[]> => ipcRenderer.invoke('item-types:list'),
+  createItemType: (input: CreateItemTypeInput): Promise<ItemType> =>
+    ipcRenderer.invoke('item-types:create', input),
+  updateItemType: (input: UpdateItemTypeInput): Promise<ItemType> =>
+    ipcRenderer.invoke('item-types:update', input),
+  deleteItemType: (id: number): Promise<void> => ipcRenderer.invoke('item-types:delete', id),
+
+  // Legacy aliases (forward to item-types)
+  getDepartments: (): Promise<ItemType[]> => ipcRenderer.invoke('departments:list'),
+  createDepartment: (input: CreateItemTypeInput): Promise<ItemType> =>
     ipcRenderer.invoke('departments:create', input),
-  updateDepartment: (input: UpdateDepartmentInput): Promise<Department> =>
+  updateDepartment: (input: UpdateItemTypeInput): Promise<ItemType> =>
     ipcRenderer.invoke('departments:update', input),
   deleteDepartment: (id: number): Promise<void> => ipcRenderer.invoke('departments:delete', id),
 
@@ -83,6 +97,8 @@ const api = {
   updateTaxCode: (input: UpdateTaxCodeInput): Promise<TaxCode> =>
     ipcRenderer.invoke('tax-codes:update', input),
   deleteTaxCode: (id: number): Promise<void> => ipcRenderer.invoke('tax-codes:delete', id),
+  applyTaxToAll: (taxRate: number): Promise<{ updated: number }> =>
+    ipcRenderer.invoke('inventory:apply-tax-to-all', taxRate),
 
   // Distributor CRUD
   getDistributors: (): Promise<Distributor[]> => ipcRenderer.invoke('distributors:list'),
@@ -102,6 +118,25 @@ const api = {
     ipcRenderer.invoke('sales-reps:update', input),
   deleteSalesRep: (salesRepId: number): Promise<void> =>
     ipcRenderer.invoke('sales-reps:delete', salesRepId),
+
+  // Supabase Auth
+  authLogin: (email: string, password: string): Promise<AuthResult> =>
+    ipcRenderer.invoke('auth:login', email, password),
+  authLogout: (): Promise<void> => ipcRenderer.invoke('auth:logout'),
+  authCheckSession: (): Promise<AuthResult | null> => ipcRenderer.invoke('auth:check-session'),
+  authSetSession: (accessToken: string, refreshToken: string): Promise<{ email: string }> =>
+    ipcRenderer.invoke('auth:set-session', accessToken, refreshToken),
+  authSetPassword: (password: string): Promise<AuthResult> =>
+    ipcRenderer.invoke('auth:set-password', password),
+  onDeepLink: (
+    callback: (payload: { accessToken: string; refreshToken: string; type: string | null }) => void
+  ) => ipcRenderer.on('auth:deep-link', (_event, payload) => callback(payload)),
+
+  // Catalog
+  getCatalogDistributors: (): Promise<CatalogDistributor[]> =>
+    ipcRenderer.invoke('catalog:distributors'),
+  importCatalogItems: (distributorIds: number[]): Promise<ImportResult> =>
+    ipcRenderer.invoke('catalog:import', distributorIds),
 
   // Merchant Config
   getMerchantConfig: (): Promise<MerchantConfig | null> =>
@@ -177,7 +212,13 @@ const api = {
   getSessionReport: (sessionId: number): Promise<ClockOutReport> =>
     ipcRenderer.invoke('sessions:report', sessionId),
   printClockOutReport: (input: PrintClockOutReportInput): Promise<void> =>
-    ipcRenderer.invoke('sessions:print-report', input)
+    ipcRenderer.invoke('sessions:print-report', input),
+
+  // Cloud Sync
+  getSyncStatus: (): Promise<SyncStatus> => ipcRenderer.invoke('sync:get-status'),
+  getDeviceConfig: (): Promise<DeviceConfig | null> => ipcRenderer.invoke('sync:get-device-config'),
+  onConnectivityChanged: (callback: (online: boolean) => void) =>
+    ipcRenderer.on('sync:connectivity-changed', (_event, online) => callback(online))
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

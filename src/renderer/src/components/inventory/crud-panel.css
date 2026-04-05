@@ -3,9 +3,9 @@
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 0.75rem;
+  padding: 0.75rem;
   height: 100%;
   min-height: 0;
-  padding: 0.75rem;
 }
 
 .crud-panel__form {
@@ -34,9 +34,9 @@
 }
 
 .crud-panel__list {
+  border-radius: var(--radius);
   min-height: 0;
   overflow: auto;
-  border-radius: var(--radius);
 }
 
 .crud-panel__table {
@@ -45,24 +45,24 @@
 }
 
 .crud-panel__table th {
+  position: sticky;
+  top: 0;
+  border-bottom: 0.125rem solid var(--border-strong);
+  background: var(--bg-panel);
+  padding: 0.45rem 0.6rem;
   text-align: left;
+  color: var(--text-primary);
   font-family: var(--font-display);
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--text-primary);
-  padding: 0.45rem 0.6rem;
-  border-bottom: 0.125rem solid var(--border-strong);
-  position: sticky;
-  top: 0;
-  background: var(--bg-panel);
 }
 
 .crud-panel__table td {
+  border-bottom: 0.0625rem solid var(--border-soft);
+  padding: 0.4rem 0.6rem;
+  color: var(--text-primary);
   font-size: 0.92rem;
   font-weight: 600;
-  color: var(--text-primary);
-  padding: 0.4rem 0.6rem;
-  border-bottom: 0.0625rem solid var(--border-soft);
 }
 
 .crud-panel__table .crud-panel__actions {
@@ -72,9 +72,9 @@
 }
 
 .crud-panel__table .crud-panel__actions button {
+  padding: 0 0.6rem;
   min-height: 2.1rem;
   font-size: 0.88rem;
-  padding: 0 0.6rem;
 }
 
 .crud-panel__status {
@@ -97,9 +97,9 @@
 
 .crud-panel__empty {
   margin: 0;
+  padding: 0.75rem;
   color: var(--text-muted);
   font-style: italic;
-  padding: 0.75rem;
 }
 
 /* Inline edit input */
@@ -125,9 +125,9 @@
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 0.5rem;
+  padding: 0.75rem;
   height: 100%;
   min-height: 0;
-  padding: 0.75rem;
 }
 
 .crud-panel__new-form--dept {
@@ -160,9 +160,9 @@
 
 .crud-panel__sales-reps-header {
   margin-bottom: 0.5rem;
-  font-weight: 600;
-  font-size: 0.85rem;
   color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .crud-panel__sales-reps-form {
@@ -180,38 +180,38 @@
 }
 
 .crud-panel__sales-reps-table th {
-  padding: 0.25rem 0.5rem;
   border-bottom: 1px solid var(--border-default);
-  font-weight: 600;
+  padding: 0.25rem 0.5rem;
   text-align: left;
   color: var(--text-muted);
+  font-weight: 600;
 }
 
 .crud-panel__sales-reps-table td {
-  padding: 0.35rem 0.5rem;
   border-bottom: 1px solid var(--border-soft);
+  padding: 0.35rem 0.5rem;
   color: var(--text-primary);
 }
 
 .crud-panel__list-wrap {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
   min-height: 0;
   overflow: auto;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-default);
 }
 
 .crud-panel__empty-text {
   margin: 0;
   padding: 1rem;
+  text-align: center;
+  color: var(--text-muted);
   font-size: 0.875rem;
   font-style: italic;
-  color: var(--text-muted);
-  text-align: center;
 }
 
 .crud-panel__table td.crud-panel__td--muted {
-  font-size: 0.85rem;
   color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .crud-panel__table td.crud-panel__td--bold {
@@ -220,8 +220,8 @@
 
 /* ── Edit section ── */
 .crud-panel__edit-section {
-  border-radius: var(--radius);
   border: 1px solid var(--border-default);
+  border-radius: var(--radius);
   background: var(--bg-surface);
   padding: 0.75rem;
 }
@@ -238,9 +238,9 @@
 }
 
 .crud-panel__edit-title {
+  color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 700;
-  color: var(--text-primary);
 }
 
 .crud-panel__edit-actions {
@@ -261,9 +261,9 @@
 
 .crud-panel__edit-placeholder-text {
   margin: 0;
+  color: var(--text-muted);
   font-size: 0.875rem;
   font-style: italic;
-  color: var(--text-muted);
 }
 
 .crud-panel__status-area {
@@ -271,35 +271,35 @@
 }
 
 .crud-panel__status-area--mt {
-  min-height: 1.25rem;
   margin-top: 0.25rem;
+  min-height: 1.25rem;
 }
 
 .crud-panel__msg--success {
   margin: 0;
+  color: var(--semantic-success-text);
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--semantic-success-text);
 }
 
 .crud-panel__msg--error {
   margin: 0;
+  color: var(--semantic-danger-text);
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--semantic-danger-text);
 }
 
 /* ── Select element used inside CRUD panels ── */
 .crud-panel__select {
   display: flex;
-  width: 100%;
-  border-radius: var(--radius);
+  outline: none;
   border: 1px solid var(--border-default);
+  border-radius: var(--radius);
   background: var(--bg-input);
   padding: 0.5rem 0.625rem;
-  font-size: 1.125rem;
+  width: 100%;
   color: var(--text-primary);
-  outline: none;
+  font-size: 1.125rem;
 }
 
 .crud-panel__select:focus {

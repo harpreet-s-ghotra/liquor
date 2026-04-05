@@ -53,6 +53,8 @@ Channels follow `entity:action` pattern:
 - `departments:list`, `departments:create`, `departments:update`, `departments:delete`
 - `tax-codes:*`, `distributors:*`, `sales-reps:*`, `cashiers:*` — same CRUD pattern
 - `merchant:get-config`, `merchant:activate`, `merchant:deactivate`
+- `auth:login`, `auth:logout`, `auth:check-session`
+- `catalog:distributors`, `catalog:import`
 - `transactions:save`, `transactions:recent`, `transactions:get-by-number`, `transactions:save-refund`, `transactions:list`
 - `held-transactions:save`, `held-transactions:list`, `held-transactions:delete`, `held-transactions:clear-all`
 - `sessions:get-active`, `sessions:create`, `sessions:close`, `sessions:list`, `sessions:report`, `sessions:print-report`
@@ -61,18 +63,64 @@ Channels follow `entity:action` pattern:
 ## Auth State Machine
 
 ```
-loading → not-activated → login → pos
+loading → auth → pin-setup → distributor-onboarding → login → pos
 ```
 
-- `not-activated`: No Stax API key → `ActivationScreen`
-- `login`: Key present, no cashier → `LoginScreen`
-- `pos`: Cashier logged in → `POSScreen`
+- `auth`: No valid Supabase session → `AuthScreen`
+- `pin-setup`: Session valid, no cashiers in SQLite → `PinSetupScreen`
+- `distributor-onboarding`: Cashiers exist, no products → `DistributorOnboardingScreen`
+- `login`: Fully set up, no cashier logged in → `LoginScreen`
+- `pos`: Cashier authenticated → `POSScreen`
+
+Supabase service: `src/main/services/supabase.ts`
+Session storage: `userData/supabase-auth.json` (file-based, Node has no localStorage)
 
 ## Key Stores
 
-| Store           | State                              | Actions                                           |
-| --------------- | ---------------------------------- | ------------------------------------------------- |
-| `useAuthStore`  | appState, merchant, cashier        | checkActivation, activate, login, logout          |
-| `usePosScreen`  | products, cart, categories, totals | addToCart, removeFromCart, checkout, loadProducts |
-| `useThemeStore` | theme (dark/light)                 | toggleTheme                                       |
-| `useAlertStore` | alerts[]                           | showAlert, dismissAlert                           |
+| Store           | State                              | Actions                                                                           |
+| --------------- | ---------------------------------- | --------------------------------------------------------------------------------- |
+| `useAuthStore`  | appState, merchant, cashier        | initialize, emailLogin, signOut, completeSetup, completeOnboarding, login, logout |
+| `usePosScreen`  | products, cart, categories, totals | addToCart, removeFromCart, checkout, loadProducts                                 |
+| `useThemeStore` | theme (dark/light)                 | toggleTheme                                                                       |
+| `useAlertStore` | alerts[]                           | showAlert, dismissAlert                                                           |
+
+## Cloud Sync — Module Lookup
+
+Sync code lives entirely in `src/main/` (main process only). Never imported by renderer.
+
+| Module                                    | Purpose                                                                               |
+| ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| `src/main/services/sync-worker.ts`        | Background drain loop + Realtime subscriptions for all entity types                   |
+| `src/main/services/sync/types.ts`         | All cloud payload types (`*SyncPayload`, `Cloud*Payload`)                             |
+| `src/main/services/sync/initial-sync.ts`  | One-time product reconciliation on startup (cursor-based pagination, LWW)             |
+| `src/main/services/sync/product-sync.ts`  | `uploadProduct`, `applyRemoteProductChange`                                           |
+| `src/main/services/sync/inventory-delta-sync.ts` | `uploadInventoryDelta` (append-only cloud deltas)                            |
+| `src/main/services/sync/transaction-sync.ts` | `uploadTransaction`, `applyRemoteTransaction`                                      |
+| `src/main/services/sync/item-type-sync.ts` | `uploadItemType`, `applyRemoteItemTypeChange` (name renames propagate to products)   |
+| `src/main/services/sync/tax-code-sync.ts` | `uploadTaxCode`, `applyRemoteTaxCodeChange`                                          |
+| `src/main/services/sync/distributor-sync.ts` | `uploadDistributor`, `applyRemoteDistributorChange`                               |
+| `src/main/services/sync/cashier-sync.ts`  | `uploadCashier`, `applyRemoteCashierChange` (includes pin_hash, main-process only)    |
+| `src/main/database/sync-queue.repo.ts`    | Local sync queue CRUD                                                                 |
+| `src/main/database/device-config.repo.ts` | Device UUID + fingerprint storage                                                     |
+| `src/main/services/connectivity.ts`       | `net.isOnline()` polling + listener                                                   |
+| `src/main/services/device-registration.ts` | Registers terminal in Supabase `registers` table                                    |
+
+### SyncEntityType values
+
+`'product' | 'inventory_delta' | 'transaction' | 'item_type' | 'tax_code' | 'distributor' | 'cashier'`
+
+### Natural identity keys (for upsert)
+
+| Entity      | Conflict key                       |
+| ----------- | ---------------------------------- |
+| product     | `merchant_id, sku`                 |
+| item_type   | `merchant_id, name`                |
+| tax_code    | `merchant_id, code`                |
+| distributor | `merchant_id, distributor_number`  |
+| cashier     | `merchant_id, pin_hash`            |
+
+### IPC sync channels
+
+- `sync:get-status` → queue stats + last_synced_at
+- `sync:get-device-config` → device UUID + name
+- `sync:connectivity-changed` → event emitted by connectivity monitor

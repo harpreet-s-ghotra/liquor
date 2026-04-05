@@ -66,23 +66,25 @@ export function deriveFilteredProducts(
   const term = search.trim().toLowerCase()
   const favoriteSkuSet = getFavoriteSkuSet(products)
 
-  return products.filter((product) => {
-    const searchMatch =
-      term.length === 0 ||
-      product.name.toLowerCase().includes(term) ||
-      product.sku.toLowerCase().includes(term)
+  return products
+    .filter((product) => {
+      const searchMatch =
+        term.length === 0 ||
+        product.name.toLowerCase().includes(term) ||
+        product.sku.toLowerCase().includes(term)
 
-    if (term.length > 0) return searchMatch
+      if (term.length > 0) return searchMatch
 
-    const categoryMatch =
-      activeCategory === ALL_CATEGORY
-        ? true
-        : activeCategory === FAVORITES_CATEGORY
-          ? favoriteSkuSet.has(product.sku)
-          : product.category === activeCategory
+      const categoryMatch =
+        activeCategory === ALL_CATEGORY
+          ? true
+          : activeCategory === FAVORITES_CATEGORY
+            ? favoriteSkuSet.has(product.sku)
+            : product.category === activeCategory
 
-    return categoryMatch
-  })
+      return categoryMatch
+    })
+    .slice(0, 20)
 }
 
 export function deriveCartTotals(

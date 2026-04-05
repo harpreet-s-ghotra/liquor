@@ -20,7 +20,7 @@ beforeEach(() => {
     appState: 'login' as AppState,
     merchantConfig: {
       id: 1,
-      stax_api_key: 'key',
+      payment_processing_api_key: 'key',
       merchant_id: 'merch-123',
       merchant_name: 'High Spirits Liquor',
       activated_at: '2026-01-01',

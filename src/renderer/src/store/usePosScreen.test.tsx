@@ -50,10 +50,16 @@ describe('usePosScreen', () => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
-      getProducts: async () => mockProducts,
-      getActiveSpecialPricing: async () => []
+      getProducts: vi.fn().mockResolvedValue(mockProducts),
+      getActiveSpecialPricing: vi.fn().mockResolvedValue([])
     }
   })
+
+  const waitForHookStartup = async (): Promise<void> => {
+    await waitFor(() => {
+      expect(window.api?.getActiveSpecialPricing).toHaveBeenCalled()
+    })
+  }
 
   it('defaults to Favorites category and provides filtered products', async () => {
     const { result } = renderHook(() => usePosScreen())
@@ -843,6 +849,7 @@ describe('usePosScreen', () => {
     })
 
     it('returns false when api call throws', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(window as any).api.getTransactionByNumber = vi.fn().mockRejectedValue(new Error('db error'))
       const { result } = renderHook(() => usePosScreen())
@@ -853,6 +860,7 @@ describe('usePosScreen', () => {
         ok = await result.current.recallTransaction('TXN-ERR')
       })
       expect(ok).toBe(false)
+      consoleErrorSpy.mockRestore()
     })
 
     it('returns false when api is unavailable', async () => {
@@ -871,6 +879,7 @@ describe('usePosScreen', () => {
 
   describe('held transaction error branches', () => {
     it('loadHeldTransactions handles api error', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(window as any).api.getHeldTransactions = vi.fn().mockRejectedValue(new Error('load error'))
       const { result } = renderHook(() => usePosScreen())
@@ -881,9 +890,11 @@ describe('usePosScreen', () => {
       })
       // Should not throw; heldTransactions stays unchanged
       expect(result.current.heldTransactions).toEqual([])
+      consoleErrorSpy.mockRestore()
     })
 
     it('clearAllHeldTransactions handles api error', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(window as any).api.clearAllHeldTransactions = vi
         .fn()
@@ -896,6 +907,7 @@ describe('usePosScreen', () => {
       })
       // Should not throw
       expect(result.current.heldTransactions).toEqual([])
+      consoleErrorSpy.mockRestore()
     })
   })
 
@@ -955,6 +967,7 @@ describe('usePosScreen', () => {
     it('toggleReturnItem adds item with full lineQuantity', async () => {
       setupRecalledState()
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.toggleReturnItem(1)
@@ -967,6 +980,7 @@ describe('usePosScreen', () => {
     it('toggleReturnItem removes item on second call', async () => {
       setupRecalledState()
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.toggleReturnItem(1)
@@ -985,6 +999,7 @@ describe('usePosScreen', () => {
         viewingTransaction: { ...mockTransaction, status: 'refund' as const }
       })
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.toggleReturnItem(1)
@@ -1001,6 +1016,7 @@ describe('usePosScreen', () => {
         returnItems: {}
       })
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.toggleReturnItem(1)
@@ -1012,6 +1028,7 @@ describe('usePosScreen', () => {
     it('toggleReturnAll marks all cart items', async () => {
       setupRecalledState()
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.toggleReturnAll()
@@ -1023,6 +1040,7 @@ describe('usePosScreen', () => {
     it('toggleReturnAll unmarks all when all are marked', async () => {
       setupRecalledState()
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.toggleReturnAll()
@@ -1040,6 +1058,7 @@ describe('usePosScreen', () => {
         viewingTransaction: { ...mockTransaction, status: 'refund' as const }
       })
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.toggleReturnAll()
@@ -1066,6 +1085,7 @@ describe('usePosScreen', () => {
         returnItems: { 1: 5 }
       })
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.setReturnItemQuantity(1, 3)
@@ -1102,6 +1122,7 @@ describe('usePosScreen', () => {
         returnItems: { 1: 5 }
       })
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.setReturnItemQuantity(1, 3)
@@ -1113,6 +1134,7 @@ describe('usePosScreen', () => {
       setupRecalledState()
       usePosStore.setState({ returnItems: { 1: 1 } })
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.setReturnItemQuantity(999, 3)
@@ -1124,6 +1146,7 @@ describe('usePosScreen', () => {
       setupRecalledState()
       usePosStore.setState({ returnItems: { 1: 1, 2: 1 } })
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.dismissRecalledTransaction()
@@ -1136,6 +1159,7 @@ describe('usePosScreen', () => {
     it('computes negative return totals', async () => {
       setupRecalledState()
       const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
 
       act(() => {
         result.current.toggleReturnItem(1)
@@ -1150,6 +1174,10 @@ describe('usePosScreen', () => {
       setupRecalledState()
       const { result } = renderHook(() => usePosScreen())
 
+      await waitFor(() => {
+        expect(window.api?.getActiveSpecialPricing).toHaveBeenCalled()
+      })
+
       expect(result.current.returnSubtotal).toBe(0)
       expect(result.current.returnTax).toBe(0)
       expect(result.current.returnTotal).toBe(0)
@@ -1163,6 +1191,10 @@ describe('usePosScreen', () => {
         returnItems: {}
       })
       const { result } = renderHook(() => usePosScreen())
+
+      await waitFor(() => {
+        expect(window.api?.getActiveSpecialPricing).toHaveBeenCalled()
+      })
 
       expect(result.current.returnSubtotal).toBe(0)
       expect(result.current.returnTax).toBe(0)

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Dialog, DialogContent } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@renderer/components/ui/tabs'
 import { ItemForm, type ItemFormHandle, type ItemFormButtonState } from './items/ItemForm'
-import { DepartmentPanel } from './departments/DepartmentPanel'
+import { ItemTypePanel } from './item-types/ItemTypePanel'
 import { TaxCodePanel } from './tax-codes/TaxCodePanel'
 import { DistributorPanel } from './distributors/DistributorPanel'
 import { FooterActionBar } from './FooterActionBar'
@@ -143,8 +143,10 @@ export function InventoryModal({
       <DialogContent
         className="inventory-modal"
         aria-label="Inventory Management"
+        aria-describedby={undefined}
         onInteractOutside={(e) => e.preventDefault()}
       >
+        <DialogTitle className="dialog__sr-only">Inventory Management</DialogTitle>
         {/* Header */}
         <div className="inventory-modal__header">
           <div className="inventory-modal__header-icon">
@@ -169,8 +171,8 @@ export function InventoryModal({
                 ? itemBtnState.selectedSku
                   ? `Edit Record: ${itemBtnState.selectedSku}`
                   : 'New Item'
-                : activeTab === 'departments'
-                  ? 'Departments'
+                : activeTab === 'item-types'
+                  ? 'Item Types'
                   : activeTab === 'tax-codes'
                     ? 'Tax Codes'
                     : activeTab === 'distributors'
@@ -199,7 +201,7 @@ export function InventoryModal({
               {(
                 [
                   { value: INVENTORY_TABS[0], label: 'Items' },
-                  { value: INVENTORY_TABS[1], label: 'Departments' },
+                  { value: INVENTORY_TABS[1], label: 'Item Types' },
                   { value: INVENTORY_TABS[2], label: 'Tax Codes' },
                   { value: INVENTORY_TABS[3], label: 'Distributors' }
                 ] as const
@@ -227,10 +229,10 @@ export function InventoryModal({
             />
           </TabsContent>
           <TabsContent
-            value="departments"
+            value="item-types"
             className="inventory-modal__tab-content inventory-modal__tab-content--panel"
           >
-            <DepartmentPanel searchFilter={searchTerm} />
+            <ItemTypePanel searchFilter={searchTerm} />
           </TabsContent>
           <TabsContent
             value="tax-codes"

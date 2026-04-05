@@ -4,17 +4,22 @@ export type Product = {
   id: number
   sku: string
   name: string
+  display_name?: string | null
+  size?: string | null
+  distributor_name?: string | null
   category: string
   price: number
   quantity: number
   tax_rate: number
+  bottles_per_case?: number | null
+  case_discount_price?: number | null
 }
 
 export type InventoryProduct = {
   item_number: number
   sku: string
   item_name: string
-  dept_id: string | null
+  item_type: string | null
   category_id: number | null
   category_name: string | null
   cost: number
@@ -31,7 +36,6 @@ export type InventoryProduct = {
   special_pricing_enabled: number
   special_price: number | null
   is_active: number
-  item_type: string | null
   size: string | null
   case_cost: number | null
   nysla_discounts: string | null
@@ -40,6 +44,7 @@ export type InventoryProduct = {
   alcohol_pct: number | null
   vintage: string | null
   ttb_id: string | null
+  display_name: string | null
 }
 
 export type NyslaDiscount = {
@@ -209,7 +214,7 @@ export type ActiveSpecialPricingRule = {
 
 /** Promotion metadata attached to a cart line by the pricing engine */
 export type PromoAnnotation = {
-  promoType: 'special-pricing' | 'mix-match'
+  promoType: 'special-pricing' | 'mix-match' | 'case-discount'
   promoLabel: string
   promoUnitPrice: number
   promoLineSavings: number
@@ -227,7 +232,6 @@ export type SaveInventoryItemInput = {
   item_number?: number
   sku: string
   item_name: string
-  dept_id: string
   distributor_number: number | null
   cost: number
   retail_price: number
@@ -246,6 +250,7 @@ export type SaveInventoryItemInput = {
   alcohol_pct: number | null
   vintage: string
   ttb_id: string
+  display_name: string
 }
 
 export type InventoryTaxCode = {
@@ -253,7 +258,7 @@ export type InventoryTaxCode = {
   rate: number
 }
 
-export type Department = {
+export type ItemType = {
   id: number
   name: string
   description: string | null
@@ -286,13 +291,13 @@ export type SalesRep = {
   is_active: number
 }
 
-export type CreateDepartmentInput = {
+export type CreateItemTypeInput = {
   name: string
   description?: string | null
   default_profit_margin?: number
   default_tax_rate?: number
 }
-export type UpdateDepartmentInput = {
+export type UpdateItemTypeInput = {
   id: number
   name: string
   description?: string | null
@@ -365,11 +370,57 @@ export type HeldTransaction = {
   held_at: string
 }
 
+// ── Supabase Auth & Catalog ──
+
+export type AuthUser = {
+  id: string
+  email: string
+}
+
+export type AuthResult = {
+  user: AuthUser
+  merchant: MerchantConfig
+}
+
+export type CatalogDistributor = {
+  distributor_id: number
+  distributor_name: string
+  distributor_permit_id: string | null
+  county: string | null
+  post_type: string | null
+}
+
+export type CatalogProduct = {
+  id: number
+  distributor_id: number
+  nys_item: string | null
+  ttb_id: string | null
+  brand_name: string | null
+  prod_name: string
+  beverage_type: string | null
+  bev_type_code: string | null
+  item_type: string | null
+  item_size: string | null
+  unit_of_measure: string | null
+  bottles_per_case: number | null
+  proof: number | null
+  alcohol_pct: number | null
+  vintage: string | null
+  bot_price: number | null
+  case_price: number | null
+  post_type: string | null
+}
+
+export type ImportResult = {
+  imported: number
+  distributors_created: number
+}
+
 // ── Merchant Activation & Cashier Login ──
 
 export type MerchantConfig = {
   id: number
-  stax_api_key: string
+  payment_processing_api_key: string
   merchant_id: string
   merchant_name: string
   activated_at: string
@@ -377,7 +428,7 @@ export type MerchantConfig = {
 }
 
 export type SaveMerchantConfigInput = {
-  stax_api_key: string
+  payment_processing_api_key: string
   merchant_id: string
   merchant_name: string
 }
@@ -509,9 +560,9 @@ export type CloseSessionInput = {
   cashier_name: string
 }
 
-/** Sales breakdown by department for the End-of-Day report */
-export type DepartmentSalesRow = {
-  department_name: string
+/** Sales breakdown by item type for the End-of-Day report */
+export type ItemTypeSalesRow = {
+  item_type_name: string
   transaction_count: number
   total_amount: number
 }
@@ -526,7 +577,7 @@ export type PaymentMethodSalesRow = {
 /** Full End-of-Day (clock-out) report data */
 export type ClockOutReport = {
   session: Session
-  sales_by_department: DepartmentSalesRow[]
+  sales_by_item_type: ItemTypeSalesRow[]
   sales_by_payment_method: PaymentMethodSalesRow[]
   total_sales_count: number
   gross_sales: number
@@ -552,4 +603,67 @@ export type PrintClockOutReportInput = {
   store_name: string
   cashier_name: string
   report: ClockOutReport
+}
+
+// ── Cloud Sync (Phase B) ──
+
+/** Local device identity — singleton table, one row per POS register */
+export type DeviceConfig = {
+  id: number
+  device_id: string
+  device_name: string
+  device_fingerprint: string
+  registered_at: string
+}
+
+export type SaveDeviceConfigInput = {
+  device_id: string
+  device_name: string
+  device_fingerprint: string
+}
+
+/** Entity types that can be synced to the cloud */
+export type SyncEntityType =
+  | 'transaction'
+  | 'product'
+  | 'item_type'
+  | 'tax_code'
+  | 'cashier'
+  | 'distributor'
+  | 'inventory_delta'
+
+/** A queued sync operation waiting to be uploaded */
+export type SyncQueueItem = {
+  id: number
+  entity_type: SyncEntityType
+  entity_id: string
+  operation: 'INSERT' | 'UPDATE' | 'DELETE'
+  payload: string
+  device_id: string
+  created_at: string
+  attempts: number
+  last_error: string | null
+  status: 'pending' | 'in_flight' | 'failed' | 'done'
+}
+
+export type SyncQueueInsert = {
+  entity_type: SyncEntityType
+  entity_id: string
+  operation: 'INSERT' | 'UPDATE' | 'DELETE'
+  payload: string
+  device_id: string
+}
+
+/** Sync status exposed to the renderer for the status indicator */
+export type SyncStatus = {
+  online: boolean
+  pending_count: number
+  last_synced_at: string | null
+}
+
+/** Queue statistics for monitoring */
+export type SyncQueueStats = {
+  pending: number
+  in_flight: number
+  failed: number
 }

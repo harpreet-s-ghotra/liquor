@@ -1,14 +1,13 @@
 {
   "servers": {
-    "figma": {
-      "url": "https://mcp.figma.com/mcp"
-    },
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "args": ["@playwright/mcp@latest"],
+      "type": "stdio"
     },
     "staxapi": {
-      "url": "https://docs.staxpayments.com/mcp"
+      "url": "https://docs.staxpayments.com/mcp",
+      "type": "http"
     }
   }
 }

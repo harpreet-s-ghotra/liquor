@@ -102,9 +102,55 @@ function migrateVendorsToDistributors(database: InstanceType<typeof Database>): 
  * Apply schema DDL and column migrations to any Database instance.
  * Used by initializeDatabase (production) and test helpers (in-memory).
  */
+/**
+ * One-time migration: rename stax_api_key -> payment_processing_api_key in merchant_config.
+ */
+function migrateStaxApiKey(database: InstanceType<typeof Database>): void {
+  if (!tableExists(database, 'merchant_config')) return
+  if (!columnExists(database, 'merchant_config', 'stax_api_key')) return
+  database.exec(
+    `ALTER TABLE merchant_config RENAME COLUMN stax_api_key TO payment_processing_api_key`
+  )
+}
+
+/**
+ * One-time migration: rename departments -> item_types.
+ */
+function migrateDepartmentsToItemTypes(database: InstanceType<typeof Database>): void {
+  if (!tableExists(database, 'departments')) return
+  if (tableExists(database, 'item_types')) {
+    // item_types already exists — move any departments rows that are missing
+    database.exec(`
+      INSERT OR IGNORE INTO item_types (name, description, default_profit_margin, default_tax_rate)
+      SELECT name, description, default_profit_margin, default_tax_rate
+      FROM departments
+    `)
+    return
+  }
+  database.exec(`ALTER TABLE departments RENAME TO item_types`)
+}
+
+/**
+ * One-time migration: copy products.dept_id into products.item_type where item_type is NULL,
+ * then NULL out dept_id.
+ */
+function migrateDeptIdToItemType(database: InstanceType<typeof Database>): void {
+  if (!columnExists(database, 'products', 'dept_id')) return
+  if (!columnExists(database, 'products', 'item_type')) return
+  database.exec(`
+    UPDATE products
+    SET item_type = COALESCE(NULLIF(TRIM(item_type), ''), TRIM(dept_id)),
+        dept_id = NULL
+    WHERE dept_id IS NOT NULL AND TRIM(dept_id) != ''
+  `)
+}
+
 export function applySchema(database: InstanceType<typeof Database>): void {
-  // ── Migration: vendors -> distributors (existing DBs only) ──
+  // ── Migrations ──
   migrateVendorsToDistributors(database)
+  migrateStaxApiKey(database)
+  migrateDepartmentsToItemTypes(database)
+  migrateDeptIdToItemType(database)
 
   // ── Tables ──
 
@@ -213,7 +259,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
 
-    CREATE TABLE IF NOT EXISTS departments (
+    CREATE TABLE IF NOT EXISTS item_types (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -230,7 +276,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
 
     CREATE TABLE IF NOT EXISTS merchant_config (
       id INTEGER PRIMARY KEY CHECK (id = 1),
-      stax_api_key TEXT NOT NULL,
+      payment_processing_api_key TEXT NOT NULL,
       merchant_id TEXT NOT NULL,
       merchant_name TEXT NOT NULL,
       activated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -270,6 +316,40 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       FOREIGN KEY (opened_by_cashier_id) REFERENCES cashiers(id),
       FOREIGN KEY (closed_by_cashier_id) REFERENCES cashiers(id)
     );
+
+    CREATE TABLE IF NOT EXISTS device_config (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      device_id TEXT NOT NULL,
+      device_name TEXT NOT NULL,
+      device_fingerprint TEXT NOT NULL,
+      registered_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      operation TEXT NOT NULL CHECK (operation IN ('INSERT', 'UPDATE', 'DELETE')),
+      payload TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      attempts INTEGER DEFAULT 0,
+      last_error TEXT,
+      status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in_flight', 'failed', 'done'))
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory_deltas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL,
+      product_sku TEXT NOT NULL,
+      delta INTEGER NOT NULL,
+      reason TEXT NOT NULL CHECK (reason IN ('sale', 'refund', 'manual_adjustment', 'receiving')),
+      reference_id TEXT,
+      device_id TEXT,
+      synced_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    );
   `)
 
   // ── Column migrations ──
@@ -279,6 +359,8 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('transactions', 'card_type', 'card_type TEXT')
   ensureColumn('transactions', 'original_transaction_id', 'original_transaction_id INTEGER')
   ensureColumn('transactions', 'session_id', 'session_id INTEGER')
+  ensureColumn('transactions', 'device_id', 'device_id TEXT')
+  ensureColumn('transactions', 'synced_at', 'synced_at DATETIME')
 
   ensureColumn('products', 'dept_id', 'dept_id TEXT')
   ensureColumn('products', 'category_id', 'category_id INTEGER')
@@ -302,20 +384,46 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('products', 'alcohol_pct', 'alcohol_pct REAL')
   ensureColumn('products', 'vintage', 'vintage TEXT')
   ensureColumn('products', 'ttb_id', 'ttb_id TEXT')
+  ensureColumn('products', 'display_name', 'display_name TEXT')
 
   // Special pricing column migrations
   ensureColumn('special_pricing', 'pricing_type', "pricing_type TEXT DEFAULT 'group'")
 
-  // Department column migrations
-  ensureColumn('departments', 'description', 'description TEXT')
-  ensureColumn('departments', 'default_profit_margin', 'default_profit_margin REAL DEFAULT 0')
-  ensureColumn('departments', 'default_tax_rate', 'default_tax_rate REAL DEFAULT 0')
+  // Item type column migrations
+  ensureColumn('item_types', 'description', 'description TEXT')
+  ensureColumn('item_types', 'default_profit_margin', 'default_profit_margin REAL DEFAULT 0')
+  ensureColumn('item_types', 'default_tax_rate', 'default_tax_rate REAL DEFAULT 0')
 
   // Distributor license columns (for existing distributors tables created before license fields)
   ensureColumn('distributors', 'license_id', 'license_id TEXT')
   ensureColumn('distributors', 'serial_number', 'serial_number TEXT')
   ensureColumn('distributors', 'premises_name', 'premises_name TEXT')
   ensureColumn('distributors', 'premises_address', 'premises_address TEXT')
+
+  // Cloud sync columns — products
+  ensureColumn('products', 'cloud_id', 'cloud_id TEXT')
+  ensureColumn('products', 'synced_at', 'synced_at DATETIME')
+  ensureColumn('products', 'last_modified_by_device', 'last_modified_by_device TEXT')
+
+  // Cloud sync columns — item_types
+  ensureColumn('item_types', 'cloud_id', 'cloud_id TEXT')
+  ensureColumn('item_types', 'synced_at', 'synced_at DATETIME')
+  ensureColumn('item_types', 'last_modified_by_device', 'last_modified_by_device TEXT')
+
+  // Cloud sync columns — tax_codes
+  ensureColumn('tax_codes', 'cloud_id', 'cloud_id TEXT')
+  ensureColumn('tax_codes', 'synced_at', 'synced_at DATETIME')
+  ensureColumn('tax_codes', 'last_modified_by_device', 'last_modified_by_device TEXT')
+
+  // Cloud sync columns — cashiers
+  ensureColumn('cashiers', 'cloud_id', 'cloud_id TEXT')
+  ensureColumn('cashiers', 'synced_at', 'synced_at DATETIME')
+  ensureColumn('cashiers', 'last_modified_by_device', 'last_modified_by_device TEXT')
+
+  // Cloud sync columns — distributors
+  ensureColumn('distributors', 'cloud_id', 'cloud_id TEXT')
+  ensureColumn('distributors', 'synced_at', 'synced_at DATETIME')
+  ensureColumn('distributors', 'last_modified_by_device', 'last_modified_by_device TEXT')
 
   // ── Indexes ──
 
@@ -329,6 +437,8 @@ export function applySchema(database: InstanceType<typeof Database>): void {
     CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
     CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
     CREATE INDEX IF NOT EXISTS idx_transactions_session_id ON transactions(session_id);
+    CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status);
+    CREATE INDEX IF NOT EXISTS idx_sync_queue_entity ON sync_queue(entity_type, entity_id);
   `)
 
   // ── Backfill nullable columns ──

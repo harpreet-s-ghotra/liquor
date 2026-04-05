@@ -6,21 +6,20 @@ import { useAuthStore, type AppState } from '../store/useAuthStore'
 
 // ── Mock the auth store ──
 
-const mockActivate = vi.fn()
+const mockEmailLogin = vi.fn()
 
 beforeEach(() => {
   useAuthStore.setState({
-    appState: 'not-activated' as AppState,
+    appState: 'auth' as AppState,
     merchantConfig: null,
     error: null,
     currentCashier: null,
     loginAttempts: 0,
     lockoutUntil: null
   })
-  mockActivate.mockReset()
+  mockEmailLogin.mockReset()
 
-  // Patch the activate function
-  useAuthStore.setState({ activate: mockActivate } as unknown as Partial<
+  useAuthStore.setState({ emailLogin: mockEmailLogin } as unknown as Partial<
     ReturnType<typeof useAuthStore.getState>
   >)
 })
@@ -30,76 +29,54 @@ afterEach(() => {
 })
 
 describe('ActivationScreen', () => {
-  it('renders the activation form', () => {
+  it('renders the sign-in form', () => {
     render(<ActivationScreen />)
 
-    expect(screen.getByText('Activate Your POS')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Enter your Stax API key')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /activate/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Sign In' })).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Password')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
   })
 
-  it('disables the button when API key is empty', () => {
+  it('disables the button when email or password is empty', () => {
     render(<ActivationScreen />)
 
-    const button = screen.getByRole('button', { name: /activate/i })
+    const button = screen.getByRole('button', { name: /sign in/i })
     expect(button).toBeDisabled()
   })
 
-  it('calls activate with the entered API key', async () => {
+  it('calls emailLogin with email and password', async () => {
     const user = userEvent.setup()
-    mockActivate.mockResolvedValue(undefined)
+    mockEmailLogin.mockResolvedValue(undefined)
     render(<ActivationScreen />)
 
-    const input = screen.getByPlaceholderText('Enter your Stax API key')
-    await user.type(input, 'my-test-api-key')
+    await user.type(screen.getByPlaceholderText('you@example.com'), 'admin@store.com')
+    await user.type(screen.getByPlaceholderText('Password'), 'secret123')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
 
-    const button = screen.getByRole('button', { name: /activate/i })
-    await user.click(button)
-
-    expect(mockActivate).toHaveBeenCalledWith('my-test-api-key')
+    expect(mockEmailLogin).toHaveBeenCalledWith('admin@store.com', 'secret123')
   })
 
-  it('shows an error message when activation fails', async () => {
-    useAuthStore.setState({
-      error: 'Stax API key validation failed (HTTP 401)'
-    })
+  it('shows an error message when sign-in fails', () => {
+    useAuthStore.setState({ error: 'Invalid email or password' })
 
     render(<ActivationScreen />)
 
-    expect(screen.getByText('Stax API key validation failed (HTTP 401)')).toBeInTheDocument()
+    expect(screen.getByText('Invalid email or password')).toBeInTheDocument()
   })
 
-  it('shows loading state during activation', async () => {
+  it('shows loading state while signing in', async () => {
     const user = userEvent.setup()
-    // Make activate hang to simulate loading
-    mockActivate.mockImplementation(() => new Promise(() => {}))
+    mockEmailLogin.mockImplementation(() => new Promise(() => {}))
 
     render(<ActivationScreen />)
 
-    const input = screen.getByPlaceholderText('Enter your Stax API key')
-    await user.type(input, 'test-key')
-
-    const button = screen.getByRole('button', { name: /activate/i })
-    await user.click(button)
+    await user.type(screen.getByPlaceholderText('you@example.com'), 'a@b.com')
+    await user.type(screen.getByPlaceholderText('Password'), 'pass')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/validating/i)).toBeInTheDocument()
+      expect(screen.getByText(/signing in/i)).toBeInTheDocument()
     })
-  })
-
-  it('toggles API key visibility', async () => {
-    const user = userEvent.setup()
-    render(<ActivationScreen />)
-
-    const input = screen.getByPlaceholderText('Enter your Stax API key')
-    expect(input).toHaveAttribute('type', 'password')
-
-    const toggleBtn = screen.getByLabelText(/toggle.*visibility/i)
-    await user.click(toggleBtn)
-
-    expect(input).toHaveAttribute('type', 'text')
-
-    await user.click(toggleBtn)
-    expect(input).toHaveAttribute('type', 'password')
   })
 })

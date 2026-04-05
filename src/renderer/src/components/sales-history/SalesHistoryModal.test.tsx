@@ -112,9 +112,17 @@ describe('SalesHistoryModal', () => {
       target: { value: 'TXN-1001' }
     })
 
+    await waitFor(() => {
+      expect(window.api?.listTransactions).toHaveBeenCalledTimes(5)
+    })
+
     expect(screen.getByTestId('sales-history-clear-filters')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('sales-history-clear-filters'))
+
+    await waitFor(() => {
+      expect(window.api?.listTransactions).toHaveBeenCalledTimes(6)
+    })
 
     expect(screen.getByTestId('sales-history-date-filter')).toHaveValue('today')
     expect(screen.getByTestId('sales-history-status-filter')).toHaveValue('')

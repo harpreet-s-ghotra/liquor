@@ -249,14 +249,14 @@ function renderClockOutContent(
   doc.moveDown(0.3)
   drawLine(doc, cfg.paddingX)
 
-  // Sales by Department
-  if (report.sales_by_department.length > 0) {
+  // Sales by Item Type
+  if (report.sales_by_item_type.length > 0) {
     doc.font('Helvetica-Bold').fontSize(cfg.fontSize)
-    doc.text('SALES BY DEPARTMENT', cfg.paddingX)
+    doc.text('SALES BY ITEM TYPE', cfg.paddingX)
     doc.font('Helvetica').fontSize(cfg.fontSize)
-    for (const row of report.sales_by_department) {
+    for (const row of report.sales_by_item_type) {
       const y = doc.y
-      doc.text(row.department_name, cfg.paddingX, y)
+      doc.text(row.item_type_name, cfg.paddingX, y)
       doc.text(fmt(row.total_amount), cfg.paddingX, y, { width: contentWidth, align: 'right' })
     }
     doc.moveDown(0.2)

@@ -4,9 +4,9 @@
   display: grid;
   grid-template-rows: auto auto 1fr auto auto;
   gap: 0.75rem;
-  width: min(60rem, 95%);
-  height: min(80vh, 44rem);
   padding: 0.75rem;
+  width: min(80rem, 95%);
+  height: min(80vh, 44rem);
 }
 
 .search-modal__filters {
@@ -16,37 +16,37 @@
 }
 
 .search-modal__filter-select {
-  height: 2.5rem;
-  border-radius: var(--radius);
   border: 1px solid var(--border-default);
+  border-radius: var(--radius);
   background: var(--bg-input);
   padding: 0 0.75rem;
-  font-size: 1rem;
+  height: 2.5rem;
   color: var(--text-primary);
+  font-size: 1rem;
 }
 
 .search-modal__results {
   display: grid;
   grid-template-rows: 2.25rem 1fr;
-  overflow: hidden;
   border-radius: var(--radius);
   background: var(--bg-surface);
+  overflow: hidden;
 }
 
 .search-modal__results-header {
   display: grid;
-  align-items: center;
   column-gap: 1rem;
+  align-items: center;
   border-bottom: 1px solid var(--border-soft);
   background: var(--bg-surface-soft);
   padding: 0 0.75rem;
+  color: var(--text-primary);
   font-size: 1rem;
   font-weight: 700;
-  color: var(--text-primary);
 }
 
-.search-modal__results-header span:nth-child(2),
-.search-modal__results-header span:nth-child(3) {
+.search-modal__results-header span:nth-child(4),
+.search-modal__results-header span:nth-child(5) {
   text-align: right;
 }
 
@@ -56,24 +56,24 @@
 
 .search-modal__result-empty {
   padding: 1rem;
-  font-size: 1rem;
   color: var(--text-muted);
+  font-size: 1rem;
 }
 
 .search-modal__result-row {
   display: grid;
-  align-items: center;
   column-gap: 1rem;
-  width: 100%;
-  min-height: 2.75rem;
+  align-items: center;
   border: none;
   border-bottom: 1px solid var(--border-soft);
   background: var(--bg-surface);
-  padding: 0 0.75rem;
-  font-size: 1rem;
-  color: var(--text-primary);
-  text-align: left;
   cursor: pointer;
+  padding: 0 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
+  text-align: left;
+  color: var(--text-primary);
+  font-size: 1rem;
 }
 
 .search-modal__result-row:hover {
@@ -85,10 +85,23 @@
 }
 
 .search-modal__result-name {
-  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 500;
+}
+
+.search-modal__result-size {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.search-modal__result-distributor {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.875rem;
 }
 
 .search-modal__result-qty {

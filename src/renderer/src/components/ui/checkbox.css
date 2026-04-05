@@ -2,13 +2,13 @@
 
 .checkbox {
   display: inline-flex;
-  width: 1rem;
-  height: 1rem;
   flex-shrink: 0;
   border: 1px solid var(--border-default);
   border-radius: 0.125rem;
   background: var(--bg-surface);
   cursor: pointer;
+  width: 1rem;
+  height: 1rem;
 }
 
 .checkbox[data-state='checked'] {

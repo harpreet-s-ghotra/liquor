@@ -5,16 +5,32 @@ import { useAuthStore, type AppState } from './useAuthStore'
 // ── Mock the window.api bridge ──
 
 const mockApi = {
-  getMerchantConfig: vi.fn(),
-  activateMerchant: vi.fn(),
-  deactivateMerchant: vi.fn(),
+  authCheckSession: vi.fn(),
+  authLogin: vi.fn(),
+  authLogout: vi.fn(),
   getCashiers: vi.fn(),
+  getProducts: vi.fn(),
   validatePin: vi.fn(),
-  createCashier: vi.fn()
+  createCashier: vi.fn(),
+  getActiveSession: vi.fn(),
+  createSession: vi.fn()
+}
+
+const merchantConfig = {
+  id: 1,
+  payment_processing_api_key: 'test-key',
+  merchant_id: 'merch-123',
+  merchant_name: 'Test Store',
+  activated_at: '2026-01-01',
+  updated_at: '2026-01-01'
+}
+
+const authResult = {
+  user: { id: 'user-uuid', email: 'admin@store.com' },
+  merchant: merchantConfig
 }
 
 beforeEach(() => {
-  // Reset Zustand store between tests
   useAuthStore.setState({
     appState: 'loading' as AppState,
     merchantConfig: null,
@@ -24,11 +40,13 @@ beforeEach(() => {
     error: null
   })
 
-  // Reset mocks — clear call counts and implementations
   Object.values(mockApi).forEach((fn) => fn.mockReset())
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(window as any).api = mockApi
+
+  // Default: no active session, no cashiers, no products
+  mockApi.getActiveSession.mockResolvedValue(null)
+  mockApi.createSession.mockResolvedValue({ id: 1, status: 'active' })
 })
 
 afterEach(() => {
@@ -38,8 +56,8 @@ afterEach(() => {
 
 describe('useAuthStore', () => {
   describe('initialize', () => {
-    it('sets appState to not-activated when no merchant config exists', async () => {
-      mockApi.getMerchantConfig.mockResolvedValue(null)
+    it('sets appState to auth when no Supabase session exists', async () => {
+      mockApi.authCheckSession.mockResolvedValue(null)
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -47,21 +65,14 @@ describe('useAuthStore', () => {
         await result.current.initialize()
       })
 
-      expect(result.current.appState).toBe('not-activated')
+      expect(result.current.appState).toBe('auth')
       expect(result.current.merchantConfig).toBeNull()
     })
 
-    it('sets appState to login when merchant is activated but no cashiers', async () => {
-      const config = {
-        id: 1,
-        stax_api_key: 'test-key',
-        merchant_id: 'merch-123',
-        merchant_name: 'Test Store',
-        activated_at: '2026-01-01',
-        updated_at: '2026-01-01'
-      }
-      mockApi.getMerchantConfig.mockResolvedValue(config)
+    it('sets appState to pin-setup when session exists but no cashiers', async () => {
+      mockApi.authCheckSession.mockResolvedValue(authResult)
       mockApi.getCashiers.mockResolvedValue([])
+      mockApi.getProducts.mockResolvedValue([])
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -69,22 +80,33 @@ describe('useAuthStore', () => {
         await result.current.initialize()
       })
 
-      expect(result.current.appState).toBe('login')
-      expect(result.current.merchantConfig).toEqual(config)
+      expect(result.current.appState).toBe('pin-setup')
+      expect(result.current.merchantConfig).toEqual(merchantConfig)
     })
 
-    it('sets appState to login when merchant is activated and cashiers exist', async () => {
-      const config = {
-        id: 1,
-        stax_api_key: 'test-key',
-        merchant_id: 'merch-123',
-        merchant_name: 'Test Store',
-        activated_at: '2026-01-01',
-        updated_at: '2026-01-01'
-      }
-      mockApi.getMerchantConfig.mockResolvedValue(config)
+    it('sets appState to distributor-onboarding when cashiers exist but no products', async () => {
+      mockApi.authCheckSession.mockResolvedValue(authResult)
       mockApi.getCashiers.mockResolvedValue([
         { id: 1, name: 'Alice', role: 'admin', is_active: 1, created_at: '2026-01-01' }
+      ])
+      mockApi.getProducts.mockResolvedValue([])
+
+      const { result } = renderHook(() => useAuthStore())
+
+      await act(async () => {
+        await result.current.initialize()
+      })
+
+      expect(result.current.appState).toBe('distributor-onboarding')
+    })
+
+    it('sets appState to login when session, cashiers, and products all exist', async () => {
+      mockApi.authCheckSession.mockResolvedValue(authResult)
+      mockApi.getCashiers.mockResolvedValue([
+        { id: 1, name: 'Alice', role: 'admin', is_active: 1, created_at: '2026-01-01' }
+      ])
+      mockApi.getProducts.mockResolvedValue([
+        { id: 1, sku: 'SKU-1', name: 'Wine', category: 'Wine', price: 10, quantity: 5, tax_rate: 0 }
       ])
 
       const { result } = renderHook(() => useAuthStore())
@@ -94,88 +116,138 @@ describe('useAuthStore', () => {
       })
 
       expect(result.current.appState).toBe('login')
+      expect(result.current.merchantConfig).toEqual(merchantConfig)
     })
-  })
 
-  describe('activate', () => {
-    it('activates merchant and transitions to login state', async () => {
-      const config = {
-        id: 1,
-        stax_api_key: 'valid-key',
-        merchant_id: 'merch-123',
-        merchant_name: 'High Spirits',
-        activated_at: '2026-01-01',
-        updated_at: '2026-01-01'
-      }
-      mockApi.activateMerchant.mockResolvedValue(config)
-      mockApi.getCashiers.mockResolvedValue([])
+    it('sets appState to auth on error', async () => {
+      mockApi.authCheckSession.mockRejectedValue(new Error('network error'))
 
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
-        await result.current.activate('valid-key')
+        await result.current.initialize()
       })
 
-      expect(result.current.appState).toBe('login')
-      expect(result.current.merchantConfig).toEqual(config)
+      expect(result.current.appState).toBe('auth')
+    })
+  })
+
+  describe('emailLogin', () => {
+    it('logs in and transitions to pin-setup when no cashiers exist', async () => {
+      mockApi.authLogin.mockResolvedValue(authResult)
+      mockApi.getCashiers.mockResolvedValue([])
+      mockApi.getProducts.mockResolvedValue([])
+
+      const { result } = renderHook(() => useAuthStore())
+
+      await act(async () => {
+        await result.current.emailLogin('admin@store.com', 'pass123')
+      })
+
+      expect(mockApi.authLogin).toHaveBeenCalledWith('admin@store.com', 'pass123')
+      expect(result.current.appState).toBe('pin-setup')
+      expect(result.current.merchantConfig).toEqual(merchantConfig)
       expect(result.current.error).toBeNull()
     })
 
-    it('sets error when activation fails', async () => {
-      mockApi.activateMerchant.mockRejectedValue(new Error('Invalid API key'))
+    it('logs in and transitions to login when setup is complete', async () => {
+      mockApi.authLogin.mockResolvedValue(authResult)
+      mockApi.getCashiers.mockResolvedValue([
+        { id: 1, name: 'Alice', role: 'admin', is_active: 1, created_at: '2026-01-01' }
+      ])
+      mockApi.getProducts.mockResolvedValue([
+        { id: 1, sku: 'SKU-1', name: 'Wine', category: 'Wine', price: 10, quantity: 5, tax_rate: 0 }
+      ])
 
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
-        await result.current.activate('bad-key')
+        await result.current.emailLogin('admin@store.com', 'pass123')
       })
 
-      expect(result.current.appState).toBe('not-activated')
-      expect(result.current.error).toBe('Invalid API key')
+      expect(result.current.appState).toBe('login')
+    })
+
+    it('sets error on failed sign-in', async () => {
+      mockApi.authLogin.mockRejectedValue(new Error('Invalid email or password'))
+
+      const { result } = renderHook(() => useAuthStore())
+
+      await act(async () => {
+        await result.current.emailLogin('admin@store.com', 'wrong')
+      })
+
+      expect(result.current.appState).toBe('loading')
+      expect(result.current.error).toBe('Invalid email or password')
     })
   })
 
-  describe('deactivate', () => {
-    it('clears config and transitions to not-activated', async () => {
-      // Start in activated state
+  describe('signOut', () => {
+    it('signs out and transitions to auth', async () => {
       useAuthStore.setState({
         appState: 'login' as AppState,
-        merchantConfig: {
-          id: 1,
-          stax_api_key: 'key',
-          merchant_id: 'merch-123',
-          merchant_name: 'Store',
-          activated_at: '2026-01-01',
-          updated_at: '2026-01-01'
-        }
+        merchantConfig
       })
-
-      mockApi.deactivateMerchant.mockResolvedValue(undefined)
+      mockApi.authLogout.mockResolvedValue(undefined)
 
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
-        await result.current.deactivate()
+        await result.current.signOut()
       })
 
-      expect(result.current.appState).toBe('not-activated')
+      expect(result.current.appState).toBe('auth')
       expect(result.current.merchantConfig).toBeNull()
     })
   })
 
-  describe('login', () => {
-    it('logs in successfully with valid PIN', async () => {
-      useAuthStore.setState({
-        appState: 'login' as AppState,
-        merchantConfig: {
-          id: 1,
-          stax_api_key: 'key',
-          merchant_id: 'merch-123',
-          merchant_name: 'Store',
-          activated_at: '2026-01-01',
-          updated_at: '2026-01-01'
-        }
+  describe('completeSetup', () => {
+    it('transitions to distributor-onboarding when no products exist', async () => {
+      useAuthStore.setState({ appState: 'pin-setup' as AppState })
+      mockApi.getProducts.mockResolvedValue([])
+
+      const { result } = renderHook(() => useAuthStore())
+
+      await act(async () => {
+        await result.current.completeSetup()
       })
+
+      expect(result.current.appState).toBe('distributor-onboarding')
+    })
+
+    it('transitions to login when products exist', async () => {
+      useAuthStore.setState({ appState: 'pin-setup' as AppState })
+      mockApi.getProducts.mockResolvedValue([
+        { id: 1, sku: 'SKU-1', name: 'Wine', category: 'Wine', price: 10, quantity: 5, tax_rate: 0 }
+      ])
+
+      const { result } = renderHook(() => useAuthStore())
+
+      await act(async () => {
+        await result.current.completeSetup()
+      })
+
+      expect(result.current.appState).toBe('login')
+    })
+  })
+
+  describe('completeOnboarding', () => {
+    it('transitions to login', () => {
+      useAuthStore.setState({ appState: 'distributor-onboarding' as AppState })
+
+      const { result } = renderHook(() => useAuthStore())
+
+      act(() => {
+        result.current.completeOnboarding()
+      })
+
+      expect(result.current.appState).toBe('login')
+    })
+  })
+
+  describe('login (PIN)', () => {
+    it('logs in successfully with valid PIN', async () => {
+      useAuthStore.setState({ appState: 'login' as AppState, merchantConfig })
 
       const cashier = {
         id: 1,

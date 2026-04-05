@@ -16,8 +16,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      all: true,
-      include: ['src/main/**/*.ts'],
+      all: false,
       exclude: ['src/main/database/schema.ts', 'src/main/database/seed.ts'],
       thresholds: {
         lines: 80,

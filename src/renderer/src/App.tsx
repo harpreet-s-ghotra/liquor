@@ -1,6 +1,9 @@
 import { useEffect } from 'react'
 import { POSScreen } from './pages/POSScreen'
-import { ActivationScreen } from './pages/ActivationScreen'
+import { AuthScreen } from './pages/AuthScreen'
+import { SetPasswordScreen } from './pages/SetPasswordScreen'
+import { PinSetupScreen } from './pages/PinSetupScreen'
+import { DistributorOnboardingScreen } from './pages/DistributorOnboardingScreen'
 import { LoginScreen } from './pages/LoginScreen'
 import { useAuthStore } from './store/useAuthStore'
 import { useThemeStore } from './store/useThemeStore'
@@ -16,6 +19,7 @@ function useIsDevBrowser(): boolean {
 function App(): React.JSX.Element {
   const appState = useAuthStore((s) => s.appState)
   const initialize = useAuthStore((s) => s.initialize)
+  const handleInviteLink = useAuthStore((s) => s.handleInviteLink)
   const isDevBrowser = useIsDevBrowser()
   const theme = useThemeStore((s) => s.theme)
 
@@ -27,6 +31,14 @@ function App(): React.JSX.Element {
     if (isDevBrowser) return // skip backend-dependent init
     initialize()
   }, [initialize, isDevBrowser])
+
+  // Listen for deep links (email invite / password reset)
+  useEffect(() => {
+    if (isDevBrowser || !window.api) return
+    window.api.onDeepLink(({ accessToken, refreshToken }) => {
+      handleInviteLink(accessToken, refreshToken)
+    })
+  }, [handleInviteLink, isDevBrowser])
 
   // In dev-browser mode, render POS directly (no backend needed for UI work)
   if (isDevBrowser) {
@@ -49,8 +61,14 @@ function App(): React.JSX.Element {
           Loading...
         </div>
       )
-    case 'not-activated':
-      return <ActivationScreen />
+    case 'auth':
+      return <AuthScreen />
+    case 'set-password':
+      return <SetPasswordScreen />
+    case 'pin-setup':
+      return <PinSetupScreen />
+    case 'distributor-onboarding':
+      return <DistributorOnboardingScreen />
     case 'login':
       return <LoginScreen />
     case 'pos':

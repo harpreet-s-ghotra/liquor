@@ -6,7 +6,8 @@
  *   schema.ts        - initializeDatabase (DDL + migrations)
  *   seed.ts          - initial data seeding
  *   products.repo.ts - product / inventory queries & writes
- *   departments.repo.ts - department CRUD
+ *   departments.repo.ts - department CRUD (legacy, unused)
+ *   item-types.repo.ts  - item type CRUD
  *   tax-codes.repo.ts   - tax code CRUD
  *   distributors.repo.ts - distributor CRUD
  *   sales-reps.repo.ts  - sales rep CRUD
@@ -22,22 +23,18 @@ export {
   getProducts,
   searchProducts,
   getInventoryProducts,
-  getInventoryDepartments,
+  getInventoryItemTypes,
   getInventoryTaxCodes,
   searchInventoryProducts,
   getInventoryProductDetail,
   saveInventoryItem,
   deleteInventoryItem,
-  getActiveSpecialPricing
+  getActiveSpecialPricing,
+  applyTaxToAllProducts
 } from './products.repo'
 
-// Departments
-export {
-  getDepartments,
-  createDepartment,
-  updateDepartment,
-  deleteDepartment
-} from './departments.repo'
+// Item Types
+export { getItemTypes, createItemType, updateItemType, deleteItemType } from './item-types.repo'
 
 // Tax codes
 export { getTaxCodes, createTaxCode, updateTaxCode, deleteTaxCode } from './tax-codes.repo'
@@ -97,16 +94,41 @@ export {
   generateClockOutReport
 } from './sessions.repo'
 
+// Device Config
+export { getDeviceConfig, saveDeviceConfig, clearDeviceConfig } from './device-config.repo'
+
+// Sync Queue
+export {
+  enqueueSyncItem,
+  getPendingItems,
+  markInFlight,
+  markDone,
+  markFailed,
+  retryFailed,
+  getQueueStats,
+  recoverInFlight
+} from './sync-queue.repo'
+
+// Inventory Deltas
+export {
+  recordDelta,
+  getInventoryDeltaById,
+  getInventoryDeltaSyncPayload,
+  getUnsyncedDeltas,
+  markDeltaSynced,
+  getDeltasByProduct
+} from './inventory-deltas.repo'
+
 // Re-export shared types so existing consumers (main/index.ts) don't break
 export type {
   SaveInventoryItemInput,
   InventoryTaxCode,
-  Department,
+  ItemType,
   TaxCode,
   Distributor,
   SalesRep,
-  CreateDepartmentInput,
-  UpdateDepartmentInput,
+  CreateItemTypeInput,
+  UpdateItemTypeInput,
   CreateTaxCodeInput,
   UpdateTaxCodeInput,
   CreateDistributorInput,
@@ -126,5 +148,10 @@ export type {
   CloseSessionInput,
   ClockOutReport,
   SessionListResult,
-  PrintClockOutReportInput
+  PrintClockOutReportInput,
+  DeviceConfig,
+  SaveDeviceConfigInput,
+  SyncQueueItem,
+  SyncQueueInsert,
+  SyncQueueStats
 } from '../../shared/types'

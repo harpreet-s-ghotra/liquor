@@ -29,11 +29,11 @@ function insertCashier(name: string, pinHash: string = 'hashed-pin'): number {
 }
 
 /**
- * Helper to insert a department into the test database.
+ * Helper to insert an item type into the test database.
  */
-function insertDepartment(name: string): number {
-  const result = getDb().prepare(`INSERT INTO departments (name) VALUES (?)`).run(name)
-  return Number(result.lastInsertRowid)
+function insertItemType(name: string): string {
+  getDb().prepare(`INSERT INTO item_types (name) VALUES (?)`).run(name)
+  return name
 }
 
 /**
@@ -42,18 +42,18 @@ function insertDepartment(name: string): number {
 function insertProduct(
   sku: string,
   name: string,
-  deptId?: number,
+  itemType?: string,
   price: number = 10.0,
   taxRate: number = 0.08
 ): number {
   const result = getDb()
     .prepare(
       `
-      INSERT INTO products (sku, name, category, price, quantity, barcode, tax_rate, dept_id)
-      VALUES (?, ?, 'Spirits', ?, 100, '123456', ?, ?)
+      INSERT INTO products (sku, name, category, price, quantity, barcode, tax_rate, item_type)
+      VALUES (?, ?, ?, ?, 100, '123456', ?, ?)
     `
     )
-    .run(sku, name, price, taxRate, deptId ? String(deptId) : null)
+    .run(sku, name, itemType ?? 'General', price, taxRate, itemType ?? null)
   return Number(result.lastInsertRowid)
 }
 
@@ -420,7 +420,7 @@ describe('sessions.repo', () => {
       const report = generateClockOutReport(session.id)
 
       expect(report).toHaveProperty('session')
-      expect(report).toHaveProperty('sales_by_department')
+      expect(report).toHaveProperty('sales_by_item_type')
       expect(report).toHaveProperty('sales_by_payment_method')
       expect(report).toHaveProperty('total_sales_count')
       expect(report).toHaveProperty('gross_sales')
@@ -452,7 +452,7 @@ describe('sessions.repo', () => {
       expect(report.cash_total).toBe(0)
       expect(report.credit_total).toBe(0)
       expect(report.debit_total).toBe(0)
-      expect(report.sales_by_department).toEqual([])
+      expect(report.sales_by_item_type).toEqual([])
       expect(report.sales_by_payment_method).toEqual([])
     })
 
@@ -478,15 +478,15 @@ describe('sessions.repo', () => {
       expect(report.average_transaction_value).toBeCloseTo(15.0) // 30.0 / 2
     })
 
-    it('returns correct department breakdown', () => {
+    it('returns correct item type breakdown', () => {
       const cashierId = insertCashier('Alice')
       const session = createSession({ cashier_id: cashierId, cashier_name: 'Alice' })
 
-      const deptId1 = insertDepartment('Spirits')
-      const deptId2 = insertDepartment('Wine')
+      const itemType1 = insertItemType('Spirits')
+      const itemType2 = insertItemType('Wine')
 
-      const productId1 = insertProduct('SPIRITS-001', 'Vodka', deptId1, 20.0, 0.08)
-      const productId2 = insertProduct('WINE-001', 'Red Wine', deptId2, 15.0, 0.08)
+      const productId1 = insertProduct('SPIRITS-001', 'Vodka', itemType1, 20.0, 0.08)
+      const productId2 = insertProduct('WINE-001', 'Red Wine', itemType2, 15.0, 0.08)
 
       // Transaction in Spirits: $20.00
       const txn1 = insertTransaction(session.id, 'cash', 20.0, 1.6, 'completed')
@@ -502,15 +502,15 @@ describe('sessions.repo', () => {
 
       const report = generateClockOutReport(session.id)
 
-      expect(report.sales_by_department.length).toBe(2)
+      expect(report.sales_by_item_type.length).toBe(2)
 
       // Wine should be first (highest total)
-      const wine = report.sales_by_department.find((d) => d.department_name === 'Wine')
-      const spirits = report.sales_by_department.find((d) => d.department_name === 'Spirits')
+      const wine = report.sales_by_item_type.find((d) => d.item_type_name === 'Wine')
+      const spirits = report.sales_by_item_type.find((d) => d.item_type_name === 'Spirits')
 
-      expect(wine).toEqual({ department_name: 'Wine', transaction_count: 2, total_amount: 45.0 })
+      expect(wine).toEqual({ item_type_name: 'Wine', transaction_count: 2, total_amount: 45.0 })
       expect(spirits).toEqual({
-        department_name: 'Spirits',
+        item_type_name: 'Spirits',
         transaction_count: 1,
         total_amount: 20.0
       })
@@ -696,9 +696,9 @@ describe('sessions.repo', () => {
       const cashierId = insertCashier('Alice')
       const session = createSession({ cashier_id: cashierId, cashier_name: 'Alice' })
 
-      const deptId = insertDepartment('Spirits')
-      const productId1 = insertProduct('SPIRITS-001', 'Vodka', deptId, 20.0, 0.08)
-      const productId2 = insertProduct('SPIRITS-002', 'Rum', deptId, 15.0, 0.08)
+      const itemType = insertItemType('Spirits')
+      const productId1 = insertProduct('SPIRITS-001', 'Vodka', itemType, 20.0, 0.08)
+      const productId2 = insertProduct('SPIRITS-002', 'Rum', itemType, 15.0, 0.08)
 
       // Single transaction with multiple items
       const txn = insertTransaction(session.id, 'cash', 35.0, 2.8, 'completed')
@@ -709,11 +709,11 @@ describe('sessions.repo', () => {
 
       expect(report.total_sales_count).toBe(1)
       expect(report.gross_sales).toBe(35.0)
-      expect(report.sales_by_department[0].transaction_count).toBe(1)
-      expect(report.sales_by_department[0].total_amount).toBe(35.0)
+      expect(report.sales_by_item_type[0].transaction_count).toBe(1)
+      expect(report.sales_by_item_type[0].total_amount).toBe(35.0)
     })
 
-    it('handles products without department (null dept_id)', () => {
+    it('handles products without item type (null item_type)', () => {
       const cashierId = insertCashier('Alice')
       const session = createSession({ cashier_id: cashierId, cashier_name: 'Alice' })
 
@@ -724,7 +724,7 @@ describe('sessions.repo', () => {
 
       const report = generateClockOutReport(session.id)
 
-      expect(report.sales_by_department.length).toBeGreaterThan(0)
+      expect(report.sales_by_item_type.length).toBeGreaterThan(0)
       // Should have entry for 'Unknown' or similar
       expect(report.gross_sales).toBe(10.0)
     })
@@ -735,9 +735,9 @@ describe('sessions.repo', () => {
 
       const report = generateClockOutReport(session.id)
 
-      expect(Array.isArray(report.sales_by_department)).toBe(true)
+      expect(Array.isArray(report.sales_by_item_type)).toBe(true)
       expect(Array.isArray(report.sales_by_payment_method)).toBe(true)
-      expect(report.sales_by_department.length).toBe(0)
+      expect(report.sales_by_item_type.length).toBe(0)
       expect(report.sales_by_payment_method.length).toBe(0)
     })
   })

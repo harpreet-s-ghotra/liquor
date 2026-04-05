@@ -145,7 +145,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
 
     const merchantConfig = {
       id: 1,
-      stax_api_key: 'test-api-key',
+      payment_processing_api_key: 'test-api-key',
       merchant_id: 'test-merchant-id',
       merchant_name: 'Test Liquor Store',
       activated_at: '2025-01-01T00:00:00.000Z',
@@ -164,13 +164,18 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
     ;(window as any).api = {
       // Auth APIs
       getMerchantConfig: async () => merchantConfig,
+      authCheckSession: async () => ({
+        user: { id: 'user-1', email: 'test@example.com' },
+        merchant: merchantConfig
+      }),
+      onDeepLink: () => {},
       getCashiers: async () => [testCashier],
       validatePin: async () => testCashier,
 
       // Product APIs
       getProducts: async () => products,
       getActiveSpecialPricing: async () => [],
-      getDepartments: async () => [],
+      getItemTypes: async () => [],
       getDistributors: async () => [],
       getTaxCodes: async () => [],
       getInventoryTaxCodes: async () => [],
@@ -867,5 +872,291 @@ test.describe('Payment Modal', () => {
     await expect(page.getByTestId('payment-modal')).toHaveCount(0)
     await expect(page.locator('.ticket-panel__line')).toHaveCount(0)
     await expect(page.getByPlaceholder('Search item')).toBeFocused()
+  })
+})
+
+/* ──────────────────────────────────────────────────────────── */
+/*  Case Discount at POS                                       */
+/* ──────────────────────────────────────────────────────────── */
+
+/**
+ * Mock with a product that has a case discount configured.
+ * Bottles per case = 6, regular price = $12.99, case price = $66.00.
+ * Effective per-bottle in a full case = $11.00 (about 15% off).
+ */
+const attachCaseDiscountMock = async (page: Page): Promise<void> => {
+  await page.addInitScript(() => {
+    const products = [
+      {
+        id: 1,
+        sku: 'CASE-001',
+        name: 'Case Discount Wine 750ml',
+        category: 'Wine',
+        price: 12.99,
+        quantity: 100,
+        tax_rate: 0.08,
+        size: '750ml',
+        bottles_per_case: 6,
+        case_discount_price: 66.0,
+        display_name: null,
+        distributor_name: null
+      },
+      {
+        id: 2,
+        sku: 'NO-CASE-001',
+        name: 'Regular Wine 750ml',
+        category: 'Wine',
+        price: 15.99,
+        quantity: 50,
+        tax_rate: 0.08,
+        size: '750ml',
+        bottles_per_case: null,
+        case_discount_price: null,
+        display_name: null,
+        distributor_name: null
+      }
+    ]
+
+    const merchantConfig = {
+      id: 1,
+      payment_processing_api_key: 'test-api-key',
+      merchant_id: 'test-merchant-id',
+      merchant_name: 'Test Liquor Store',
+      activated_at: '2025-01-01T00:00:00.000Z',
+      updated_at: '2025-01-01T00:00:00.000Z'
+    }
+
+    const testCashier = {
+      id: 1,
+      name: 'Test Cashier',
+      role: 'admin',
+      is_active: 1,
+      created_at: '2025-01-01T00:00:00.000Z'
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api = {
+      getMerchantConfig: async () => merchantConfig,
+      authCheckSession: async () => ({
+        user: { id: 'user-1', email: 'test@example.com' },
+        merchant: merchantConfig
+      }),
+      onDeepLink: () => {},
+      getCashiers: async () => [testCashier],
+      validatePin: async () => testCashier,
+      getProducts: async () => products,
+      getActiveSpecialPricing: async () => [],
+      getItemTypes: async () => [],
+      getDistributors: async () => [],
+      getTaxCodes: async () => [],
+      getInventoryTaxCodes: async () => [],
+      searchInventoryProducts: async () => [],
+      getInventoryProductDetail: async () => null,
+      saveInventoryItem: async () => {
+        throw new Error('Not implemented')
+      },
+      chargeTerminal: async (input: { total: number }) => ({
+        transaction_id: `txn-${Date.now()}`,
+        success: true,
+        last_four: '4242',
+        card_type: 'visa',
+        total: input.total,
+        message: 'Approved',
+        status: 'approved'
+      }),
+      chargeWithCard: async (input: { total: number }) => ({
+        transaction_id: `txn-${Date.now()}`,
+        success: true,
+        last_four: '4242',
+        card_type: 'visa',
+        total: input.total,
+        message: 'Approved',
+        status: 'approved'
+      }),
+      saveTransaction: async () => ({ id: 1 }),
+      getRecentTransactions: async () => [],
+      getReceiptConfig: async () => ({
+        fontSize: 10,
+        paddingY: 4,
+        paddingX: 4,
+        storeName: '',
+        footerMessage: '',
+        alwaysPrint: false
+      }),
+      printReceipt: async () => {}
+    }
+  })
+}
+
+test.describe('Case Discount at POS', () => {
+  test('applies case discount when quantity meets bottles_per_case threshold', async ({ page }) => {
+    await attachCaseDiscountMock(page)
+    await page.goto('/')
+    await loginWithPin(page)
+    await selectAllCategory(page)
+
+    // Add 6 of the case discount wine (bpc=6)
+    const caseTile = page.locator('.action-panel__product-tile', { hasText: 'Case Discount Wine' })
+    for (let i = 0; i < 6; i++) {
+      await caseTile.click()
+    }
+
+    // Should show a PROMO badge with case discount label
+    await expect(page.locator('.ticket-panel__promo-badge')).toBeVisible()
+    await expect(page.getByText(/Case of 6/)).toBeVisible()
+
+    // The total should be less than 6 x $12.99 x 1.08 = $84.18
+    const totalText = await page.locator('.grand-total strong').textContent()
+    const total = Number.parseFloat((totalText ?? '').replace('$', '').trim())
+    const fullPriceTotal = 6 * 12.99 * 1.08
+    expect(total).toBeLessThan(fullPriceTotal)
+
+    // The total should reflect the case price: $66.00 * 1.08 = $71.28
+    expect(total).toBeCloseTo(66.0 * 1.08, 1)
+  })
+
+  test('does not apply case discount when quantity is below threshold', async ({ page }) => {
+    await attachCaseDiscountMock(page)
+    await page.goto('/')
+    await loginWithPin(page)
+    await selectAllCategory(page)
+
+    // Add only 5 of the case discount wine (bpc=6, need 6)
+    const caseTile = page.locator('.action-panel__product-tile', { hasText: 'Case Discount Wine' })
+    for (let i = 0; i < 5; i++) {
+      await caseTile.click()
+    }
+
+    // No promo badge should appear
+    await expect(page.locator('.ticket-panel__promo-badge')).toHaveCount(0)
+
+    // Total should be 5 x $12.99 x 1.08 = $70.15
+    const totalText = await page.locator('.grand-total strong').textContent()
+    const total = Number.parseFloat((totalText ?? '').replace('$', '').trim())
+    expect(total).toBeCloseTo(5 * 12.99 * 1.08, 1)
+  })
+
+  test('case discount applies to full cases, remainder at regular price', async ({ page }) => {
+    await attachCaseDiscountMock(page)
+    await page.goto('/')
+    await loginWithPin(page)
+    await selectAllCategory(page)
+
+    // Add 8 of the case discount wine (bpc=6, so 1 full case + 2 remainder)
+    const caseTile = page.locator('.action-panel__product-tile', { hasText: 'Case Discount Wine' })
+    for (let i = 0; i < 8; i++) {
+      await caseTile.click()
+    }
+
+    // Should show promo badge
+    await expect(page.locator('.ticket-panel__promo-badge')).toBeVisible()
+
+    // Expected: 1 case at $66.00 + 2 bottles at $12.99 = $91.98
+    // With 8% tax: $91.98 * 1.08 = $99.34
+    const totalText = await page.locator('.grand-total strong').textContent()
+    const total = Number.parseFloat((totalText ?? '').replace('$', '').trim())
+    const expectedSubtotal = 66.0 + 2 * 12.99
+    expect(total).toBeCloseTo(expectedSubtotal * 1.08, 1)
+  })
+})
+
+/* ──────────────────────────────────────────────────────────── */
+/*  Product Tile Display — Size and 20-item Cap                */
+/* ──────────────────────────────────────────────────────────── */
+
+test.describe('Product Tile Display', () => {
+  test('shows product size on tile', async ({ page }) => {
+    await attachCaseDiscountMock(page)
+    await page.goto('/')
+    await loginWithPin(page)
+    await selectAllCategory(page)
+
+    // The mock products have size: '750ml'
+    const sizeLabel = page
+      .locator('.action-panel__product-tile', { hasText: 'Case Discount Wine' })
+      .locator('.action-panel__product-size')
+    await expect(sizeLabel).toHaveText('750ml')
+  })
+
+  test('POS grid shows maximum 20 product tiles', async ({ page }) => {
+    // Create a mock with 25 products
+    await page.addInitScript(() => {
+      const products = Array.from({ length: 25 }, (_, i) => ({
+        id: i + 1,
+        sku: `PROD-${String(i + 1).padStart(3, '0')}`,
+        name: `Product ${i + 1}`,
+        category: 'Wine',
+        price: 10 + i,
+        quantity: 50,
+        tax_rate: 0.08,
+        size: null,
+        bottles_per_case: null,
+        case_discount_price: null,
+        display_name: null,
+        distributor_name: null
+      }))
+
+      const merchantConfig = {
+        id: 1,
+        payment_processing_api_key: 'k',
+        merchant_id: 'm',
+        merchant_name: 'Test Store',
+        activated_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      }
+      const testCashier = {
+        id: 1,
+        name: 'Test Cashier',
+        role: 'admin',
+        is_active: 1,
+        created_at: '2025-01-01'
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api = {
+        getMerchantConfig: async () => merchantConfig,
+        authCheckSession: async () => ({
+          user: { id: 'u1', email: 't@t.com' },
+          merchant: merchantConfig
+        }),
+        onDeepLink: () => {},
+        getCashiers: async () => [testCashier],
+        validatePin: async () => testCashier,
+        getProducts: async () => products,
+        getActiveSpecialPricing: async () => [],
+        getItemTypes: async () => [],
+        getDistributors: async () => [],
+        getTaxCodes: async () => [],
+        getInventoryTaxCodes: async () => [],
+        searchInventoryProducts: async () => [],
+        getInventoryProductDetail: async () => null,
+        saveInventoryItem: async () => {
+          throw new Error('Not implemented')
+        },
+        chargeTerminal: async () => ({}),
+        chargeWithCard: async () => ({}),
+        saveTransaction: async () => ({ id: 1 }),
+        getRecentTransactions: async () => [],
+        getReceiptConfig: async () => ({
+          fontSize: 10,
+          paddingY: 4,
+          paddingX: 4,
+          storeName: '',
+          footerMessage: '',
+          alwaysPrint: false
+        }),
+        printReceipt: async () => {}
+      }
+    })
+
+    await page.goto('/')
+    await loginWithPin(page)
+
+    // Select "All" to show all 25 products
+    await selectAllCategory(page)
+
+    const tiles = page.locator('.action-panel__product-tile')
+    const count = await tiles.count()
+    expect(count).toBeLessThanOrEqual(20)
   })
 })

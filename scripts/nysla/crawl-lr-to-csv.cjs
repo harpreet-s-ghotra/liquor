@@ -83,7 +83,9 @@ async function fetchMany(page, urls) {
       })
     )
     return results.map((r) =>
-      r.status === 'fulfilled' ? { ok: true, data: r.value } : { ok: false, error: r.reason?.message }
+      r.status === 'fulfilled'
+        ? { ok: true, data: r.value }
+        : { ok: false, error: r.reason?.message }
     )
   }, urls)
 }
@@ -192,8 +194,23 @@ async function processDistributor(page, distributor, postType, month, dataDir) {
     }
   }
 
-  writeCsv(outFile, rows)
-  return { status: 'done', name: distributor.premise_name, rows: rows.length, totalItems, totalPages }
+  // Deduplicate by product_id — NYSLA sometimes returns the same row multiple times
+  const seenIds = new Set()
+  const dedupedRows = rows.filter((row) => {
+    if (!row.product_id || seenIds.has(row.product_id)) return false
+    seenIds.add(row.product_id)
+    return true
+  })
+
+  writeCsv(outFile, dedupedRows)
+  return {
+    status: 'done',
+    name: distributor.premise_name,
+    rows: dedupedRows.length,
+    dupes: rows.length - dedupedRows.length,
+    totalItems,
+    totalPages
+  }
 }
 
 function parseArgs(argv) {
@@ -297,8 +314,9 @@ async function run() {
       } else {
         done += 1
         const total = done + skipped + errors
+        const dupeNote = r.dupes > 0 ? ` [${r.dupes} dupes removed]` : ''
         console.log(
-          `[${total}/${distributors.length}] ${r.name} — ${r.rows} rows (${r.totalPages} pages)`
+          `[${total}/${distributors.length}] ${r.name} — ${r.rows} rows (${r.totalPages} pages)${dupeNote}`
         )
       }
     }
@@ -306,9 +324,7 @@ async function run() {
     await sleep(args.delayMs)
   }
 
-  console.log(
-    `\nDone. ${done} downloaded, ${skipped} skipped (already existed), ${errors} errors.`
-  )
+  console.log(`\nDone. ${done} downloaded, ${skipped} skipped (already existed), ${errors} errors.`)
   console.log(`Files in: ${dataDir}`)
 
   await context.close()
