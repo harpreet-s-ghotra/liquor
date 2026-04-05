@@ -53,6 +53,30 @@ Run in this order before finalizing:
 5. `npm run test:coverage`
 6. `npm run test:e2e` (for UI flow changes)
 
+## Supabase CLI — Use This for All Cloud DB Work
+
+The Supabase CLI (`npx supabase`) is installed. **Use it directly** — do not ask the user to run SQL manually in the Supabase portal.
+
+```bash
+# Link project to remote (run once if not yet linked)
+npx supabase link --project-ref <ref>   # ref from: app.supabase.com/project/<ref>
+
+# Execute SQL against the remote DB
+npx supabase db execute --remote --sql "SELECT * FROM merchant_products LIMIT 5;"
+
+# Create and push migrations
+npx supabase migration new <name>
+npx supabase db push
+
+# Pull remote schema / diff
+npx supabase db pull
+npx supabase db diff --use-migra
+```
+
+- Always use `npx supabase db execute --remote` to inspect or verify — never ask the user to go to the portal
+- Schema changes go through `supabase/migrations/` files committed to the repo
+- RLS policies and table definitions belong in migration files, not applied manually
+
 ## Multi-Agent Routing
 
 Delegate specialized tasks to subagents when available:

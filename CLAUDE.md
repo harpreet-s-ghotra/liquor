@@ -150,6 +150,43 @@ npm run build              # Production build
 
 ---
 
+## Supabase CLI — Use This for All Cloud DB Work
+
+The Supabase CLI (`npx supabase`) is installed. **Use it directly** — do not ask the user to run SQL manually in the Supabase portal.
+
+```bash
+# Link project to remote (run once if not yet linked)
+npx supabase link --project-ref <ref>   # ref from project URL: app.supabase.com/project/<ref>
+
+# Execute arbitrary SQL against the remote DB
+npx supabase db execute --remote --sql "SELECT * FROM merchant_products LIMIT 5;"
+
+# Create a new migration file
+npx supabase migration new <migration-name>
+
+# Push local migration files to remote
+npx supabase db push
+
+# Pull remote schema into local migration history
+npx supabase db pull
+
+# Show schema diff between local migrations and remote
+npx supabase db diff --use-migra
+
+# Inspect remote DB (tables, indexes, RLS policies)
+npx supabase inspect db table-sizes --remote
+npx supabase inspect db index-sizes --remote
+```
+
+### Rules
+
+- Always use `npx supabase db execute --remote` to inspect data or verify schema — never ask the user to open the portal
+- Schema changes go through migration files (`supabase/migrations/`) committed to the repo — never apply ad-hoc SQL via the portal
+- After creating a migration file, push it with `npx supabase db push`
+- RLS policies and table definitions belong in migration files, not applied manually
+
+---
+
 ## Quality Gate — Required Before Finalizing Any Change
 
 Run in this order:
