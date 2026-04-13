@@ -20,6 +20,9 @@ Renderer (React)  →  window.api  →  Preload (contextBridge)  →  IPC  →  
 | Database repos   | `src/main/database/*.repo.ts`        | One file per entity; sync SQLite via better-sqlite3 |
 | Schema           | `src/main/database/schema.ts`        | DDL + migrations (`applySchema`)                    |
 | Finix service    | `src/main/services/finix.ts`         | Merchant verification, charges, refunds, devices    |
+| Auto-updater     | `src/main/services/auto-updater.ts`  | electron-updater, checks public releases repo       |
+| Report export    | `src/main/services/report-export.ts` | PDF/CSV export via pdfkit                           |
+| Reports repo     | `src/main/database/reports.repo.ts`  | SQLite aggregation queries for all reports          |
 | Preload          | `src/preload/index.ts`               | `contextBridge.exposeInMainWorld`                   |
 | Preload types    | `src/preload/index.d.ts`             | `window.api` type contract                          |
 | App root         | `src/renderer/src/App.tsx`           | Auth-state routing → pages                          |
@@ -63,16 +66,21 @@ Channels follow `entity:action` pattern:
 - `peripheral:get-receipt-printer-config`, `peripheral:save-receipt-printer-config`, `peripheral:list-receipt-printers`, `peripheral:get-printer-status`
 - `finix:verify-merchant`, `finix:charge:card`, `finix:refund:transfer`, `finix:devices:list`, `finix:devices:create`, `finix:charge:terminal`, `finix:provision-merchant`
 - `reports:sales-summary`, `reports:product-sales`, `reports:category-sales`, `reports:tax-summary`, `reports:comparison`, `reports:cashier-sales`, `reports:hourly-sales`, `reports:export`
+- `sync:get-status`, `sync:get-device-config`, `sync:connectivity-changed` (event)
+- `updater:check`, `updater:install`, `updater:update-available` (event), `updater:update-not-available` (event), `updater:update-downloaded` (event), `updater:error` (event)
 
 ## Auth State Machine
 
 ```
-loading → auth → pin-setup → business-setup → distributor-onboarding → login → pos
+loading → auth → set-password → pin-setup → business-setup → distributor-onboarding → login → pos
 ```
 
+- `loading`: App initializing
 - `auth`: No valid Supabase session → `AuthScreen`
+- `set-password`: Invite link accepted, user sets password → `SetPasswordScreen`
 - `pin-setup`: Session valid, no cashiers in SQLite → `PinSetupScreen`
-- `distributor-onboarding`: Cashiers exist, no products → `DistributorOnboardingScreen`
+- `business-setup`: Cashiers exist, no merchant config → `BusinessSetupScreen`
+- `distributor-onboarding`: Merchant configured, no products → `DistributorOnboardingScreen`
 - `login`: Fully set up, no cashier logged in → `LoginScreen`
 - `pos`: Cashier authenticated → `POSScreen`
 

@@ -1,20 +1,19 @@
 # Finix Payment Integration
 
-**Status:** Planned — replaces Stax  
-**Phase:** 3 (Payments)  
-**Updated:** 2026-04-11
+**Status:** Complete  
+**Updated:** 2026-04-12
 
 ---
 
 ## Overview
 
-LiquorPOS migrates from Stax (fattlabs) to **Finix** for payment processing. Under the Finix ISV/Platform model, the developer (ISV) holds one set of platform-level API credentials and each liquor store is a sub-Merchant under the ISV's Finix Application. Revenue comes from per-transaction residuals.
+LiquorPOS uses **Finix** for payment processing under the ISV/Platform model. The developer (ISV) holds one set of platform-level API credentials and each liquor store is a sub-Merchant under the ISV's Finix Application. Revenue comes from per-transaction residuals.
 
 **Key decisions:**
 
 - Finix platform credentials stored in **Supabase Vault** (never hardcoded in app or git)
 - New merchants are **automatically provisioned** during onboarding via the `provision-finix-merchant` Edge Function
-- **Phase A (now):** Manual card entry — no hardware required
+- **Phase A (complete):** Manual card entry — no hardware required
 - **Phase B (future):** PAX A920PRO card-present terminal
 - **Payment flow:** Auth + immediate capture (two-step)
 

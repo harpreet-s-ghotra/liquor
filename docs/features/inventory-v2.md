@@ -1,13 +1,14 @@
-# Inventory Modal v2 — Implementation Plan
+# Inventory Modal v2
 
 > Figma reference: `node-id=6:3` in file `99ouO4wLIDF6jwNQIhZUax`
-> Based on design screenshot captured 2026-03-20
+
+**Status:** Complete
 
 ---
 
 ## Overview
 
-The current inventory modal (`InventoryModal` + `ItemForm`) is being redesigned into a more professional, dense, POS-style interface. The changes are **primarily visual** — the underlying data model, IPC channels, and business logic remain intact with targeted additions for new fields.
+The inventory modal (`InventoryModal` + `ItemForm`) was redesigned into a more professional, dense, POS-style interface. The changes were **primarily visual** — the underlying data model, IPC channels, and business logic remained intact with targeted additions for new fields.
 
 ---
 

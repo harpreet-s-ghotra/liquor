@@ -1,6 +1,6 @@
 # Cloud Sync — Multi-Register Transaction & Inventory Sync
 
-> Phase B of the cloud integration. Adds multi-register support via Supabase Realtime, with offline-capable sync queue and delta-based inventory tracking.
+> Multi-register support via Supabase Realtime, with offline-capable sync queue and delta-based inventory tracking.
 
 ## Implementation Status
 

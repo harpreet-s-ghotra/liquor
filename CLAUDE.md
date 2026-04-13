@@ -16,7 +16,7 @@ This file provides essential context for working on this project. Read it before
 
 - **Target platform:** Windows (developed on macOS)
 - **Started:** February 2026
-- **Current phase:** Phase 2 (Inventory) mostly complete, Phase 3 (Finix) in progress
+- **Current phase:** Production-ready. All core features complete (POS, inventory, payments, reports, cloud sync, auto-updates)
 
 ---
 
@@ -453,11 +453,13 @@ All documentation lives in `docs/`. See `docs/README.md` for the full index.
 | `docs/features/product-search.md`      | Search modal spec                                                 |
 | `docs/features/returns-and-refunds.md` | Return workflow, refund scenarios                                 |
 | `docs/features/clock-in-clock-out.md`  | Register sessions, end-of-day report, cash reconciliation         |
-| `docs/features/stax-activation.md`     | Legacy auth flow spec (superseded by supabase-onboarding)         |
-| `docs/features/supabase-onboarding.md` | Supabase auth, PIN setup, distributor catalog import (Phase A)    |
+| `docs/features/features-overview.md`   | Customer-facing feature summary (for website use)                 |
+| `docs/features/supabase-onboarding.md` | Supabase auth, PIN setup, distributor catalog import              |
 | `docs/features/cloud-sync.md`          | Multi-register transaction & inventory sync via Supabase Realtime |
-| `docs/features/finix-integration.md`   | Finix credentials, phases, refunds, device roadmap                |
+| `docs/features/finix-integration.md`   | Finix payment processing, manual card charges, refunds            |
 | `docs/features/sales-reports.md`       | Sales summary, product/category analysis, tax report, comparisons |
+| `docs/features/auto-update.md`         | Automatic app updates via electron-updater and GitHub Releases    |
+| `docs/features/edge-functions.md`      | Supabase Edge Functions, Finix secrets, sandbox-to-live migration |
 
 ### Documentation Conventions
 

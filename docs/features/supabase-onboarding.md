@@ -1,6 +1,6 @@
 # Supabase Auth & Distributor Onboarding
 
-> Phase A of the cloud integration. Replaces manual API key entry with Supabase email/password auth and adds a guided first-run onboarding flow.
+> Supabase-based authentication and guided first-run onboarding flow for new merchants.
 
 ## Implementation Status
 

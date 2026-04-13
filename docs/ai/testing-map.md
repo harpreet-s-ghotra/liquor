@@ -54,7 +54,7 @@ Pattern: Mock Supabase client via `vi.fn()` chains, `createTestDb()` for apply-s
 
 | Area                             | Test files                                                                  |
 | -------------------------------- | --------------------------------------------------------------------------- |
-| Pages                            | `pages/{POSScreen,LoginScreen,ActivationScreen}.test.tsx`                   |
+| Pages                            | `pages/{POSScreen,LoginScreen,ActivationScreen,BusinessSetupScreen}.test.tsx` |
 | Stores                           | `store/{useAuthStore,usePosScreen,useThemeStore}.test.ts(x)`                |
 | Utils                            | `utils/{currency,pricing-engine}.test.ts`                                   |
 | Components/action                | `action/ActionPanel.test.tsx`                                               |
@@ -64,10 +64,11 @@ Pattern: Mock Supabase client via `vi.fn()` chains, `createTestDb()` for apply-s
 | Components/hold                  | `hold/HoldLookupModal.test.tsx`                                             |
 | Components/clock-out             | `clock-out/{ClockOutModal,ClockOutReport}.test.tsx`                         |
 | Components/layout                | `layout/HeaderBar.test.tsx`                                                 |
-| Components/common                | `common/{AppButton,ValidatedInput,FormField,TabBar,ConfirmDialog}.test.tsx` |
+| Components/common                | `common/{AppButton,ValidatedInput,FormField,TabBar,ConfirmDialog,ErrorModal}.test.tsx` |
 | Components/inventory             | `inventory/{InventoryModal,FooterActionBar}.test.tsx`                       |
 | Components/printer               | `printer/PrinterSettingsModal.test.tsx`                                     |
-| Components/reports               | `reports/ReportsModal.test.tsx`                                             |
+| Components/reports               | `reports/{ReportsModal,ReportDateRangePicker}.test.tsx`                     |
+| Components/sales-history         | `sales-history/SalesHistoryModal.test.tsx`                                 |
 | Components/inventory/items       | `items/ItemForm.test.tsx`                                                   |
 | Components/inventory/dept        | `departments/DepartmentPanel.test.tsx`                                      |
 | Components/inventory/tax         | `tax-codes/TaxCodePanel.test.tsx`                                           |
@@ -80,15 +81,18 @@ Pattern: Mock `window.api` in `beforeEach`, use `vi.mocked()`, Zustand `setState
 
 | Spec file                          | Covers                                    |
 | ---------------------------------- | ----------------------------------------- |
-| `startup.spec.ts`                  | App launch, activation, cashier login     |
-| `finix-payments.spec.ts`           | Finix Phase A credit and debit flow       |
-| `transactions.spec.ts`             | Checkout, save, recall                    |
-| `inventory.spec.ts`                | Inventory item CRUD                       |
-| `inventory-management.spec.ts`     | Departments, Tax Codes, Distributors CRUD |
-| `hold-transactions.spec.ts`        | Hold and recall                           |
-| `search-open-in-inventory.spec.ts` | Search → open in inventory                |
-| `clock-out.spec.ts`                | Clock out flow, PIN, report, print        |
-| `reports.spec.ts`                  | Sales reports modal, tabs, export buttons |
+| `startup.spec.ts`                  | App launch, activation, cashier login       |
+| `finix-payments.spec.ts`           | Finix credit/debit flow, decline, split pay |
+| `transactions.spec.ts`             | Checkout, payments, refunds, history        |
+| `inventory.spec.ts`                | Inventory item CRUD, SKUs, special pricing  |
+| `inventory-management.spec.ts`     | Departments, Tax Codes, Distributors CRUD   |
+| `hold-transactions.spec.ts`        | Hold and recall transactions                |
+| `search-modal.spec.ts`             | Search filters, item type/distributor       |
+| `search-open-in-inventory.spec.ts` | Search → open in inventory                  |
+| `clock-out.spec.ts`                | Clock out flow, PIN, report, print          |
+| `reports.spec.ts`                  | Sales reports modal, tabs, export buttons   |
+| `printer-settings.spec.ts`        | Printer config, receipt settings, test print |
+| `refunds.spec.ts`                 | Sales history recall, return workflow        |
 
 Pattern: `page.addInitScript()` to inject mock `window.api`, including `consumePendingDeepLink()` for current app bootstrap. `loginWithPin` helper for auth bypass.
 

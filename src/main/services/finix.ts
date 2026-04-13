@@ -159,12 +159,31 @@ export async function chargeWithCard(
 ): Promise<FinixChargeResult> {
   const totalCents = Math.round(input.total * 100)
 
-  // Step 1: Tokenize the card as a payment instrument
+  // Step 1: Create a buyer identity for this card holder
+  const buyerResponse = await finixFetch(username, password, '/identities', {
+    method: 'POST',
+    body: JSON.stringify({
+      entity: {
+        first_name: input.person_name.split(' ')[0] || 'Card',
+        last_name: input.person_name.split(' ').slice(1).join(' ') || 'Holder',
+        email: 'customer@example.com'
+      }
+    })
+  })
+
+  if (!buyerResponse.ok) {
+    throw await parseFinixError(buyerResponse, 'Failed to create buyer identity')
+  }
+
+  const buyer = (await buyerResponse.json()) as { id: string }
+
+  // Step 2: Tokenize the card as a payment instrument (identity required by Finix)
   const [expMonth, expYear] = parseCardExp(input.card_exp)
   const piResponse = await finixFetch(username, password, '/payment_instruments', {
     method: 'POST',
     body: JSON.stringify({
       type: 'PAYMENT_CARD',
+      identity: buyer.id,
       number: input.card_number,
       expiration_month: expMonth,
       expiration_year: expYear,
@@ -180,7 +199,7 @@ export async function chargeWithCard(
 
   const pi = (await piResponse.json()) as { id: string }
 
-  // Step 2: Create an authorization
+  // Step 3: Create an authorization
   const authResponse = await finixFetch(username, password, '/authorizations', {
     method: 'POST',
     body: JSON.stringify({
@@ -219,7 +238,7 @@ export async function chargeWithCard(
     }
   }
 
-  // Step 3: Immediately capture the authorization
+  // Step 4: Immediately capture the authorization
   return captureAuthorization(username, password, auth.id, totalCents, input.card_number.slice(-4))
 }
 

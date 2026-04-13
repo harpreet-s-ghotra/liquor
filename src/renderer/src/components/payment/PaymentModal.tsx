@@ -17,7 +17,7 @@ const TEST_CARDS: Record<'credit' | 'debit', FinixCardInput> = {
   debit: {
     total: 0,
     person_name: 'Test Customer',
-    card_number: '5555555555554444',
+    card_number: '5200820000007201',
     card_exp: '0128',
     card_cvv: '123'
   }
