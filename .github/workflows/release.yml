@@ -23,9 +23,7 @@ jobs:
       - run: npm run build
 
       - name: Build Windows installer
-        run: npx electron-builder --win --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish never
 
       - name: Publish to public releases repo
         shell: bash
