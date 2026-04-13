@@ -46,8 +46,9 @@ const attachApiMock = async (page: Page): Promise<void> => {
     ;(window as any).api = {
       getMerchantConfig: async () => ({
         id: 1,
-        payment_processing_api_key: 'test-api-key',
-        merchant_id: 'test-merchant-id',
+        finix_api_username: 'US-test-api-key',
+        finix_api_password: 'test-finix-password',
+        merchant_id: 'MU-test-merchant-id',
         merchant_name: 'Test Liquor Store',
         activated_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z'
@@ -56,14 +57,16 @@ const attachApiMock = async (page: Page): Promise<void> => {
         user: { id: 'user-1', email: 'test@example.com' },
         merchant: {
           id: 1,
-          payment_processing_api_key: 'test-api-key',
-          merchant_id: 'test-merchant-id',
+          finix_api_username: 'US-test-api-key',
+          finix_api_password: 'test-finix-password',
+          merchant_id: 'MU-test-merchant-id',
           merchant_name: 'Test Liquor Store',
           activated_at: '2025-01-01T00:00:00.000Z',
           updated_at: '2025-01-01T00:00:00.000Z'
         }
       }),
       onDeepLink: () => {},
+      consumePendingDeepLink: async () => null,
       getCashiers: async () => [
         { id: 1, name: 'Test Cashier', role: 'admin', is_active: 1, created_at: '2025-01-01' }
       ],
@@ -152,7 +155,9 @@ test.describe('Search modal — Open in Inventory', () => {
 
     // The item's SKU and name should be loaded in the form
     await expect(page.getByRole('textbox', { name: 'SKU', exact: true })).toHaveValue('WINE-001')
-    await expect(page.getByLabel('Name')).toHaveValue('Cabernet Sauvignon 750ml')
+    await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue(
+      'Cabernet Sauvignon 750ml'
+    )
 
     // The header breadcrumb should reflect the selected item
     await expect(page.getByText('Edit Record: WINE-001')).toBeVisible()

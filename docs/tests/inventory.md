@@ -3,7 +3,7 @@
 **Spec file:** `tests/e2e/inventory.spec.ts`
 **Suite:** `Inventory Management`
 
-Covers opening the inventory modal, required-field validation, item save/search, and duplicate additional-SKU validation.
+Covers opening the inventory modal, required-field validation, item save/search, additional-info fields, display name persistence, and duplicate additional-SKU validation.
 
 **Mock data:** 2 seeded inventory items (SKU-001 with additional SKU SKU-001-ALT, SKU-002), 2 POS products, item types (Wine, Spirits), backend tax rate options, in-memory save and search behavior
 
@@ -71,3 +71,45 @@ Covers opening the inventory modal, required-field validation, item save/search,
 | 3   | Select the tax code option containing "13"                                | --                                                                                |
 | 4   | Open Additional SKUs, enter "SKU-001-ALT", and click "Add Additional SKU" | --                                                                                |
 | 5   | Click Save                                                                | "Additional SKU \"SKU-001-ALT\" is already used by \"Inventory Item\"" is visible |
+
+---
+
+## 6. Additional Info tab shows Proof, ABV%, Vintage, TTB ID fields
+
+| #   | Step                                            | Assertion                     |
+| --- | ----------------------------------------------- | ----------------------------- |
+| 1   | Log in, open inventory modal, fill SKU and Name | --                            |
+| 2   | Open the Additional Info tab                    | Additional Info tab is active |
+| 3   | --                                              | Proof field is visible        |
+| 4   | --                                              | ABV Percent field is visible  |
+| 5   | --                                              | Vintage field is visible      |
+| 6   | --                                              | TTB ID field is visible       |
+
+---
+
+## 7. Saves item with Additional Info fields and verifies on reload
+
+| #   | Step                                                                                   | Assertion                           |
+| --- | -------------------------------------------------------------------------------------- | ----------------------------------- |
+| 1   | Log in and open inventory modal                                                        | --                                  |
+| 2   | Fill required general info fields and select the 13% tax code                          | --                                  |
+| 3   | Open Additional Info and fill Proof 80, ABV 40, Vintage 2020, and TTB ID TTB-12345-ABC | --                                  |
+| 4   | Click Save                                                                             | "Item saved" is visible             |
+| 5   | Search for the saved SKU and click Search                                              | Saved item loads back into the form |
+| 6   | Open Additional Info again                                                             | Proof shows 80                      |
+| 7   | --                                                                                     | ABV Percent shows 40                |
+| 8   | --                                                                                     | Vintage shows 2020                  |
+| 9   | --                                                                                     | TTB ID shows TTB-12345-ABC          |
+
+---
+
+## 8. Display name field appears in General Info and saves correctly
+
+| #   | Step                                                               | Assertion                             |
+| --- | ------------------------------------------------------------------ | ------------------------------------- |
+| 1   | Log in and open inventory modal                                    | Display Name field is visible         |
+| 2   | Fill SKU, Name, Display Name, Item Type, Cost, Price, and In Stock | --                                    |
+| 3   | Select the tax code option containing "13"                         | --                                    |
+| 4   | Click Save                                                         | "Item saved" is visible               |
+| 5   | Search for the saved SKU and click Search                          | Saved item loads back into the form   |
+| 6   | --                                                                 | Display Name field shows "Short Name" |

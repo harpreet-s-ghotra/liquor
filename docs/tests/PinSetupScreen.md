@@ -1,22 +1,8 @@
-# PinSetupScreen Test Suite
+# Obsolete Test Doc
 
-**Test File:** `src/renderer/src/pages/PinSetupScreen.test.tsx`
-**Component:** `src/renderer/src/pages/PinSetupScreen.tsx`
+This file has no corresponding Playwright spec in `tests/e2e`.
 
-## Overview
-
-The PinSetupScreen test suite covers the initial account setup form for creating an admin and cashier account with 4-digit PINs. It verifies form rendering, multi-field validation, PIN constraints, API calls, and error handling.
-
-## Test Coverage
-
-- **Statements:** 100%
-- **Branches:** 100%
-- **Functions:** 100%
-- **Lines:** 100%
-
-## Test Cases
-
-### Rendering Tests
+It is a legacy unit-test document and should be removed from `docs/tests/` when file deletion is available.
 
 1. **Renders admin and cashier account sections**
    - Both account sections present with correct headings

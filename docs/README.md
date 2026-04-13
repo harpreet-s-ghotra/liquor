@@ -1,4 +1,4 @@
-# LiquorPOS Documentation
+# High Spirits POS Documentation
 
 > Master index for all project documentation. Start here.
 
@@ -6,7 +6,7 @@
 
 | Doc                               | Covers                                                           |
 | --------------------------------- | ---------------------------------------------------------------- |
-| [Project Plan](project-plan.md)   | Full vision, roadmap, database schema, Stax architecture         |
+| [Project Plan](project-plan.md)   | Full vision, roadmap, database schema, Finix architecture        |
 | [Design System](design-system.md) | Visual spec -- colors, typography, layout rules, component specs |
 
 ## Feature Specs
@@ -22,8 +22,9 @@
 | [Stax Activation](features/stax-activation.md)               | Superseded  | Merchant activation flow, cashier PIN login, auth state machine      |
 | [Supabase Onboarding](features/supabase-onboarding.md)       | Active      | Supabase auth, PIN setup, distributor catalog import (Phase A)       |
 | [Cloud Sync](features/cloud-sync.md)                         | In Progress | Multi-register transaction & inventory sync via Supabase Realtime    |
-| [Stax Integration](features/stax-integration.md)             | In Progress | Partner API, endpoints, test cards, webhooks                         |
+| [Finix Integration](features/finix-integration.md)           | Active      | Finix credentials, manual card charges, refunds, device roadmap      |
 | [NYSLA Schema Alignment](features/nysla-schema-alignment.md) | Complete    | Inventory fields aligned with NYSLA Price Postings for future import |
+| [Sales Reports](features/sales-reports.md)                   | Complete    | Sales summary, product/category analysis, tax report, comparisons    |
 
 ## AI Navigation
 
@@ -34,7 +35,7 @@ AI agents should read these before searching the codebase:
 | [Repo Map](ai/repo-map.md)           | Architecture, entry points, IPC channels, module lookup |
 | [Testing Map](ai/testing-map.md)     | Test locations, runners, patterns, how to add tests     |
 | [Inventory Map](ai/inventory-map.md) | All inventory feature files, components, types, tests   |
-| [Stax Map](ai/stax-map.md)           | Payment/auth files, Stax API, terminal flow             |
+| [Finix Map](ai/finix-map.md)         | Payment/auth files, Finix API, refunds, device roadmap  |
 | [Glossary](ai/glossary.md)           | Canonical terms and definitions                         |
 
 ## E2E Test Coverage

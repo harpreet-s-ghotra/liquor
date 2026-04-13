@@ -1,23 +1,8 @@
-# ImportDistributorsDialog.test.tsx
+# Obsolete Test Doc
 
-## Overview
+This file has no corresponding Playwright spec in `tests/e2e`.
 
-Comprehensive unit test suite for the `ImportDistributorsDialog` component, which provides a modal interface for importing distributors from a catalog. The component handles loading, filtering, selection, and bulk import of distributors.
-
-**Test File Location:** `src/renderer/src/components/inventory/distributors/ImportDistributorsDialog.test.tsx`
-
-**Component Tested:** `src/renderer/src/components/inventory/distributors/ImportDistributorsDialog.tsx`
-
----
-
-## Test Coverage Summary
-
-- **Total Tests:** 31
-- **All Passing:** ✓
-- **Branch Coverage:** 80.97% (target: ≥80%)
-- **Statement Coverage:** 89.6%
-- **Function Coverage:** 85.29%
-- **Line Coverage:** 94%
+It is a legacy unit-test document and should be removed from `docs/tests/` when file deletion is available.
 
 ---
 

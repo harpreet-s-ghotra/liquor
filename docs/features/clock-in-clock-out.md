@@ -33,7 +33,7 @@ LiquorPOS tracks daily register sessions. A session starts automatically when th
    - Summary (gross sales, tax collected, net sales, average transaction)
    - Refunds (count and total, only if refunds exist)
    - Cash Reconciliation (cash sales - cash refunds = expected cash)
-6. **Print Report**: Generates a receipt-formatted PDF and prints via CUPS
+6. **Print Report**: Generates a receipt-formatted PDF and prints via CUPS using the receipt printer selected in Printer Settings. Legacy USB drawer-only configs are still accepted as a fallback.
 7. **Close**: Dismisses the modal, returns to POS screen
 
 ## Database
@@ -85,20 +85,21 @@ All types defined in `src/shared/types/index.ts`:
 
 ## File Map
 
-| File                                                       | Purpose                                               |
-| ---------------------------------------------------------- | ----------------------------------------------------- |
-| `src/shared/types/index.ts`                                | Session and report types                              |
-| `src/main/database/schema.ts`                              | sessions table DDL + transaction session_id migration |
-| `src/main/database/sessions.repo.ts`                       | Session CRUD + report generation                      |
-| `src/main/database/transactions.repo.ts`                   | Attaches session_id on save                           |
-| `src/main/index.ts`                                        | 6 IPC handlers for sessions                           |
-| `src/preload/index.ts` + `index.d.ts`                      | 6 window.api methods                                  |
-| `src/main/services/receipt-printer.ts`                     | printClockOutReport function                          |
-| `src/renderer/src/store/useAuthStore.ts`                   | Session auto-creation on login                        |
-| `src/renderer/src/components/clock-out/ClockOutModal.tsx`  | Main modal (list/pin/report views)                    |
-| `src/renderer/src/components/clock-out/ClockOutReport.tsx` | Presentational report component                       |
-| `src/renderer/src/components/layout/BottomShortcutBar.tsx` | F3 wired to onClockOutClick                           |
-| `src/renderer/src/pages/POSScreen.tsx`                     | State + F3 shortcut + render modal                    |
+| File                                                           | Purpose                                               |
+| -------------------------------------------------------------- | ----------------------------------------------------- |
+| `src/shared/types/index.ts`                                    | Session and report types                              |
+| `src/main/database/schema.ts`                                  | sessions table DDL + transaction session_id migration |
+| `src/main/database/sessions.repo.ts`                           | Session CRUD + report generation                      |
+| `src/main/database/transactions.repo.ts`                       | Attaches session_id on save                           |
+| `src/main/index.ts`                                            | 6 IPC handlers for sessions                           |
+| `src/preload/index.ts` + `index.d.ts`                          | 6 window.api methods                                  |
+| `src/main/services/receipt-printer.ts`                         | printClockOutReport function                          |
+| `src/renderer/src/components/printer/PrinterSettingsModal.tsx` | Receipt printer selection + layout settings           |
+| `src/renderer/src/store/useAuthStore.ts`                       | Session auto-creation on login                        |
+| `src/renderer/src/components/clock-out/ClockOutModal.tsx`      | Main modal (list/pin/report views)                    |
+| `src/renderer/src/components/clock-out/ClockOutReport.tsx`     | Presentational report component                       |
+| `src/renderer/src/components/layout/BottomShortcutBar.tsx`     | F3 wired to onClockOutClick                           |
+| `src/renderer/src/pages/POSScreen.tsx`                         | State + F3 shortcut + render modal                    |
 
 ## Report Generation
 

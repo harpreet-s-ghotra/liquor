@@ -1,11 +1,11 @@
 # Transactions
 
 **Spec file:** `tests/e2e/transactions.spec.ts`
-**Suites:** `Simple Transactions`, `Payment Modal`
+**Suites:** `Simple Transactions`, `Payment Modal`, `Case Discount at POS`, `Product Tile Display`
 
-Tests cart operations (adding items, price change, discount, SKU search, quantity change) and the full payment modal workflow (cash, credit, debit, split payments, tender denominations).
+Tests cart operations, SKU-driven search flows, payment modal behavior, case-discount pricing at POS, and product tile display limits.
 
-**Mock data:** 15 products across 5 categories (Wine, Beer, Spirits, Coolers, Mixers), `chargeTerminal` and `chargeWithCard` mocks (300ms latency), in-memory transaction store
+**Mock data:** 15-product POS mock with in-memory transaction storage, Finix sandbox card mock, dedicated case-discount mock with bottle/case pricing, and a 25-product grid-cap mock
 
 ---
 
@@ -172,13 +172,13 @@ Tests cart operations (adding items, price change, discount, SKU search, quantit
 
 ## 16. Credit card shows processing then completes
 
-| #   | Step                               | Assertion                                                 |
-| --- | ---------------------------------- | --------------------------------------------------------- |
-| 1   | Log in, add product, click Pay Now | --                                                        |
-| 2   | Click Credit                       | Processing state visible, "Processing test card..." shown |
-| 3   | --                                 | Cancel button is disabled during processing               |
-| 4   | -- (300ms mock delay)              | Payment complete screen appears with OK button            |
-| 5   | Click OK                           | Modal closes; cart is empty                               |
+| #   | Step                               | Assertion                                               |
+| --- | ---------------------------------- | ------------------------------------------------------- |
+| 1   | Log in, add product, click Pay Now | --                                                      |
+| 2   | Click Credit                       | Processing state visible, "Processing payment..." shown |
+| 3   | --                                 | Cancel button is disabled during processing             |
+| 4   | -- (300ms mock delay)              | Payment complete screen appears with OK button          |
+| 5   | Click OK                           | Modal closes; cart is empty                             |
 
 ---
 
@@ -284,3 +284,53 @@ Tests cart operations (adding items, price change, discount, SKU search, quantit
 | 2   | Click Print Receipt button                             | Payment modal is removed from the DOM                         |
 | 3   | --                                                     | Cart has no ticket lines                                      |
 | 4   | --                                                     | Search input is focused                                       |
+
+---
+
+## 27. Applies case discount when quantity meets bottles_per_case threshold
+
+| #   | Step                                                   | Assertion                                                     |
+| --- | ------------------------------------------------------ | ------------------------------------------------------------- |
+| 1   | Log in with the case-discount mock and switch to "All" | Case Discount Wine tile is visible                            |
+| 2   | Click the Case Discount Wine tile 6 times              | Promo badge is visible with a "Case of 6" label               |
+| 3   | --                                                     | Grand total is lower than 6 regular-price bottles with tax    |
+| 4   | --                                                     | Grand total is approximately the case price with tax ($71.28) |
+
+---
+
+## 28. Does not apply case discount when quantity is below threshold
+
+| #   | Step                                                   | Assertion                                               |
+| --- | ------------------------------------------------------ | ------------------------------------------------------- |
+| 1   | Log in with the case-discount mock and switch to "All" | Case Discount Wine tile is visible                      |
+| 2   | Click the Case Discount Wine tile 5 times              | No promo badge is shown                                 |
+| 3   | --                                                     | Grand total is approximately 5 regular bottles with tax |
+
+---
+
+## 29. Case discount applies to full cases, remainder at regular price
+
+| #   | Step                                                   | Assertion                                                           |
+| --- | ------------------------------------------------------ | ------------------------------------------------------------------- |
+| 1   | Log in with the case-discount mock and switch to "All" | Case Discount Wine tile is visible                                  |
+| 2   | Click the Case Discount Wine tile 8 times              | Promo badge is visible                                              |
+| 3   | --                                                     | Grand total is approximately 1 case plus 2 regular bottles with tax |
+
+---
+
+## 30. Shows product size on tile
+
+| #   | Step                                                   | Assertion                          |
+| --- | ------------------------------------------------------ | ---------------------------------- |
+| 1   | Log in with the case-discount mock and switch to "All" | Case Discount Wine tile is visible |
+| 2   | --                                                     | Product tile shows size "750ml"    |
+
+---
+
+## 31. POS grid shows maximum 20 product tiles
+
+| #   | Step                                     | Assertion                         |
+| --- | ---------------------------------------- | --------------------------------- |
+| 1   | Log in with the 25-product grid-cap mock | POS screen loads                  |
+| 2   | Switch category to "All"                 | Product tiles render              |
+| 3   | --                                       | Product tile count is 20 or fewer |

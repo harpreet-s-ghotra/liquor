@@ -1,6 +1,6 @@
 # Design System: The Tactical Monolith
 
-> Visual specification and layout rules for the LiquorPOS interface.
+> Visual specification and layout rules for the High Spirits POS interface.
 > For CSS implementation details (BEM, tokens, component rules), see [CLAUDE.md](../CLAUDE.md#styling-conventions).
 
 ---

@@ -1,22 +1,8 @@
-# AuthScreen Test Suite
+# Obsolete Test Doc
 
-**Test File:** `src/renderer/src/pages/AuthScreen.test.tsx`
-**Component:** `src/renderer/src/pages/AuthScreen.tsx`
+This file has no corresponding Playwright spec in `tests/e2e`.
 
-## Overview
-
-The AuthScreen test suite covers the email/password login form component. It verifies form rendering, input validation, submission handling, error display, and loading states. The component uses `useAuthStore` to manage authentication state and display errors.
-
-## Test Coverage
-
-- **Statements:** 96.15%
-- **Branches:** 94.44%
-- **Functions:** 100%
-- **Lines:** 100%
-
-## Test Cases
-
-### Rendering Tests
+It is a legacy unit-test document and should be removed from `docs/tests/` when file deletion is available.
 
 1. **Renders email input, password input, and Sign In button**
    - Verifies all form elements are rendered

@@ -146,21 +146,21 @@ describe('PaymentModal', () => {
     expect(screen.queryByTestId('payment-complete')).not.toBeInTheDocument()
   })
 
-  // ── Terminal card payment tests ──
+  // ── Finix card payment tests ──
 
-  describe('with terminal API (chargeTerminal)', () => {
-    const mockChargeTerminal = vi.fn()
+  describe('with Finix card API (finixChargeCard)', () => {
+    const mockFinixChargeCard = vi.fn()
 
     beforeEach(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(window as any).api = { chargeTerminal: mockChargeTerminal }
-      mockChargeTerminal.mockReset()
+      ;(window as any).api = { finixChargeCard: mockFinixChargeCard }
+      mockFinixChargeCard.mockReset()
     })
 
     it('shows processing spinner when Credit is clicked', async () => {
       vi.useRealTimers()
       // Never resolve to keep spinner visible
-      mockChargeTerminal.mockReturnValue(new Promise(() => {}))
+      mockFinixChargeCard.mockReturnValue(new Promise(() => {}))
 
       render(<PaymentModal isOpen={true} total={22.59} onComplete={vi.fn()} onCancel={vi.fn()} />)
 
@@ -168,15 +168,13 @@ describe('PaymentModal', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
-        expect(screen.getByTestId('payment-processing')).toHaveTextContent(
-          /Waiting for card machine|Processing test card/
-        )
+        expect(screen.getByTestId('payment-processing')).toHaveTextContent('Processing payment...')
       })
     })
 
     it('shows processing spinner when Debit is clicked', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockReturnValue(new Promise(() => {}))
+      mockFinixChargeCard.mockReturnValue(new Promise(() => {}))
 
       render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
 
@@ -187,10 +185,11 @@ describe('PaymentModal', () => {
       })
     })
 
-    it('calls chargeTerminal and shows success on approved charge', async () => {
+    it('calls finixChargeCard and shows success on approved charge', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockResolvedValue({
-        transaction_id: 'txn-123',
+      mockFinixChargeCard.mockResolvedValue({
+        authorization_id: 'AU-123',
+        transfer_id: 'TR-123',
         success: true,
         last_four: '1111',
         card_type: 'visa',
@@ -216,10 +215,10 @@ describe('PaymentModal', () => {
         expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
       })
 
-      expect(mockChargeTerminal).toHaveBeenCalledWith(
+      expect(mockFinixChargeCard).toHaveBeenCalledWith(
         expect.objectContaining({
           total: 22.59,
-          payment_type: 'credit'
+          card_number: '4111111111111111'
         })
       )
 
@@ -231,8 +230,9 @@ describe('PaymentModal', () => {
 
     it('shows friendly error on declined charge', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockResolvedValue({
-        transaction_id: '',
+      mockFinixChargeCard.mockResolvedValue({
+        authorization_id: '',
+        transfer_id: '',
         success: false,
         last_four: '',
         card_type: 'unknown',
@@ -252,9 +252,38 @@ describe('PaymentModal', () => {
       })
     })
 
+    it('shows generic error for long unknown error messages', async () => {
+      vi.useRealTimers()
+      const longMsg = 'Something completely unexpected happened in the payment system at layer 7'
+      mockFinixChargeCard.mockRejectedValue(new Error(longMsg))
+
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('card-error')).toHaveTextContent(
+          'Payment failed. Please try again or use another payment method.'
+        )
+      })
+    })
+
+    it('passes through short unknown error messages as-is', async () => {
+      vi.useRealTimers()
+      mockFinixChargeCard.mockRejectedValue(new Error('Try again'))
+
+      render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('card-error')).toHaveTextContent('Try again')
+      })
+    })
+
     it('shows friendly error on API failure', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockRejectedValue(new Error('No terminal devices found'))
+      mockFinixChargeCard.mockRejectedValue(new Error('No terminal devices found'))
 
       render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
 
@@ -267,16 +296,17 @@ describe('PaymentModal', () => {
       })
     })
 
-    it('shows friendly error on terminal timeout', async () => {
+    it('shows friendly error on timeout', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockResolvedValue({
-        transaction_id: 'txn-456',
+      mockFinixChargeCard.mockResolvedValue({
+        authorization_id: '',
+        transfer_id: '',
         success: false,
         last_four: '',
         card_type: 'unknown',
         total: 10.0,
         message: 'Terminal timed out — no response from card reader',
-        status: 'timeout'
+        status: 'error'
       })
 
       render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
@@ -292,7 +322,7 @@ describe('PaymentModal', () => {
 
     it('dismiss button clears card error', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockRejectedValue(new Error('Connection refused'))
+      mockFinixChargeCard.mockRejectedValue(new Error('Connection refused'))
 
       render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
 
@@ -309,7 +339,7 @@ describe('PaymentModal', () => {
 
     it('card error is cleared when Cash (Exact) is clicked', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockRejectedValue(new Error('No terminal devices found'))
+      mockFinixChargeCard.mockRejectedValue(new Error('No terminal devices found'))
 
       const onComplete = vi.fn()
       render(<PaymentModal isOpen={true} total={10.0} onComplete={onComplete} onCancel={vi.fn()} />)
@@ -329,7 +359,7 @@ describe('PaymentModal', () => {
 
     it('card error is cleared when a tender denomination is clicked', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockRejectedValue(new Error('No terminal devices found'))
+      mockFinixChargeCard.mockRejectedValue(new Error('No terminal devices found'))
 
       render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
 
@@ -345,10 +375,11 @@ describe('PaymentModal', () => {
       expect(screen.queryByTestId('card-error')).not.toBeInTheDocument()
     })
 
-    it('supports split payment: partial cash then card via terminal', async () => {
+    it('supports split payment: partial cash then credit card', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockResolvedValue({
-        transaction_id: 'txn-split',
+      mockFinixChargeCard.mockResolvedValue({
+        authorization_id: 'AU-split',
+        transfer_id: 'TR-split',
         success: true,
         last_four: '4444',
         card_type: 'mastercard',
@@ -364,7 +395,7 @@ describe('PaymentModal', () => {
       fireEvent.click(screen.getByRole('button', { name: '$10' }))
       expect(screen.getByTestId('payment-remaining')).toHaveTextContent('$15.00')
 
-      // Pay remaining with credit card via terminal
+      // Pay remaining with credit card
       fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
 
       await waitFor(() => {
@@ -376,10 +407,11 @@ describe('PaymentModal', () => {
       expect(paidList).toHaveTextContent('mastercard')
     })
 
-    it('auto-triggers credit card via terminal when initialMethod is credit', async () => {
+    it('auto-triggers credit card when initialMethod is credit', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockResolvedValue({
-        transaction_id: 'txn-auto',
+      mockFinixChargeCard.mockResolvedValue({
+        authorization_id: 'AU-auto',
+        transfer_id: 'TR-auto',
         success: true,
         last_four: '9999',
         card_type: 'visa',
@@ -404,18 +436,19 @@ describe('PaymentModal', () => {
         expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
       })
 
-      expect(mockChargeTerminal).toHaveBeenCalledWith(
+      expect(mockFinixChargeCard).toHaveBeenCalledWith(
         expect.objectContaining({
           total: 15.0,
-          payment_type: 'credit'
+          card_number: '4111111111111111'
         })
       )
     })
 
-    it('auto-triggers debit card via terminal when initialMethod is debit', async () => {
+    it('auto-triggers debit card when initialMethod is debit', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockResolvedValue({
-        transaction_id: 'txn-debit',
+      mockFinixChargeCard.mockResolvedValue({
+        authorization_id: 'AU-debit',
+        transfer_id: 'TR-debit',
         success: true,
         last_four: '5555',
         card_type: 'mastercard',
@@ -438,17 +471,17 @@ describe('PaymentModal', () => {
         expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
       })
 
-      expect(mockChargeTerminal).toHaveBeenCalledWith(
+      expect(mockFinixChargeCard).toHaveBeenCalledWith(
         expect.objectContaining({
           total: 8.5,
-          payment_type: 'debit'
+          card_number: '5555555555554444'
         })
       )
     })
 
     it('disables Cancel while processing card', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockReturnValue(new Promise(() => {}))
+      mockFinixChargeCard.mockReturnValue(new Promise(() => {}))
 
       render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
 
@@ -463,7 +496,7 @@ describe('PaymentModal', () => {
 
     it('disables payment method buttons while processing', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockReturnValue(new Promise(() => {}))
+      mockFinixChargeCard.mockReturnValue(new Promise(() => {}))
 
       render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
 
@@ -478,10 +511,11 @@ describe('PaymentModal', () => {
       expect(screen.getByRole('button', { name: 'Debit' })).toBeDisabled()
     })
 
-    it('completes transaction and returns result with card details via OK button', async () => {
+    it('completes transaction and returns result with finix_authorization_id via OK button', async () => {
       vi.useRealTimers()
-      mockChargeTerminal.mockResolvedValue({
-        transaction_id: 'txn-ok',
+      mockFinixChargeCard.mockResolvedValue({
+        authorization_id: 'AU-ok',
+        transfer_id: 'TR-ok',
         success: true,
         last_four: '4242',
         card_type: 'visa',
@@ -504,7 +538,7 @@ describe('PaymentModal', () => {
       expect(onComplete).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'credit',
-          stax_transaction_id: 'txn-ok',
+          finix_authorization_id: 'AU-ok',
           card_last_four: '4242',
           card_type: 'visa'
         })

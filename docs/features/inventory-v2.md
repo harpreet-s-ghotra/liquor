@@ -133,21 +133,21 @@ These are display-only and are **not saved to the backend**.
 
 ### 2. New Persisted Fields (require backend + type changes)
 
-| Field                     | Type                    | Where added                                                              |
-| ------------------------- | ----------------------- | ------------------------------------------------------------------------ |
-| `item_type`               | `string`                | `InventoryFormState`, `SaveInventoryItemInput`, schema, products.repo.ts |
-| `allow_food_stamps`       | `boolean`               | Same as above                                                            |
-| `prompt_for_price_at_pos` | `boolean`               | Same as above                                                            |
-| `scale_at_pos`            | `boolean`               | Same as above                                                            |
-| `bonus_points_earned`     | `number`                | Same as above                                                            |
-| `commission_amount`       | `string`                | Same as above                                                            |
-| `commission_mode`         | `'dollar' \| 'percent'` | Same as above                                                            |
-| `physical_location`       | `string`                | Same as above                                                            |
-| `brand_name`              | `string`                | `InventoryFormState`, `SaveInventoryItemInput`, schema, products.repo.ts |
-| `proof`                   | `number \| null`        | Same as above                                                            |
-| `alcohol_pct`             | `number \| null`        | Same as above                                                            |
-| `vintage`                 | `string`                | Same as above                                                            |
-| `ttb_id`                  | `string`                | Same as above — TTB registration ID for NYSLA data matching              |
+| Field                     | Type                    | Where added                                                                                                        |
+| ------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `item_type`               | `string`                | `InventoryFormState`, `SaveInventoryItemInput`, schema, products.repo.ts                                           |
+| `allow_food_stamps`       | `boolean`               | Same as above                                                                                                      |
+| `prompt_for_price_at_pos` | `boolean`               | Same as above                                                                                                      |
+| `scale_at_pos`            | `boolean`               | Same as above                                                                                                      |
+| `bonus_points_earned`     | `number`                | Same as above                                                                                                      |
+| `commission_amount`       | `string`                | Same as above                                                                                                      |
+| `commission_mode`         | `'dollar' \| 'percent'` | Same as above                                                                                                      |
+| `physical_location`       | `string`                | Same as above                                                                                                      |
+| `brand_name`              | `string`                | `InventoryFormState`, `SaveInventoryItemInput`, schema, products.repo.ts                                           |
+| `proof`                   | `number \| null`        | Same as above                                                                                                      |
+| `alcohol_pct`             | `number \| null`        | Same as above                                                                                                      |
+| `vintage`                 | `string`                | Same as above                                                                                                      |
+| `ttb_id`                  | `string`                | Same as above — TTB registration ID for NYSLA data matching; preserve the raw value exactly as entered or imported |
 
 ### 3. Field Renames / Type Changes
 

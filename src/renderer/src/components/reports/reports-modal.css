@@ -1,0 +1,234 @@
+.reports-modal {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  width: 90vw;
+  max-width: 1100px;
+  height: 85vh;
+  max-height: 85vh;
+  overflow: hidden;
+}
+
+.reports-modal__tabs {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.reports-modal__close-btn {
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 1rem;
+  min-height: 2.25rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.reports-modal__close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.reports-modal__date-bar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.reports-modal__export-btns {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.reports-modal__comparison-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.reports-modal__range-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.reports-modal__content {
+  flex: 1;
+  padding: 8px 0;
+  overflow-y: auto;
+}
+
+.reports-modal__loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.reports-modal__cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.report-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  padding: 12px;
+}
+
+.report-summary-card__label {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.report-summary-card__value {
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.report-summary-card__delta {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.report-summary-card__delta--positive {
+  color: var(--semantic-success-text);
+}
+
+.report-summary-card__delta--negative {
+  color: var(--semantic-danger-text);
+}
+
+.reports-modal__charts {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.reports-modal__chart-panel {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  padding: 12px;
+}
+
+.reports-modal__chart-panel--small {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.reports-modal__chart-title {
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.reports-modal__empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.reports-modal__refund-summary {
+  border-radius: var(--radius);
+  background: var(--bg-surface-soft);
+  padding: 8px 12px;
+  color: var(--semantic-danger-text);
+  font-size: var(--text-sm);
+}
+
+.reports-modal__table-wrap {
+  margin-top: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+
+.reports-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.reports-modal__table th,
+.reports-modal__table td {
+  border-bottom: 1px solid var(--border-soft);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.reports-modal__table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.reports-modal__table tfoot td {
+  border-top: 2px solid var(--border-default);
+  font-weight: 700;
+}
+
+.reports-modal__positive {
+  color: var(--semantic-success-text);
+  font-weight: 600;
+}
+
+.reports-modal__negative {
+  color: var(--semantic-danger-text);
+  font-weight: 600;
+}
+
+/* Date range picker */
+
+.report-date-picker__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.report-date-picker__custom {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.report-date-picker__field {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.report-date-picker__field input[type='date'] {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  padding: 4px 8px;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}

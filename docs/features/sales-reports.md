@@ -102,7 +102,7 @@ Each tab calls window.api.reports:* IPC channels
    - `ReportExportRequest { report_type, date_range, format: 'pdf' | 'csv' }`
 
 2. **Create `src/main/database/reports.repo.ts`** -- new repo with pure SQL aggregation functions
-   - `getSalesSummary(dateRange)` -- total/avg/count with GROUP BY date and payment_method. _Reference pattern:_ `generateClockOutReport()` in `sessions.repo.ts`
+   - `getSalesSummary(dateRange)` -- total/avg/count with GROUP BY date and payment*method. \_Reference pattern:* `generateClockOutReport()` in `sessions.repo.ts`
    - `getProductSales(dateRange, sortBy, limit)` -- JOIN `transaction_items` -> `products`, GROUP BY product_id
    - `getCategorySales(dateRange)` -- GROUP BY `products.item_type`
    - `getTaxSummary(dateRange)` -- GROUP BY tax code, calculate taxable sales and tax collected per code

@@ -22,10 +22,11 @@ import type {
   Cashier,
   CreateCashierInput,
   UpdateCashierInput,
-  DirectChargeInput,
-  TerminalChargeInput,
-  TerminalChargeResult,
-  TerminalRegister,
+  FinixCardInput,
+  FinixTerminalChargeInput,
+  FinixChargeResult,
+  FinixDevice,
+  FinixCreateDeviceInput,
   SaveTransactionInput,
   SavedTransaction,
   TransactionDetail,
@@ -37,6 +38,7 @@ import type {
   TransactionListResult,
   PrintReceiptInput,
   ReceiptConfig,
+  ReceiptPrinterConfig,
   Session,
   CreateSessionInput,
   CloseSessionInput,
@@ -47,7 +49,18 @@ import type {
   CatalogDistributor,
   ImportResult,
   SyncStatus,
-  DeviceConfig
+  DeviceConfig,
+  ReportDateRange,
+  SalesSummaryReport,
+  ProductSalesReport,
+  CategorySalesReport,
+  TaxReport,
+  ComparisonReport,
+  CashierSalesReport,
+  HourlySalesReport,
+  ReportExportRequest,
+  BusinessInfoInput,
+  ProvisionMerchantResult
 } from '../shared/types'
 
 type AppApi = {
@@ -93,6 +106,7 @@ type AppApi = {
   onDeepLink: (
     callback: (payload: { accessToken: string; refreshToken: string; type: string | null }) => void
   ) => void
+  consumePendingDeepLink: () => Promise<string | null>
 
   // Catalog
   getCatalogDistributors: () => Promise<CatalogDistributor[]>
@@ -100,7 +114,11 @@ type AppApi = {
 
   // Merchant Config
   getMerchantConfig: () => Promise<MerchantConfig | null>
-  activateMerchant: (apiKey: string) => Promise<MerchantConfig>
+  activateMerchant: (
+    apiUsername: string,
+    apiPassword: string,
+    merchantId: string
+  ) => Promise<MerchantConfig>
   deactivateMerchant: () => Promise<void>
 
   // Cashiers
@@ -110,10 +128,14 @@ type AppApi = {
   updateCashier: (input: UpdateCashierInput) => Promise<Cashier>
   deleteCashier: (id: number) => Promise<void>
 
-  // Stax Terminal Payments
-  getTerminalRegisters: () => Promise<TerminalRegister[]>
-  chargeTerminal: (input: TerminalChargeInput) => Promise<TerminalChargeResult>
-  chargeWithCard: (input: DirectChargeInput) => Promise<TerminalChargeResult>
+  // Finix Payments
+  finixListDevices: () => Promise<FinixDevice[]>
+  finixCreateDevice: (input: FinixCreateDeviceInput) => Promise<FinixDevice>
+  finixChargeCard: (input: FinixCardInput) => Promise<FinixChargeResult>
+  finixChargeTerminal: (input: FinixTerminalChargeInput) => Promise<FinixChargeResult>
+  finixVoidAuthorization: (authorizationId: string) => Promise<void>
+  finixRefundTransfer: (transferId: string, amountCents: number) => Promise<void>
+  finixProvisionMerchant: (input: BusinessInfoInput) => Promise<ProvisionMerchantResult>
 
   // Transactions
   saveTransaction: (input: SaveTransactionInput) => Promise<SavedTransaction>
@@ -139,7 +161,12 @@ type AppApi = {
   printReceipt: (input: PrintReceiptInput) => Promise<void>
   getReceiptConfig: () => Promise<ReceiptConfig>
   saveReceiptConfig: (config: ReceiptConfig) => Promise<void>
-  getPrinterStatus: () => Promise<{ connected: boolean; printerName: string | null }>
+  getReceiptPrinterConfig: () => Promise<ReceiptPrinterConfig | null>
+  saveReceiptPrinterConfig: (config: ReceiptPrinterConfig) => Promise<void>
+  listReceiptPrinters: () => Promise<string[]>
+  getPrinterStatus: (
+    printerName?: string
+  ) => Promise<{ connected: boolean; printerName: string | null }>
 
   // Cloud Sync
   getSyncStatus: () => Promise<SyncStatus>
@@ -153,6 +180,31 @@ type AppApi = {
   listSessions: (limit?: number, offset?: number) => Promise<SessionListResult>
   getSessionReport: (sessionId: number) => Promise<ClockOutReport>
   printClockOutReport: (input: PrintClockOutReportInput) => Promise<void>
+
+  // Reports
+  getReportSalesSummary: (range: ReportDateRange) => Promise<SalesSummaryReport>
+  getReportProductSales: (
+    range: ReportDateRange,
+    sortBy?: 'revenue' | 'quantity',
+    limit?: number
+  ) => Promise<ProductSalesReport>
+  getReportCategorySales: (range: ReportDateRange) => Promise<CategorySalesReport>
+  getReportTaxSummary: (range: ReportDateRange) => Promise<TaxReport>
+  getReportComparison: (
+    rangeA: ReportDateRange,
+    rangeB: ReportDateRange
+  ) => Promise<ComparisonReport>
+  getReportCashierSales: (range: ReportDateRange) => Promise<CashierSalesReport>
+  getReportHourlySales: (range: ReportDateRange) => Promise<HourlySalesReport>
+  exportReport: (request: ReportExportRequest) => Promise<string | null>
+
+  // Auto-updater
+  onUpdateAvailable: (callback: (info: { version: string; releaseDate: string }) => void) => void
+  onUpdateNotAvailable: (callback: () => void) => void
+  onUpdateDownloaded: (callback: (info: { version: string }) => void) => void
+  onUpdateError: (callback: (err: { message: string }) => void) => void
+  checkForUpdates: () => Promise<void>
+  installUpdate: () => Promise<void>
 }
 
 declare global {

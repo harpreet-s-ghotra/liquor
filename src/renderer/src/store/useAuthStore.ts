@@ -10,6 +10,7 @@ export type AppState =
   | 'auth'
   | 'set-password'
   | 'pin-setup'
+  | 'business-setup'
   | 'distributor-onboarding'
   | 'login'
   | 'pos'
@@ -31,6 +32,7 @@ type AuthStoreActions = {
   setPassword: (password: string) => Promise<void>
   signOut: () => Promise<void>
   completeSetup: () => Promise<void>
+  completeBusinessSetup: () => Promise<void>
   completeOnboarding: () => void
   login: (pin: string) => Promise<boolean>
   logout: () => void
@@ -48,9 +50,14 @@ type AuthStore = AuthStoreState & AuthStoreActions
  * - No products → distributor-onboarding
  * - Otherwise → login
  */
-async function resolvePostAuthState(): Promise<'pin-setup' | 'distributor-onboarding' | 'login'> {
+async function resolvePostAuthState(): Promise<
+  'pin-setup' | 'business-setup' | 'distributor-onboarding' | 'login'
+> {
   const cashiers = await window.api!.getCashiers()
   if (cashiers.length === 0) return 'pin-setup'
+
+  const config = await window.api!.getMerchantConfig()
+  if (!config?.merchant_id) return 'business-setup'
 
   const products = await window.api!.getProducts()
   if (products.length === 0) return 'distributor-onboarding'
@@ -167,6 +174,24 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
    * Called after PIN setup is complete. Advances to distributor-onboarding or login.
    */
   completeSetup: async () => {
+    try {
+      const config = await window.api!.getMerchantConfig()
+      if (!config?.merchant_id) {
+        set({ appState: 'business-setup' })
+        return
+      }
+      const products = await window.api!.getProducts()
+      set({ appState: products.length === 0 ? 'distributor-onboarding' : 'login' })
+    } catch {
+      set({ appState: 'business-setup' })
+    }
+  },
+
+  /**
+   * Called after business setup (Finix provisioning) is complete.
+   * Advances to distributor-onboarding or login.
+   */
+  completeBusinessSetup: async () => {
     try {
       const products = await window.api!.getProducts()
       set({ appState: products.length === 0 ? 'distributor-onboarding' : 'login' })

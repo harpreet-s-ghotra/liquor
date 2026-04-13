@@ -2,6 +2,7 @@ import { ClockOutModal } from '@renderer/components/clock-out/ClockOutModal'
 import { InventoryModal } from '@renderer/components/inventory/InventoryModal'
 import { PaymentModal } from '@renderer/components/payment/PaymentModal'
 import { PrinterSettingsModal } from '@renderer/components/printer/PrinterSettingsModal'
+import { ReportsModal } from '@renderer/components/reports/ReportsModal'
 import { SalesHistoryModal } from '@renderer/components/sales-history/SalesHistoryModal'
 import { SearchModal } from '@renderer/components/search/SearchModal'
 import { ActionPanel } from '@renderer/components/action/ActionPanel'
@@ -30,6 +31,7 @@ export function POSScreen(): React.JSX.Element {
   const [isSalesHistoryOpen, setIsSalesHistoryOpen] = useState(false)
   const [isClockOutOpen, setIsClockOutOpen] = useState(false)
   const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false)
+  const [isReportsOpen, setIsReportsOpen] = useState(false)
   const [alwaysPrint, setAlwaysPrint] = useState(false)
   const [searchKey, setSearchKey] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
@@ -40,6 +42,24 @@ export function POSScreen(): React.JSX.Element {
   const merchantConfig = useAuthStore((s) => s.merchantConfig)
   const logout = useAuthStore((s) => s.logout)
   const showError = useAlertStore((s) => s.showError)
+  const showInfo = useAlertStore((s) => s.showInfo)
+  const showSuccess = useAlertStore((s) => s.showSuccess)
+
+  useEffect(() => {
+    if (!window.api?.onUpdateAvailable) return
+    window.api.onUpdateAvailable(({ version }) => {
+      showInfo(`Downloading update ${version}...`)
+    })
+    window.api.onUpdateNotAvailable(() => {
+      showInfo('You are up to date.')
+    })
+    window.api.onUpdateDownloaded(({ version }) => {
+      showSuccess(`Update ${version} ready — it will install the next time the app is closed.`)
+    })
+    window.api.onUpdateError(() => {
+      showError('Update check failed. Please try again later.')
+    })
+  }, [showError, showInfo, showSuccess])
 
   // Keyboard shortcuts: Ctrl+L for logout, F3 for clock out
   useEffect(() => {
@@ -51,6 +71,10 @@ export function POSScreen(): React.JSX.Element {
       if (e.key === 'F3') {
         e.preventDefault()
         setIsClockOutOpen(true)
+      }
+      if (e.key === 'F5') {
+        e.preventDefault()
+        setIsReportsOpen(true)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -208,7 +232,8 @@ export function POSScreen(): React.JSX.Element {
             tax_amount: tax,
             total,
             payment_method: result.method,
-            stax_transaction_id: result.stax_transaction_id ?? null,
+            finix_authorization_id: result.finix_authorization_id ?? null,
+            finix_transfer_id: result.finix_transfer_id ?? null,
             card_last_four: result.card_last_four ?? null,
             card_type: result.card_type ?? null,
             items: lineItems
@@ -274,7 +299,7 @@ export function POSScreen(): React.JSX.Element {
   )
 
   const handleRefundComplete = useCallback(
-    (result: PaymentResult) => {
+    async (result: PaymentResult) => {
       if (!viewingTransaction || !window.api?.saveRefundTransaction) return
 
       const refundItems = Object.entries(returnItems)
@@ -309,29 +334,45 @@ export function POSScreen(): React.JSX.Element {
         total_price: number
       }[]
 
-      window.api
-        .saveRefundTransaction({
+      try {
+        const refundAmountCents = Math.round(Math.abs(returnTotal) * 100)
+
+        if (result.method !== 'cash') {
+          const originalTransferId = viewingTransaction.finix_transfer_id
+          if (!originalTransferId || !window.api?.finixRefundTransfer) {
+            showError(
+              'This card refund cannot be sent to Finix because the original transfer ID is missing.'
+            )
+            return
+          }
+
+          await window.api.finixRefundTransfer(originalTransferId, refundAmountCents)
+        }
+
+        await window.api.saveRefundTransaction({
           original_transaction_id: viewingTransaction.id,
           original_transaction_number: viewingTransaction.transaction_number,
           subtotal: Math.abs(returnSubtotal),
           tax_amount: Math.abs(returnTax),
           total: Math.abs(returnTotal),
           payment_method: result.method,
-          stax_transaction_id: result.stax_transaction_id ?? null,
+          finix_authorization_id: result.finix_authorization_id ?? null,
+          finix_transfer_id:
+            result.method === 'cash' ? null : (viewingTransaction.finix_transfer_id ?? null),
           card_last_four: result.card_last_four ?? null,
           card_type: result.card_type ?? null,
           items: refundItems
         })
-        .catch((err) => {
-          console.error('Failed to save refund transaction:', err)
-          showError('Failed to process refund. Please try again.')
-        })
 
-      setIsPaymentOpen(false)
-      setIsPaymentComplete(false)
-      setPaymentMethod(undefined)
-      dismissRecalledTransaction()
-      focusSearch()
+        setIsPaymentOpen(false)
+        setIsPaymentComplete(false)
+        setPaymentMethod(undefined)
+        dismissRecalledTransaction()
+        focusSearch()
+      } catch (err) {
+        console.error('Failed to process refund:', err)
+        showError('Failed to process refund. Please try again.')
+      }
     },
     [
       viewingTransaction,
@@ -410,6 +451,7 @@ export function POSScreen(): React.JSX.Element {
       <HeaderBar
         cashierName={currentCashier?.name}
         onPrinterSettings={() => setIsPrinterSettingsOpen(true)}
+        onCheckForUpdates={() => window.api?.checkForUpdates()}
       />
       <AlertBar />
       <main className="pos-screen__main" style={{ gridTemplateColumns: '56% 44%' }}>
@@ -487,6 +529,7 @@ export function POSScreen(): React.JSX.Element {
         onInventoryClick={() => setIsInventoryOpen(true)}
         onClockOutClick={() => setIsClockOutOpen(true)}
         onSalesHistoryClick={() => setIsSalesHistoryOpen(true)}
+        onReportsClick={() => setIsReportsOpen(true)}
       />
 
       <PrinterSettingsModal
@@ -560,6 +603,14 @@ export function POSScreen(): React.JSX.Element {
         isOpen={isClockOutOpen}
         onClose={() => {
           setIsClockOutOpen(false)
+          focusSearch()
+        }}
+      />
+
+      <ReportsModal
+        isOpen={isReportsOpen}
+        onClose={() => {
+          setIsReportsOpen(false)
           focusSearch()
         }}
       />

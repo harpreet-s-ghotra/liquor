@@ -1,4 +1,4 @@
-import { CircleHelp, Printer, Settings, Sun, Moon, User } from 'lucide-react'
+import { CircleHelp, Printer, RefreshCw, Settings, Sun, Moon, User } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useThemeStore } from '@renderer/store/useThemeStore'
 import './header-bar.css'
@@ -6,9 +6,14 @@ import './header-bar.css'
 type HeaderBarProps = {
   cashierName?: string
   onPrinterSettings?: () => void
+  onCheckForUpdates?: () => void
 }
 
-export function HeaderBar({ cashierName, onPrinterSettings }: HeaderBarProps): React.JSX.Element {
+export function HeaderBar({
+  cashierName,
+  onPrinterSettings,
+  onCheckForUpdates
+}: HeaderBarProps): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const theme = useThemeStore((s) => s.theme)
@@ -72,6 +77,18 @@ export function HeaderBar({ cashierName, onPrinterSettings }: HeaderBarProps): R
               >
                 <Printer size={16} />
                 Printer Settings
+              </button>
+              <button
+                type="button"
+                className="header-bar__dropdown-item"
+                onClick={() => {
+                  onCheckForUpdates?.()
+                  setMenuOpen(false)
+                }}
+                data-testid="check-for-updates-btn"
+              >
+                <RefreshCw size={16} />
+                Check for Updates
               </button>
             </div>
           )}

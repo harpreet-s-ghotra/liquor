@@ -1,22 +1,8 @@
-# DistributorOnboardingScreen Test Suite
+# Obsolete Test Doc
 
-**Test File:** `src/renderer/src/pages/DistributorOnboardingScreen.test.tsx`
-**Component:** `src/renderer/src/pages/DistributorOnboardingScreen.tsx`
+This file has no corresponding Playwright spec in `tests/e2e`.
 
-## Overview
-
-The DistributorOnboardingScreen test suite covers the distributor selection and catalog import flow. It verifies loading states, list rendering, search/filter functionality, multi-select behavior, import operations, and error handling.
-
-## Test Coverage
-
-- **Statements:** 93.75%
-- **Branches:** 91.11%
-- **Functions:** 95%
-- **Lines:** 98.11%
-
-## Test Cases
-
-### Initial Loading Tests
+It is a legacy unit-test document and should be removed from `docs/tests/` when file deletion is available.
 
 1. **Shows loading state initially**
    - "Loading distributors..." message displayed

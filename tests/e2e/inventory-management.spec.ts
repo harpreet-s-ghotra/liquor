@@ -65,8 +65,9 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
       // Auth APIs
       getMerchantConfig: async () => ({
         id: 1,
-        payment_processing_api_key: 'test-api-key',
-        merchant_id: 'test-merchant-id',
+        finix_api_username: 'US-test-api-key',
+        finix_api_password: 'test-finix-password',
+        merchant_id: 'MU-test-merchant-id',
         merchant_name: 'Test Liquor Store',
         activated_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z'
@@ -75,14 +76,16 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
         user: { id: 'user-1', email: 'test@example.com' },
         merchant: {
           id: 1,
-          payment_processing_api_key: 'test-api-key',
-          merchant_id: 'test-merchant-id',
+          finix_api_username: 'US-test-api-key',
+          finix_api_password: 'test-finix-password',
+          merchant_id: 'MU-test-merchant-id',
           merchant_name: 'Test Liquor Store',
           activated_at: '2025-01-01T00:00:00.000Z',
           updated_at: '2025-01-01T00:00:00.000Z'
         }
       }),
       onDeepLink: () => {},
+      consumePendingDeepLink: async () => null,
       getCashiers: async () => [
         { id: 1, name: 'Test Cashier', role: 'admin', is_active: 1, created_at: '2025-01-01' }
       ],
@@ -414,7 +417,7 @@ test.describe('Inventory Management – Full Workflow', () => {
     const itemName = `Test Merlot 750ml`
 
     await fillInput(page.getByRole('textbox', { name: 'SKU', exact: true }), sku)
-    await fillInput(page.getByLabel('Name'), itemName)
+    await fillInput(page.getByRole('textbox', { name: 'Name', exact: true }), itemName)
 
     // Item type dropdown (scoped inside Items tabpanel)
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
@@ -658,7 +661,7 @@ test.describe('Inventory Management – Full Workflow', () => {
     /* Switch to Items and create an item with a tax code */
     await clickTab(page, 'Items')
     await fillInput(page.getByRole('textbox', { name: 'SKU', exact: true }), 'TAX-TEST')
-    await fillInput(page.getByLabel('Name'), 'Tax Test Item')
+    await fillInput(page.getByRole('textbox', { name: 'Name', exact: true }), 'Tax Test Item')
 
     // Item type dropdown (scoped inside Items tabpanel)
     const itemsPanel2 = page.getByRole('tabpanel', { name: 'Items' })

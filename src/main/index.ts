@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -42,6 +43,7 @@ import {
   getRecentTransactions,
   getTransactionByNumber,
   saveRefundTransaction,
+  backfillTransactionDeviceId,
   listTransactions,
   saveHeldTransaction,
   getHeldTransactions,
@@ -52,14 +54,24 @@ import {
   closeSession,
   listSessions,
   generateClockOutReport,
-  applyTaxToAllProducts
+  applyTaxToAllProducts,
+  getSalesSummary,
+  getProductSales,
+  getCategorySales,
+  getTaxSummary,
+  getComparisonData,
+  getCashierSales,
+  getHourlySales
 } from './database'
 import {
-  validateApiKey,
-  getTerminalRegisters,
+  verifyMerchant,
+  listDevices,
+  createDevice,
+  chargeWithCard,
   chargeTerminal,
-  chargeWithCard
-} from './services/stax'
+  voidAuthorization,
+  refundTransfer
+} from './services/finix'
 import {
   initializeSupabaseService,
   supabaseSignIn,
@@ -68,19 +80,25 @@ import {
   supabaseSetSession,
   supabaseSetPassword,
   getCatalogDistributors,
-  getCatalogProductsByDistributors
+  getCatalogProductsByDistributors,
+  provisionFinixMerchant
 } from './services/supabase'
 import { getDb } from './database/connection'
 import {
   openCashDrawer,
   getCashDrawerConfig,
+  getEffectiveCashDrawerConfig,
   saveCashDrawerConfig,
   getReceiptConfig,
   saveReceiptConfig,
+  getReceiptPrinterConfig,
+  saveReceiptPrinterConfig,
+  listReceiptPrinters,
   checkPrinterConnected
 } from './services/cash-drawer'
 import type { CashDrawerConfig } from './services/cash-drawer'
 import { printReceipt, printClockOutReport } from './services/receipt-printer'
+import { exportToPdf, exportToCsv } from './services/report-export'
 import {
   startConnectivityMonitor,
   stopConnectivityMonitor,
@@ -93,9 +111,11 @@ import { getLastSyncedAt, startSyncWorker, stopSyncWorker } from './services/syn
 import { runInitialSync } from './services/sync/initial-sync'
 import { getDeviceConfig } from './database/device-config.repo'
 import { getQueueStats } from './database/sync-queue.repo'
+import { initAutoUpdater, checkForUpdates, installUpdate } from './services/auto-updater'
 import type {
-  DirectChargeInput,
-  TerminalChargeInput,
+  FinixCardInput,
+  FinixTerminalChargeInput,
+  FinixCreateDeviceInput,
   SaveTransactionInput,
   SaveRefundInput,
   SaveHeldTransactionInput,
@@ -103,9 +123,13 @@ import type {
   TransactionListFilter,
   PrintReceiptInput,
   ReceiptConfig,
+  ReceiptPrinterConfig,
   CreateSessionInput,
   CloseSessionInput,
-  PrintClockOutReportInput
+  PrintClockOutReportInput,
+  ReportDateRange,
+  ReportExportRequest,
+  BusinessInfoInput
 } from '../shared/types'
 
 function createWindow(): void {
@@ -148,6 +172,7 @@ app.whenReady().then(() => {
   initializeDatabase(userData)
   initializeSupabaseService(userData)
   startConnectivityMonitor()
+  initAutoUpdater()
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
@@ -420,18 +445,22 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('merchant:activate', async (_, apiKey: string) => {
-    try {
-      const paymentInfo = await validateApiKey(apiKey)
-      return saveMerchantConfig({
-        payment_processing_api_key: apiKey,
-        merchant_id: paymentInfo.merchant_id,
-        merchant_name: paymentInfo.company_name
-      })
-    } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to activate merchant')
+  ipcMain.handle(
+    'merchant:activate',
+    async (_, apiUsername: string, apiPassword: string, merchantId: string) => {
+      try {
+        const merchantInfo = await verifyMerchant(apiUsername, apiPassword, merchantId)
+        return saveMerchantConfig({
+          finix_api_username: apiUsername,
+          finix_api_password: apiPassword,
+          merchant_id: merchantInfo.merchant_id,
+          merchant_name: merchantInfo.merchant_name
+        })
+      } catch (err) {
+        throw new Error(err instanceof Error ? err.message : 'Failed to activate merchant')
+      }
     }
-  })
+  )
 
   ipcMain.handle('merchant:deactivate', async () => {
     try {
@@ -772,42 +801,103 @@ app.whenReady().then(() => {
     }
   })
 
-  // Stax Terminal Payments
-  ipcMain.handle('stax:terminal:registers', async () => {
+  // Finix Payments
+  ipcMain.handle('finix:devices:list', async () => {
     try {
       const config = getMerchantConfig()
-      if (!config) {
-        throw new Error('Merchant not activated — cannot list terminals')
-      }
-      return await getTerminalRegisters(config.payment_processing_api_key)
+      if (!config) throw new Error('Merchant not activated — cannot list devices')
+      return await listDevices(
+        config.finix_api_username,
+        config.finix_api_password,
+        config.merchant_id
+      )
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to get terminals')
+      throw new Error(err instanceof Error ? err.message : 'Failed to list devices')
     }
   })
 
-  ipcMain.handle('stax:terminal:charge', async (_, input: TerminalChargeInput) => {
+  ipcMain.handle('finix:device:create', async (_, input: FinixCreateDeviceInput) => {
     try {
       const config = getMerchantConfig()
-      if (!config) {
-        throw new Error('Merchant not activated — cannot process payments')
-      }
-      return await chargeTerminal(config.payment_processing_api_key, input)
+      if (!config) throw new Error('Merchant not activated — cannot create device')
+      return await createDevice(
+        config.finix_api_username,
+        config.finix_api_password,
+        config.merchant_id,
+        input
+      )
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to create device')
+    }
+  })
+
+  // Phase A: manual card entry
+  ipcMain.handle('finix:charge:card', async (_, input: FinixCardInput) => {
+    try {
+      const config = getMerchantConfig()
+      if (!config) throw new Error('Merchant not activated — cannot process payments')
+      return await chargeWithCard(
+        config.finix_api_username,
+        config.finix_api_password,
+        config.merchant_id,
+        input
+      )
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Payment failed')
     }
   })
 
-  // Direct API charge — Phase A (pre-hardware testing, keyed-entry)
-  ipcMain.handle('stax:charge:direct', async (_, input: DirectChargeInput) => {
+  // Phase B: card-present via PAX terminal
+  ipcMain.handle('finix:charge:terminal', async (_, input: FinixTerminalChargeInput) => {
     try {
       const config = getMerchantConfig()
-      if (!config) {
-        throw new Error('Merchant not activated — cannot process payments')
-      }
-      return await chargeWithCard(config.payment_processing_api_key, input)
+      if (!config) throw new Error('Merchant not activated — cannot process payments')
+      return await chargeTerminal(config.finix_api_username, config.finix_api_password, input)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Payment failed')
     }
+  })
+
+  ipcMain.handle('finix:void:authorization', async (_, authorizationId: string) => {
+    try {
+      const config = getMerchantConfig()
+      if (!config) throw new Error('Merchant not activated')
+      await voidAuthorization(config.finix_api_username, config.finix_api_password, authorizationId)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to void authorization')
+    }
+  })
+
+  ipcMain.handle('finix:refund:transfer', async (_, transferId: string, amountCents: number) => {
+    try {
+      const config = getMerchantConfig()
+      if (!config) throw new Error('Merchant not activated')
+      await refundTransfer(
+        config.finix_api_username,
+        config.finix_api_password,
+        transferId,
+        amountCents
+      )
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to refund transfer')
+    }
+  })
+
+  ipcMain.handle('finix:provision-merchant', async (_, input: BusinessInfoInput) => {
+    try {
+      return await provisionFinixMerchant(input)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to provision merchant')
+    }
+  })
+
+  // Auto-updater
+  ipcMain.handle('updater:check', () => {
+    checkForUpdates()
+  })
+
+  ipcMain.handle('updater:install', () => {
+    installUpdate()
   })
 
   // Cash Drawer
@@ -820,7 +910,7 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('peripheral:open-cash-drawer', async () => {
-    const config = getCashDrawerConfig()
+    const config = getEffectiveCashDrawerConfig()
     if (!config) {
       throw new Error('Cash drawer not configured — set an IP address in peripheral settings')
     }
@@ -843,13 +933,25 @@ app.whenReady().then(() => {
     saveReceiptConfig(config)
   })
 
-  ipcMain.handle('peripheral:get-printer-status', async () => {
-    const config = getCashDrawerConfig()
-    if (!config || config.type !== 'usb') {
+  ipcMain.handle('peripheral:get-receipt-printer-config', () => {
+    return getReceiptPrinterConfig()
+  })
+
+  ipcMain.handle('peripheral:save-receipt-printer-config', (_, config: ReceiptPrinterConfig) => {
+    saveReceiptPrinterConfig(config)
+  })
+
+  ipcMain.handle('peripheral:list-receipt-printers', async () => {
+    return await listReceiptPrinters()
+  })
+
+  ipcMain.handle('peripheral:get-printer-status', async (_, printerName?: string) => {
+    const resolvedPrinterName = printerName ?? getReceiptPrinterConfig()?.printerName ?? null
+    if (!resolvedPrinterName) {
       return { connected: false, printerName: null }
     }
-    const connected = await checkPrinterConnected(config.printerName)
-    return { connected, printerName: config.printerName }
+    const connected = await checkPrinterConnected(resolvedPrinterName)
+    return { connected, printerName: resolvedPrinterName }
   })
 
   // ── Cloud Sync IPC ──
@@ -876,6 +978,99 @@ app.whenReady().then(() => {
     return getDeviceConfig()
   })
 
+  // ── Reports IPC ──
+
+  ipcMain.handle('reports:sales-summary', async (_, range: ReportDateRange) => {
+    try {
+      return getSalesSummary(range)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get sales summary')
+    }
+  })
+
+  ipcMain.handle(
+    'reports:product-sales',
+    async (_, range: ReportDateRange, sortBy?: 'revenue' | 'quantity', limit?: number) => {
+      try {
+        return getProductSales(range, sortBy, limit)
+      } catch (err) {
+        throw new Error(err instanceof Error ? err.message : 'Failed to get product sales')
+      }
+    }
+  )
+
+  ipcMain.handle('reports:category-sales', async (_, range: ReportDateRange) => {
+    try {
+      return getCategorySales(range)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get category sales')
+    }
+  })
+
+  ipcMain.handle('reports:tax-summary', async (_, range: ReportDateRange) => {
+    try {
+      return getTaxSummary(range)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get tax summary')
+    }
+  })
+
+  ipcMain.handle(
+    'reports:comparison',
+    async (_, rangeA: ReportDateRange, rangeB: ReportDateRange) => {
+      try {
+        return getComparisonData(rangeA, rangeB)
+      } catch (err) {
+        throw new Error(err instanceof Error ? err.message : 'Failed to get comparison data')
+      }
+    }
+  )
+
+  ipcMain.handle('reports:cashier-sales', async (_, range: ReportDateRange) => {
+    try {
+      return getCashierSales(range)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get cashier sales')
+    }
+  })
+
+  ipcMain.handle('reports:hourly-sales', async (_, range: ReportDateRange) => {
+    try {
+      return getHourlySales(range)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to get hourly sales')
+    }
+  })
+
+  ipcMain.handle('reports:export', async (_, request: ReportExportRequest) => {
+    try {
+      let data
+      switch (request.report_type) {
+        case 'sales-summary':
+          data = getSalesSummary(request.date_range)
+          break
+        case 'product-sales':
+          data = getProductSales(request.date_range)
+          break
+        case 'category-sales':
+          data = getCategorySales(request.date_range)
+          break
+        case 'tax-summary':
+          data = getTaxSummary(request.date_range)
+          break
+        case 'comparison':
+          throw new Error('Use reports:comparison for comparison exports')
+      }
+      if (request.format === 'pdf') {
+        return await exportToPdf(data, request.report_type, request.date_range)
+      } else {
+        return await exportToCsv(data, request.report_type, request.date_range)
+      }
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to export report')
+    }
+  })
+
   createWindow()
 
   // Forward connectivity changes to the renderer
@@ -893,6 +1088,9 @@ app.whenReady().then(() => {
       const client = getSupabaseClient()
       const deviceId = await registerDevice(client, merchantCloudId)
       startSyncWorker(client, merchantCloudId, deviceId)
+
+      // Backfill device_id on transactions written before device registration
+      backfillTransactionDeviceId(deviceId)
 
       // Run initial product reconciliation after the worker is started so the
       // queue is already draining while we pull remote rows.
@@ -915,9 +1113,13 @@ app.whenReady().then(() => {
 // Parses liquorpos://auth/callback#access_token=...&refresh_token=...
 // and forwards to the renderer so it can show the set-password screen.
 
+// Buffered deep-link URL for the cold-start race:
+// open-url can fire before the window exists or before React has mounted.
+// The renderer polls this via auth:consume-pending-deep-link on startup.
+let pendingDeepLinkUrl: string | null = null
+
 function handleDeepLink(url: string): void {
-  const win = BrowserWindow.getAllWindows()[0]
-  if (!win) return
+  console.log('[deep-link] handleDeepLink called with:', url)
   try {
     // Tokens are in the URL fragment, e.g. #access_token=x&refresh_token=y&type=invite
     const hash = url.split('#')[1] ?? ''
@@ -925,11 +1127,28 @@ function handleDeepLink(url: string): void {
     const accessToken = params.get('access_token')
     const refreshToken = params.get('refresh_token')
     const type = params.get('type') // 'invite' | 'recovery' | 'signup'
-    if (accessToken && refreshToken) {
+    console.log(
+      '[deep-link] parsed type:',
+      type,
+      'hasAccessToken:',
+      !!accessToken,
+      'hasRefreshToken:',
+      !!refreshToken
+    )
+
+    // Always buffer the URL (success or error) so the renderer can handle it.
+    pendingDeepLinkUrl = url
+
+    if (!accessToken || !refreshToken) return // error URL — renderer will read the error
+
+    // Also attempt an immediate push for the fully-running hot path.
+    const win = BrowserWindow.getAllWindows()[0]
+    console.log('[deep-link] window exists:', !!win)
+    if (win) {
       win.webContents.send('auth:deep-link', { accessToken, refreshToken, type })
     }
-  } catch {
-    // malformed URL — ignore
+  } catch (err) {
+    console.error('[deep-link] error parsing URL:', err)
   }
 }
 
@@ -938,6 +1157,7 @@ app.setAsDefaultProtocolClient('liquorpos')
 
 // macOS: app already running — fired when user clicks the link
 app.on('open-url', (event, url) => {
+  console.log('[deep-link] open-url event fired:', url)
   event.preventDefault()
   handleDeepLink(url)
 })
@@ -975,6 +1195,14 @@ ipcMain.handle('auth:set-password', async (_, password: string) => {
   } catch (err) {
     throw new Error(err instanceof Error ? err.message : 'Failed to set password')
   }
+})
+
+// Renderer calls this on startup to pick up any deep-link URL that arrived
+// before the window was ready (cold-start race condition).
+ipcMain.handle('auth:consume-pending-deep-link', () => {
+  const url = pendingDeepLinkUrl
+  pendingDeepLinkUrl = null
+  return url
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common

@@ -33,7 +33,7 @@ export function AuthScreen(): React.JSX.Element {
       <div className="auth-card">
         <div className="auth-logo">
           <h1 className="auth-brand">High Spirits POS</h1>
-          <p className="auth-subtitle">Powered by Stax Payments</p>
+          <p className="auth-subtitle">Powered by Finix</p>
         </div>
 
         <h2 className="auth-title">Sign In</h2>

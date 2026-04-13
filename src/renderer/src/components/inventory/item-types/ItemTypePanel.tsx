@@ -136,7 +136,7 @@ export function ItemTypePanel({ searchFilter = '' }: ItemTypePanelProps): React.
     crud.setShowValidation(true)
 
     if (!hasApi) {
-      crud.setError('Backend API unavailable. Run the app via Electron (npm run dev).')
+      crud.setError('Backend API unavailable. Please restart the application.')
       return
     }
 

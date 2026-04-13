@@ -6,6 +6,7 @@ import { useAuthStore, type AppState } from './store/useAuthStore'
 const mockApi = {
   getMerchantConfig: vi.fn(),
   getCashiers: vi.fn(),
+  getCatalogDistributors: vi.fn().mockResolvedValue([]),
   getProducts: vi.fn(),
   getHeldTransactions: vi.fn().mockResolvedValue([]),
   getItemTypes: vi.fn().mockResolvedValue([]),
@@ -18,7 +19,8 @@ const mockApi = {
     footerMessage: '',
     alwaysPrint: false
   }),
-  onDeepLink: vi.fn()
+  onDeepLink: vi.fn(),
+  consumePendingDeepLink: vi.fn().mockResolvedValue(null)
 }
 
 beforeEach(() => {
@@ -26,10 +28,14 @@ beforeEach(() => {
   mockApi.getHeldTransactions.mockResolvedValue([])
   mockApi.getItemTypes.mockResolvedValue([])
   mockApi.getDistributors.mockResolvedValue([])
+  mockApi.getCatalogDistributors.mockResolvedValue([])
+  mockApi.consumePendingDeepLink.mockResolvedValue(null)
+  mockApi.onDeepLink.mockImplementation(() => {})
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(window as any).api = mockApi
   // Prevent initialize() from overwriting our manually-set state
   vi.spyOn(useAuthStore.getState(), 'initialize').mockImplementation(async () => {})
+  vi.spyOn(useAuthStore.getState(), 'handleInviteLink').mockImplementation(async () => {})
 })
 
 afterEach(() => {
@@ -79,6 +85,33 @@ describe('App', () => {
     })
   })
 
+  it('shows set password screen when invite flow is active', async () => {
+    useAuthStore.setState({ appState: 'set-password' as AppState })
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Set Your Password' })).toBeInTheDocument()
+    })
+  })
+
+  it('shows pin setup screen when cashier setup is required', async () => {
+    useAuthStore.setState({ appState: 'pin-setup' as AppState })
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Set Up Accounts' })).toBeInTheDocument()
+    })
+  })
+
+  it('shows distributor onboarding screen when catalog import is required', async () => {
+    useAuthStore.setState({ appState: 'distributor-onboarding' as AppState })
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Select Your Distributors' })).toBeInTheDocument()
+    })
+  })
+
   it('shows login screen when activated', async () => {
     mockApi.getCashiers.mockResolvedValue([
       { id: 1, name: 'Alice', role: 'admin', is_active: 1, created_at: '2026-01-01' }
@@ -87,8 +120,9 @@ describe('App', () => {
       appState: 'login' as AppState,
       merchantConfig: {
         id: 1,
-        payment_processing_api_key: 'key',
-        merchant_id: 'merch-123',
+        finix_api_username: 'UStest',
+        finix_api_password: 'test-password',
+        merchant_id: 'MUtest',
         merchant_name: 'Test Store',
         activated_at: '2026-01-01',
         updated_at: '2026-01-01'
@@ -115,6 +149,46 @@ describe('App', () => {
     render(<App />)
     await waitFor(() => {
       expect(screen.getByText('Tax')).toBeInTheDocument()
+    })
+  })
+
+  it('runs initialize when no pending deep link is buffered', async () => {
+    const initializeSpy = vi.spyOn(useAuthStore.getState(), 'initialize')
+    useAuthStore.setState({ appState: 'loading' as AppState })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(mockApi.consumePendingDeepLink).toHaveBeenCalled()
+      expect(initializeSpy).toHaveBeenCalled()
+    })
+  })
+
+  it('consumes a buffered invite link and forwards tokens to handleInviteLink', async () => {
+    const handleInviteLinkSpy = vi.spyOn(useAuthStore.getState(), 'handleInviteLink')
+    mockApi.consumePendingDeepLink.mockResolvedValue(
+      'liquorpos://auth/callback#access_token=token-123&refresh_token=refresh-456&type=invite'
+    )
+    useAuthStore.setState({ appState: 'loading' as AppState })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(handleInviteLinkSpy).toHaveBeenCalledWith('token-123', 'refresh-456')
+    })
+  })
+
+  it('sets auth error from a buffered deep-link error without running initialize', async () => {
+    mockApi.consumePendingDeepLink.mockResolvedValue(
+      'liquorpos://auth/callback#error_description=Invite+link+expired'
+    )
+    useAuthStore.setState({ appState: 'loading' as AppState, error: null })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(useAuthStore.getState().appState).toBe('auth')
+      expect(useAuthStore.getState().error).toBe('Invite link expired')
     })
   })
 })

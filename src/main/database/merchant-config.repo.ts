@@ -17,9 +17,9 @@ export function getMerchantConfig(): MerchantConfig | null {
 export function saveMerchantConfig(input: SaveMerchantConfigInput): MerchantConfig {
   const db = getDb()
   db.prepare(
-    `INSERT OR REPLACE INTO merchant_config (id, payment_processing_api_key, merchant_id, merchant_name, activated_at, updated_at)
-     VALUES (1, ?, ?, ?, COALESCE((SELECT activated_at FROM merchant_config WHERE id = 1), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)`
-  ).run(input.payment_processing_api_key, input.merchant_id, input.merchant_name)
+    `INSERT OR REPLACE INTO merchant_config (id, finix_api_username, finix_api_password, merchant_id, merchant_name, activated_at, updated_at)
+     VALUES (1, ?, ?, ?, ?, COALESCE((SELECT activated_at FROM merchant_config WHERE id = 1), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)`
+  ).run(input.finix_api_username, input.finix_api_password, input.merchant_id, input.merchant_name)
 
   return getMerchantConfig()!
 }

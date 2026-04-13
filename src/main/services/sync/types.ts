@@ -12,7 +12,8 @@ export type CloudTransactionPayload = {
   tax_amount: number
   total: number
   payment_method: string | null
-  stax_transaction_id: string | null
+  finix_authorization_id: string | null
+  finix_transfer_id: string | null
   card_last_four: string | null
   card_type: string | null
   status: string
@@ -42,7 +43,8 @@ export type TransactionSyncPayload = {
     tax_amount: number
     total: number
     payment_method: string | null
-    stax_transaction_id: string | null
+    finix_authorization_id: string | null
+    finix_transfer_id: string | null
     card_last_four: string | null
     card_type: string | null
     status: string

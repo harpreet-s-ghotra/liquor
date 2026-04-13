@@ -12,5 +12,12 @@ data/
 
 # Environment secrets
 .env
+.env.*
 .env.local
 .env.*.local
+
+# Destructive dev scripts — never commit
+scripts/reset-onboarding.ts
+scripts/create-test-merchant.ts
+scripts/delete-merchant.ts
+scripts/invite-merchant.ts

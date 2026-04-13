@@ -5,7 +5,7 @@ import { tmpdir } from 'os'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const bwipjs = require('bwip-js')
 import PDFDocument from 'pdfkit'
-import { getCashDrawerConfig, getReceiptConfig } from './cash-drawer'
+import { getReceiptPrinterConfig, getReceiptConfig } from './cash-drawer'
 import type { PrintReceiptInput, PrintClockOutReportInput, ReceiptConfig } from '../../shared/types'
 
 // Star TSP654: 72mm paper = ~204pt
@@ -354,8 +354,8 @@ function generateClockOutPdf(input: PrintClockOutReportInput, cfg: ReceiptConfig
 // ── Public API ───────────────────────────────────────────────────────────────
 
 export async function printClockOutReport(input: PrintClockOutReportInput): Promise<void> {
-  const config = getCashDrawerConfig()
-  if (!config || config.type !== 'usb') {
+  const printerConfig = getReceiptPrinterConfig()
+  if (!printerConfig) {
     throw new Error('Receipt printer not configured')
   }
 
@@ -369,7 +369,7 @@ export async function printClockOutReport(input: PrintClockOutReportInput): Prom
       'lp',
       [
         '-d',
-        config.printerName,
+        printerConfig.printerName,
         '-o',
         'DocCutType=1PartialCutDoc',
         '-o',
@@ -390,8 +390,8 @@ export async function printClockOutReport(input: PrintClockOutReportInput): Prom
 }
 
 export async function printReceipt(input: PrintReceiptInput): Promise<void> {
-  const config = getCashDrawerConfig()
-  if (!config || config.type !== 'usb') {
+  const printerConfig = getReceiptPrinterConfig()
+  if (!printerConfig) {
     throw new Error('Receipt printer not configured')
   }
 
@@ -416,7 +416,7 @@ export async function printReceipt(input: PrintReceiptInput): Promise<void> {
       'lp',
       [
         '-d',
-        config.printerName,
+        printerConfig.printerName,
         '-o',
         'DocCutType=1PartialCutDoc',
         '-o',

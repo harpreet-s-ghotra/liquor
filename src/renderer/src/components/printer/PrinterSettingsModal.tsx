@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import { SuccessModal } from '@renderer/components/common/SuccessModal'
@@ -35,11 +35,14 @@ export function PrinterSettingsModal({
   onClose
 }: PrinterSettingsModalProps): React.JSX.Element {
   const [cfg, setCfg] = useState<ReceiptConfig>(DEFAULT_CONFIG)
-  const [printerName, setPrinterName] = useState<string | null>(null)
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([])
+  const [selectedPrinterName, setSelectedPrinterName] = useState('')
+  const [statusPrinterName, setStatusPrinterName] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [isSaveSuccessOpen, setIsSaveSuccessOpen] = useState(false)
+  const [printerLoadError, setPrinterLoadError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [sampleType, setSampleType] = useState<SampleType>('basic')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -47,7 +50,27 @@ export function PrinterSettingsModal({
   // Load config once on open
   useEffect(() => {
     if (!isOpen) return
-    void window.api?.getReceiptConfig?.().then((c) => setCfg(c))
+
+    const loadSettings = async (): Promise<void> => {
+      try {
+        const [receiptConfig, printerConfig, printers] = await Promise.all([
+          window.api?.getReceiptConfig?.(),
+          window.api?.getReceiptPrinterConfig?.(),
+          window.api?.listReceiptPrinters?.()
+        ])
+
+        if (receiptConfig) setCfg(receiptConfig)
+        setSelectedPrinterName(printerConfig?.printerName ?? '')
+        setAvailablePrinters(printers ?? [])
+        setPrinterLoadError('')
+      } catch {
+        setPrinterLoadError(
+          'Failed to load installed printers. Reconnect the printer and try again.'
+        )
+      }
+    }
+
+    void loadSettings()
   }, [isOpen])
 
   // Poll printer status every 4s while modal is open
@@ -55,9 +78,9 @@ export function PrinterSettingsModal({
     if (!isOpen) return
 
     const checkStatus = (): void => {
-      void window.api?.getPrinterStatus?.().then((s) => {
+      void window.api?.getPrinterStatus?.(selectedPrinterName || undefined).then((s) => {
         setConnected(s.connected)
-        setPrinterName(s.printerName)
+        setStatusPrinterName(s.printerName)
       })
     }
 
@@ -66,7 +89,7 @@ export function PrinterSettingsModal({
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
     }
-  }, [isOpen])
+  }, [isOpen, selectedPrinterName])
 
   const updateCfg = useCallback(
     (patch: Partial<ReceiptConfig>) => {
@@ -80,13 +103,16 @@ export function PrinterSettingsModal({
     setSaving(true)
     try {
       await window.api?.saveReceiptConfig?.(cfg)
+      if (selectedPrinterName) {
+        await window.api?.saveReceiptPrinterConfig?.({ printerName: selectedPrinterName })
+      }
       setIsSaveSuccessOpen(true)
     } catch {
       setSaveError('Failed to save printer settings. Please try again.')
     } finally {
       setSaving(false)
     }
-  }, [cfg])
+  }, [cfg, selectedPrinterName])
 
   const handleResetToDefaults = useCallback(() => {
     setCfg(DEFAULT_CONFIG)
@@ -223,6 +249,13 @@ export function PrinterSettingsModal({
 
   // Clamp helpers
   const clamp = (v: number, min: number, max: number): number => Math.max(min, Math.min(max, v))
+  const printerOptions = [...new Set([selectedPrinterName, ...availablePrinters].filter(Boolean))]
+  const printerStatusLabel = selectedPrinterName
+    ? connected
+      ? 'Connected'
+      : 'Not Connected'
+    : 'Not Configured'
+  const printerDisplayName = statusPrinterName ?? (selectedPrinterName || null)
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -232,14 +265,39 @@ export function PrinterSettingsModal({
         aria-describedby={undefined}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <DialogTitle className="printer-settings-modal__title">Printer Settings</DialogTitle>
-        <div className="printer-settings-modal__header">
+        <DialogHeader className="printer-settings-modal__header">
+          <DialogTitle className="printer-settings-modal__title">Printer Settings</DialogTitle>
           <button type="button" className="printer-settings-modal__close-btn" onClick={onClose}>
-            Close
+            Dismiss
           </button>
-        </div>
+        </DialogHeader>
 
         <div className="printer-settings-modal__body">
+          <div className="printer-settings-modal__section">
+            <h3 className="printer-settings-modal__section-title">Receipt Printer</h3>
+            <select
+              aria-label="Receipt Printer"
+              className="printer-settings-modal__select"
+              value={selectedPrinterName}
+              onChange={(e) => setSelectedPrinterName(e.target.value)}
+            >
+              <option value="">Select installed printer</option>
+              {printerOptions.map((printerName) => (
+                <option key={printerName} value={printerName}>
+                  {printerName}
+                </option>
+              ))}
+            </select>
+            <p className="printer-settings-modal__helper">
+              Used for receipts and as the USB cash-drawer fallback when no drawer override is set.
+            </p>
+            {printerLoadError && (
+              <p className="printer-settings-modal__helper printer-settings-modal__helper--error">
+                {printerLoadError}
+              </p>
+            )}
+          </div>
+
           {/* ── Printer Status ── */}
           <div className="printer-settings-modal__section">
             <h3 className="printer-settings-modal__section-title">Printer Status</h3>
@@ -252,10 +310,10 @@ export function PrinterSettingsModal({
                 }
               >
                 <span className="printer-settings-modal__status-dot" />
-                {connected ? 'Connected' : 'Not Connected'}
+                {printerStatusLabel}
               </span>
-              {printerName && (
-                <span className="printer-settings-modal__status-value">{printerName}</span>
+              {printerDisplayName && (
+                <span className="printer-settings-modal__status-value">{printerDisplayName}</span>
               )}
             </div>
           </div>
@@ -458,6 +516,7 @@ export function PrinterSettingsModal({
           <div className="printer-settings-modal__section">
             <h3 className="printer-settings-modal__section-title">Test Print</h3>
             <select
+              aria-label="Sample Receipt Type"
               className="printer-settings-modal__select"
               value={sampleType}
               onChange={(e) => setSampleType(e.target.value as SampleType)}
@@ -484,7 +543,7 @@ export function PrinterSettingsModal({
             variant="success"
             size="lg"
             onClick={handlePrintSample}
-            disabled={!connected || printing}
+            disabled={!selectedPrinterName || !connected || printing}
           >
             {printing ? 'Printing...' : 'Print Sample'}
           </AppButton>
@@ -493,7 +552,7 @@ export function PrinterSettingsModal({
         <SuccessModal
           isOpen={isSaveSuccessOpen}
           title="Printer Settings Saved"
-          message="Receipt settings were saved successfully."
+          message="Receipt printer and layout settings were saved successfully."
           onDismiss={() => setIsSaveSuccessOpen(false)}
         />
 

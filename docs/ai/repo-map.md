@@ -19,7 +19,7 @@ Renderer (React)  →  window.api  →  Preload (contextBridge)  →  IPC  →  
 | Main process     | `src/main/index.ts`                  | IPC handlers (`ipcMain.handle`) + app lifecycle     |
 | Database repos   | `src/main/database/*.repo.ts`        | One file per entity; sync SQLite via better-sqlite3 |
 | Schema           | `src/main/database/schema.ts`        | DDL + migrations (`applySchema`)                    |
-| Stax service     | `src/main/services/stax.ts`          | Partner API calls (validate key, charge terminal)   |
+| Finix service    | `src/main/services/finix.ts`         | Merchant verification, charges, refunds, devices    |
 | Preload          | `src/preload/index.ts`               | `contextBridge.exposeInMainWorld`                   |
 | Preload types    | `src/preload/index.d.ts`             | `window.api` type contract                          |
 | App root         | `src/renderer/src/App.tsx`           | Auth-state routing → pages                          |
@@ -52,18 +52,22 @@ Channels follow `entity:action` pattern:
 - `inventory:products:search`, `inventory:products:detail`, `inventory:products:save`, `inventory:products:delete`
 - `departments:list`, `departments:create`, `departments:update`, `departments:delete`
 - `tax-codes:*`, `distributors:*`, `sales-reps:*`, `cashiers:*` — same CRUD pattern
-- `merchant:get-config`, `merchant:activate`, `merchant:deactivate`
+- `merchant:get-config`, `merchant:verify-finix`, `merchant:deactivate`
 - `auth:login`, `auth:logout`, `auth:check-session`
 - `catalog:distributors`, `catalog:import`
 - `transactions:save`, `transactions:recent`, `transactions:get-by-number`, `transactions:save-refund`, `transactions:list`
 - `held-transactions:save`, `held-transactions:list`, `held-transactions:delete`, `held-transactions:clear-all`
 - `sessions:get-active`, `sessions:create`, `sessions:close`, `sessions:list`, `sessions:report`, `sessions:print-report`
-- `stax:terminal:registers`, `stax:terminal:charge`
+- `peripheral:get-drawer-config`, `peripheral:save-drawer-config`, `peripheral:open-cash-drawer`
+- `peripheral:get-receipt-config`, `peripheral:save-receipt-config`
+- `peripheral:get-receipt-printer-config`, `peripheral:save-receipt-printer-config`, `peripheral:list-receipt-printers`, `peripheral:get-printer-status`
+- `finix:verify-merchant`, `finix:charge:card`, `finix:refund:transfer`, `finix:devices:list`, `finix:devices:create`, `finix:charge:terminal`, `finix:provision-merchant`
+- `reports:sales-summary`, `reports:product-sales`, `reports:category-sales`, `reports:tax-summary`, `reports:comparison`, `reports:cashier-sales`, `reports:hourly-sales`, `reports:export`
 
 ## Auth State Machine
 
 ```
-loading → auth → pin-setup → distributor-onboarding → login → pos
+loading → auth → pin-setup → business-setup → distributor-onboarding → login → pos
 ```
 
 - `auth`: No valid Supabase session → `AuthScreen`
@@ -88,22 +92,22 @@ Session storage: `userData/supabase-auth.json` (file-based, Node has no localSto
 
 Sync code lives entirely in `src/main/` (main process only). Never imported by renderer.
 
-| Module                                    | Purpose                                                                               |
-| ----------------------------------------- | ------------------------------------------------------------------------------------- |
-| `src/main/services/sync-worker.ts`        | Background drain loop + Realtime subscriptions for all entity types                   |
-| `src/main/services/sync/types.ts`         | All cloud payload types (`*SyncPayload`, `Cloud*Payload`)                             |
-| `src/main/services/sync/initial-sync.ts`  | One-time product reconciliation on startup (cursor-based pagination, LWW)             |
-| `src/main/services/sync/product-sync.ts`  | `uploadProduct`, `applyRemoteProductChange`                                           |
-| `src/main/services/sync/inventory-delta-sync.ts` | `uploadInventoryDelta` (append-only cloud deltas)                            |
-| `src/main/services/sync/transaction-sync.ts` | `uploadTransaction`, `applyRemoteTransaction`                                      |
-| `src/main/services/sync/item-type-sync.ts` | `uploadItemType`, `applyRemoteItemTypeChange` (name renames propagate to products)   |
-| `src/main/services/sync/tax-code-sync.ts` | `uploadTaxCode`, `applyRemoteTaxCodeChange`                                          |
-| `src/main/services/sync/distributor-sync.ts` | `uploadDistributor`, `applyRemoteDistributorChange`                               |
-| `src/main/services/sync/cashier-sync.ts`  | `uploadCashier`, `applyRemoteCashierChange` (includes pin_hash, main-process only)    |
-| `src/main/database/sync-queue.repo.ts`    | Local sync queue CRUD                                                                 |
-| `src/main/database/device-config.repo.ts` | Device UUID + fingerprint storage                                                     |
-| `src/main/services/connectivity.ts`       | `net.isOnline()` polling + listener                                                   |
-| `src/main/services/device-registration.ts` | Registers terminal in Supabase `registers` table                                    |
+| Module                                           | Purpose                                                                            |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `src/main/services/sync-worker.ts`               | Background drain loop + Realtime subscriptions for all entity types                |
+| `src/main/services/sync/types.ts`                | All cloud payload types (`*SyncPayload`, `Cloud*Payload`)                          |
+| `src/main/services/sync/initial-sync.ts`         | One-time product reconciliation on startup (cursor-based pagination, LWW)          |
+| `src/main/services/sync/product-sync.ts`         | `uploadProduct`, `applyRemoteProductChange`                                        |
+| `src/main/services/sync/inventory-delta-sync.ts` | `uploadInventoryDelta` (append-only cloud deltas)                                  |
+| `src/main/services/sync/transaction-sync.ts`     | `uploadTransaction`, `applyRemoteTransaction`                                      |
+| `src/main/services/sync/item-type-sync.ts`       | `uploadItemType`, `applyRemoteItemTypeChange` (name renames propagate to products) |
+| `src/main/services/sync/tax-code-sync.ts`        | `uploadTaxCode`, `applyRemoteTaxCodeChange`                                        |
+| `src/main/services/sync/distributor-sync.ts`     | `uploadDistributor`, `applyRemoteDistributorChange`                                |
+| `src/main/services/sync/cashier-sync.ts`         | `uploadCashier`, `applyRemoteCashierChange` (includes pin_hash, main-process only) |
+| `src/main/database/sync-queue.repo.ts`           | Local sync queue CRUD                                                              |
+| `src/main/database/device-config.repo.ts`        | Device UUID + fingerprint storage                                                  |
+| `src/main/services/connectivity.ts`              | `net.isOnline()` polling + listener                                                |
+| `src/main/services/device-registration.ts`       | Registers terminal in Supabase `registers` table                                   |
 
 ### SyncEntityType values
 
@@ -111,13 +115,13 @@ Sync code lives entirely in `src/main/` (main process only). Never imported by r
 
 ### Natural identity keys (for upsert)
 
-| Entity      | Conflict key                       |
-| ----------- | ---------------------------------- |
-| product     | `merchant_id, sku`                 |
-| item_type   | `merchant_id, name`                |
-| tax_code    | `merchant_id, code`                |
-| distributor | `merchant_id, distributor_number`  |
-| cashier     | `merchant_id, pin_hash`            |
+| Entity      | Conflict key                      |
+| ----------- | --------------------------------- |
+| product     | `merchant_id, sku`                |
+| item_type   | `merchant_id, name`               |
+| tax_code    | `merchant_id, code`               |
+| distributor | `merchant_id, distributor_number` |
+| cashier     | `merchant_id, pin_hash`           |
 
 ### IPC sync channels
 

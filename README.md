@@ -1,6 +1,6 @@
-# LiquorPOS
+# High Spirits POS
 
-Desktop Point of Sale system for liquor stores. Built on Electron, inspired by PC America POS. Revenue from per-transaction residuals via Stax payment processing as a Partner/ISV.
+Desktop Point of Sale system for liquor stores by Checkoutmain & Co. Built on Electron, inspired by PC America POS. Revenue from per-transaction residuals via Finix payment processing under an ISV/platform model.
 
 ## Tech Stack
 
@@ -11,7 +11,7 @@ Desktop Point of Sale system for liquor stores. Built on Electron, inspired by P
 | State         | Zustand 5                   |
 | Styling       | BEM CSS + design tokens     |
 | Database      | SQLite via better-sqlite3   |
-| Payments      | Stax Partner API            |
+| Payments      | Finix API                   |
 | Testing       | Vitest + Playwright         |
 
 ## Quick Start

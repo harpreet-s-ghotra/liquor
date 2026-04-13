@@ -29,7 +29,10 @@ export type {
   CashierRole,
   CreateCashierInput,
   UpdateCashierInput,
-  StaxMerchantInfo,
+  FinixDevice,
+  FinixCardInput,
+  FinixTerminalChargeInput,
+  FinixChargeResult,
   SaveTransactionInput,
   SavedTransaction,
   TransactionDetail,
@@ -82,11 +85,13 @@ export type PaymentStatus = 'idle' | 'collecting' | 'processing-card' | 'complet
 /** Summary of a completed payment, emitted by PaymentModal → POSScreen */
 export type PaymentResult = {
   method: PaymentMethod
-  /** Stax transaction UUID (only for real API card payments) */
-  stax_transaction_id?: string | null
+  /** Finix Authorization ID (only for card payments) */
+  finix_authorization_id?: string | null
+  /** Finix Transfer ID created by capture (only for card payments) */
+  finix_transfer_id?: string | null
   /** Last 4 digits of card (only for card payments) */
   card_last_four?: string | null
-  /** Card brand: visa, mastercard, etc. */
+  /** Card brand: Visa, Mastercard, etc. */
   card_type?: string | null
   /** True when the user explicitly clicked "Print Receipt" (false = OK only) */
   shouldPrint?: boolean

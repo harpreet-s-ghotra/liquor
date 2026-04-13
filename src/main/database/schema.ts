@@ -114,6 +114,46 @@ function migrateStaxApiKey(database: InstanceType<typeof Database>): void {
 }
 
 /**
+ * One-time migration: replace payment_processing_api_key with finix_api_username + finix_api_password.
+ * Runs only when the old column exists and the new one does not yet.
+ */
+function migratePaymentApiKeyToFinix(database: InstanceType<typeof Database>): void {
+  if (!tableExists(database, 'merchant_config')) return
+  if (!columnExists(database, 'merchant_config', 'payment_processing_api_key')) return
+  if (columnExists(database, 'merchant_config', 'finix_api_username')) return
+  // Add new Finix credential columns
+  database.exec(
+    `ALTER TABLE merchant_config ADD COLUMN finix_api_username TEXT NOT NULL DEFAULT ''`
+  )
+  database.exec(
+    `ALTER TABLE merchant_config ADD COLUMN finix_api_password TEXT NOT NULL DEFAULT ''`
+  )
+  // Drop the old single-key column (SQLite 3.35+)
+  database.exec(`ALTER TABLE merchant_config DROP COLUMN payment_processing_api_key`)
+}
+
+/**
+ * One-time migration: move old transaction gateway references to Finix fields.
+ */
+function migrateTransactionGatewayColumns(database: InstanceType<typeof Database>): void {
+  if (!tableExists(database, 'transactions')) return
+  if (!columnExists(database, 'transactions', 'stax_transaction_id')) return
+
+  if (!columnExists(database, 'transactions', 'finix_authorization_id')) {
+    database.exec(
+      `ALTER TABLE transactions RENAME COLUMN stax_transaction_id TO finix_authorization_id`
+    )
+  } else {
+    database.exec(`
+      UPDATE transactions
+      SET finix_authorization_id = COALESCE(finix_authorization_id, stax_transaction_id)
+      WHERE stax_transaction_id IS NOT NULL AND TRIM(stax_transaction_id) != ''
+    `)
+    database.exec(`ALTER TABLE transactions DROP COLUMN stax_transaction_id`)
+  }
+}
+
+/**
  * One-time migration: rename departments -> item_types.
  */
 function migrateDepartmentsToItemTypes(database: InstanceType<typeof Database>): void {
@@ -149,6 +189,8 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   // ── Migrations ──
   migrateVendorsToDistributors(database)
   migrateStaxApiKey(database)
+  migratePaymentApiKeyToFinix(database)
+  migrateTransactionGatewayColumns(database)
   migrateDepartmentsToItemTypes(database)
   migrateDeptIdToItemType(database)
 
@@ -239,7 +281,8 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       tax_amount REAL NOT NULL,
       total REAL NOT NULL,
       payment_method TEXT,
-      stax_transaction_id TEXT,
+      finix_authorization_id TEXT,
+      finix_transfer_id TEXT,
       card_last_four TEXT,
       card_type TEXT,
       status TEXT DEFAULT 'completed',
@@ -276,7 +319,8 @@ export function applySchema(database: InstanceType<typeof Database>): void {
 
     CREATE TABLE IF NOT EXISTS merchant_config (
       id INTEGER PRIMARY KEY CHECK (id = 1),
-      payment_processing_api_key TEXT NOT NULL,
+      finix_api_username TEXT NOT NULL DEFAULT '',
+      finix_api_password TEXT NOT NULL DEFAULT '',
       merchant_id TEXT NOT NULL,
       merchant_name TEXT NOT NULL,
       activated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -354,13 +398,24 @@ export function applySchema(database: InstanceType<typeof Database>): void {
 
   // ── Column migrations ──
 
-  ensureColumn('transactions', 'stax_transaction_id', 'stax_transaction_id TEXT')
+  ensureColumn('transactions', 'finix_authorization_id', 'finix_authorization_id TEXT')
+  ensureColumn('transactions', 'finix_transfer_id', 'finix_transfer_id TEXT')
   ensureColumn('transactions', 'card_last_four', 'card_last_four TEXT')
   ensureColumn('transactions', 'card_type', 'card_type TEXT')
   ensureColumn('transactions', 'original_transaction_id', 'original_transaction_id INTEGER')
   ensureColumn('transactions', 'session_id', 'session_id INTEGER')
   ensureColumn('transactions', 'device_id', 'device_id TEXT')
   ensureColumn('transactions', 'synced_at', 'synced_at DATETIME')
+  ensureColumn(
+    'merchant_config',
+    'finix_api_username',
+    "finix_api_username TEXT NOT NULL DEFAULT ''"
+  )
+  ensureColumn(
+    'merchant_config',
+    'finix_api_password',
+    "finix_api_password TEXT NOT NULL DEFAULT ''"
+  )
 
   ensureColumn('products', 'dept_id', 'dept_id TEXT')
   ensureColumn('products', 'category_id', 'category_id INTEGER')

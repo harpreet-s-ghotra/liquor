@@ -7,7 +7,7 @@ Before searching the codebase, read the relevant index doc in `docs/ai/`:
 - **[docs/ai/repo-map.md](../docs/ai/repo-map.md)** -- Architecture, layer entry points, IPC channels, module lookup table
 - **[docs/ai/testing-map.md](../docs/ai/testing-map.md)** -- Test locations, runners, patterns, how to add tests
 - **[docs/ai/inventory-map.md](../docs/ai/inventory-map.md)** -- All inventory feature files, components, types, tests
-- **[docs/ai/stax-map.md](../docs/ai/stax-map.md)** -- Payment/auth files, Stax API, terminal flow
+- **[docs/ai/finix-map.md](../docs/ai/finix-map.md)** -- Payment/auth files, Finix API, refunds, device roadmap
 - **[docs/ai/glossary.md](../docs/ai/glossary.md)** -- Canonical terms and definitions
 
 Routing: read `repo-map.md` first for general tasks. Read the feature-specific map for scoped work. Check `glossary.md` when a domain term is ambiguous.
@@ -19,7 +19,7 @@ All documentation lives in `docs/`. See `docs/README.md` for the full index.
 - **[docs/README.md](../docs/README.md)** -- Master documentation index
 - **[docs/project-plan.md](../docs/project-plan.md)** -- Full project vision, roadmap, database schema
 - **[docs/design-system.md](../docs/design-system.md)** -- Visual spec, colors, typography, layout rules
-- **[docs/features/](../docs/features/)** -- Feature specs (inventory, pricing, search, stax, returns)
+- **[docs/features/](../docs/features/)** -- Feature specs (inventory, pricing, search, finix, returns)
 
 Before implementing a feature, read the relevant spec in `docs/features/`.
 

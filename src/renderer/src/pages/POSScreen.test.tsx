@@ -11,8 +11,9 @@ const authStoreState = {
   currentCashier: { id: 1, name: 'Cashier 1', pin: '1234', created_at: '', updated_at: '' },
   merchantConfig: {
     id: 1,
-    payment_processing_api_key: 'key',
-    merchant_id: 'm1',
+    finix_api_username: 'UStest',
+    finix_api_password: 'test-password',
+    merchant_id: 'MUtest',
     merchant_name: 'My Store'
   },
   logout: mockLogout
@@ -415,7 +416,7 @@ describe('POSScreen', () => {
           tax_amount: 1,
           total: 11,
           payment_method: 'credit',
-          stax_transaction_id: 'stx_1',
+          finix_authorization_id: 'AU-stx_1',
           card_last_four: '4242',
           card_type: 'visa',
           status: 'completed',

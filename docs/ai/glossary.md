@@ -4,9 +4,9 @@
 
 | Term                   | Definition                                                                         |
 | ---------------------- | ---------------------------------------------------------------------------------- |
-| **Merchant**           | A liquor store owner/operator who activates the app with a Stax API key            |
-| **Merchant Config**    | Stored API key + merchant ID + company name (`MerchantConfig` type)                |
-| **Activation**         | First-run flow: enter Stax API key → validate → store config                       |
+| **Merchant**           | A liquor store owner/operator authenticated through Supabase and linked to Finix   |
+| **Merchant Config**    | Stored Finix credentials + merchant ID + company name (`MerchantConfig` type)      |
+| **Activation**         | Historical first-run API-key flow, now superseded by Supabase onboarding           |
 | **Cashier**            | User who logs in with a 4-digit PIN; role is `admin` or `cashier`                  |
 | **POS Screen**         | Main sales screen with product grid (ActionPanel) + cart (TicketPanel)             |
 | **Action Panel**       | Left side of POS: product grid with category filter                                |
@@ -24,8 +24,9 @@
 | **Special Pricing**    | Promotional pricing rules: quantity thresholds, time-limited prices, mix-and-match |
 | **Pricing Engine**     | `pricing-engine.ts` — evaluates special pricing rules against cart items           |
 | **Promo Annotation**   | Metadata attached to cart lines by the pricing engine (`PromoAnnotation` type)     |
-| **Terminal Register**  | Physical card reader device registered with Stax                                   |
-| **Terminal Charge**    | Payment processed through a physical card terminal via Stax API                    |
+| **Finix Transfer**     | The `TR...` identifier recorded for a successful Finix charge or refund            |
+| **Terminal Register**  | Physical card reader device registered with Finix                                  |
+| **Terminal Charge**    | Payment processed through a physical card terminal via Finix API                   |
 | **CRUD Panel**         | Reusable pattern for list + create/edit/delete UI, powered by `useCrudPanel` hook  |
 | **BEM**                | CSS naming convention: Block\_\_Element--Modifier                                  |
 | **Design Tokens**      | CSS custom properties in `tokens.css` (colors, spacing, borders)                   |

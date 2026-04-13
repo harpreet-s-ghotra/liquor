@@ -62,7 +62,8 @@ export {
   getProductSalesHistory,
   getTransactionByNumber,
   saveRefundTransaction,
-  listTransactions
+  listTransactions,
+  backfillTransactionDeviceId
 } from './transactions.repo'
 
 // Held transactions
@@ -96,6 +97,17 @@ export {
 
 // Device Config
 export { getDeviceConfig, saveDeviceConfig, clearDeviceConfig } from './device-config.repo'
+
+// Reports
+export {
+  getSalesSummary,
+  getProductSales,
+  getCategorySales,
+  getTaxSummary,
+  getComparisonData,
+  getCashierSales,
+  getHourlySales
+} from './reports.repo'
 
 // Sync Queue
 export {

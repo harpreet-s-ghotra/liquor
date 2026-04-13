@@ -64,6 +64,8 @@ describe('transactions sync hooks', () => {
       tax_amount: 0,
       total: 15,
       payment_method: 'cash',
+      finix_authorization_id: 'AU-sale-1',
+      finix_transfer_id: 'TR-sale-1',
       items: [
         {
           product_id: productId,
@@ -224,6 +226,8 @@ describe('transactions sync hooks', () => {
       expect.objectContaining({
         id: saved.id,
         transaction_number: saved.transaction_number,
+        finix_authorization_id: null,
+        finix_transfer_id: null,
         items: [expect.objectContaining({ product_id: productId, quantity: 2 })]
       })
     )

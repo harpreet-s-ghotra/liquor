@@ -8,6 +8,17 @@ Configured server:
 
 - `figma` → `https://mcp.figma.com/mcp`
 
+## Finix MCP
+
+- `finix` -> `{
+    "mcpServers": {
+        "finix-redocly-mcp": {
+            "type": "http",
+            "url": "https://docs.finix.com/mcp"
+        }
+    }
+}`
+
 ## Notes
 
 - Keeping agent instructions in `.github` is common.

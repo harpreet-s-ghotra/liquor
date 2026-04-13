@@ -10,6 +10,7 @@ const mockApi = {
   authLogout: vi.fn(),
   getCashiers: vi.fn(),
   getProducts: vi.fn(),
+  getMerchantConfig: vi.fn(),
   validatePin: vi.fn(),
   createCashier: vi.fn(),
   getActiveSession: vi.fn(),
@@ -18,8 +19,9 @@ const mockApi = {
 
 const merchantConfig = {
   id: 1,
-  payment_processing_api_key: 'test-key',
-  merchant_id: 'merch-123',
+  finix_api_username: 'UStest',
+  finix_api_password: 'test-password',
+  merchant_id: 'MUtest',
   merchant_name: 'Test Store',
   activated_at: '2026-01-01',
   updated_at: '2026-01-01'
@@ -47,6 +49,7 @@ beforeEach(() => {
   // Default: no active session, no cashiers, no products
   mockApi.getActiveSession.mockResolvedValue(null)
   mockApi.createSession.mockResolvedValue({ id: 1, status: 'active' })
+  mockApi.getMerchantConfig.mockResolvedValue(merchantConfig)
 })
 
 afterEach(() => {
@@ -82,6 +85,22 @@ describe('useAuthStore', () => {
 
       expect(result.current.appState).toBe('pin-setup')
       expect(result.current.merchantConfig).toEqual(merchantConfig)
+    })
+
+    it('sets appState to business-setup when cashiers exist but merchant_id is empty', async () => {
+      mockApi.authCheckSession.mockResolvedValue(authResult)
+      mockApi.getCashiers.mockResolvedValue([
+        { id: 1, name: 'Alice', role: 'admin', is_active: 1, created_at: '2026-01-01' }
+      ])
+      mockApi.getMerchantConfig.mockResolvedValue(null)
+
+      const { result } = renderHook(() => useAuthStore())
+
+      await act(async () => {
+        await result.current.initialize()
+      })
+
+      expect(result.current.appState).toBe('business-setup')
     })
 
     it('sets appState to distributor-onboarding when cashiers exist but no products', async () => {
@@ -202,6 +221,19 @@ describe('useAuthStore', () => {
   })
 
   describe('completeSetup', () => {
+    it('transitions to business-setup when merchant_id is empty', async () => {
+      useAuthStore.setState({ appState: 'pin-setup' as AppState })
+      mockApi.getMerchantConfig.mockResolvedValue(null)
+
+      const { result } = renderHook(() => useAuthStore())
+
+      await act(async () => {
+        await result.current.completeSetup()
+      })
+
+      expect(result.current.appState).toBe('business-setup')
+    })
+
     it('transitions to distributor-onboarding when no products exist', async () => {
       useAuthStore.setState({ appState: 'pin-setup' as AppState })
       mockApi.getProducts.mockResolvedValue([])
@@ -228,6 +260,49 @@ describe('useAuthStore', () => {
       })
 
       expect(result.current.appState).toBe('login')
+    })
+  })
+
+  describe('completeBusinessSetup', () => {
+    it('transitions to distributor-onboarding when no products exist', async () => {
+      useAuthStore.setState({ appState: 'business-setup' as AppState })
+      mockApi.getProducts.mockResolvedValue([])
+
+      const { result } = renderHook(() => useAuthStore())
+
+      await act(async () => {
+        await result.current.completeBusinessSetup()
+      })
+
+      expect(result.current.appState).toBe('distributor-onboarding')
+    })
+
+    it('transitions to login when products exist', async () => {
+      useAuthStore.setState({ appState: 'business-setup' as AppState })
+      mockApi.getProducts.mockResolvedValue([
+        { id: 1, sku: 'SKU-1', name: 'Wine', category: 'Wine', price: 10, quantity: 5, tax_rate: 0 }
+      ])
+
+      const { result } = renderHook(() => useAuthStore())
+
+      await act(async () => {
+        await result.current.completeBusinessSetup()
+      })
+
+      expect(result.current.appState).toBe('login')
+    })
+
+    it('falls back to distributor-onboarding on error', async () => {
+      useAuthStore.setState({ appState: 'business-setup' as AppState })
+      mockApi.getProducts.mockRejectedValue(new Error('fail'))
+
+      const { result } = renderHook(() => useAuthStore())
+
+      await act(async () => {
+        await result.current.completeBusinessSetup()
+      })
+
+      expect(result.current.appState).toBe('distributor-onboarding')
     })
   })
 

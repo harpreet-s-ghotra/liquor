@@ -78,8 +78,9 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
       // Auth APIs
       getMerchantConfig: async () => ({
         id: 1,
-        payment_processing_api_key: 'test-api-key',
-        merchant_id: 'test-merchant-id',
+        finix_api_username: 'US-test-api-key',
+        finix_api_password: 'test-finix-password',
+        merchant_id: 'MU-test-merchant-id',
         merchant_name: 'Test Liquor Store',
         activated_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z'
@@ -88,14 +89,16 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         user: { id: 'user-1', email: 'test@example.com' },
         merchant: {
           id: 1,
-          payment_processing_api_key: 'test-api-key',
-          merchant_id: 'test-merchant-id',
+          finix_api_username: 'US-test-api-key',
+          finix_api_password: 'test-finix-password',
+          merchant_id: 'MU-test-merchant-id',
           merchant_name: 'Test Liquor Store',
           activated_at: '2025-01-01T00:00:00.000Z',
           updated_at: '2025-01-01T00:00:00.000Z'
         }
       }),
       onDeepLink: () => {},
+      consumePendingDeepLink: async () => null,
       getCashiers: async () => [
         { id: 1, name: 'Test Cashier', role: 'admin', is_active: 1, created_at: '2025-01-01' }
       ],
@@ -303,7 +306,7 @@ test.describe('Inventory Management', () => {
     await page.getByRole('button', { name: 'F2 Inventory' }).click()
 
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill(sku)
-    await page.getByLabel('Name').fill(name)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(name)
     // Item type dropdown (standard select)
     // Scope inside Items tabpanel to avoid matching Radix tab panels
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
@@ -321,7 +324,7 @@ test.describe('Inventory Management', () => {
 
     // Navigate to Additional SKUs tab (default is now Case & Quantity)
     const skusTab = page.getByRole('tab', { name: 'Additional SKUs' })
-    await skusTab.focus()
+    await skusTab.click()
     await expect(skusTab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await page.getByLabel('Additional SKU Input').fill(`${sku}-ALT-1`)
     await page
@@ -330,7 +333,7 @@ test.describe('Inventory Management', () => {
 
     // Switch to Special Pricing tab and add a rule
     const pricingTab = page.getByRole('tab', { name: 'Special Pricing' })
-    await pricingTab.focus()
+    await pricingTab.click()
     await expect(pricingTab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await page
       .getByRole('button', { name: 'Add Rule' })
@@ -359,7 +362,7 @@ test.describe('Inventory Management', () => {
 
     // Fill required fields for a new item
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill('SKU-NEW')
-    await page.getByLabel('Name').fill('New Item')
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill('New Item')
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
     await itemsPanel.getByLabel('Item Type').selectOption({ label: 'Wine' })
     await page.getByLabel('Per Bottle Cost').fill('5.00')
@@ -372,7 +375,7 @@ test.describe('Inventory Management', () => {
 
     // Add an additional SKU that matches an existing product's primary SKU
     const skusTab2 = page.getByRole('tab', { name: 'Additional SKUs' })
-    await skusTab2.focus()
+    await skusTab2.click()
     await expect(skusTab2).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await page.getByLabel('Additional SKU Input').fill('SKU-001')
     await page
@@ -395,7 +398,7 @@ test.describe('Inventory Management', () => {
 
     // Fill required fields for a new item
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill('SKU-NEW-2')
-    await page.getByLabel('Name').fill('Another New Item')
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Another New Item')
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
     await itemsPanel.getByLabel('Item Type').selectOption({ label: 'Wine' })
     await page.getByLabel('Per Bottle Cost').fill('6.00')
@@ -408,7 +411,7 @@ test.describe('Inventory Management', () => {
 
     // Add an additional SKU that matches another product's alt SKU
     const skusTab3 = page.getByRole('tab', { name: 'Additional SKUs' })
-    await skusTab3.focus()
+    await skusTab3.click()
     await expect(skusTab3).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await page.getByLabel('Additional SKU Input').fill('SKU-001-ALT')
     await page
@@ -429,9 +432,12 @@ test.describe('Inventory Management', () => {
 
     await page.getByRole('button', { name: 'F2 Inventory' }).click()
 
+    await page.getByRole('textbox', { name: 'SKU', exact: true }).fill('INFO-TABS')
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Info Tabs Item')
+
     // Navigate to Additional Info sub-tab
     const addlInfoTab = page.getByRole('tab', { name: 'Additional Info' })
-    await addlInfoTab.focus()
+    await addlInfoTab.click()
     await expect(addlInfoTab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
 
     // All four fields should be visible
@@ -451,7 +457,7 @@ test.describe('Inventory Management', () => {
 
     // Fill required General Info fields
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill(sku)
-    await page.getByLabel('Name').fill('Test Whiskey')
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Test Whiskey')
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
     await itemsPanel.getByLabel('Item Type').selectOption({ label: 'Wine' })
     await page.getByLabel('Per Bottle Cost').fill('25.00')
@@ -465,13 +471,13 @@ test.describe('Inventory Management', () => {
 
     // Navigate to Additional Info tab and fill fields
     const addlInfoTab = page.getByRole('tab', { name: 'Additional Info' })
-    await addlInfoTab.focus()
+    await addlInfoTab.click()
     await expect(addlInfoTab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
 
     await page.getByLabel('Proof').fill('80')
     await page.getByLabel('ABV Percent').fill('40')
     await page.getByLabel('Vintage').fill('2020')
-    await page.getByLabel('TTB ID').fill('12345678')
+    await page.getByLabel('TTB ID').fill('TTB-12345-ABC')
 
     // Save the item
     await page.getByRole('button', { name: 'Save' }).click()
@@ -486,13 +492,13 @@ test.describe('Inventory Management', () => {
 
     // Navigate to Additional Info and verify persisted values
     const addlInfoTab2 = page.getByRole('tab', { name: 'Additional Info' })
-    await addlInfoTab2.focus()
+    await addlInfoTab2.click()
     await expect(addlInfoTab2).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
 
     await expect(page.getByLabel('Proof')).toHaveValue('80')
     await expect(page.getByLabel('ABV Percent')).toHaveValue('40')
     await expect(page.getByLabel('Vintage')).toHaveValue('2020')
-    await expect(page.getByLabel('TTB ID')).toHaveValue('12345678')
+    await expect(page.getByLabel('TTB ID')).toHaveValue('TTB-12345-ABC')
   })
 
   test('display_name field appears in General Info and saves correctly', async ({ page }) => {
@@ -508,7 +514,9 @@ test.describe('Inventory Management', () => {
 
     // Fill required fields
     await page.getByRole('textbox', { name: 'SKU', exact: true }).fill(sku)
-    await page.getByLabel('Name').fill('Very Long Product Name That Is Hard To Read')
+    await page
+      .getByRole('textbox', { name: 'Name', exact: true })
+      .fill('Very Long Product Name That Is Hard To Read')
     await page.getByLabel('Display Name').fill('Short Name')
     const itemsPanel = page.getByRole('tabpanel', { name: 'Items' })
     await itemsPanel.getByLabel('Item Type').selectOption({ label: 'Wine' })

@@ -95,8 +95,9 @@ const attachSearchApiMock = async (page: Page): Promise<void> => {
 
     const merchantConfig = {
       id: 1,
-      payment_processing_api_key: 'test-api-key',
-      merchant_id: 'test-merchant-id',
+      finix_api_username: 'US-test-api-key',
+      finix_api_password: 'test-finix-password',
+      merchant_id: 'MU-test-merchant-id',
       merchant_name: 'Test Liquor Store',
       activated_at: '2025-01-01T00:00:00.000Z',
       updated_at: '2025-01-01T00:00:00.000Z'
@@ -118,6 +119,7 @@ const attachSearchApiMock = async (page: Page): Promise<void> => {
         merchant: merchantConfig
       }),
       onDeepLink: () => {},
+      consumePendingDeepLink: async () => null,
       getCashiers: async () => [testCashier],
       validatePin: async () => testCashier,
 
@@ -163,8 +165,16 @@ const attachSearchApiMock = async (page: Page): Promise<void> => {
       saveInventoryItem: async () => {
         throw new Error('Not implemented')
       },
-      chargeTerminal: async () => ({}),
-      chargeWithCard: async () => ({}),
+      finixChargeCard: async (input: { total: number; card_number?: string }) => ({
+        authorization_id: `AU-${Date.now()}`,
+        transfer_id: `TR-${Date.now()}`,
+        success: true,
+        last_four: input.card_number?.slice(-4) ?? '4242',
+        card_type: input.card_number === '5555555555554444' ? 'mastercard' : 'visa',
+        total: input.total,
+        message: 'Approved',
+        status: 'approved'
+      }),
       saveTransaction: async () => ({ id: 1 }),
       getRecentTransactions: async () => [],
       getReceiptConfig: async () => ({

@@ -51,7 +51,7 @@ const baseDetail = {
       unit_price: 15,
       total_price: 30,
       payment_method: 'credit',
-      stax_transaction_id: 'stax-uuid-123',
+      finix_authorization_id: 'AU-stax-uuid-123',
       card_last_four: '1111',
       card_type: 'visa'
     }
@@ -249,7 +249,7 @@ describe('ItemForm', () => {
     fireEvent.change(await screen.findByLabelText('Proof'), { target: { value: '86' } })
     fireEvent.change(screen.getByLabelText('ABV Percent'), { target: { value: '13.5' } })
     fireEvent.change(screen.getByLabelText('Vintage'), { target: { value: '2015' } })
-    fireEvent.change(screen.getByLabelText('TTB ID'), { target: { value: '12345678' } })
+    fireEvent.change(screen.getByLabelText('TTB ID'), { target: { value: 'TTB-12345-ABC' } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
@@ -262,7 +262,7 @@ describe('ItemForm', () => {
         proof: 86,
         alcohol_pct: 13.5,
         vintage: '2015',
-        ttb_id: '12345678'
+        ttb_id: 'TTB-12345-ABC'
       })
     )
   })

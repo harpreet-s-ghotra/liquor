@@ -3,7 +3,7 @@ import { execFile } from 'child_process'
 import { app } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
-import type { ReceiptConfig } from '../../shared/types'
+import type { ReceiptConfig, ReceiptPrinterConfig } from '../../shared/types'
 
 export type CashDrawerConfig =
   | { type: 'usb'; printerName: string }
@@ -30,6 +30,31 @@ function readConfigFile(): Record<string, unknown> {
   }
 }
 
+function getReceiptPrinterConfigFromData(
+  data: Record<string, unknown>
+): ReceiptPrinterConfig | null {
+  const cfg = data.receiptPrinter as Partial<ReceiptPrinterConfig> | undefined
+  if (cfg?.printerName) {
+    return { printerName: cfg.printerName }
+  }
+
+  const legacyDrawer = data.cashDrawer as CashDrawerConfig | undefined
+  if (legacyDrawer?.type === 'usb' && legacyDrawer.printerName) {
+    return { printerName: legacyDrawer.printerName }
+  }
+
+  return null
+}
+
+export function getReceiptPrinterConfig(): ReceiptPrinterConfig | null {
+  return getReceiptPrinterConfigFromData(readConfigFile())
+}
+
+export function saveReceiptPrinterConfig(config: ReceiptPrinterConfig): void {
+  const existing = readConfigFile()
+  writeFileSync(configPath(), JSON.stringify({ ...existing, receiptPrinter: config }, null, 2))
+}
+
 export function getCashDrawerConfig(): CashDrawerConfig | null {
   const data = readConfigFile()
   const cfg = data.cashDrawer as CashDrawerConfig | undefined
@@ -37,6 +62,16 @@ export function getCashDrawerConfig(): CashDrawerConfig | null {
   if (cfg.type === 'usb') return cfg.printerName ? cfg : null
   if (cfg.type === 'tcp') return cfg.ip ? cfg : null
   return null
+}
+
+export function getEffectiveCashDrawerConfig(): CashDrawerConfig | null {
+  const explicitConfig = getCashDrawerConfig()
+  if (explicitConfig) return explicitConfig
+
+  const receiptPrinter = getReceiptPrinterConfig()
+  if (!receiptPrinter) return null
+
+  return { type: 'usb', printerName: receiptPrinter.printerName }
 }
 
 export function saveCashDrawerConfig(config: CashDrawerConfig): void {
@@ -89,6 +124,26 @@ export function checkPrinterConnected(printerName: string): Promise<boolean> {
     execFile('lpstat', ['-p', printerName], (_err, stdout) => {
       const out = stdout.toLowerCase()
       resolve(out.includes('idle') || out.includes('processing'))
+    })
+  })
+}
+
+export function listReceiptPrinters(): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    execFile('lpstat', ['-v'], (err, stdout) => {
+      if (err) {
+        reject(new Error(`Failed to list printers: ${err.message}`))
+        return
+      }
+
+      const printers = stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith('device for '))
+        .map((line) => line.match(/^device for (.+?):/)?.[1] ?? '')
+        .filter((printerName): printerName is string => Boolean(printerName))
+
+      resolve([...new Set(printers)].sort((left, right) => left.localeCompare(right)))
     })
   })
 }

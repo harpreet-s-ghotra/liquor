@@ -20,8 +20,9 @@ beforeEach(() => {
     appState: 'login' as AppState,
     merchantConfig: {
       id: 1,
-      payment_processing_api_key: 'key',
-      merchant_id: 'merch-123',
+      finix_api_username: 'UStest',
+      finix_api_password: 'test-password',
+      merchant_id: 'MUtest',
       merchant_name: 'High Spirits Liquor',
       activated_at: '2026-01-01',
       updated_at: '2026-01-01'

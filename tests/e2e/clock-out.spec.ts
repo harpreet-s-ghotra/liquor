@@ -17,8 +17,9 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
 
     const merchantConfig = {
       id: 1,
-      payment_processing_api_key: 'test-api-key',
-      merchant_id: 'test-merchant-id',
+      finix_api_username: 'US-test-api-key',
+      finix_api_password: 'test-finix-password',
+      merchant_id: 'MU-test-merchant-id',
       merchant_name: 'Test Liquor Store',
       activated_at: '2025-01-01T00:00:00.000Z',
       updated_at: '2025-01-01T00:00:00.000Z'
@@ -87,6 +88,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
         merchant: merchantConfig
       }),
       onDeepLink: () => {},
+      consumePendingDeepLink: async () => null,
       getCashiers: async () => [testCashier],
       validatePin: async () => testCashier,
 

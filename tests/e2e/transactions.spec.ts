@@ -145,8 +145,9 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
 
     const merchantConfig = {
       id: 1,
-      payment_processing_api_key: 'test-api-key',
-      merchant_id: 'test-merchant-id',
+      finix_api_username: 'US-test-api-key',
+      finix_api_password: 'test-finix-password',
+      merchant_id: 'MU-test-merchant-id',
       merchant_name: 'Test Liquor Store',
       activated_at: '2025-01-01T00:00:00.000Z',
       updated_at: '2025-01-01T00:00:00.000Z'
@@ -169,6 +170,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
         merchant: merchantConfig
       }),
       onDeepLink: () => {},
+      consumePendingDeepLink: async () => null,
       getCashiers: async () => [testCashier],
       validatePin: async () => testCashier,
 
@@ -185,30 +187,15 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
         throw new Error('Not implemented in transactions mock')
       },
 
-      // Terminal payment mock (simulates physical card reader)
-      chargeTerminal: async (input: { total: number; payment_type: string }) => {
+      // Finix sandbox card mock used by the POS payment modal.
+      finixChargeCard: async (input: { total: number; card_number?: string }) => {
         await new Promise((resolve) => setTimeout(resolve, 300))
-        const cardType = input.payment_type === 'debit' ? 'mastercard' : 'visa'
-        const lastFour = input.payment_type === 'debit' ? '3222' : '4242'
+        const isVisa = input.card_number !== '5555555555554444'
         return {
-          transaction_id: `txn-${Date.now()}`,
+          authorization_id: `AU-${Date.now()}`,
+          transfer_id: `TR-${Date.now()}`,
           success: true,
-          last_four: lastFour,
-          card_type: cardType,
-          total: input.total,
-          message: 'Approved',
-          status: 'approved'
-        }
-      },
-
-      // Dev-mode card mock (used when IS_DEV=true — preset test cards)
-      chargeWithCard: async (input: { total: number; card_type?: string }) => {
-        await new Promise((resolve) => setTimeout(resolve, 300))
-        const isVisa = (input.card_type ?? 'visa') !== 'mastercard'
-        return {
-          transaction_id: `txn-${Date.now()}`,
-          success: true,
-          last_four: isVisa ? '4242' : '3222',
+          last_four: isVisa ? '4242' : '4444',
           card_type: isVisa ? 'visa' : 'mastercard',
           total: input.total,
           message: 'Approved',
@@ -651,7 +638,7 @@ test.describe('Payment Modal', () => {
 
     // Should show processing state
     await expect(modal.getByTestId('payment-processing')).toBeVisible()
-    await expect(modal.getByText('Processing test card...')).toBeVisible()
+    await expect(modal.getByText('Processing payment...')).toBeVisible()
 
     // Cancel should be disabled during processing
     await expect(modal.getByRole('button', { name: 'Cancel' })).toBeDisabled()
@@ -919,8 +906,9 @@ const attachCaseDiscountMock = async (page: Page): Promise<void> => {
 
     const merchantConfig = {
       id: 1,
-      payment_processing_api_key: 'test-api-key',
-      merchant_id: 'test-merchant-id',
+      finix_api_username: 'US-test-api-key',
+      finix_api_password: 'test-finix-password',
+      merchant_id: 'MU-test-merchant-id',
       merchant_name: 'Test Liquor Store',
       activated_at: '2025-01-01T00:00:00.000Z',
       updated_at: '2025-01-01T00:00:00.000Z'
@@ -942,6 +930,7 @@ const attachCaseDiscountMock = async (page: Page): Promise<void> => {
         merchant: merchantConfig
       }),
       onDeepLink: () => {},
+      consumePendingDeepLink: async () => null,
       getCashiers: async () => [testCashier],
       validatePin: async () => testCashier,
       getProducts: async () => products,
@@ -955,17 +944,9 @@ const attachCaseDiscountMock = async (page: Page): Promise<void> => {
       saveInventoryItem: async () => {
         throw new Error('Not implemented')
       },
-      chargeTerminal: async (input: { total: number }) => ({
-        transaction_id: `txn-${Date.now()}`,
-        success: true,
-        last_four: '4242',
-        card_type: 'visa',
-        total: input.total,
-        message: 'Approved',
-        status: 'approved'
-      }),
-      chargeWithCard: async (input: { total: number }) => ({
-        transaction_id: `txn-${Date.now()}`,
+      finixChargeCard: async (input: { total: number }) => ({
+        authorization_id: `AU-${Date.now()}`,
+        transfer_id: `TR-${Date.now()}`,
         success: true,
         last_four: '4242',
         card_type: 'visa',
@@ -1098,8 +1079,9 @@ test.describe('Product Tile Display', () => {
 
       const merchantConfig = {
         id: 1,
-        payment_processing_api_key: 'k',
-        merchant_id: 'm',
+        finix_api_username: 'US-k',
+        finix_api_password: 'test-finix-password',
+        merchant_id: 'MU-m',
         merchant_name: 'Test Store',
         activated_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z'
@@ -1120,6 +1102,7 @@ test.describe('Product Tile Display', () => {
           merchant: merchantConfig
         }),
         onDeepLink: () => {},
+        consumePendingDeepLink: async () => null,
         getCashiers: async () => [testCashier],
         validatePin: async () => testCashier,
         getProducts: async () => products,
@@ -1133,8 +1116,16 @@ test.describe('Product Tile Display', () => {
         saveInventoryItem: async () => {
           throw new Error('Not implemented')
         },
-        chargeTerminal: async () => ({}),
-        chargeWithCard: async () => ({}),
+        finixChargeCard: async (input: { total: number }) => ({
+          authorization_id: `AU-${Date.now()}`,
+          transfer_id: `TR-${Date.now()}`,
+          success: true,
+          last_four: '4242',
+          card_type: 'visa',
+          total: input.total,
+          message: 'Approved',
+          status: 'approved'
+        }),
         saveTransaction: async () => ({ id: 1 }),
         getRecentTransactions: async () => [],
         getReceiptConfig: async () => ({

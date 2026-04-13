@@ -8,7 +8,7 @@
 
 - [x] Supabase project created; all three tables exist in production (`merchants`, `catalog_distributors`, `catalog_products`)
 - [x] RLS policies applied to all three tables
-- [x] `payment_processing_api_key` column name used throughout (never `stax_api_key`)
+- [x] Finix merchant credentials flow through the onboarding path and local merchant config persistence
 - [x] NYSLA catalog uploaded via `scripts/upload-catalog.ts` (~80K+ products from 709 CSV files)
 - [x] Supabase client in main process (`src/main/services/supabase.ts`) with file-based auth token storage
 - [x] IPC channels: `auth:login`, `auth:logout`, `auth:check-session`, `auth:set-session`, `auth:set-password`, `catalog:distributors`, `catalog:import`
@@ -23,7 +23,7 @@
   - macOS: `app.on('open-url')`
   - Windows: `app.requestSingleInstanceLock()` + `app.on('second-instance')`
 - [x] `seed.ts` emptied — no hardcoded products or distributors are inserted on a fresh database
-- [x] SQLite migration: `stax_api_key` → `payment_processing_api_key` in `merchant_config` table (`migrateStaxApiKey` in `schema.ts`)
+- [x] SQLite migrations preserve legacy Stax/payment-key columns and hydrate the current Finix credential fields in `merchant_config`
 - [x] Unit tests written for `AuthScreen`, `PinSetupScreen`, `DistributorOnboardingScreen` (renderer coverage ≥ 80%)
 
 ### Pending / Not Yet Tested
@@ -34,26 +34,31 @@
 
 - [x] **Email invite flow tested** (2026-03-30) — Invite email → deep link → SetPasswordScreen → completes onboarding.
 
-- [x] **Minor cleanup**: `staxInfo` renamed to `paymentInfo` in `supabase.ts` and `index.ts`.
+- [x] **Minor cleanup**: legacy payment-provider naming removed from the Supabase auth path.
 
 - [x] **IPC error prefix stripping** (2026-03-30) — Added `stripIpcPrefix()` utility in `utils/ipc-error.ts`. Applied in `useAuthStore`, `PinSetupScreen`, and `DistributorOnboardingScreen` so raw Electron IPC error prefixes are never shown to users.
 
 ---
 
-## How to Create a Test Merchant Account
+## How to Invite a Merchant
 
-Since Supabase rate-limits "Invite user" emails, use this manual approach for testing:
+Two flows are supported:
 
-1. Go to Supabase Dashboard → Authentication → Users → **Add user** (not "Invite")
-2. Enter email + temporary password. Copy the new user's UUID.
-3. In the SQL editor, insert a `merchants` row:
+1. Manual Supabase dashboard invite: the user opens the email, sets a password in the app, and the desktop main process auto-creates the `merchants` row if `SUPABASE_SERVICE_ROLE_KEY` is available locally.
+2. Provisioning script: use this when you want the auth user and `merchants` row created together before the user opens the invite.
 
-```sql
-INSERT INTO merchants (user_id, payment_processing_api_key, merchant_name)
-VALUES ('<paste-uuid-here>', 'placeholder-key', 'Test Store');
+```bash
+npx tsx scripts/invite-merchant.ts --email owner@example.com --name "Test Store"
 ```
 
-4. Sign in through the app's `AuthScreen` using the email + password you just set.
+Optional:
+
+- `--finix-merchant-id <id>` to override the default Finix merchant id used for local testing.
+- Re-run the same command with an already invited email to repair a missing `merchants` row without sending a duplicate invite.
+
+### Local testing without invite email
+
+For non-email testing, `scripts/create-test-merchant.ts` still creates a confirmed auth user plus a `merchants` row directly.
 
 ---
 
@@ -96,7 +101,7 @@ Transition logic lives in `useAuthStore.ts` → `resolvePostAuthState()`.
 
 ### Tables
 
-**`merchants`** — one row per merchant account (ISV creates these)
+**`merchants`** — one row per merchant account (provisioned by the invite script / ISV tooling)
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -104,9 +109,10 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE merchants (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) UNIQUE NOT NULL,
-  payment_processing_api_key text NOT NULL,
+  finix_api_username text,
+  finix_api_password text,
   merchant_name text NOT NULL,
-  stax_merchant_id text,
+  finix_merchant_id text,
   created_at timestamptz DEFAULT now()
 );
 
@@ -177,9 +183,15 @@ RLS: read-only for all authenticated users.
 ### Auth
 
 - Email/password sign-in via Supabase Auth
-- Email invite flow: ISV invites user from Supabase dashboard → user clicks email link → app opens via `liquorpos://auth/callback` deep link → `SetPasswordScreen`
+- Email invite flow: ISV sends a manual Supabase invite or runs `scripts/invite-merchant.ts` → user clicks email link → app opens via `liquorpos://auth/callback` deep link → `SetPasswordScreen` → the app ensures the `merchants` row exists before continuing.
 - Session tokens stored in `userData/supabase-auth.json` (custom file-based storage — Node.js has no localStorage)
 - Auto-refresh on app start via `supabaseCheckSession()`
+
+Important:
+
+- The live `merchants` RLS allows read access for `auth.uid() = user_id` but blocks self-insert.
+- To make manual invites frictionless, the desktop main process loads `.env` and repairs a missing `merchants` row with `SUPABASE_SERVICE_ROLE_KEY` during sign-in / set-password / session restore.
+- If `SUPABASE_SERVICE_ROLE_KEY` is not available locally, manual invites still require pre-provisioning via `scripts/invite-merchant.ts`.
 
 ---
 
@@ -232,7 +244,19 @@ All four share `styles/auth.css` for layout.
 - Custom file-based auth storage (no localStorage in Node); tokens saved to `userData/supabase-auth.json`
 - Exports: `initializeSupabaseService`, `supabaseSignIn`, `supabaseSignOut`, `supabaseCheckSession`, `supabaseSetSession`, `supabaseSetPassword`, `getCatalogDistributors`, `getCatalogProductsByDistributors`
 - Credentials: `SUPABASE_URL` and `SUPABASE_ANON_KEY` are hardcoded constants (anon key is intentionally public; protected by RLS)
-- `fetchAndSaveMerchant` saves the merchant's `payment_processing_api_key` to the local `merchant_config` SQLite table; if payment key validation fails, it falls back gracefully (non-blocking)
+- `fetchAndSaveMerchant` saves the merchant's Finix credentials and merchant identifiers to the local `merchant_config` SQLite table
+
+`src/main/services/merchant-provisioning.ts` — merchant provisioning helpers:
+
+- `provisionMerchantInvite()` sends or repairs an invite and upserts the `merchants` row using the service role client
+- `provisionMerchantForUser()` repairs a missing `merchants` row for an already-authenticated invited user
+- `deriveMerchantNameFromEmail()` creates a readable default merchant name when none is provided
+
+`scripts/invite-merchant.ts` — operational entry point for inviting merchants:
+
+- Sends the Supabase invite email with `redirectTo: liquorpos://auth/callback`
+- Upserts the matching `merchants` row before the user opens the invite
+- Repairs existing auth users that are missing a `merchants` row
 
 ---
 
@@ -277,7 +301,7 @@ SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/upload-catalog.ts
 `schema.ts` runs these one-time migrations on every app start (idempotent):
 
 - `migrateVendorsToDistributors` — renames the `vendors` table to `distributors` and updates all FK references
-- `migrateStaxApiKey` — renames `stax_api_key` to `payment_processing_api_key` in the `merchant_config` table
+- `migrateStaxApiKey` — preserves compatibility with older local merchant config rows
 
 ---
 

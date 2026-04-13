@@ -18,8 +18,11 @@ describe('PrinterSettingsModal', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
       getReceiptConfig: vi.fn().mockResolvedValue(baseConfig),
+      getReceiptPrinterConfig: vi.fn().mockResolvedValue({ printerName: 'Star-TSP654' }),
+      listReceiptPrinters: vi.fn().mockResolvedValue(['Star-TSP654', 'Office-Printer']),
       getPrinterStatus: vi.fn().mockResolvedValue({ connected: true, printerName: 'Star-TSP654' }),
       saveReceiptConfig: vi.fn().mockResolvedValue(undefined),
+      saveReceiptPrinterConfig: vi.fn().mockResolvedValue(undefined),
       printReceipt: vi.fn().mockResolvedValue(undefined)
     }
   })
@@ -35,13 +38,16 @@ describe('PrinterSettingsModal', () => {
 
     await waitFor(() => {
       expect(window.api?.getReceiptConfig).toHaveBeenCalledTimes(1)
+      expect(window.api?.getReceiptPrinterConfig).toHaveBeenCalledTimes(1)
+      expect(window.api?.listReceiptPrinters).toHaveBeenCalledTimes(1)
       expect(window.api?.getPrinterStatus).toHaveBeenCalledTimes(1)
     })
 
     expect(screen.getByDisplayValue('Liquor POS')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Thanks for shopping')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Receipt Printer' })).toHaveValue('Star-TSP654')
     expect(screen.getByText('Connected')).toBeInTheDocument()
-    expect(screen.getByText('Star-TSP654')).toBeInTheDocument()
+    expect(screen.getAllByText('Star-TSP654')).toHaveLength(2)
   })
 
   it('renders disconnected status and disables print when printer is unavailable', async () => {
@@ -99,6 +105,9 @@ describe('PrinterSettingsModal', () => {
     fireEvent.change(screen.getByPlaceholderText('Leave blank to use merchant name'), {
       target: { value: 'Saved Store' }
     })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Receipt Printer' }), {
+      target: { value: 'Office-Printer' }
+    })
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }))
 
@@ -106,6 +115,9 @@ describe('PrinterSettingsModal', () => {
       expect(window.api?.saveReceiptConfig).toHaveBeenCalledWith(
         expect.objectContaining({ storeName: 'Saved Store' })
       )
+      expect(window.api?.saveReceiptPrinterConfig).toHaveBeenCalledWith({
+        printerName: 'Office-Printer'
+      })
       expect(screen.getByText('Printer Settings Saved')).toBeInTheDocument()
     })
   })
@@ -181,7 +193,9 @@ describe('PrinterSettingsModal', () => {
       target: { value: '   ' }
     })
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'with-message' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sample Receipt Type' }), {
+      target: { value: 'with-message' }
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Print Sample' }))
 
     await waitFor(() => {
@@ -201,7 +215,9 @@ describe('PrinterSettingsModal', () => {
       expect(screen.getByDisplayValue('Thanks for shopping')).toBeInTheDocument()
     })
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'with-promo' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sample Receipt Type' }), {
+      target: { value: 'with-promo' }
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Print Sample' }))
 
     await waitFor(() => {
@@ -222,7 +238,9 @@ describe('PrinterSettingsModal', () => {
       expect(screen.getByDisplayValue('Thanks for shopping')).toBeInTheDocument()
     })
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'many-items' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sample Receipt Type' }), {
+      target: { value: 'many-items' }
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Print Sample' }))
 
     await waitFor(() => {
@@ -241,10 +259,10 @@ describe('PrinterSettingsModal', () => {
     render(<PrinterSettingsModal isOpen={true} onClose={onClose} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

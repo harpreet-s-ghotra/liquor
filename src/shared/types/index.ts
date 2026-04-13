@@ -64,7 +64,7 @@ export type InventorySalesHistory = {
 export type TransactionHistoryItem = InventorySalesHistory & {
   transaction_number: string
   payment_method: string | null
-  stax_transaction_id: string | null
+  finix_authorization_id: string | null
   card_last_four: string | null
   card_type: string | null
   status: string
@@ -76,7 +76,8 @@ export type SaveTransactionInput = {
   tax_amount: number
   total: number
   payment_method: string
-  stax_transaction_id?: string | null
+  finix_authorization_id?: string | null
+  finix_transfer_id?: string | null
   card_last_four?: string | null
   card_type?: string | null
   notes?: string | null
@@ -98,7 +99,8 @@ export type SaveRefundInput = {
   tax_amount: number
   total: number
   payment_method: string
-  stax_transaction_id?: string | null
+  finix_authorization_id?: string | null
+  finix_transfer_id?: string | null
   card_last_four?: string | null
   card_type?: string | null
   session_id?: number | null
@@ -119,6 +121,11 @@ export type ReceiptConfig = {
   storeName: string // receipt header name override ('' = use merchant name)
   footerMessage: string // default footer message ('' = no footer message)
   alwaysPrint: boolean // auto-print receipt after every completed payment
+}
+
+/** Selected CUPS printer used for receipts and USB drawer fallback. */
+export type ReceiptPrinterConfig = {
+  printerName: string
 }
 
 /** Input for printing a receipt on the Star receipt printer */
@@ -151,11 +158,14 @@ export type SavedTransaction = {
   tax_amount: number
   total: number
   payment_method: string
-  stax_transaction_id: string | null
+  finix_authorization_id: string | null
+  finix_transfer_id: string | null
   card_last_four: string | null
   card_type: string | null
   status: string
   original_transaction_id: number | null
+  session_id?: number | null
+  device_id?: string | null
   created_at: string
 }
 
@@ -420,7 +430,8 @@ export type ImportResult = {
 
 export type MerchantConfig = {
   id: number
-  payment_processing_api_key: string
+  finix_api_username: string
+  finix_api_password: string
   merchant_id: string
   merchant_name: string
   activated_at: string
@@ -428,8 +439,56 @@ export type MerchantConfig = {
 }
 
 export type SaveMerchantConfigInput = {
-  payment_processing_api_key: string
+  finix_api_username: string
+  finix_api_password: string
   merchant_id: string
+  merchant_name: string
+}
+
+// ── Finix Merchant Provisioning ──
+
+export type BusinessAddress = {
+  line1: string
+  line2?: string
+  city: string
+  region: string
+  postal_code: string
+  country: string
+}
+
+export type BusinessInfoInput = {
+  business_name: string
+  doing_business_as: string
+  business_type:
+    | 'INDIVIDUAL_SOLE_PROPRIETORSHIP'
+    | 'PARTNERSHIP'
+    | 'LIMITED_LIABILITY_COMPANY'
+    | 'CORPORATION'
+  business_phone: string
+  business_address: BusinessAddress
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  dob: { year: number; month: number; day: number }
+  tax_id: string
+  business_tax_id: string
+  // Required for LLC, CORPORATION, PARTNERSHIP
+  url?: string
+  principal_percentage_ownership?: number
+  annual_card_volume?: number // in cents
+  incorporation_date?: { year: number; month: number; day: number }
+  // Bank account for payment processing
+  bank_account: {
+    account_number: string
+    routing_number: string
+    account_type: 'PERSONAL_CHECKING' | 'PERSONAL_SAVINGS' | 'BUSINESS_CHECKING' | 'BUSINESS_SAVINGS'
+    name: string
+  }
+}
+
+export type ProvisionMerchantResult = {
+  finix_merchant_id: string
   merchant_name: string
 }
 
@@ -457,20 +516,17 @@ export type UpdateCashierInput = {
   is_active?: number
 }
 
-export type StaxMerchantInfo = {
-  merchant_id: string
-  company_name: string
-  status: string
+// ── Finix Payment Processing ──
+
+/** Filters for the POS product search modal */
+export type SearchProductFilters = {
+  departmentId?: number
+  distributorNumber?: number
 }
 
-// ── Stax Terminal Payment Processing ──
-
-/**
- * Input for a direct (keyed-entry) card charge via POST /charge.
- * Used when no physical terminal is present — Phase A testing path.
- */
-export type DirectChargeInput = {
-  /** Total amount in dollars (e.g. 22.59) — minimum 0.01 */
+/** Input for a manual card entry charge (Phase A — no hardware) */
+export type FinixCardInput = {
+  /** Total amount in dollars (e.g. 22.59) */
   total: number
   /** Cardholder name */
   person_name: string
@@ -480,57 +536,53 @@ export type DirectChargeInput = {
   card_exp: string
   /** CVV / security code */
   card_cvv: string
-  /** Card brand hint — null is accepted by Stax */
-  card_type?: string
-  /** Billing zip for AVS (optional but recommended) */
+  /** Billing zip for AVS (optional) */
   address_zip?: string
-  /** Optional metadata (tax, subtotal, lineItems, etc.) */
-  meta?: Record<string, unknown>
 }
 
-/** A physical card reader / terminal device paired with the merchant */
-export type TerminalRegister = {
-  id: string
-  nickname: string
-  serial: string
-  type: string
-  model: string
-  is_default: boolean
-  register_num: number
-}
-
-/** Filters for the POS product search modal */
-export type SearchProductFilters = {
-  departmentId?: number
-  distributorNumber?: number
-}
-
-/** Input for sending a charge to a physical card terminal */
-export type TerminalChargeInput = {
-  /** Total amount in dollars (e.g. 22.59) — minimum 0.01 */
+/** Input for a card-present terminal charge (Phase B — PAX A920PRO) */
+export type FinixTerminalChargeInput = {
+  /** Total amount in cents (e.g. 2259 = $22.59) */
   total: number
-  /** Payment type: credit or debit */
-  payment_type: 'credit' | 'debit'
-  /** Optional metadata (tax, subtotal, lineItems, etc.) */
-  meta?: Record<string, unknown>
+  /** Finix Device ID (DVxxxxxxxx) */
+  device_id: string
 }
 
-/** Result from a terminal charge (after polling completes) */
-export type TerminalChargeResult = {
-  /** Stax transaction ID (UUID) */
-  transaction_id: string
+/** A Finix card reader device registered under a merchant */
+export type FinixDevice = {
+  id: string
+  name: string
+  model: 'PAX_A800' | 'PAX_A920PRO' | 'D135'
+  serial_number: string | null
+  enabled: boolean
+  merchant: string
+}
+
+/** Input for registering a new terminal device under a merchant */
+export type FinixCreateDeviceInput = {
+  name: string
+  model: 'PAX_A800' | 'PAX_A920PRO' | 'D135'
+  serial_number: string
+}
+
+/** Result from a Finix charge (auth + capture) */
+export type FinixChargeResult = {
+  /** Finix Authorization ID (AUxxxxxxxx) */
+  authorization_id: string
+  /** Finix Transfer ID after capture (TRxxxxxxxx) */
+  transfer_id: string
   /** Whether the charge was approved */
   success: boolean
   /** Last 4 digits of card */
   last_four: string
-  /** Card brand (visa, mastercard, etc.) */
+  /** Card brand (Visa, Mastercard, etc.) */
   card_type: string
   /** Amount charged in dollars */
   total: number
-  /** Human-readable message from gateway */
+  /** Human-readable status message */
   message: string
-  /** Final terminal status */
-  status: 'approved' | 'declined' | 'timeout' | 'error'
+  /** Final charge status */
+  status: 'approved' | 'declined' | 'error'
 }
 
 // ── Sessions (Clock In / Clock Out) ──
@@ -666,4 +718,128 @@ export type SyncQueueStats = {
   pending: number
   in_flight: number
   failed: number
+}
+
+// ── Sales Reports ──
+
+/** Date range filter for all report queries */
+export type ReportDateRange = {
+  from: string
+  to: string
+  preset?: string
+}
+
+/** A single day's sales aggregate */
+export type DailySalesRow = {
+  date: string
+  transaction_count: number
+  gross_sales: number
+  tax_collected: number
+  net_sales: number
+}
+
+/** Full sales summary report data */
+export type SalesSummaryReport = {
+  gross_sales: number
+  tax_collected: number
+  net_sales: number
+  refund_count: number
+  refund_amount: number
+  transaction_count: number
+  avg_transaction: number
+  sales_by_payment: PaymentMethodSalesRow[]
+  sales_by_day: DailySalesRow[]
+}
+
+/** A single product's sales data in the product report */
+export type ProductSalesRow = {
+  product_id: number
+  product_name: string
+  item_type: string | null
+  sku: string
+  quantity_sold: number
+  revenue: number
+  cost_total: number
+  profit: number
+  margin_pct: number
+}
+
+/** Product sales report */
+export type ProductSalesReport = {
+  items: ProductSalesRow[]
+}
+
+/** A single category's sales aggregate */
+export type CategorySalesRow = {
+  item_type: string
+  transaction_count: number
+  quantity_sold: number
+  revenue: number
+  profit: number
+}
+
+/** Category sales report */
+export type CategorySalesReport = {
+  categories: CategorySalesRow[]
+}
+
+/** A single tax code's aggregate */
+export type TaxReportRow = {
+  tax_code_name: string
+  tax_rate: number
+  taxable_sales: number
+  tax_collected: number
+}
+
+/** Tax summary report */
+export type TaxReport = {
+  tax_rows: TaxReportRow[]
+}
+
+/** Comparison report: two periods side-by-side */
+export type ComparisonDelta = {
+  field: string
+  period_a_value: number
+  period_b_value: number
+  diff: number
+  change_pct: number
+}
+
+export type ComparisonReport = {
+  period_a: SalesSummaryReport
+  period_b: SalesSummaryReport
+  deltas: ComparisonDelta[]
+}
+
+/** Cashier performance row */
+export type CashierSalesRow = {
+  cashier_id: number
+  cashier_name: string
+  transaction_count: number
+  gross_sales: number
+  avg_transaction: number
+}
+
+/** Cashier sales report */
+export type CashierSalesReport = {
+  cashiers: CashierSalesRow[]
+}
+
+/** Hourly sales aggregate */
+export type HourlySalesRow = {
+  hour: number
+  transaction_count: number
+  gross_sales: number
+}
+
+/** Hourly sales report */
+export type HourlySalesReport = {
+  hours: HourlySalesRow[]
+}
+
+/** Export request from the renderer */
+export type ReportExportRequest = {
+  report_type: 'sales-summary' | 'product-sales' | 'category-sales' | 'tax-summary' | 'comparison'
+  date_range: ReportDateRange
+  format: 'pdf' | 'csv'
 }

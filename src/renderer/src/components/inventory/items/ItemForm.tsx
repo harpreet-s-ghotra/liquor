@@ -416,9 +416,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     setShowValidation(true)
 
     if (!hasBackendApi) {
-      setSaveError(
-        'Backend inventory API is unavailable. Please run the app via Electron (npm run dev).'
-      )
+      setSaveError('Backend inventory API is unavailable. Please restart the application.')
       return
     }
 
@@ -609,7 +607,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               aria-label="Item Type"
               value={formState.item_type}
               hasError={showValidation && !!fieldErrors.item_type}
-              onChange={(e) => handleItemTypeChange(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                handleItemTypeChange(value)
+              }}
             >
               <option value="">None</option>
               {itemTypeOptions.map((itemType) => (
@@ -632,12 +633,13 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               hasError={showValidation && !!fieldErrors.sku}
               className="item-form__sku-input"
               value={formState.sku}
-              onChange={(e) =>
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^A-Za-z0-9-]/g, '').toUpperCase()
                 setFormState((c) => ({
                   ...c,
-                  sku: e.target.value.replace(/[^A-Za-z0-9-]/g, '').toUpperCase()
+                  sku: value
                 }))
-              }
+              }}
               placeholder="e.g. WINE-001"
               maxLength={SKU_MAX_LENGTH}
             />
@@ -650,7 +652,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             <InventorySelect
               aria-label="Size"
               value={formState.size}
-              onChange={(e) => setFormState((c) => ({ ...c, size: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormState((c) => ({ ...c, size: value }))
+              }}
             >
               <option value="">None</option>
               {['50ML', '187ML', '200ML', '500ML', '750ML', '1L', '1.5L', '2L', '4L'].map((s) => (
@@ -670,7 +675,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               type="text"
               aria-label="Brand"
               value={formState.brand_name}
-              onChange={(e) => setFormState((c) => ({ ...c, brand_name: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormState((c) => ({ ...c, brand_name: value }))
+              }}
               placeholder="e.g. Jack Daniel's"
             />
           </div>
@@ -683,7 +691,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               aria-label="Name"
               hasError={showValidation && !!fieldErrors.item_name}
               value={formState.item_name}
-              onChange={(e) => setFormState((c) => ({ ...c, item_name: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormState((c) => ({ ...c, item_name: value }))
+              }}
               maxLength={NAME_MAX_LENGTH}
               placeholder="Item name"
             />
@@ -699,7 +710,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               type="text"
               aria-label="Display Name"
               value={formState.display_name}
-              onChange={(e) => setFormState((c) => ({ ...c, display_name: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormState((c) => ({ ...c, display_name: value }))
+              }}
               maxLength={NAME_MAX_LENGTH}
               placeholder="Optional — overrides Item name on POS"
             />
@@ -727,7 +741,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             <InventorySelect
               aria-label="Distributor"
               value={formState.distributor_number}
-              onChange={(e) => setFormState((c) => ({ ...c, distributor_number: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormState((c) => ({ ...c, distributor_number: value }))
+              }}
             >
               <option value="">None</option>
               {distributorOptions.map((v) => (
@@ -774,7 +791,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               hasError={showValidation && !!fieldErrors.in_stock}
               className="item-form__stock-input"
               value={formState.in_stock}
-              onChange={(e) => setFormState((c) => ({ ...c, in_stock: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormState((c) => ({ ...c, in_stock: value }))
+              }}
               placeholder="0"
             />
             {showValidation && fieldErrors.in_stock && (
@@ -789,7 +809,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               aria-label="Tax Codes"
               value={formState.tax_rate}
               hasError={showValidation && !!fieldErrors.tax_rate}
-              onChange={(e) => setFormState((c) => ({ ...c, tax_rate: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormState((c) => ({ ...c, tax_rate: value }))
+              }}
             >
               <option value="">No Tax</option>
               {taxCodeOptions.map((taxCode) => (
@@ -892,12 +915,13 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                   aria-label="Bottles Per Case"
                   inputMode="numeric"
                   value={formState.bottles_per_case}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '')
                     setFormState((c) => ({
                       ...c,
-                      bottles_per_case: e.target.value.replace(/[^0-9]/g, '')
+                      bottles_per_case: value
                     }))
-                  }
+                  }}
                   placeholder="e.g. 12"
                 />
               </FormField>
@@ -1090,9 +1114,10 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                   aria-label="Proof"
                   inputMode="decimal"
                   value={formState.proof}
-                  onChange={(e) =>
-                    setFormState((c) => ({ ...c, proof: e.target.value.replace(/[^0-9.]/g, '') }))
-                  }
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '')
+                    setFormState((c) => ({ ...c, proof: value }))
+                  }}
                   placeholder="e.g. 80"
                 />
               </FormField>
@@ -1102,12 +1127,13 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                   aria-label="ABV Percent"
                   inputMode="decimal"
                   value={formState.alcohol_pct}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '')
                     setFormState((c) => ({
                       ...c,
-                      alcohol_pct: e.target.value.replace(/[^0-9.]/g, '')
+                      alcohol_pct: value
                     }))
-                  }
+                  }}
                   placeholder="e.g. 40"
                 />
               </FormField>
@@ -1117,12 +1143,13 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                   aria-label="Vintage"
                   inputMode="numeric"
                   value={formState.vintage}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '')
                     setFormState((c) => ({
                       ...c,
-                      vintage: e.target.value.replace(/[^0-9]/g, '')
+                      vintage: value
                     }))
-                  }
+                  }}
                   placeholder="e.g. 2020"
                   maxLength={4}
                 />
@@ -1131,13 +1158,16 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                 <InventoryInput
                   type="text"
                   aria-label="TTB ID"
+                  autoComplete="off"
+                  spellCheck={false}
                   value={formState.ttb_id}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const value = e.target.value
                     setFormState((c) => ({
                       ...c,
-                      ttb_id: e.target.value.replace(/[^0-9]/g, '')
+                      ttb_id: value
                     }))
-                  }
+                  }}
                   placeholder="e.g. 12345678"
                 />
               </FormField>

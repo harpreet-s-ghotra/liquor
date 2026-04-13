@@ -4,7 +4,7 @@
 **Started:** February 27, 2026  
 **Target Platform:** Windows Desktop (developed on macOS)  
 **Inspiration:** PC America POS UI/UX  
-**Business Model:** SaaS POS sold to liquor stores with integrated Stax payment processing; revenue via per-transaction residuals as a Stax Partner/ISV
+**Business Model:** SaaS POS sold to liquor stores with integrated Finix payment processing; revenue via per-transaction residuals under the Finix ISV/platform model
 
 ---
 
@@ -72,7 +72,7 @@ Build a fast, reliable, and simple Point of Sale system specifically designed fo
 
 ### Payment Processing (Phase 3 — Planned)
 
-- **Stax Partner API** - Payment processing via Partner/ISV model
+- **Finix API** - Payment processing via the ISV/platform model
   - Merchant onboarding & underwriting
   - Terminal-based card payments
   - Surcharge support
@@ -129,7 +129,7 @@ Build a fast, reliable, and simple Point of Sale system specifically designed fo
 
 ### Deferred to Phase 3 — PLANNED
 
-- ⏳ **Stax Payment Processing Integration** (Partner API)
+- ⏳ **Finix Payment Processing Integration**
 - ⏳ Barcode Scanner Integration
 - ⏳ Receipt Printer Integration
 - ⏳ Cloud Sync/Backup
@@ -267,21 +267,19 @@ CREATE TABLE transaction_items (
 - [ ] Sales reports
 - [ ] User authentication
 
-### Phase 3: Stax Payment Integration — PLANNED
+### Phase 3: Finix Payment Integration — IN PROGRESS
 
 **Timeline:** 3-4 weeks  
-**Goal:** Integrated payment processing via Stax Partner API
+**Goal:** Integrated payment processing via Finix, with Phase A manual/sandbox card flow live and Phase B device workflows still pending.
 
-See [Stax Integration Plan](#-stax-partner-integration-plan) below.
+See [Finix Payment Integration](features/finix-integration.md) for the active implementation plan.
 
-- [ ] Apply for Stax Partner/ISV account
-- [ ] Build backend service (Node.js API with PartnerApiKey)
-- [ ] Implement merchant onboarding flow (POST /admin/enroll)
-- [ ] Wire POS "Pay" button to Stax terminal charge (POST /terminal/charge)
-- [ ] Surcharge review (GET /surcharge/review)
-- [ ] Store Stax transaction_id alongside local transactions
-- [ ] Partner-level webhooks for revenue tracking
-- [ ] Admin dashboard for portfolio monitoring
+- [x] Replace local merchant payment config with Finix credentials
+- [x] Add Finix card-charge flow to the POS payment modal
+- [x] Persist Finix authorization and transfer IDs on transactions
+- [x] Process card refunds through Finix before saving local refund records
+- [ ] Finish Phase B device management and terminal charging
+- [ ] Add operational monitoring and settlement reporting
 
 ### Phase 4: Hardware & Polish
 
@@ -400,154 +398,15 @@ Following Conventional Commits:
 
 ---
 
-## � Stax Partner Integration Plan
+## Finix Integration Snapshot
 
-### Business Model
+### Current Implementation
 
-You = **Stax Partner (ISV)**. Each liquor store = a **sub-merchant** under your Partner account.
-
-| Your role                    | Stax role                       | Liquor store role             |
-| ---------------------------- | ------------------------------- | ----------------------------- |
-| Platform/ISV (LiquorPOS app) | Payment processor + underwriter | Sub-merchant under your brand |
-
-**Revenue:** When you enroll a merchant, you define their `pricing_plan` (per-txn rate, discount rate). Stax handles billing and pays you a **residual/revenue share** on every transaction your merchants process.
-
-### Architecture
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────┐
-│  LiquorPOS App  │────▶│  Your Backend    │────▶│  Stax API   │
-│  (Electron)     │     │  (Node.js API)   │     │  Partner    │
-│                 │     │  PartnerApiKey   │     │             │
-└─────────────────┘     └──────────────────┘     └─────────────┘
-        │                                               │
-        │  ApiKeyAuth (per-merchant)                    │
-        └───────────────────────────────────────────────┘
-              Direct transaction calls
-```
-
-### Auth Model
-
-| Key type          | Scope                          | Usage                                                         |
-| ----------------- | ------------------------------ | ------------------------------------------------------------- |
-| **PartnerApiKey** | All merchants under your brand | Backend server for onboarding, portfolio management           |
-| **ApiKeyAuth**    | Single merchant                | Each POS install uses the merchant's own key for transactions |
-| **EphemeralAuth** | Temporary, 24hr                | Secure one-time actions from the POS client                   |
-
-### Key Stax API Endpoints
-
-#### Merchant Onboarding (PartnerApiKey)
-
-| Endpoint                                | Purpose                                                                |
-| --------------------------------------- | ---------------------------------------------------------------------- |
-| `POST /admin/enroll`                    | Create merchant + user + registration in one call; starts underwriting |
-| `POST /merchant`                        | Create a merchant (lightweight)                                        |
-| `GET /merchant`                         | List all merchants in your portfolio                                   |
-| `GET /merchant/{id}`                    | Get store details                                                      |
-| `POST /merchant/{id}/apikey`            | Generate per-merchant API key for POS app                              |
-| `PUT /merchant/{id}/registration`       | Update registration/underwriting data                                  |
-| `POST /merchant/{id}/registration/file` | Upload KYC documents                                                   |
-
-#### Payment Processing (ApiKeyAuth per-merchant)
-
-| Endpoint                        | Purpose                                                       |
-| ------------------------------- | ------------------------------------------------------------- |
-| `POST /terminal/charge`         | Charge via physical card terminal (Dejavoo, etc.)             |
-| `POST /charge`                  | Charge a tokenized payment method (keyed entry, card-on-file) |
-| `GET /terminal/register`        | List connected card reader devices                            |
-| `POST /terminal/void-or-refund` | Void or refund at terminal                                    |
-| `GET /surcharge/review`         | Check surcharge amount before charging                        |
-| `POST /payment-method/`         | Tokenize a card                                               |
-
-#### Portfolio Monitoring (PartnerApiKey)
-
-| Endpoint                                  | Purpose                                  |
-| ----------------------------------------- | ---------------------------------------- |
-| `POST /webhookadmin/webhook/brand`        | Partner-level webhooks for ALL merchants |
-| `GET /query/deposit`                      | Track settlement batches                 |
-| `GET /query/statistics/teamSummary`       | Dashboard stats                          |
-| `GET /transaction`                        | List/filter all transactions             |
-| `GET /underwriting/disputes/{merchantId}` | Track chargebacks                        |
-
-#### Branding / White-Label
-
-| Endpoint                     | Purpose                                    |
-| ---------------------------- | ------------------------------------------ |
-| `POST /team/option/branding` | Upload your logo; merchants see YOUR brand |
-| `PUT /team/options`          | Configure team-level settings              |
-
-### Webhook Events Available (Brand-Level)
-
-`create_transaction`, `update_transaction`, `update_transaction_settled`, `create_deposit`, `create_dispute`, `update_dispute`, `create_merchant`, `update_merchant_status`, `update_underwriting`, `update_electronic_signature`
-
-### Sandbox / Test Environment
-
-Stax uses **one API URL** for both sandbox and production: `https://apiprod.fattlabs.com/`  
-The sandbox/live distinction is determined by **which API key** you use (sandbox key vs live key).
-
-#### Getting Sandbox Access
-
-1. **Merchant Developers:** Request a sandbox account at [https://staxpayments.com/request-sandbox/](https://staxpayments.com/request-sandbox/)
-2. **Partner Developers:** Log in to Stax Connect → toggle **Test Mode** in the left menu → create test merchants from there
-3. Sandbox accounts connect to a **test gateway** — no real transactions are processed
-
-#### Test Card Numbers
-
-| Card Type        | Success Card 1     | Success Card 2     |
-| ---------------- | ------------------ | ------------------ |
-| Visa             | `4111111111111111` | `4012888888881881` |
-| Mastercard       | `5555555555554444` | `5105105105105100` |
-| American Express | `378282246310005`  | `371449635398431`  |
-| Discover         | `6011111111111117` | `6011000990139424` |
-
-**Test Debit Card (Mastercard):** `2223003122003222`
-
-**Test ACH/Bank:**
-
-- Routing: `021000021`
-- Account: `9876543210`
-
-**Failure testing:** Any card number not in the above list will trigger a failure in sandbox. The `Transaction.message` field will read "Unable to process the purchase transaction" (in sandbox) or the real decline reason (in production).
-
-**Card Present testing:** Contact support@fattmerchant.com to set up terminal device testing with your sandbox merchant account.
-
-### Implementation Steps
-
-#### Step 1: Partner Onboarding
-
-1. Apply to become a Stax Partner/ISV — get `PartnerApiKey` + `brand` identifier
-2. Define `pricing_plan`(s) with Stax (your per-transaction markup)
-3. Get sandbox credentials for development
-
-#### Step 2: Backend Service
-
-1. Build a lightweight Node.js/Express API that holds the `PartnerApiKey`
-2. Endpoints: enroll merchant, list merchants, generate merchant API keys
-3. Webhook receiver for transaction events & merchant status updates
-4. Admin dashboard aggregating volume, revenue share, chargebacks
-
-#### Step 3: Merchant Onboarding Flow
-
-1. New store signs up → backend calls `POST /admin/enroll`
-2. Stax creates merchant, starts KYC/KYB underwriting
-3. Backend calls `POST /merchant/{id}/apikey` for the store's API key
-4. POS app is configured with that merchant's API key
-5. Webhook `update_merchant_status` notifies when underwriting completes
-
-#### Step 4: POS Payment Integration
-
-1. **Terminal flow** (card reader): `POST /terminal/charge` with register_id, total, meta (line items, tax)
-2. **Keyed/card-on-file**: `POST /charge` with payment_method_id, total
-3. Check `GET /surcharge/review` first if credit surcharging is enabled
-4. Store Stax `transaction_id` in local SQLite alongside existing transaction record
-5. Handle void/refund via `POST /terminal/void-or-refund`
-
-#### Step 5: Revenue & Monitoring
-
-1. Register brand-level webhooks for `create_transaction` + `update_transaction_settled`
-2. Backend aggregates: volume per store, your residual revenue, settlement status
-3. `GET /query/deposit` for daily reconciliation
-4. `GET /underwriting/disputes/{merchantId}` for chargeback monitoring
+- Merchants authenticate through Supabase and receive Finix credentials through the desktop onboarding path.
+- Phase A payments use Finix sandbox/manual card charges from the payment modal.
+- Successful sales persist both `finix_authorization_id` and `finix_transfer_id` locally and in sync payloads.
+- Card refunds call Finix using the original `finix_transfer_id` before the refund is saved locally.
+- Phase B device registration, listing, and terminal charging remain the open payment milestone.
 
 ---
 
@@ -559,15 +418,9 @@ The sandbox/live distinction is determined by **which API key** you use (sandbox
 - [Zustand Documentation](https://docs.pmnd.rs/zustand)
 - [Stylelint Documentation](https://stylelint.io)
 - [better-sqlite3 Documentation](https://github.com/WiseLibs/better-sqlite3)
-- [Stax API Documentation](https://docs.staxpayments.com/)
-- [Stax Connect Overview](https://docs.staxpayments.com/docs/stax-connect-overview)
-- [Stax Partner Program](https://staxpayments.com/partners/)
-- [Stax Test Environments](https://docs.staxpayments.com/docs/test-environments)
-- [Stax Test Card Numbers](https://docs.staxpayments.com/docs/test-card-payment-methods)
-- [Stax Merchant Enrollment Methods](https://docs.staxpayments.com/docs/enrollment-methods)
-- [Stax Webhook Events (Partner)](https://docs.staxpayments.com/docs/partner-webhooks)
-- [Request Stax Sandbox](https://staxpayments.com/request-sandbox/)
-- Stax API Base URL: `https://apiprod.fattlabs.com/`
+- [Finix Payment Integration](features/finix-integration.md)
+- [Supabase Onboarding](features/supabase-onboarding.md)
+- [Cloud Sync](features/cloud-sync.md)
 
 ---
 

@@ -300,7 +300,7 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         ti.unit_price,
         ti.total_price,
         t.payment_method,
-        t.stax_transaction_id,
+        t.finix_authorization_id,
         t.card_last_four,
         t.card_type,
         t.status

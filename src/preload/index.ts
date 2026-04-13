@@ -23,10 +23,11 @@ import type {
   Cashier,
   CreateCashierInput,
   UpdateCashierInput,
-  DirectChargeInput,
-  TerminalChargeInput,
-  TerminalChargeResult,
-  TerminalRegister,
+  FinixCardInput,
+  FinixTerminalChargeInput,
+  FinixChargeResult,
+  FinixDevice,
+  FinixCreateDeviceInput,
   SaveTransactionInput,
   SavedTransaction,
   TransactionDetail,
@@ -38,6 +39,7 @@ import type {
   TransactionListResult,
   PrintReceiptInput,
   ReceiptConfig,
+  ReceiptPrinterConfig,
   Session,
   CreateSessionInput,
   CloseSessionInput,
@@ -48,7 +50,18 @@ import type {
   CatalogDistributor,
   ImportResult,
   SyncStatus,
-  DeviceConfig
+  DeviceConfig,
+  ReportDateRange,
+  SalesSummaryReport,
+  ProductSalesReport,
+  CategorySalesReport,
+  TaxReport,
+  ComparisonReport,
+  CashierSalesReport,
+  HourlySalesReport,
+  ReportExportRequest,
+  BusinessInfoInput,
+  ProvisionMerchantResult
 } from '../shared/types'
 
 // Custom APIs for renderer
@@ -131,6 +144,8 @@ const api = {
   onDeepLink: (
     callback: (payload: { accessToken: string; refreshToken: string; type: string | null }) => void
   ) => ipcRenderer.on('auth:deep-link', (_event, payload) => callback(payload)),
+  consumePendingDeepLink: (): Promise<string | null> =>
+    ipcRenderer.invoke('auth:consume-pending-deep-link'),
 
   // Catalog
   getCatalogDistributors: (): Promise<CatalogDistributor[]> =>
@@ -141,8 +156,12 @@ const api = {
   // Merchant Config
   getMerchantConfig: (): Promise<MerchantConfig | null> =>
     ipcRenderer.invoke('merchant:get-config'),
-  activateMerchant: (apiKey: string): Promise<MerchantConfig> =>
-    ipcRenderer.invoke('merchant:activate', apiKey),
+  activateMerchant: (
+    apiUsername: string,
+    apiPassword: string,
+    merchantId: string
+  ): Promise<MerchantConfig> =>
+    ipcRenderer.invoke('merchant:activate', apiUsername, apiPassword, merchantId),
   deactivateMerchant: (): Promise<void> => ipcRenderer.invoke('merchant:deactivate'),
 
   // Cashiers
@@ -155,13 +174,20 @@ const api = {
     ipcRenderer.invoke('cashiers:update', input),
   deleteCashier: (id: number): Promise<void> => ipcRenderer.invoke('cashiers:delete', id),
 
-  // Stax Terminal Payments
-  getTerminalRegisters: (): Promise<TerminalRegister[]> =>
-    ipcRenderer.invoke('stax:terminal:registers'),
-  chargeTerminal: (input: TerminalChargeInput): Promise<TerminalChargeResult> =>
-    ipcRenderer.invoke('stax:terminal:charge', input),
-  chargeWithCard: (input: DirectChargeInput): Promise<TerminalChargeResult> =>
-    ipcRenderer.invoke('stax:charge:direct', input),
+  // Finix Payments
+  finixListDevices: (): Promise<FinixDevice[]> => ipcRenderer.invoke('finix:devices:list'),
+  finixCreateDevice: (input: FinixCreateDeviceInput): Promise<FinixDevice> =>
+    ipcRenderer.invoke('finix:device:create', input),
+  finixChargeCard: (input: FinixCardInput): Promise<FinixChargeResult> =>
+    ipcRenderer.invoke('finix:charge:card', input),
+  finixChargeTerminal: (input: FinixTerminalChargeInput): Promise<FinixChargeResult> =>
+    ipcRenderer.invoke('finix:charge:terminal', input),
+  finixVoidAuthorization: (authorizationId: string): Promise<void> =>
+    ipcRenderer.invoke('finix:void:authorization', authorizationId),
+  finixRefundTransfer: (transferId: string, amountCents: number): Promise<void> =>
+    ipcRenderer.invoke('finix:refund:transfer', transferId, amountCents),
+  finixProvisionMerchant: (input: BusinessInfoInput): Promise<ProvisionMerchantResult> =>
+    ipcRenderer.invoke('finix:provision-merchant', input),
 
   // Transactions
   saveTransaction: (input: SaveTransactionInput): Promise<SavedTransaction> =>
@@ -198,8 +224,16 @@ const api = {
     ipcRenderer.invoke('peripheral:get-receipt-config'),
   saveReceiptConfig: (config: ReceiptConfig): Promise<void> =>
     ipcRenderer.invoke('peripheral:save-receipt-config', config),
-  getPrinterStatus: (): Promise<{ connected: boolean; printerName: string | null }> =>
-    ipcRenderer.invoke('peripheral:get-printer-status'),
+  getReceiptPrinterConfig: (): Promise<ReceiptPrinterConfig | null> =>
+    ipcRenderer.invoke('peripheral:get-receipt-printer-config'),
+  saveReceiptPrinterConfig: (config: ReceiptPrinterConfig): Promise<void> =>
+    ipcRenderer.invoke('peripheral:save-receipt-printer-config', config),
+  listReceiptPrinters: (): Promise<string[]> =>
+    ipcRenderer.invoke('peripheral:list-receipt-printers'),
+  getPrinterStatus: (
+    printerName?: string
+  ): Promise<{ connected: boolean; printerName: string | null }> =>
+    ipcRenderer.invoke('peripheral:get-printer-status', printerName),
 
   // Sessions
   getActiveSession: (): Promise<Session | null> => ipcRenderer.invoke('sessions:get-active'),
@@ -218,7 +252,43 @@ const api = {
   getSyncStatus: (): Promise<SyncStatus> => ipcRenderer.invoke('sync:get-status'),
   getDeviceConfig: (): Promise<DeviceConfig | null> => ipcRenderer.invoke('sync:get-device-config'),
   onConnectivityChanged: (callback: (online: boolean) => void) =>
-    ipcRenderer.on('sync:connectivity-changed', (_event, online) => callback(online))
+    ipcRenderer.on('sync:connectivity-changed', (_event, online) => callback(online)),
+
+  // Reports
+  getReportSalesSummary: (range: ReportDateRange): Promise<SalesSummaryReport> =>
+    ipcRenderer.invoke('reports:sales-summary', range),
+  getReportProductSales: (
+    range: ReportDateRange,
+    sortBy?: 'revenue' | 'quantity',
+    limit?: number
+  ): Promise<ProductSalesReport> =>
+    ipcRenderer.invoke('reports:product-sales', range, sortBy, limit),
+  getReportCategorySales: (range: ReportDateRange): Promise<CategorySalesReport> =>
+    ipcRenderer.invoke('reports:category-sales', range),
+  getReportTaxSummary: (range: ReportDateRange): Promise<TaxReport> =>
+    ipcRenderer.invoke('reports:tax-summary', range),
+  getReportComparison: (
+    rangeA: ReportDateRange,
+    rangeB: ReportDateRange
+  ): Promise<ComparisonReport> => ipcRenderer.invoke('reports:comparison', rangeA, rangeB),
+  getReportCashierSales: (range: ReportDateRange): Promise<CashierSalesReport> =>
+    ipcRenderer.invoke('reports:cashier-sales', range),
+  getReportHourlySales: (range: ReportDateRange): Promise<HourlySalesReport> =>
+    ipcRenderer.invoke('reports:hourly-sales', range),
+  exportReport: (request: ReportExportRequest): Promise<string | null> =>
+    ipcRenderer.invoke('reports:export', request),
+
+  // Auto-updater
+  onUpdateAvailable: (callback: (info: { version: string; releaseDate: string }) => void) =>
+    ipcRenderer.on('updater:update-available', (_event, info) => callback(info)),
+  onUpdateNotAvailable: (callback: () => void) =>
+    ipcRenderer.on('updater:update-not-available', () => callback()),
+  onUpdateDownloaded: (callback: (info: { version: string }) => void) =>
+    ipcRenderer.on('updater:update-downloaded', (_event, info) => callback(info)),
+  onUpdateError: (callback: (err: { message: string }) => void) =>
+    ipcRenderer.on('updater:error', (_event, err) => callback(err)),
+  checkForUpdates: (): Promise<void> => ipcRenderer.invoke('updater:check'),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke('updater:install')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

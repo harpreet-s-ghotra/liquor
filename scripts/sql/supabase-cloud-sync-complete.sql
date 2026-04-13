@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS public.merchant_transactions (
   tax_amount NUMERIC NOT NULL,
   total NUMERIC NOT NULL,
   payment_method TEXT,
-  stax_transaction_id TEXT,
+  finix_authorization_id TEXT,
+  finix_transfer_id TEXT,
   card_last_four TEXT,
   card_type TEXT,
   status TEXT NOT NULL DEFAULT 'completed',
@@ -61,7 +62,8 @@ CREATE TABLE IF NOT EXISTS public.merchant_transactions (
 
 ALTER TABLE public.merchant_transactions
   ADD COLUMN IF NOT EXISTS local_id INTEGER,
-  ADD COLUMN IF NOT EXISTS stax_transaction_id TEXT,
+  ADD COLUMN IF NOT EXISTS finix_authorization_id TEXT,
+  ADD COLUMN IF NOT EXISTS finix_transfer_id TEXT,
   ADD COLUMN IF NOT EXISTS session_id INTEGER,
   ADD COLUMN IF NOT EXISTS device_id UUID REFERENCES public.registers(id),
   ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ DEFAULT now();

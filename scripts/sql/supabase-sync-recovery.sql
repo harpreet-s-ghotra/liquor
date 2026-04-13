@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS merchant_transactions (
   tax_amount NUMERIC NOT NULL,
   total NUMERIC NOT NULL,
   payment_method TEXT,
-  stax_transaction_id TEXT,
+  finix_authorization_id TEXT,
+  finix_transfer_id TEXT,
   card_last_four TEXT,
   card_type TEXT,
   status TEXT NOT NULL DEFAULT 'completed',
@@ -52,7 +53,8 @@ CREATE TABLE IF NOT EXISTS merchant_transactions (
 
 ALTER TABLE merchant_transactions
   ADD COLUMN IF NOT EXISTS local_id INTEGER,
-  ADD COLUMN IF NOT EXISTS stax_transaction_id TEXT,
+  ADD COLUMN IF NOT EXISTS finix_authorization_id TEXT,
+  ADD COLUMN IF NOT EXISTS finix_transfer_id TEXT,
   ADD COLUMN IF NOT EXISTS session_id INTEGER,
   ADD COLUMN IF NOT EXISTS device_id UUID REFERENCES registers(id),
   ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ DEFAULT now();
@@ -160,7 +162,7 @@ NOTIFY pgrst, 'reload schema';
 -- Optional verification queries
 -- Expected:
 -- 1) inventory_deltas_table => public.inventory_deltas
--- 2) merchant_transactions column list includes stax_transaction_id, session_id, and device_id
+-- 2) merchant_transactions column list includes finix_authorization_id, finix_transfer_id, session_id, and device_id
 -- 3) sold_at is nullable or has a default and no longer blocks inserts
 SELECT to_regclass('public.inventory_deltas') AS inventory_deltas_table;
 SELECT column_name, is_nullable, column_default

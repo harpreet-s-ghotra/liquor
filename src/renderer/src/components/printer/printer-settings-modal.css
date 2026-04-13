@@ -85,6 +85,17 @@
   font-weight: 600;
 }
 
+.printer-settings-modal__helper {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.printer-settings-modal__helper--error {
+  color: var(--semantic-danger-text);
+}
+
 /* ── Always-print toggle ── */
 .printer-settings-modal__toggle-row {
   display: flex;

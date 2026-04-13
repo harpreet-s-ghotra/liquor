@@ -39,8 +39,9 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
 
     const merchantConfig = {
       id: 1,
-      payment_processing_api_key: 'test-api-key',
-      merchant_id: 'test-merchant-id',
+      finix_api_username: 'US-test-api-key',
+      finix_api_password: 'test-finix-password',
+      merchant_id: 'MU-test-merchant-id',
       merchant_name: 'Test Liquor Store',
       activated_at: '2025-01-01T00:00:00.000Z',
       updated_at: '2025-01-01T00:00:00.000Z'
@@ -62,6 +63,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
         merchant: merchantConfig
       }),
       onDeepLink: () => {},
+      consumePendingDeepLink: async () => null,
       getCashiers: async () => [testCashier],
       validatePin: async () => testCashier,
 
@@ -77,13 +79,14 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
         throw new Error('Not implemented in hold-transactions mock')
       },
 
-      chargeTerminal: async (input: { total: number; payment_type: string }) => {
+      finixChargeCard: async (input: { total: number; card_number?: string }) => {
         await new Promise((resolve) => setTimeout(resolve, 300))
         return {
-          transaction_id: `txn-${Date.now()}`,
+          authorization_id: `AU-${Date.now()}`,
+          transfer_id: `TR-${Date.now()}`,
           success: true,
-          last_four: '4242',
-          card_type: 'visa',
+          last_four: input.card_number?.slice(-4) ?? '4242',
+          card_type: input.card_number === '5555555555554444' ? 'mastercard' : 'visa',
           total: input.total,
           message: 'Approved',
           status: 'approved'

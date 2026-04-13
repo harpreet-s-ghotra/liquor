@@ -15,16 +15,20 @@ import type {
   CatalogDistributor,
   CatalogProduct,
   AuthResult,
-  MerchantConfig
+  MerchantConfig,
+  BusinessInfoInput,
+  ProvisionMerchantResult
 } from '../../shared/types'
 import { saveMerchantConfig, getMerchantConfig } from '../database'
-import { validateApiKey } from './stax'
+import { verifyMerchant } from './finix'
+import { provisionMerchantForUser } from './merchant-provisioning'
 
 const SUPABASE_URL = 'https://jaqhifauqusvphdmrklv.supabase.co'
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImphcWhpZmF1cXVzdnBoZG1ya2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTI4NjgsImV4cCI6MjA5MDM2ODg2OH0.v017kt1cha6ykQgg7fkYcmaOR8tDCXGHT6qhaPgQdRo'
 
 let supabase: SupabaseClient | null = null
+let supabaseAdmin: SupabaseClient | null = null
 
 // ── Custom file-based auth storage (Node.js has no localStorage) ──
 
@@ -74,6 +78,7 @@ function createFileStorage(filePath: string): {
 export function initializeSupabaseService(userDataPath: string): void {
   mkdirSync(userDataPath, { recursive: true })
   const authFilePath = join(userDataPath, 'supabase-auth.json')
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? null
 
   supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
@@ -83,11 +88,30 @@ export function initializeSupabaseService(userDataPath: string): void {
       detectSessionInUrl: false
     }
   })
+
+  if (serviceRoleKey) {
+    supabaseAdmin = createClient(SUPABASE_URL, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    })
+  } else {
+    supabaseAdmin = null
+    console.warn(
+      '[supabase] SUPABASE_SERVICE_ROLE_KEY not found. Invite onboarding cannot auto-provision missing merchant rows.'
+    )
+  }
 }
 
 function getClient(): SupabaseClient {
   if (!supabase) throw new Error('Supabase service not initialized')
   return supabase
+}
+
+function getAdminClient(): SupabaseClient | null {
+  return supabaseAdmin
 }
 
 /**
@@ -117,7 +141,7 @@ export async function getMerchantCloudId(): Promise<string | null> {
 
 /**
  * Sign in with email + password. On success, fetches the merchant record from Supabase,
- * validates the Stax API key, and saves the merchant config to local SQLite.
+ * fetches Finix credentials via the get-finix-config Edge Function, and saves the merchant config to local SQLite.
  */
 export async function supabaseSignIn(email: string, password: string): Promise<AuthResult> {
   const client = getClient()
@@ -127,7 +151,7 @@ export async function supabaseSignIn(email: string, password: string): Promise<A
     throw new Error(error?.message ?? 'Sign in failed')
   }
 
-  const merchant = await fetchAndSaveMerchant(data.user.id)
+  const merchant = await ensureMerchantAndSave(data.user.id, data.user.email!)
   return { user: { id: data.user.id, email: data.user.email! }, merchant }
 }
 
@@ -157,7 +181,7 @@ export async function supabaseSetPassword(password: string): Promise<AuthResult>
   const client = getClient()
   const { data, error } = await client.auth.updateUser({ password })
   if (error || !data.user) throw new Error(error?.message ?? 'Failed to set password')
-  const merchant = await fetchAndSaveMerchant(data.user.id)
+  const merchant = await ensureMerchantAndSave(data.user.id, data.user.email!)
   return { user: { id: data.user.id, email: data.user.email! }, merchant }
 }
 
@@ -183,7 +207,7 @@ export async function supabaseCheckSession(): Promise<AuthResult | null> {
   // Check if we already have the merchant config locally
   let localConfig = getMerchantConfig()
   if (!localConfig) {
-    localConfig = await fetchAndSaveMerchant(user.id)
+    localConfig = await ensureMerchantAndSave(user.id, user.email!)
   }
 
   return { user: { id: user.id, email: user.email! }, merchant: localConfig }
@@ -191,36 +215,140 @@ export async function supabaseCheckSession(): Promise<AuthResult | null> {
 
 // ── Helpers ──
 
+async function ensureMerchantAndSave(userId: string, email: string): Promise<MerchantConfig> {
+  try {
+    return await fetchAndSaveMerchant(userId)
+  } catch (err) {
+    if (!(err instanceof Error) || !err.message.includes('Merchant account')) {
+      throw err
+    }
+
+    const adminClient = getAdminClient()
+    if (!adminClient) {
+      throw new Error(
+        'Merchant account has not been provisioned for this invite yet. Configure SUPABASE_SERVICE_ROLE_KEY or pre-create the merchant row before inviting the user.'
+      )
+    }
+
+    await provisionMerchantForUser(adminClient as never, { userId, email })
+    return await fetchAndSaveMerchant(userId)
+  }
+}
+
 async function fetchAndSaveMerchant(userId: string): Promise<MerchantConfig> {
   const client = getClient()
-  const { data, error } = await client
-    .from('merchants')
-    .select('payment_processing_api_key, merchant_name, stax_merchant_id')
-    .eq('user_id', userId)
-    .single()
 
-  if (error || !data) {
-    throw new Error('Merchant account not found. Please contact support.')
+  // Call the Edge Function to get Finix credentials + merchant ID from Vault
+  const { data: fnData, error: fnError } = await client.functions.invoke('get-finix-config')
+
+  if (fnError || !fnData) {
+    // Edge Function not reachable — fall back to querying the DB directly
+    const { data, error } = await client
+      .from('merchants')
+      .select('finix_merchant_id, merchant_name')
+      .eq('user_id', userId)
+      .single()
+
+    if (error || !data) {
+      throw new Error(
+        'Merchant account has not been provisioned for this invite yet. Please contact support to resend the invite.'
+      )
+    }
+
+    // finix_merchant_id may be null if Finix provisioning hasn't been completed yet.
+    // That's fine — the merchant can still log in and set up the app; payments will
+    // be blocked at charge time rather than here.
+    saveMerchantConfig({
+      finix_api_username: '',
+      finix_api_password: '',
+      merchant_id: data.finix_merchant_id ?? '',
+      merchant_name: data.merchant_name
+    })
+
+    return getMerchantConfig()!
   }
 
-  // Attempt to validate the payment API key; fall back to Supabase data if unavailable
-  let merchantId = data.stax_merchant_id ?? ''
-  let merchantName = data.merchant_name
+  const { finix_merchant_id, api_username, api_password, merchant_name } = fnData as {
+    finix_merchant_id: string
+    api_username: string
+    api_password: string
+    merchant_name: string
+  }
+
+  // Optionally verify merchant is still active in Finix (non-blocking)
+  let resolvedMerchantName = merchant_name
   try {
-    const paymentInfo = await validateApiKey(data.payment_processing_api_key)
-    merchantId = paymentInfo.merchant_id
-    merchantName = paymentInfo.company_name
+    const merchantInfo = await verifyMerchant(api_username, api_password, finix_merchant_id)
+    if (merchantInfo.merchant_name) resolvedMerchantName = merchantInfo.merchant_name
   } catch {
-    // Payment provider not configured yet — proceed with Supabase merchant data
+    // Finix unreachable or not yet configured — proceed with Supabase data
   }
 
   saveMerchantConfig({
-    payment_processing_api_key: data.payment_processing_api_key,
-    merchant_id: merchantId,
-    merchant_name: merchantName
+    finix_api_username: api_username,
+    finix_api_password: api_password,
+    merchant_id: finix_merchant_id,
+    merchant_name: resolvedMerchantName
   })
 
   return getMerchantConfig()!
+}
+
+// ── Finix Merchant Provisioning ──
+
+/**
+ * Provision a Finix merchant for the current user by calling the Edge Function.
+ * After provisioning, fetches and saves the full merchant config locally.
+ */
+export async function provisionFinixMerchant(
+  input: BusinessInfoInput
+): Promise<ProvisionMerchantResult> {
+  const client = getClient()
+
+  const { data: sessionData } = await client.auth.getSession()
+  if (!sessionData.session) throw new Error('Not authenticated')
+
+  // Use raw fetch so we always get the full response body for debugging
+  const accessToken = sessionData.session.access_token
+  const fnUrl = `${SUPABASE_URL}/functions/v1/provision-finix-merchant`
+  console.log('[provision-finix] Calling Edge Function:', fnUrl)
+
+  const rawRes = await fetch(fnUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`
+    },
+    body: JSON.stringify(input)
+  })
+
+  const responseText = await rawRes.text()
+  console.log('[provision-finix] HTTP status:', rawRes.status)
+  console.log('[provision-finix] Response body:', responseText)
+
+  if (!rawRes.ok) {
+    let message = `Edge Function failed (${rawRes.status})`
+    try {
+      const parsed = JSON.parse(responseText)
+      if (parsed.finix_error) {
+        console.error('[provision-finix] Finix API error:', parsed.finix_error)
+      }
+      message = parsed.error ?? message
+    } catch {
+      message = responseText || message
+    }
+    throw new Error(message)
+  }
+
+  const data = JSON.parse(responseText)
+
+  const result = data as ProvisionMerchantResult
+
+  // Now fetch the full merchant config (including Finix API credentials from Vault)
+  const userId = sessionData.session.user.id
+  await fetchAndSaveMerchant(userId)
+
+  return result
 }
 
 // ── Catalog ──

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## LiquorPOS Project Guide
+## High Spirits POS Project Guide
 
 This file provides essential context for working on this project. Read it before making any changes.
 
@@ -12,11 +12,11 @@ This file provides essential context for working on this project. Read it before
 
 ## Project Overview
 
-**LiquorPOS** is a desktop Point of Sale application for liquor stores, built on Electron. It is inspired by PC America POS in its UX structure. Revenue comes from per-transaction residuals via Stax payment processing as a Partner/ISV.
+**High Spirits POS** is a desktop Point of Sale application for liquor stores by Checkoutmain & Co., built on Electron. It is inspired by PC America POS in its UX structure. Revenue comes from per-transaction residuals via Finix payment processing under an ISV/platform model.
 
 - **Target platform:** Windows (developed on macOS)
 - **Started:** February 2026
-- **Current phase:** Phase 2 (Inventory) mostly complete, Phase 3 (Stax) in progress
+- **Current phase:** Phase 2 (Inventory) mostly complete, Phase 3 (Finix) in progress
 
 ---
 
@@ -29,7 +29,7 @@ This file provides essential context for working on this project. Read it before
 | State         | Zustand 5                                                                             |
 | Styling       | BEM CSS + custom CSS tokens (`styles/tokens.css`) + stylelint-config-concentric-order |
 | Database      | SQLite via better-sqlite3 (sync, main process only)                                   |
-| Payments      | Stax Partner API                                                                      |
+| Payments      | Finix API                                                                             |
 | Unit tests    | Vitest + React Testing Library                                                        |
 | E2E tests     | Playwright                                                                            |
 
@@ -42,7 +42,7 @@ src/
   main/               Electron main process
     index.ts          IPC handlers (ipcMain.handle calls)
     database/         SQLite repositories (one file per entity)
-    services/stax.ts  Stax API integration
+    services/finix.ts  Finix API integration
   preload/
     index.ts          Exposes window.api to renderer via contextBridge
     index.d.ts        Type definitions for window.api
@@ -432,7 +432,7 @@ Before searching the codebase, read the relevant index doc in `docs/ai/`:
 | `docs/ai/repo-map.md`      | Architecture, layer entry points, IPC channels, module lookup table |
 | `docs/ai/testing-map.md`   | Test locations, runners, patterns, how to add tests                 |
 | `docs/ai/inventory-map.md` | All inventory feature files, components, types, tests               |
-| `docs/ai/stax-map.md`      | Payment/auth files, Stax API, terminal flow                         |
+| `docs/ai/finix-map.md`     | Payment/auth files, Finix API, refunds, device roadmap              |
 | `docs/ai/glossary.md`      | Canonical terms and definitions                                     |
 
 Routing: read `repo-map.md` first for general tasks. Read the feature-specific map for scoped work. Check `glossary.md` when a domain term is ambiguous.
@@ -445,7 +445,7 @@ All documentation lives in `docs/`. See `docs/README.md` for the full index.
 
 | Doc                                    | Covers                                                            |
 | -------------------------------------- | ----------------------------------------------------------------- |
-| `docs/project-plan.md`                 | Full project vision, roadmap, DB schema, Stax architecture        |
+| `docs/project-plan.md`                 | Full project vision, roadmap, DB schema, Finix architecture       |
 | `docs/design-system.md`                | Visual spec -- colors, typography, layout rules, component specs  |
 | `docs/features/inventory-v1.md`        | Inventory CRUD spec (v1, historical)                              |
 | `docs/features/inventory-v2.md`        | Inventory modal redesign (active)                                 |
@@ -456,7 +456,8 @@ All documentation lives in `docs/`. See `docs/README.md` for the full index.
 | `docs/features/stax-activation.md`     | Legacy auth flow spec (superseded by supabase-onboarding)         |
 | `docs/features/supabase-onboarding.md` | Supabase auth, PIN setup, distributor catalog import (Phase A)    |
 | `docs/features/cloud-sync.md`          | Multi-register transaction & inventory sync via Supabase Realtime |
-| `docs/features/stax-integration.md`    | Stax API endpoints, test cards, webhooks                          |
+| `docs/features/finix-integration.md`   | Finix credentials, phases, refunds, device roadmap                |
+| `docs/features/sales-reports.md`       | Sales summary, product/category analysis, tax report, comparisons |
 
 ### Documentation Conventions
 
@@ -492,7 +493,7 @@ AI agents (Claude Code, Copilot, any LLM) MUST follow this workflow. These are n
 
 1. Update `docs/ai/repo-map.md` with new IPC channels
 2. Update `docs/ai/testing-map.md` if new test files were added
-3. Update the feature-specific AI map if one exists (`inventory-map.md`, `stax-map.md`)
+3. Update the feature-specific AI map if one exists (`inventory-map.md`, `finix-map.md`)
 
 ### When completing a task
 
@@ -547,11 +548,11 @@ Branch naming: `feature/name`, `fix/name`
 
 ---
 
-## Stax Integration Notes
+## Finix Integration Notes
 
-- API base URL: `https://apiprod.fattlabs.com/`
-- Sandbox and production use the same URL — the API key determines the environment
-- The Electron app uses `ApiKeyAuth` (per-merchant key) for transactions
-- `PartnerApiKey` is used on the backend server only — never expose it in the Electron app
+- Sandbox base URL: `https://finix.sandbox-payments-api.com`
+- Production base URL: `https://finix.live-payments-api.com`
+- The Electron app stores merchant-specific Finix credentials locally after Supabase onboarding
+- Refunds must be performed against the original Finix `transfer_id`
 - Test cards: Visa `4111111111111111`, Mastercard `5555555555554444`
-- See `docs/features/stax-integration.md` for the full endpoint reference
+- See `docs/features/finix-integration.md` for the full endpoint reference

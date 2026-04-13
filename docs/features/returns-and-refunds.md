@@ -28,7 +28,7 @@ Returns in LiquorPOS follow a **recall-then-return** pattern:
 4. Cashier processes the refund via cash or card
 5. Inventory is incremented and a refund transaction is recorded
 
-Revenue impact: refunds reduce the merchant's transaction volume for Stax residual calculations. Returns should be tracked carefully for loss prevention.
+Revenue impact: refunds reduce the merchant's transaction volume for Finix residual calculations. Returns should be tracked carefully for loss prevention.
 
 ---
 
@@ -61,7 +61,7 @@ Revenue impact: refunds reduce the merchant's transaction volume for Stax residu
 ### Step 4 — Complete the Refund
 
 - **Cash refund:** Completes immediately (no tender collection needed)
-- **Card refund:** In production, triggers a Stax refund API call against the original `stax_transaction_id`. For now, completes immediately
+- **Card refund:** Calls the Finix refund API against the original `finix_transfer_id` before saving the local refund
 - **On success:**
   - A refund transaction is saved to the database with `status = 'refund'`
   - Each returned item's `product_id` is used to INCREMENT the product's `in_stock` and `quantity` fields
@@ -110,13 +110,13 @@ Revenue impact: refunds reduce the merchant's transaction volume for Stax residu
 | 2    | Try to check any item                           | Nothing happens — return checkboxes are disabled |
 | 3    | —                                               | Cannot return a refund (prevents double-refund)  |
 
-### Scenario 5: Credit Card Refund (Stax Integration)
+### Scenario 5: Credit Card Refund (Finix Integration)
 
-| Step | Action                              | Expected Result                                                              |
-| ---- | ----------------------------------- | ---------------------------------------------------------------------------- |
-| 1    | Recall a credit card transaction    | Banner shows "credit (visa \*\*\*\*1111)"                                    |
-| 2    | Select items, click "Credit Refund" | Stax refund API called with original `stax_transaction_id`                   |
-| 3    | Stax confirms refund                | Refund transaction saved with new `stax_transaction_id` from refund response |
+| Step | Action                              | Expected Result                                                       |
+| ---- | ----------------------------------- | --------------------------------------------------------------------- |
+| 1    | Recall a credit card transaction    | Banner shows "credit (visa \*\*\*\*1111)"                             |
+| 2    | Select items, click "Credit Refund" | Finix refund API called with original `finix_transfer_id`             |
+| 3    | Finix confirms refund               | Refund transaction saved with the returned refund `finix_transfer_id` |
 
 ### Scenario 6: Mixed Payment Return
 
@@ -357,7 +357,7 @@ type ErrorStore = {
 | Save refund fails        | Console log only       | Show error alert: "Failed to process refund"     |
 | Recall transaction fails | Console log only       | Show error alert: "Failed to recall transaction" |
 | Transaction not found    | Silent (returns false) | Show warning: "Transaction not found"            |
-| Stax API call fails      | TBD                    | Show error alert with Stax error message         |
+| Finix refund call fails  | TBD                    | Show error alert with the Finix error message    |
 
 ---
 
@@ -415,7 +415,7 @@ Currently, LiquorPOS only supports returns (post-completion). Void functionality
 ### Cash Drawer Implications
 
 - **Cash refund:** Drawer should open so cashier can hand back cash. The refund amount should be tracked for end-of-day cash reconciliation
-- **Card refund:** No drawer action needed. The refund is processed electronically via Stax
+- **Card refund:** No drawer action needed. The refund is processed electronically via Finix
 
 ### Receipt Generation (Future)
 

@@ -149,11 +149,26 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 4, delayMs = 2000): 
 // ── Upload products (20 parallel batches) ──
 
 async function uploadProducts(rows: Record<string, string>[]): Promise<void> {
+  // Truncate first so re-running the script never creates duplicates.
+  // catalog_products is reference data — no foreign keys point to it.
+  console.log('\nTruncating existing catalog_products...')
+  const { error: truncateError } = await supabase.rpc('truncate_catalog_products')
+  if (truncateError) {
+    // Fallback: delete all rows (slower but works without the RPC)
+    const { error: deleteError } = await supabase
+      .from('catalog_products')
+      .delete()
+      .neq('id', 0)
+    if (deleteError) throw new Error(`Failed to clear catalog_products: ${deleteError.message}`)
+  }
+  console.log('  Done.')
+
   const batches: object[][] = []
 
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     batches.push(
       rows.slice(i, i + BATCH_SIZE).map((row) => ({
+        nys_item: row['product_id'] || null,
         distributor_id: parseInt2(row['distributor_id']),
         ttb_id: row['ttb_id'] || null,
         brand_name: row['brand_name'] || null,

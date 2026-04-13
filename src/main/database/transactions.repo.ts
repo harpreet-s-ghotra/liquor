@@ -50,13 +50,14 @@ function enqueueTransactionSync(
       tax_amount: saved.tax_amount,
       total: saved.total,
       payment_method: saved.payment_method,
-      stax_transaction_id: saved.stax_transaction_id,
+      finix_authorization_id: saved.finix_authorization_id,
+      finix_transfer_id: saved.finix_transfer_id,
       card_last_four: saved.card_last_four,
       card_type: saved.card_type,
       status: saved.status,
       notes: null,
       original_transaction_number: originalTxnNumber,
-      session_id: null,
+      session_id: saved.session_id ?? null,
       created_at: saved.created_at
     },
     items: syncItems
@@ -88,7 +89,7 @@ function enqueueInventoryDeltaSync(deltaId: number): void {
 }
 
 /**
- * Save a completed transaction with line items and optional Stax payment data.
+ * Save a completed transaction with line items and optional Finix payment data.
  * Returns the saved transaction with its generated ID and transaction number.
  */
 export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
@@ -110,13 +111,13 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
         `
         INSERT INTO transactions (
           transaction_number, subtotal, tax_amount, total,
-          payment_method, stax_transaction_id, card_last_four, card_type,
-          status, notes, session_id
+          payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
+          status, notes, session_id, device_id
         )
         VALUES (
           @transaction_number, @subtotal, @tax_amount, @total,
-          @payment_method, @stax_transaction_id, @card_last_four, @card_type,
-          'completed', @notes, @session_id
+          @payment_method, @finix_authorization_id, @finix_transfer_id, @card_last_four, @card_type,
+          'completed', @notes, @session_id, @device_id
         )
         `
       )
@@ -126,11 +127,13 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
         tax_amount: input.tax_amount,
         total: input.total,
         payment_method: input.payment_method,
-        stax_transaction_id: input.stax_transaction_id ?? null,
+        finix_authorization_id: input.finix_authorization_id ?? null,
+        finix_transfer_id: input.finix_transfer_id ?? null,
         card_last_four: input.card_last_four ?? null,
         card_type: input.card_type ?? null,
         notes: input.notes ?? null,
-        session_id: sessionId
+        session_id: sessionId,
+        device_id: device?.device_id ?? null
       })
 
     const transactionId = Number(result.lastInsertRowid)
@@ -182,10 +185,10 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
       inventoryDeltaIds.push(deltaId)
     }
 
-    return transactionId
+    return { transactionId, sessionId }
   })
 
-  const transactionId = tx()
+  const { transactionId, sessionId } = tx()
 
   const saved: SavedTransaction = {
     id: transactionId,
@@ -194,11 +197,14 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
     tax_amount: input.tax_amount,
     total: input.total,
     payment_method: input.payment_method,
-    stax_transaction_id: input.stax_transaction_id ?? null,
+    finix_authorization_id: input.finix_authorization_id ?? null,
+    finix_transfer_id: input.finix_transfer_id ?? null,
     card_last_four: input.card_last_four ?? null,
     card_type: input.card_type ?? null,
     status: 'completed',
     original_transaction_id: null,
+    session_id: sessionId,
+    device_id: device?.device_id ?? null,
     created_at: new Date().toISOString()
   }
 
@@ -230,7 +236,7 @@ export function getRecentTransactions(limit = 50): SavedTransaction[] {
         `
       SELECT
         id, transaction_number, subtotal, tax_amount, total,
-        payment_method, stax_transaction_id, card_last_four, card_type,
+        payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
         status, original_transaction_id, created_at
       FROM transactions
       ORDER BY created_at DESC
@@ -253,7 +259,7 @@ export function getTransactionByNumber(txnNumber: string): TransactionDetail | n
       `
       SELECT
         id, transaction_number, subtotal, tax_amount, total,
-        payment_method, stax_transaction_id, card_last_four, card_type,
+        payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
         status, original_transaction_id, created_at
       FROM transactions
       WHERE transaction_number = ?
@@ -295,7 +301,7 @@ export function getProductSalesHistory(productId: number, limit = 20): Transacti
         ti.unit_price,
         ti.total_price,
         t.payment_method,
-        t.stax_transaction_id,
+        t.finix_authorization_id,
         t.card_last_four,
         t.card_type,
         t.status
@@ -356,7 +362,7 @@ export function listTransactions(filter: TransactionListFilter = {}): Transactio
         `
       SELECT
         t.id, t.transaction_number, t.subtotal, t.tax_amount, t.total,
-        t.payment_method, t.stax_transaction_id, t.card_last_four, t.card_type,
+        t.payment_method, t.finix_authorization_id, t.card_last_four, t.card_type,
         t.status, t.original_transaction_id, t.notes, t.created_at,
         COUNT(ti.id) AS item_count
       FROM transactions t
@@ -395,13 +401,13 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
         `
         INSERT INTO transactions (
           transaction_number, subtotal, tax_amount, total,
-          payment_method, stax_transaction_id, card_last_four, card_type,
-          status, original_transaction_id, notes, session_id
+          payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
+          status, original_transaction_id, notes, session_id, device_id
         )
         VALUES (
           @transaction_number, @subtotal, @tax_amount, @total,
-          @payment_method, @stax_transaction_id, @card_last_four, @card_type,
-          'refund', @original_transaction_id, @notes, @session_id
+          @payment_method, @finix_authorization_id, @finix_transfer_id, @card_last_four, @card_type,
+          'refund', @original_transaction_id, @notes, @session_id, @device_id
         )
         `
       )
@@ -411,12 +417,14 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
         tax_amount: input.tax_amount,
         total: input.total,
         payment_method: input.payment_method,
-        stax_transaction_id: input.stax_transaction_id ?? null,
+        finix_authorization_id: input.finix_authorization_id ?? null,
+        finix_transfer_id: input.finix_transfer_id ?? null,
         card_last_four: input.card_last_four ?? null,
         card_type: input.card_type ?? null,
         original_transaction_id: input.original_transaction_id,
         notes: `Refund for ${input.original_transaction_number}`,
-        session_id: sessionId
+        session_id: sessionId,
+        device_id: device?.device_id ?? null
       })
 
     const transactionId = Number(result.lastInsertRowid)
@@ -468,10 +476,10 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
       inventoryDeltaIds.push(deltaId)
     }
 
-    return transactionId
+    return { transactionId, sessionId }
   })
 
-  const transactionId = tx()
+  const { transactionId, sessionId } = tx()
 
   const saved: SavedTransaction = {
     id: transactionId,
@@ -480,11 +488,14 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
     tax_amount: input.tax_amount,
     total: input.total,
     payment_method: input.payment_method,
-    stax_transaction_id: input.stax_transaction_id ?? null,
+    finix_authorization_id: input.finix_authorization_id ?? null,
+    finix_transfer_id: input.finix_transfer_id ?? null,
     card_last_four: input.card_last_four ?? null,
     card_type: input.card_type ?? null,
     status: 'refund',
     original_transaction_id: input.original_transaction_id,
+    session_id: sessionId,
+    device_id: device?.device_id ?? null,
     created_at: new Date().toISOString()
   }
 
@@ -503,4 +514,12 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
   }
 
   return saved
+}
+
+/**
+ * Backfill device_id on all existing transaction rows that were written before
+ * device registration was completed. Called once at startup after registerDevice.
+ */
+export function backfillTransactionDeviceId(deviceId: string): void {
+  getDb().prepare('UPDATE transactions SET device_id = ? WHERE device_id IS NULL').run(deviceId)
 }

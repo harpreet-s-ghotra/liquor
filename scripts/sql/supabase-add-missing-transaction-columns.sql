@@ -2,7 +2,8 @@
 -- It aligns merchant_transactions with the current sync uploader contract.
 
 ALTER TABLE public.merchant_transactions
-  ADD COLUMN IF NOT EXISTS stax_transaction_id TEXT,
+  ADD COLUMN IF NOT EXISTS finix_authorization_id TEXT,
+  ADD COLUMN IF NOT EXISTS finix_transfer_id TEXT,
   ADD COLUMN IF NOT EXISTS session_id INTEGER;
 
 -- Early cloud schemas used sold_at instead of created_at and required it.
