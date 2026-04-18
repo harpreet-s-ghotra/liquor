@@ -10,6 +10,7 @@ export type AppState =
   | 'set-password'
   | 'syncing-initial'
   | 'pin-setup'
+  | 'pin-reset'
   | 'business-setup'
   | 'distributor-onboarding'
   | 'login'
@@ -23,6 +24,7 @@ type AuthStoreState = {
   loginAttempts: number
   lockoutUntil: number | null
   error: string | null
+  resetPinMode: boolean
 }
 
 type AuthStoreActions = {
@@ -31,6 +33,8 @@ type AuthStoreActions = {
   handleInviteLink: (accessToken: string, refreshToken: string) => Promise<void>
   setPassword: (password: string) => Promise<void>
   signOut: () => Promise<void>
+  signOutForPinReset: () => Promise<void>
+  completePinReset: () => void
   completeSetup: () => Promise<void>
   completeBusinessSetup: () => Promise<void>
   completeOnboarding: () => void
@@ -50,12 +54,15 @@ type AuthStore = AuthStoreState & AuthStoreActions
  * When no cashiers exist, routes to syncing-initial to wait for initial sync.
  * After sync completes, resolvePostSyncState() picks the real destination.
  */
-async function resolvePostAuthState(): Promise<AppState> {
+async function resolvePostAuthState(resetPinMode = false): Promise<AppState> {
   const config = await window.api!.getMerchantConfig()
   if (!config?.merchant_id) return 'business-setup'
 
   const cashiers = await window.api!.getCashiers()
   if (cashiers.length === 0) return 'syncing-initial'
+
+  // If user came from "Forgot PIN?", skip the login screen and go to pin-reset
+  if (resetPinMode) return 'pin-reset'
 
   const products = await window.api!.getProducts()
   if (products.length === 0) return 'distributor-onboarding'
@@ -89,6 +96,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   loginAttempts: 0,
   lockoutUntil: null,
   error: null,
+  resetPinMode: false,
 
   // ── Actions ──
 
@@ -121,7 +129,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
       set({ error: null })
       const result = await window.api!.authLogin(email, password)
       set({ merchantConfig: result.merchant })
-      const nextState = await resolvePostAuthState()
+      const nextState = await resolvePostAuthState(get().resetPinMode)
       set({ appState: nextState })
     } catch (err) {
       set({ error: err instanceof Error ? stripIpcPrefix(err.message) : 'Sign in failed' })
@@ -178,11 +186,33 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
         currentCashier: null,
         loginAttempts: 0,
         lockoutUntil: null,
-        error: null
+        error: null,
+        resetPinMode: false
       })
     } catch (err) {
       set({ error: err instanceof Error ? stripIpcPrefix(err.message) : 'Sign out failed' })
     }
+  },
+
+  signOutForPinReset: async () => {
+    try {
+      await window.api!.authLogout()
+      set({
+        appState: 'auth',
+        merchantConfig: null,
+        currentCashier: null,
+        loginAttempts: 0,
+        lockoutUntil: null,
+        error: null,
+        resetPinMode: true
+      })
+    } catch (err) {
+      set({ error: err instanceof Error ? stripIpcPrefix(err.message) : 'Sign out failed' })
+    }
+  },
+
+  completePinReset: () => {
+    set({ appState: 'login', resetPinMode: false, error: null })
   },
 
   /**

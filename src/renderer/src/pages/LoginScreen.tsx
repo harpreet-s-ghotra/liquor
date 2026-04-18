@@ -190,7 +190,7 @@ export function LoginScreen(): React.JSX.Element {
   const lockoutUntil = useAuthStore((s) => s.lockoutUntil)
   const login = useAuthStore((s) => s.login)
   const clearError = useAuthStore((s) => s.clearError)
-  const signOut = useAuthStore((s) => s.signOut)
+  const signOutForPinReset = useAuthStore((s) => s.signOutForPinReset)
 
   const [cashiers, setCashiers] = useState<Cashier[] | null>(null)
   const [pin, setPin] = useState('')
@@ -348,7 +348,7 @@ export function LoginScreen(): React.JSX.Element {
               disabled={isLockedOut}
             />
 
-            <button type="button" className="auth-forgot-pin" onClick={() => signOut()}>
+            <button type="button" className="auth-forgot-pin" onClick={() => signOutForPinReset()}>
               Forgot PIN? Sign in with email
             </button>
           </>

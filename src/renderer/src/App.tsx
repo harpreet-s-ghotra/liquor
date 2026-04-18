@@ -3,6 +3,7 @@ import { POSScreen } from './pages/POSScreen'
 import { AuthScreen } from './pages/AuthScreen'
 import { SetPasswordScreen } from './pages/SetPasswordScreen'
 import { PinSetupScreen } from './pages/PinSetupScreen'
+import { PinResetScreen } from './pages/PinResetScreen'
 import { BusinessSetupScreen } from './pages/BusinessSetupScreen'
 import { DistributorOnboardingScreen } from './pages/DistributorOnboardingScreen'
 import { LoginScreen } from './pages/LoginScreen'
@@ -100,6 +101,8 @@ function App(): React.JSX.Element {
       )
     case 'pin-setup':
       return <PinSetupScreen />
+    case 'pin-reset':
+      return <PinResetScreen />
     case 'business-setup':
       return <BusinessSetupScreen />
     case 'distributor-onboarding':
