@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import log from 'electron-log/main'
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -193,8 +194,16 @@ function createWindow(): void {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
+// Initialize file logging — writes to %APPDATA%\high-spirits-pos\logs\main.log on Windows
+log.initialize()
+log.transports.file.level = 'info'
+console.log = log.log.bind(log)
+console.error = log.error.bind(log)
+console.warn = log.warn.bind(log)
+
 app.whenReady().then(() => {
   const userData = app.getPath('userData')
+  log.info(`App starting — userData: ${userData}`)
   initializeDatabase(userData)
   initializeSupabaseService(userData)
   startConnectivityMonitor()

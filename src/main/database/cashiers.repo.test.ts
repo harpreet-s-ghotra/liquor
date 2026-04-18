@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import * as bcrypt from 'bcrypt'
+import * as bcrypt from 'bcryptjs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb, setDatabase } from './connection'
 import { applySchema } from './schema'

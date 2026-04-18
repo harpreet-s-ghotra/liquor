@@ -110,8 +110,13 @@
 
 /* ── Error ── */
 
+.auth-pin-error-slot {
+  min-height: 2.5rem;
+  margin-bottom: 0.25rem;
+}
+
 .auth-error {
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   border: 1px solid rgba(134, 0, 13, 0.2);
   border-radius: 6px;
   background: rgba(134, 0, 13, 0.06);
@@ -322,4 +327,19 @@
 .pos-logout-btn:hover {
   border-color: var(--border-strong);
   color: var(--text-primary);
+}
+
+.auth-forgot-pin {
+  display: block;
+  margin-top: 0.75rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  width: 100%;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  text-decoration: underline;
 }

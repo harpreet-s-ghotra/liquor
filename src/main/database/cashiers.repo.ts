@@ -1,4 +1,4 @@
-import * as bcrypt from 'bcrypt'
+import * as bcrypt from 'bcryptjs'
 import { getDb } from './connection'
 import { getDeviceConfig } from './device-config.repo'
 import { enqueueSyncItem } from './sync-queue.repo'

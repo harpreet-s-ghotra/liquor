@@ -190,6 +190,7 @@ export function LoginScreen(): React.JSX.Element {
   const lockoutUntil = useAuthStore((s) => s.lockoutUntil)
   const login = useAuthStore((s) => s.login)
   const clearError = useAuthStore((s) => s.clearError)
+  const signOut = useAuthStore((s) => s.signOut)
 
   const [cashiers, setCashiers] = useState<Cashier[] | null>(null)
   const [pin, setPin] = useState('')
@@ -336,7 +337,9 @@ export function LoginScreen(): React.JSX.Element {
 
             <PinDots length={PIN_LENGTH} filled={pin.length} shake={shake} />
 
-            {error && !isLockedOut && <div className="auth-error">{error}</div>}
+            <div className="auth-pin-error-slot">
+              {error && !isLockedOut && <div className="auth-error">{error}</div>}
+            </div>
 
             <PinPad
               onDigit={handleDigit}
@@ -344,6 +347,10 @@ export function LoginScreen(): React.JSX.Element {
               onClear={handleClear}
               disabled={isLockedOut}
             />
+
+            <button type="button" className="auth-forgot-pin" onClick={() => signOut()}>
+              Forgot PIN? Sign in with email
+            </button>
           </>
         )}
       </div>
