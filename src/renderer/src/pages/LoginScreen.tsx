@@ -184,6 +184,8 @@ function CashierSetup({ onCreated }: { onCreated: (cashier: Cashier) => void }):
 
 // ── Login Screen (Main) ──
 
+type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'not-available'
+
 export function LoginScreen(): React.JSX.Element {
   const merchantConfig = useAuthStore((s) => s.merchantConfig)
   const error = useAuthStore((s) => s.error)
@@ -197,6 +199,8 @@ export function LoginScreen(): React.JSX.Element {
   const [shake, setShake] = useState(false)
   const [lockoutSeconds, setLockoutSeconds] = useState(0)
   const pinSubmittedRef = useRef(false)
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle')
+  const [updateVersion, setUpdateVersion] = useState('')
 
   // Load cashiers on mount
   useEffect(() => {
@@ -225,6 +229,35 @@ export function LoginScreen(): React.JSX.Element {
       clearInterval(interval)
     }
   }, [lockoutUntil])
+
+  // Auto-updater listeners
+  useEffect(() => {
+    const api = window.api
+    if (!api) return
+    api.onUpdateAvailable?.((info) => {
+      setUpdateVersion(info.version)
+      setUpdateStatus('downloading')
+    })
+    api.onUpdateNotAvailable?.(() => setUpdateStatus('not-available'))
+    api.onUpdateDownloaded?.((info) => {
+      setUpdateVersion(info.version)
+      setUpdateStatus('ready')
+    })
+    api.onUpdateError?.(() => setUpdateStatus('idle'))
+  }, [])
+
+  const handleCheckUpdate = useCallback(async () => {
+    setUpdateStatus('checking')
+    try {
+      await window.api?.checkForUpdates?.()
+    } catch {
+      setUpdateStatus('idle')
+    }
+  }, [])
+
+  const handleInstallUpdate = useCallback(async () => {
+    await window.api?.installUpdate?.()
+  }, [])
 
   // Auto-submit when PIN is complete
   useEffect(() => {
@@ -351,6 +384,38 @@ export function LoginScreen(): React.JSX.Element {
             <button type="button" className="auth-forgot-pin" onClick={() => signOutForPinReset()}>
               Forgot PIN? Sign in with email
             </button>
+
+            <div className="auth-update-row">
+              {updateStatus === 'idle' && (
+                <button
+                  type="button"
+                  className="auth-update-btn"
+                  onClick={handleCheckUpdate}
+                  data-testid="check-update-btn"
+                >
+                  Check for Updates
+                </button>
+              )}
+              {updateStatus === 'checking' && (
+                <span className="auth-update-status">Checking...</span>
+              )}
+              {updateStatus === 'downloading' && (
+                <span className="auth-update-status">Downloading {updateVersion}...</span>
+              )}
+              {updateStatus === 'not-available' && (
+                <span className="auth-update-status">Already up to date</span>
+              )}
+              {updateStatus === 'ready' && (
+                <button
+                  type="button"
+                  className="auth-update-btn auth-update-btn--ready"
+                  onClick={handleInstallUpdate}
+                  data-testid="install-update-btn"
+                >
+                  Restart to install {updateVersion}
+                </button>
+              )}
+            </div>
           </>
         )}
       </div>

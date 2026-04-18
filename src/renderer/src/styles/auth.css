@@ -343,3 +343,31 @@
   font-size: 0.75rem;
   text-decoration: underline;
 }
+
+.auth-update-row {
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+.auth-update-btn {
+  display: inline-block;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  text-decoration: underline;
+}
+
+.auth-update-btn--ready {
+  color: var(--semantic-success-text, #4ade80);
+  font-weight: 600;
+}
+
+.auth-update-status {
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+}
