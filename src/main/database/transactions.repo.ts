@@ -3,6 +3,7 @@ import { normalizeTimestamp, toSqliteFormat } from './utils'
 import { enqueueSyncItem } from './sync-queue.repo'
 import { getDeviceConfig } from './device-config.repo'
 import { getInventoryDeltaSyncPayload, recordDelta } from './inventory-deltas.repo'
+import { consumeCostLayersForSale, createCostLayer } from './product-cost-layers.repo'
 import type {
   SaveRefundInput,
   SaveTransactionInput,
@@ -12,6 +13,7 @@ import type {
   TransactionLineItem,
   TransactionListFilter,
   TransactionListResult,
+  TransactionPayment,
   TransactionSummary
 } from '../../shared/types'
 import type { TransactionSyncPayload } from '../services/sync/types'
@@ -22,8 +24,14 @@ import type { TransactionSyncPayload } from '../services/sync/types'
  */
 function enqueueTransactionSync(
   saved: SavedTransaction,
-  items: SaveTransactionInput['items'],
-  originalTxnNumber: string | null
+  items: Array<
+    SaveTransactionInput['items'][number] & {
+      cost_at_sale?: number | null
+      cost_basis_source?: string | null
+    }
+  >,
+  originalTxnNumber: string | null,
+  payments?: TransactionPayment[]
 ): void {
   const device = getDeviceConfig()
   if (!device) return // Not registered — skip sync
@@ -38,6 +46,8 @@ function enqueueTransactionSync(
       product_name: item.product_name,
       quantity: item.quantity,
       unit_price: item.unit_price,
+      cost_at_sale: item.cost_at_sale ?? null,
+      cost_basis_source: item.cost_basis_source ?? 'fifo_layer',
       total_price: item.total_price
     }
   })
@@ -60,7 +70,8 @@ function enqueueTransactionSync(
       session_id: saved.session_id ?? null,
       created_at: saved.created_at
     },
-    items: syncItems
+    items: syncItems,
+    payments: payments && payments.length > 0 ? payments : undefined
   }
 
   enqueueSyncItem({
@@ -86,6 +97,13 @@ function enqueueInventoryDeltaSync(deltaId: number): void {
     payload: JSON.stringify(payload),
     device_id: device.device_id
   })
+}
+
+/** Derive the canonical payment_method label from the payments array. */
+function derivePaymentMethod(payments: TransactionPayment[] | undefined, fallback: string): string {
+  if (!payments || payments.length === 0) return fallback
+  const methods = new Set(payments.map((p) => p.method))
+  return methods.size === 1 ? [...methods][0] : 'split'
 }
 
 /**
@@ -126,7 +144,7 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
         subtotal: input.subtotal,
         tax_amount: input.tax_amount,
         total: input.total,
-        payment_method: input.payment_method,
+        payment_method: derivePaymentMethod(input.payments, input.payment_method),
         finix_authorization_id: input.finix_authorization_id ?? null,
         finix_transfer_id: input.finix_transfer_id ?? null,
         card_last_four: input.card_last_four ?? null,
@@ -138,12 +156,37 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
 
     const transactionId = Number(result.lastInsertRowid)
 
+    if (input.payments && input.payments.length > 0) {
+      const insertPayment = db.prepare(`
+        INSERT INTO transaction_payments (transaction_id, method, amount, card_last_four, card_type, finix_authorization_id, finix_transfer_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      for (const p of input.payments) {
+        insertPayment.run(
+          transactionId,
+          p.method,
+          p.amount,
+          p.card_last_four ?? null,
+          p.card_type ?? null,
+          p.finix_authorization_id ?? null,
+          p.finix_transfer_id ?? null
+        )
+      }
+    }
+
     const insertItem = db.prepare(
       `
       INSERT INTO transaction_items (
-        transaction_id, product_id, product_name, quantity, unit_price, total_price
+        transaction_id,
+        product_id,
+        product_name,
+        quantity,
+        unit_price,
+        cost_at_sale,
+        cost_basis_source,
+        total_price
       )
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, 'fifo_layer', ?)
       `
     )
 
@@ -157,13 +200,35 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
       `
     )
 
+    const getProductForCogs = db.prepare(
+      `SELECT sku, COALESCE(cost, 0) AS cost FROM products WHERE id = ? LIMIT 1`
+    )
+
+    const itemsForSync: Array<
+      SaveTransactionInput['items'][number] & {
+        cost_at_sale: number
+        cost_basis_source: 'fifo_layer'
+      }
+    > = []
+
     for (const item of input.items) {
+      const productRow = getProductForCogs.get(item.product_id) as
+        | { sku: string; cost: number }
+        | undefined
+
+      const consumed = consumeCostLayersForSale({
+        productId: item.product_id,
+        quantity: item.quantity,
+        fallbackUnitCost: productRow?.cost ?? 0
+      })
+
       insertItem.run(
         transactionId,
         item.product_id,
         item.product_name,
         item.quantity,
         item.unit_price,
+        consumed.totalCost,
         item.total_price
       )
 
@@ -173,6 +238,12 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
       const skuRow = db
         .prepare('SELECT sku FROM products WHERE id = ? LIMIT 1')
         .get(item.product_id) as { sku: string } | undefined
+
+      itemsForSync.push({
+        ...item,
+        cost_at_sale: consumed.totalCost,
+        cost_basis_source: 'fifo_layer'
+      })
 
       const deltaId = recordDelta({
         product_id: item.product_id,
@@ -185,10 +256,10 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
       inventoryDeltaIds.push(deltaId)
     }
 
-    return { transactionId, sessionId }
+    return { transactionId, sessionId, itemsForSync }
   })
 
-  const { transactionId, sessionId } = tx()
+  const { transactionId, sessionId, itemsForSync } = tx()
 
   const saved: SavedTransaction = {
     id: transactionId,
@@ -196,7 +267,7 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
     subtotal: input.subtotal,
     tax_amount: input.tax_amount,
     total: input.total,
-    payment_method: input.payment_method,
+    payment_method: derivePaymentMethod(input.payments, input.payment_method),
     finix_authorization_id: input.finix_authorization_id ?? null,
     finix_transfer_id: input.finix_transfer_id ?? null,
     card_last_four: input.card_last_four ?? null,
@@ -210,7 +281,7 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
 
   // Enqueue for cloud sync (non-blocking — if device not registered, silently skips)
   try {
-    enqueueTransactionSync(saved, input.items, null)
+    enqueueTransactionSync(saved, itemsForSync, null, input.payments)
   } catch {
     // Sync enqueue failure must never block a sale
   }
@@ -274,7 +345,15 @@ export function getTransactionByNumber(txnNumber: string): TransactionDetail | n
   const items = db
     .prepare(
       `
-      SELECT id, product_id, product_name, quantity, unit_price, total_price
+      SELECT
+        id,
+        product_id,
+        product_name,
+        quantity,
+        unit_price,
+        cost_at_sale,
+        cost_basis_source,
+        total_price
       FROM transaction_items
       WHERE transaction_id = ?
       ORDER BY id
@@ -282,7 +361,22 @@ export function getTransactionByNumber(txnNumber: string): TransactionDetail | n
     )
     .all(row.id) as TransactionLineItem[]
 
-  return { ...normalizedRow, items }
+  const refundRow = db
+    .prepare(
+      `SELECT 1 FROM transactions WHERE original_transaction_id = ? AND status = 'refund' LIMIT 1`
+    )
+    .get(row.id) as { '1': number } | undefined
+
+  const payments = db
+    .prepare(
+      `SELECT id, method, amount, card_last_four, card_type, finix_authorization_id, finix_transfer_id
+       FROM transaction_payments
+       WHERE transaction_id = ?
+       ORDER BY id`
+    )
+    .all(row.id) as TransactionPayment[]
+
+  return { ...normalizedRow, items, payments, has_refund: !!refundRow }
 }
 
 /**
@@ -432,9 +526,16 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
     const insertItem = db.prepare(
       `
       INSERT INTO transaction_items (
-        transaction_id, product_id, product_name, quantity, unit_price, total_price
+        transaction_id,
+        product_id,
+        product_name,
+        quantity,
+        unit_price,
+        cost_at_sale,
+        cost_basis_source,
+        total_price
       )
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, 'fifo_layer', ?)
       `
     )
 
@@ -448,22 +549,70 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
       `
     )
 
+    const getProductForCost = db.prepare(
+      `SELECT sku, COALESCE(cost, 0) AS cost FROM products WHERE id = ? LIMIT 1`
+    )
+    const getOriginalAvgUnitCost = db.prepare(
+      `SELECT
+         COALESCE(SUM(COALESCE(cost_at_sale, 0)), 0) AS total_cost,
+         COALESCE(SUM(quantity), 0) AS total_qty
+       FROM transaction_items
+       WHERE transaction_id = ? AND product_id = ?`
+    )
+
+    const itemsForSync: Array<
+      SaveRefundInput['items'][number] & {
+        cost_at_sale: number
+        cost_basis_source: 'fifo_layer'
+      }
+    > = []
+
     for (const item of input.items) {
+      const productRow = getProductForCost.get(item.product_id) as
+        | { sku: string; cost: number }
+        | undefined
+
+      const originalCost = getOriginalAvgUnitCost.get(
+        input.original_transaction_id,
+        item.product_id
+      ) as { total_cost: number; total_qty: number }
+
+      const avgUnitCostFromOriginal =
+        originalCost.total_qty > 0 ? originalCost.total_cost / originalCost.total_qty : 0
+      const unitCost = Math.max(0, avgUnitCostFromOriginal || productRow?.cost || 0)
+      const lineCostAtSale = -(unitCost * item.quantity)
+
       insertItem.run(
         transactionId,
         item.product_id,
         item.product_name,
         item.quantity,
         item.unit_price,
+        lineCostAtSale,
         item.total_price
       )
 
       // Increment product stock for returned items
       incrementStock.run(item.quantity, item.quantity, item.product_id)
 
+      createCostLayer({
+        productId: item.product_id,
+        quantity: item.quantity,
+        costPerUnit: unitCost,
+        source: 'refund',
+        sourceReference: txNumber,
+        deviceId: device?.device_id ?? null
+      })
+
       const skuRow = db
         .prepare('SELECT sku FROM products WHERE id = ? LIMIT 1')
         .get(item.product_id) as { sku: string } | undefined
+
+      itemsForSync.push({
+        ...item,
+        cost_at_sale: lineCostAtSale,
+        cost_basis_source: 'fifo_layer'
+      })
 
       const deltaId = recordDelta({
         product_id: item.product_id,
@@ -476,10 +625,10 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
       inventoryDeltaIds.push(deltaId)
     }
 
-    return { transactionId, sessionId }
+    return { transactionId, sessionId, itemsForSync }
   })
 
-  const { transactionId, sessionId } = tx()
+  const { transactionId, sessionId, itemsForSync } = tx()
 
   const saved: SavedTransaction = {
     id: transactionId,
@@ -500,7 +649,7 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
   }
 
   try {
-    enqueueTransactionSync(saved, input.items, input.original_transaction_number)
+    enqueueTransactionSync(saved, itemsForSync, input.original_transaction_number)
   } catch {
     // Sync enqueue failure must never block a refund
   }

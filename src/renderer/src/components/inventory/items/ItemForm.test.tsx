@@ -560,7 +560,7 @@ describe('ItemForm', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Switch to percent mode')).toHaveAttribute('data-state', 'on')
     })
-    expect(screen.getByLabelText('Case Discount Percent')).toHaveValue('16.6722')
+    expect(screen.getByLabelText('Case Discount Percent')).toHaveValue('16.67')
   })
 
   it('saves case discount in percent mode as dollar value', async () => {

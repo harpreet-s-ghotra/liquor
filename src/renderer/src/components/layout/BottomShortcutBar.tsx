@@ -3,18 +3,22 @@ import { useAuthStore } from '@renderer/store/useAuthStore'
 import './bottom-shortcut-bar.css'
 
 type BottomShortcutBarProps = {
+  isAdmin?: boolean
   onInventoryClick: () => void
   onClockOutClick: () => void
   onSalesHistoryClick: () => void
   onReportsClick: () => void
+  onManagerClick: () => void
 }
+
+const ADMIN_ONLY_ACTIONS = new Set(['inventory', 'reports', 'sales-history', 'manager'])
 
 const F_KEYS = [
   { key: 'F2', label: 'Inventory', action: 'inventory' },
   { key: 'F3', label: 'Clock In/Out', action: 'clock-out' },
   { key: 'F4', label: 'Customers' },
   { key: 'F5', label: 'Reports', action: 'reports' },
-  { key: 'F6', label: 'Manager' },
+  { key: 'F6', label: 'Manager', action: 'manager' },
   { key: 'F7', label: 'Sales History', action: 'sales-history' }
 ]
 
@@ -34,10 +38,12 @@ function useCurrentTime(): string {
 }
 
 export function BottomShortcutBar({
+  isAdmin,
   onInventoryClick,
   onClockOutClick,
   onSalesHistoryClick,
-  onReportsClick
+  onReportsClick,
+  onManagerClick
 }: BottomShortcutBarProps): React.JSX.Element {
   const logout = useAuthStore((s) => s.logout)
   const datetime = useCurrentTime()
@@ -46,27 +52,35 @@ export function BottomShortcutBar({
   return (
     <footer className="bottom-bar" data-testid="bottom-bar">
       <div className="bottom-bar__keys">
-        {F_KEYS.map(({ key, label, action }) => (
-          <button
-            key={key}
-            type="button"
-            className="bottom-bar__key-btn"
-            onClick={
-              action === 'inventory'
-                ? onInventoryClick
-                : action === 'clock-out'
-                  ? onClockOutClick
-                  : action === 'sales-history'
-                    ? onSalesHistoryClick
-                    : action === 'reports'
-                      ? onReportsClick
-                      : undefined
-            }
-          >
-            <span className="bottom-bar__key-badge">{key}</span>
-            <span className="bottom-bar__key-label">{label}</span>
-          </button>
-        ))}
+        {F_KEYS.map(({ key, label, action }) => {
+          const restricted = !isAdmin && !!action && ADMIN_ONLY_ACTIONS.has(action)
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`bottom-bar__key-btn${restricted ? ' bottom-bar__key-btn--disabled' : ''}`}
+              disabled={restricted}
+              onClick={
+                restricted
+                  ? undefined
+                  : action === 'inventory'
+                    ? onInventoryClick
+                    : action === 'clock-out'
+                      ? onClockOutClick
+                      : action === 'sales-history'
+                        ? onSalesHistoryClick
+                        : action === 'reports'
+                          ? onReportsClick
+                          : action === 'manager'
+                            ? onManagerClick
+                            : undefined
+              }
+            >
+              <span className="bottom-bar__key-badge">{key}</span>
+              <span className="bottom-bar__key-label">{label}</span>
+            </button>
+          )
+        })}
       </div>
 
       <div className="bottom-bar__divider" />

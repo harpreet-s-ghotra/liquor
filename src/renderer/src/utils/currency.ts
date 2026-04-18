@@ -2,11 +2,21 @@
  * Currency formatting and parsing utilities for the POS renderer.
  */
 
-/** Format a dollar amount (e.g. 12.5 → "$12.50") */
-export const formatCurrency = (value: number): string => `$${value.toFixed(2)}`
+/** Format a dollar amount with thousands separators (e.g. 1234.5 → "$1,234.50") */
+export const formatCurrency = (value: number): string => {
+  const sign = value < 0 ? '-' : ''
+  const abs = Math.abs(value)
+  return `${sign}$${abs.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`
+}
 
-/** Format a cents-based integer to dollars (e.g. 1250 → "$12.50") */
-export const formatCurrencyFromCents = (cents: number): string => `$${(cents / 100).toFixed(2)}`
+/** Format a cents-based integer to dollars with thousands separators (e.g. 125000 → "$1,250.00") */
+export const formatCurrencyFromCents = (cents: number): string => formatCurrency(cents / 100)
+
+/** Format an integer with thousands separators (e.g. 12345 → "12,345"). Counts, quantities. */
+export const formatInteger = (value: number): string => Math.round(value).toLocaleString('en-US')
 
 /**
  * Parse a raw digit-only (or "$1.23"-style) string into a dollar amount.

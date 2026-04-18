@@ -155,10 +155,7 @@ async function uploadProducts(rows: Record<string, string>[]): Promise<void> {
   const { error: truncateError } = await supabase.rpc('truncate_catalog_products')
   if (truncateError) {
     // Fallback: delete all rows (slower but works without the RPC)
-    const { error: deleteError } = await supabase
-      .from('catalog_products')
-      .delete()
-      .neq('id', 0)
+    const { error: deleteError } = await supabase.from('catalog_products').delete().neq('id', 0)
     if (deleteError) throw new Error(`Failed to clear catalog_products: ${deleteError.message}`)
   }
   console.log('  Done.')

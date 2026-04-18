@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type { MerchantConfig, Cashier } from '../types/pos'
-import { MAX_PIN_ATTEMPTS, PIN_LOCKOUT_MS } from '../../../shared/constants'
 import { stripIpcPrefix } from '../utils/ipc-error'
 
 // ── State shape ──
@@ -9,6 +8,7 @@ export type AppState =
   | 'loading'
   | 'auth'
   | 'set-password'
+  | 'syncing-initial'
   | 'pin-setup'
   | 'business-setup'
   | 'distributor-onboarding'
@@ -34,6 +34,7 @@ type AuthStoreActions = {
   completeSetup: () => Promise<void>
   completeBusinessSetup: () => Promise<void>
   completeOnboarding: () => void
+  completeSyncAndContinue: () => Promise<void>
   login: (pin: string) => Promise<boolean>
   logout: () => void
   clearError: () => void
@@ -46,18 +47,32 @@ type AuthStore = AuthStoreState & AuthStoreActions
 
 /**
  * Determine which post-auth state to transition to based on local data.
- * - No cashiers → pin-setup
- * - No products → distributor-onboarding
- * - Otherwise → login
+ * When no cashiers exist, routes to syncing-initial to wait for initial sync.
+ * After sync completes, resolvePostSyncState() picks the real destination.
  */
-async function resolvePostAuthState(): Promise<
-  'pin-setup' | 'business-setup' | 'distributor-onboarding' | 'login'
-> {
-  const cashiers = await window.api!.getCashiers()
-  if (cashiers.length === 0) return 'pin-setup'
-
+async function resolvePostAuthState(): Promise<AppState> {
   const config = await window.api!.getMerchantConfig()
   if (!config?.merchant_id) return 'business-setup'
+
+  const cashiers = await window.api!.getCashiers()
+  if (cashiers.length === 0) return 'syncing-initial'
+
+  const products = await window.api!.getProducts()
+  if (products.length === 0) return 'distributor-onboarding'
+
+  return 'login'
+}
+
+/**
+ * Called after initial sync completes (or is skipped). Picks the appropriate
+ * next state now that sync has run — cashiers may have been restored.
+ */
+async function resolvePostSyncState(): Promise<AppState> {
+  const config = await window.api!.getMerchantConfig()
+  if (!config?.merchant_id) return 'business-setup'
+
+  const cashiers = await window.api!.getCashiers()
+  if (cashiers.length === 0) return 'pin-setup'
 
   const products = await window.api!.getProducts()
   if (products.length === 0) return 'distributor-onboarding'
@@ -208,6 +223,19 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   },
 
   /**
+   * Called when the initial sync modal is dismissed (success or offline).
+   * Re-evaluates the appropriate post-sync destination.
+   */
+  completeSyncAndContinue: async () => {
+    try {
+      const nextState = await resolvePostSyncState()
+      set({ appState: nextState })
+    } catch {
+      set({ appState: 'pin-setup' })
+    }
+  },
+
+  /**
    * Validate a cashier PIN. Returns true on success, false on failure.
    */
   login: async (pin: string) => {
@@ -253,21 +281,12 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
         return true
       }
 
-      // Invalid PIN
-      const attempts = get().loginAttempts + 1
-
-      if (attempts >= MAX_PIN_ATTEMPTS) {
-        set({
-          loginAttempts: attempts,
-          lockoutUntil: Date.now() + PIN_LOCKOUT_MS,
-          error: 'Too many attempts. Please wait 30 seconds.'
-        })
-      } else {
-        set({
-          loginAttempts: attempts,
-          error: 'Invalid PIN'
-        })
-      }
+      // Invalid PIN — unlimited retries, no lockout
+      set({
+        loginAttempts: get().loginAttempts + 1,
+        lockoutUntil: null,
+        error: 'Invalid PIN'
+      })
 
       return false
     } catch {

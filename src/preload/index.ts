@@ -50,6 +50,7 @@ import type {
   CatalogDistributor,
   ImportResult,
   SyncStatus,
+  InitialSyncStatus,
   DeviceConfig,
   ReportDateRange,
   SalesSummaryReport,
@@ -61,7 +62,16 @@ import type {
   HourlySalesReport,
   ReportExportRequest,
   BusinessInfoInput,
-  ProvisionMerchantResult
+  ProvisionMerchantResult,
+  Register,
+  LowStockProduct,
+  MerchantStatus,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  PurchaseOrderDetail,
+  CreatePurchaseOrderInput,
+  UpdatePurchaseOrderInput,
+  ReceivePurchaseOrderItemInput
 } from '../shared/types'
 
 // Custom APIs for renderer
@@ -110,8 +120,8 @@ const api = {
   updateTaxCode: (input: UpdateTaxCodeInput): Promise<TaxCode> =>
     ipcRenderer.invoke('tax-codes:update', input),
   deleteTaxCode: (id: number): Promise<void> => ipcRenderer.invoke('tax-codes:delete', id),
-  applyTaxToAll: (taxRate: number): Promise<{ updated: number }> =>
-    ipcRenderer.invoke('inventory:apply-tax-to-all', taxRate),
+  applyTaxToAll: (taxCodeId: number): Promise<{ updated: number }> =>
+    ipcRenderer.invoke('inventory:apply-tax-to-all', taxCodeId),
 
   // Distributor CRUD
   getDistributors: (): Promise<Distributor[]> => ipcRenderer.invoke('distributors:list'),
@@ -250,9 +260,14 @@ const api = {
 
   // Cloud Sync
   getSyncStatus: (): Promise<SyncStatus> => ipcRenderer.invoke('sync:get-status'),
+  getInitialSyncStatus: (): Promise<InitialSyncStatus> =>
+    ipcRenderer.invoke('sync:get-initial-status'),
+  retryInitialSync: (): Promise<void> => ipcRenderer.invoke('sync:retry-initial-sync'),
   getDeviceConfig: (): Promise<DeviceConfig | null> => ipcRenderer.invoke('sync:get-device-config'),
   onConnectivityChanged: (callback: (online: boolean) => void) =>
     ipcRenderer.on('sync:connectivity-changed', (_event, online) => callback(online)),
+  onInitialSyncStatusChanged: (callback: (status: InitialSyncStatus) => void) =>
+    ipcRenderer.on('sync:initial-status-changed', (_event, status) => callback(status)),
 
   // Reports
   getReportSalesSummary: (range: ReportDateRange): Promise<SalesSummaryReport> =>
@@ -288,7 +303,53 @@ const api = {
   onUpdateError: (callback: (err: { message: string }) => void) =>
     ipcRenderer.on('updater:error', (_event, err) => callback(err)),
   checkForUpdates: (): Promise<void> => ipcRenderer.invoke('updater:check'),
-  installUpdate: (): Promise<void> => ipcRenderer.invoke('updater:install')
+  installUpdate: (): Promise<void> => ipcRenderer.invoke('updater:install'),
+
+  // Manager — Registers
+  listRegisters: (): Promise<Register[]> => ipcRenderer.invoke('registers:list'),
+  renameRegister: (id: string, newName: string): Promise<void> =>
+    ipcRenderer.invoke('registers:rename', id, newName),
+  deleteRegister: (id: string): Promise<void> => ipcRenderer.invoke('registers:delete', id),
+
+  // Manager — Low Stock
+  getLowStockProducts: (threshold: number): Promise<LowStockProduct[]> =>
+    ipcRenderer.invoke('inventory:low-stock', threshold),
+  getUnpricedProducts: (): Promise<InventoryProduct[]> =>
+    ipcRenderer.invoke('inventory:unpriced-products'),
+  findProductBySku: (sku: string): Promise<Product | null> =>
+    ipcRenderer.invoke('inventory:find-by-sku', sku),
+  toggleFavorite: (productId: number): Promise<void> =>
+    ipcRenderer.invoke('inventory:toggle-favorite', productId),
+  getDistinctSizes: (): Promise<string[]> => ipcRenderer.invoke('inventory:distinct-sizes'),
+
+  // Manager — Merchant Status
+  getFinixMerchantStatus: (): Promise<MerchantStatus> =>
+    ipcRenderer.invoke('finix:merchant-status'),
+
+  // Purchase Orders
+  getPurchaseOrders: (): Promise<PurchaseOrder[]> => ipcRenderer.invoke('purchase-orders:list'),
+  getPurchaseOrderDetail: (poId: number): Promise<PurchaseOrderDetail | null> =>
+    ipcRenderer.invoke('purchase-orders:detail', poId),
+  createPurchaseOrder: (input: CreatePurchaseOrderInput): Promise<PurchaseOrderDetail> =>
+    ipcRenderer.invoke('purchase-orders:create', input),
+  updatePurchaseOrder: (input: UpdatePurchaseOrderInput): Promise<PurchaseOrder> =>
+    ipcRenderer.invoke('purchase-orders:update', input),
+  receivePurchaseOrderItem: (input: ReceivePurchaseOrderItemInput): Promise<PurchaseOrderItem> =>
+    ipcRenderer.invoke('purchase-orders:receive-item', input),
+  addPurchaseOrderItem: (
+    poId: number,
+    productId: number,
+    quantityOrdered: number
+  ): Promise<PurchaseOrderItem> =>
+    ipcRenderer.invoke('purchase-orders:add-item', poId, productId, quantityOrdered),
+  removePurchaseOrderItem: (poId: number, itemId: number): Promise<void> =>
+    ipcRenderer.invoke('purchase-orders:remove-item', poId, itemId),
+  deletePurchaseOrder: (poId: number): Promise<void> =>
+    ipcRenderer.invoke('purchase-orders:delete', poId),
+
+  // Zoom
+  getZoomFactor: (): Promise<number> => ipcRenderer.invoke('zoom:get'),
+  setZoomFactor: (factor: number): Promise<void> => ipcRenderer.invoke('zoom:set', factor)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

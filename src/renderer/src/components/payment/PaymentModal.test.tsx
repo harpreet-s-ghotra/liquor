@@ -474,7 +474,7 @@ describe('PaymentModal', () => {
       expect(mockFinixChargeCard).toHaveBeenCalledWith(
         expect.objectContaining({
           total: 8.5,
-          card_number: '5555555555554444'
+          card_number: '5200820000007201'
         })
       )
     })
@@ -683,6 +683,57 @@ describe('PaymentModal', () => {
 
       fireEvent.click(screen.getByTestId('payment-ok-btn'))
       expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ method: 'credit' }))
+    })
+  })
+
+  describe('split payments payments array', () => {
+    it('passes payments array in onComplete result for cash tender', () => {
+      const onComplete = vi.fn()
+      render(<PaymentModal isOpen={true} total={5} onComplete={onComplete} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: '$5' }))
+
+      expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('payment-ok-btn'))
+
+      const result = onComplete.mock.calls[0][0]
+      expect(result.payments).toHaveLength(1)
+      expect(result.payments[0].method).toBe('cash')
+      expect(result.payments[0].amount).toBe(5)
+    })
+
+    it('passes multiple payments entries for split cash tenders', () => {
+      const onComplete = vi.fn()
+      render(<PaymentModal isOpen={true} total={15} onComplete={onComplete} onCancel={vi.fn()} />)
+
+      fireEvent.click(screen.getByRole('button', { name: '$10' }))
+      fireEvent.click(screen.getByRole('button', { name: '$5' }))
+
+      expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('payment-ok-btn'))
+
+      const result = onComplete.mock.calls[0][0]
+      expect(result.payments).toHaveLength(2)
+      expect(result.payments[0].amount).toBe(10)
+      expect(result.payments[1].amount).toBe(5)
+    })
+
+    it('resets payments array after cancel', () => {
+      const onCancel = vi.fn()
+      const { rerender } = render(
+        <PaymentModal isOpen={true} total={10} onComplete={vi.fn()} onCancel={onCancel} />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: '$5' }))
+      expect(
+        screen.getByTestId('paid-so-far-list').querySelectorAll('.payment-modal__paid-entry')
+      ).toHaveLength(1)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(onCancel).toHaveBeenCalledTimes(1)
+
+      rerender(<PaymentModal isOpen={true} total={10} onComplete={vi.fn()} onCancel={onCancel} />)
+      expect(screen.getByText('No payments yet')).toBeInTheDocument()
     })
   })
 })

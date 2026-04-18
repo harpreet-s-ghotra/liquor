@@ -10,6 +10,7 @@ type ActionPanelProps = {
   filteredProducts: Product[]
   setActiveCategory: (value: string) => void
   addToCart: (product: Product) => void
+  onToggleFavorite?: (product: Product) => void
   subtotalBeforeDiscount: number
   subtotalDiscounted: number
   tax: number
@@ -38,6 +39,7 @@ export function ActionPanel({
   filteredProducts,
   setActiveCategory,
   addToCart,
+  onToggleFavorite,
   subtotalBeforeDiscount,
   subtotalDiscounted,
   tax,
@@ -321,6 +323,24 @@ export function ActionPanel({
             disabled={!!isViewingTransaction}
             onClick={() => addToCart(product)}
           >
+            {onToggleFavorite && (
+              <button
+                type="button"
+                className={cn(
+                  'action-panel__product-fav',
+                  product.is_favorite === 1 && 'action-panel__product-fav--active'
+                )}
+                aria-label={
+                  product.is_favorite === 1 ? 'Remove from favorites' : 'Add to favorites'
+                }
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleFavorite(product)
+                }}
+              >
+                ★
+              </button>
+            )}
             <span className="action-panel__product-name">{product.name}</span>
             {product.size ? (
               <span className="action-panel__product-size">{product.size}</span>

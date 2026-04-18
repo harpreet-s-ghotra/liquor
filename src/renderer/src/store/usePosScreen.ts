@@ -19,7 +19,6 @@ import {
 const FAVORITES_CATEGORY = 'Favorites'
 const ALL_CATEGORY = 'All'
 const TRANSACTION_DISCOUNT_ID = -1
-const preferredFavoriteSkus = new Set(['WINE-001', 'BEER-001', 'SPIRIT-001'])
 
 // ── State shape ──
 
@@ -42,20 +41,11 @@ type PosState = {
 
 // ── Pure derivation functions (testable, no hooks) ──
 
-function getFavoriteSkuSet(products: Product[]): Set<string> {
-  const configured = products.filter((p) => preferredFavoriteSkus.has(p.sku)).map((p) => p.sku)
-  if (configured.length > 0) return new Set(configured)
-  return new Set(
-    [...products]
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 12)
-      .map((p) => p.sku)
-  )
-}
-
 export function deriveCategories(products: Product[]): string[] {
   const categorySet = new Set(products.map((p) => p.category))
-  return [FAVORITES_CATEGORY, ...Array.from(categorySet), ALL_CATEGORY]
+  const hasFavorites = products.some((p) => p.is_favorite === 1)
+  const categories = [...Array.from(categorySet), ALL_CATEGORY]
+  return hasFavorites ? [FAVORITES_CATEGORY, ...categories] : categories
 }
 
 export function deriveFilteredProducts(
@@ -64,7 +54,6 @@ export function deriveFilteredProducts(
   activeCategory: string
 ): Product[] {
   const term = search.trim().toLowerCase()
-  const favoriteSkuSet = getFavoriteSkuSet(products)
 
   return products
     .filter((product) => {
@@ -79,7 +68,7 @@ export function deriveFilteredProducts(
         activeCategory === ALL_CATEGORY
           ? true
           : activeCategory === FAVORITES_CATEGORY
-            ? favoriteSkuSet.has(product.sku)
+            ? product.is_favorite === 1
             : product.category === activeCategory
 
       return categoryMatch
@@ -199,6 +188,7 @@ type PosActions = {
   toggleReturnItem: (cartItemId: number) => void
   toggleReturnAll: () => void
   setReturnItemQuantity: (cartItemId: number, qty: number) => void
+  toggleFavoriteProduct: (productId: number) => Promise<void>
 }
 
 // ── Full store type ──
@@ -304,7 +294,8 @@ export const usePosStore = create<PosStore>((set, get) => ({
       cart: [],
       selectedCartId: null,
       transactionDiscountPercent: 0,
-      viewingTransaction: null
+      viewingTransaction: null,
+      returnItems: {}
     }),
 
   updateSelectedLineQuantity: (nextQuantity) => {
@@ -356,6 +347,17 @@ export const usePosStore = create<PosStore>((set, get) => ({
       .getProducts()
       .then((data) => set({ products: data, productsLoadError: null }))
       .catch(() => set({ productsLoadError: 'Unable to load products from backend.' }))
+
+    if (typeof api?.getActiveSpecialPricing === 'function') {
+      api
+        .getActiveSpecialPricing()
+        .then((rules: ActiveSpecialPricingRule[]) =>
+          set({ specialPricingMap: buildSpecialPricingMap(rules) })
+        )
+        .catch(() => {
+          /* pricing unavailable — cart works without promos */
+        })
+    }
   },
 
   loadSpecialPricing: () => {
@@ -562,6 +564,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
     if (!viewingTransaction) return
     // Don't allow returns on refund transactions
     if (viewingTransaction.status === 'refund') return
+    if (viewingTransaction.has_refund) return
 
     const next = { ...returnItems }
     if (next[cartItemId] != null) {
@@ -577,6 +580,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
     const { returnItems, viewingTransaction, cart } = get()
     if (!viewingTransaction) return
     if (viewingTransaction.status === 'refund') return
+    if (viewingTransaction.has_refund) return
 
     const hasAll = cart.length > 0 && cart.every((c) => returnItems[c.id] != null)
     if (hasAll) {
@@ -599,6 +603,18 @@ export const usePosStore = create<PosStore>((set, get) => ({
 
     const clamped = Math.max(1, Math.min(qty, item.lineQuantity))
     set({ returnItems: { ...returnItems, [cartItemId]: clamped } })
+  },
+
+  toggleFavoriteProduct: async (productId: number) => {
+    const api = typeof window !== 'undefined' ? window.api : undefined
+    if (!api?.toggleFavorite) return
+    await api.toggleFavorite(productId)
+    // Optimistically flip in local state so the star updates instantly
+    set((state) => ({
+      products: state.products.map((p) =>
+        p.id === productId ? { ...p, is_favorite: p.is_favorite === 1 ? 0 : 1 } : p
+      )
+    }))
   }
 }))
 
@@ -655,6 +671,7 @@ type UsePosScreenState = {
   toggleReturnItem: (cartItemId: number) => void
   toggleReturnAll: () => void
   setReturnItemQuantity: (cartItemId: number, qty: number) => void
+  toggleFavoriteProduct: (productId: number) => Promise<void>
 }
 
 export function usePosScreen(): UsePosScreenState {
@@ -698,7 +715,8 @@ export function usePosScreen(): UsePosScreenState {
       returnItems: s.returnItems,
       toggleReturnItem: s.toggleReturnItem,
       toggleReturnAll: s.toggleReturnAll,
-      setReturnItemQuantity: s.setReturnItemQuantity
+      setReturnItemQuantity: s.setReturnItemQuantity,
+      toggleFavoriteProduct: s.toggleFavoriteProduct
     }))
   )
 
@@ -809,6 +827,7 @@ export function usePosScreen(): UsePosScreenState {
     returnTotal: returnTotals.returnTotal,
     toggleReturnItem: store.toggleReturnItem,
     toggleReturnAll: store.toggleReturnAll,
-    setReturnItemQuantity: store.setReturnItemQuantity
+    setReturnItemQuantity: store.setReturnItemQuantity,
+    toggleFavoriteProduct: store.toggleFavoriteProduct
   }
 }

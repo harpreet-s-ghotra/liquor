@@ -10,6 +10,7 @@ import {
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import type { DailySalesRow } from '../../../../../shared/types'
+import { formatCurrency } from '@renderer/utils/currency'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
@@ -45,15 +46,21 @@ export function SalesLineChart({ data }: SalesLineChartProps): React.JSX.Element
       data={chartData}
       options={{
         responsive: true,
+        maintainAspectRatio: false,
         animation: false,
         plugins: {
-          legend: { position: 'top' }
+          legend: { position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(Number(ctx.parsed.y ?? 0))}`
+            }
+          }
         },
         scales: {
           y: {
             beginAtZero: true,
             ticks: {
-              callback: (value) => `$${value}`
+              callback: (value) => formatCurrency(Number(value))
             }
           }
         }

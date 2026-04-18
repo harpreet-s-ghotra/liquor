@@ -96,10 +96,14 @@ describe('SearchModal', () => {
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
-  it('shows initial state message before any search', async () => {
+  it('auto-searches on open and shows all products', async () => {
     await renderOpenSearchModal()
 
-    expect(screen.getByText('Type a search term to find items.')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledWith('', {})
+      expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
+      expect(screen.getByText('IPA 6-pack')).toBeInTheDocument()
+    })
   })
 
   it('shows item type and distributor filter dropdowns', async () => {
@@ -253,31 +257,42 @@ describe('SearchModal', () => {
     })
   })
 
-  it('does not search when query is empty', async () => {
+  it('searches with empty query when Go is clicked without input', async () => {
     await renderOpenSearchModal()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
-
-    expect(window.api!.searchProducts).not.toHaveBeenCalled()
-    expect(screen.getByText('Type a search term to find items.')).toBeInTheDocument()
-  })
-
-  it('re-searches when item type filter changes after a search', async () => {
-    await renderOpenSearchModal()
-
-    // Perform initial search
-    fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'wine' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
 
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(1)
     })
 
-    // Change item type filter — should trigger re-search
-    fireEvent.change(screen.getByLabelText('Filter by item type'), { target: { value: '1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
 
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
+      expect(window.api!.searchProducts).toHaveBeenLastCalledWith('', {
+        departmentId: undefined,
+        distributorNumber: undefined
+      })
+    })
+  })
+
+  it('re-searches when item type filter changes after a search', async () => {
+    await renderOpenSearchModal()
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(1)
+    })
+
+    fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'wine' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
+    })
+
+    fireEvent.change(screen.getByLabelText('Filter by item type'), { target: { value: '1' } })
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(3)
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('wine', {
         departmentId: 1,
         distributorNumber: undefined
@@ -288,19 +303,21 @@ describe('SearchModal', () => {
   it('re-searches when distributor filter changes after a search', async () => {
     await renderOpenSearchModal()
 
-    // Perform initial search
-    fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'beer' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
-
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(1)
     })
 
-    // Change distributor filter — should trigger re-search
-    fireEvent.change(screen.getByLabelText('Filter by distributor'), { target: { value: '1' } })
+    fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'beer' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
 
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
+    })
+
+    fireEvent.change(screen.getByLabelText('Filter by distributor'), { target: { value: '1' } })
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(3)
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('beer', {
         departmentId: undefined,
         distributorNumber: 1
@@ -367,24 +384,27 @@ describe('SearchModal', () => {
   it('resets item type filter to all when cleared', async () => {
     await renderOpenSearchModal()
 
-    // Search, then set filter, then clear it
-    fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'wine' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
-
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(1)
     })
 
-    fireEvent.change(screen.getByLabelText('Filter by item type'), { target: { value: '1' } })
+    fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'wine' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
 
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
     })
 
-    fireEvent.change(screen.getByLabelText('Filter by item type'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('Filter by item type'), { target: { value: '1' } })
 
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(3)
+    })
+
+    fireEvent.change(screen.getByLabelText('Filter by item type'), { target: { value: '' } })
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(4)
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('wine', {
         departmentId: undefined,
         distributorNumber: undefined

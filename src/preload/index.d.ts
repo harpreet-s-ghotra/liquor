@@ -49,6 +49,7 @@ import type {
   CatalogDistributor,
   ImportResult,
   SyncStatus,
+  InitialSyncStatus,
   DeviceConfig,
   ReportDateRange,
   SalesSummaryReport,
@@ -60,7 +61,16 @@ import type {
   HourlySalesReport,
   ReportExportRequest,
   BusinessInfoInput,
-  ProvisionMerchantResult
+  ProvisionMerchantResult,
+  Register,
+  LowStockProduct,
+  MerchantStatus,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  PurchaseOrderDetail,
+  CreatePurchaseOrderInput,
+  UpdatePurchaseOrderInput,
+  ReceivePurchaseOrderItemInput
 } from '../shared/types'
 
 type AppApi = {
@@ -87,7 +97,7 @@ type AppApi = {
   createTaxCode: (input: CreateTaxCodeInput) => Promise<TaxCode>
   updateTaxCode: (input: UpdateTaxCodeInput) => Promise<TaxCode>
   deleteTaxCode: (id: number) => Promise<void>
-  applyTaxToAll: (taxRate: number) => Promise<{ updated: number }>
+  applyTaxToAll: (taxCodeId: number) => Promise<{ updated: number }>
   getDistributors: () => Promise<Distributor[]>
   createDistributor: (input: CreateDistributorInput) => Promise<Distributor>
   updateDistributor: (input: UpdateDistributorInput) => Promise<Distributor>
@@ -170,8 +180,11 @@ type AppApi = {
 
   // Cloud Sync
   getSyncStatus: () => Promise<SyncStatus>
+  getInitialSyncStatus: () => Promise<InitialSyncStatus>
+  retryInitialSync: () => Promise<void>
   getDeviceConfig: () => Promise<DeviceConfig | null>
   onConnectivityChanged: (callback: (online: boolean) => void) => void
+  onInitialSyncStatusChanged: (callback: (status: InitialSyncStatus) => void) => void
 
   // Sessions
   getActiveSession: () => Promise<Session | null>
@@ -205,6 +218,39 @@ type AppApi = {
   onUpdateError: (callback: (err: { message: string }) => void) => void
   checkForUpdates: () => Promise<void>
   installUpdate: () => Promise<void>
+
+  // Manager — Registers
+  listRegisters: () => Promise<Register[]>
+  renameRegister: (id: string, newName: string) => Promise<void>
+  deleteRegister: (id: string) => Promise<void>
+
+  // Manager — Low Stock
+  getLowStockProducts: (threshold: number) => Promise<LowStockProduct[]>
+  getUnpricedProducts: () => Promise<InventoryProduct[]>
+  findProductBySku: (sku: string) => Promise<Product | null>
+  toggleFavorite: (productId: number) => Promise<void>
+  getDistinctSizes: () => Promise<string[]>
+
+  // Manager — Merchant Status
+  getFinixMerchantStatus: () => Promise<MerchantStatus>
+
+  // Purchase Orders
+  getPurchaseOrders: () => Promise<PurchaseOrder[]>
+  getPurchaseOrderDetail: (poId: number) => Promise<PurchaseOrderDetail | null>
+  createPurchaseOrder: (input: CreatePurchaseOrderInput) => Promise<PurchaseOrderDetail>
+  updatePurchaseOrder: (input: UpdatePurchaseOrderInput) => Promise<PurchaseOrder>
+  receivePurchaseOrderItem: (input: ReceivePurchaseOrderItemInput) => Promise<PurchaseOrderItem>
+  addPurchaseOrderItem: (
+    poId: number,
+    productId: number,
+    quantityOrdered: number
+  ) => Promise<PurchaseOrderItem>
+  removePurchaseOrderItem: (poId: number, itemId: number) => Promise<void>
+  deletePurchaseOrder: (poId: number) => Promise<void>
+
+  // Zoom
+  getZoomFactor: () => Promise<number>
+  setZoomFactor: (factor: number) => Promise<void>
 }
 
 declare global {

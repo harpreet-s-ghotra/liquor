@@ -1,0 +1,150 @@
+.sync-progress-modal {
+  display: flex;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.sync-progress-modal__card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-default);
+  border-radius: 1rem;
+  box-shadow: 0px 25px 50px -12px rgba(0, 0, 0, 0.4);
+  background: var(--bg-panel);
+  width: 480px;
+  max-width: 90vw;
+  overflow: hidden;
+}
+
+.sync-progress-modal__header {
+  border-bottom: 1px solid var(--border-default);
+  background: #2d3133;
+  padding: 1.25rem 1.5rem;
+}
+
+.sync-progress-modal__title {
+  margin: 0 0 0.25rem;
+  color: var(--text-on-dark);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.sync-progress-modal__subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.sync-progress-modal__entities {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+}
+
+.sync-progress-modal__row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.sync-progress-modal__row-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  text-align: center;
+  line-height: 1.5;
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+
+.sync-progress-modal__row--done .sync-progress-modal__row-icon {
+  color: var(--semantic-success-text);
+}
+
+.sync-progress-modal__row--failed .sync-progress-modal__row-icon {
+  color: var(--semantic-danger-text);
+}
+
+.sync-progress-modal__row--active .sync-progress-modal__row-icon {
+  color: var(--accent-blue);
+}
+
+.sync-progress-modal__row-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.sync-progress-modal__row-label {
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
+.sync-progress-modal__row--pending .sync-progress-modal__row-label {
+  color: var(--text-muted);
+}
+
+.sync-progress-modal__row-progress {
+  color: var(--accent-blue);
+  font-size: var(--text-sm);
+}
+
+.sync-progress-modal__row-ok {
+  color: var(--semantic-success-text);
+  font-size: var(--text-sm);
+}
+
+.sync-progress-modal__row-error {
+  color: var(--semantic-danger-text);
+  font-size: var(--text-sm);
+}
+
+.sync-progress-modal__done {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid var(--border-default);
+  padding: 1rem 1.5rem;
+}
+
+.sync-progress-modal__done-check {
+  color: var(--semantic-success-text);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+}
+
+.sync-progress-modal__done-label {
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.sync-progress-modal__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-top: 1px solid var(--border-default);
+  padding: 1rem 1.5rem;
+}
+
+.sync-progress-modal__footer-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.sync-progress-modal__footer-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}

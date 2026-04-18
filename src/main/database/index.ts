@@ -30,7 +30,12 @@ export {
   saveInventoryItem,
   deleteInventoryItem,
   getActiveSpecialPricing,
-  applyTaxToAllProducts
+  applyTaxToAllProducts,
+  getLowStockProducts,
+  getUnpricedInventoryProducts,
+  findProductBySku,
+  toggleFavorite,
+  getDistinctSizes
 } from './products.repo'
 
 // Item Types
@@ -98,6 +103,18 @@ export {
 // Device Config
 export { getDeviceConfig, saveDeviceConfig, clearDeviceConfig } from './device-config.repo'
 
+// Purchase Orders
+export {
+  getPurchaseOrders,
+  getPurchaseOrderDetail,
+  createPurchaseOrder,
+  updatePurchaseOrder,
+  receivePurchaseOrderItem,
+  addPurchaseOrderItem,
+  removePurchaseOrderItem,
+  deletePurchaseOrder
+} from './purchase-orders.repo'
+
 // Reports
 export {
   getSalesSummary,
@@ -106,7 +123,8 @@ export {
   getTaxSummary,
   getComparisonData,
   getCashierSales,
-  getHourlySales
+  getHourlySales,
+  getTransactionList
 } from './reports.repo'
 
 // Sync Queue

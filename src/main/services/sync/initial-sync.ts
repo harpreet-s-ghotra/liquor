@@ -13,14 +13,49 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getDb } from '../../database/connection'
 import { getDeviceConfig } from '../../database/device-config.repo'
 import { applyRemoteProductChange, uploadProduct } from './product-sync'
+import { reconcileCashiers } from './cashier-sync'
+import { reconcileTaxCodes } from './tax-code-sync'
+import { reconcileDistributors } from './distributor-sync'
+import { reconcileItemTypes } from './item-type-sync'
+import { reconcileDepartments } from './department-sync'
+import { reconcileSettings } from './settings-sync'
+import { backfillRecentTransactions } from './transaction-backfill'
 import type { ProductSyncPayload } from './types'
+import type { InitialSyncStatus, InitialSyncEntity } from '../../../shared/types'
 
 const BATCH_SIZE = 500
+
+export type SyncEntity = InitialSyncEntity
 
 export type InitialSyncResult = {
   products_applied: number
   products_uploaded: number
   errors: string[]
+}
+
+// Singleton status — polled via IPC by renderer
+let _syncStatus: InitialSyncStatus = {
+  state: 'idle',
+  currentEntity: null,
+  entityProgress: { done: 0, total: null },
+  completed: [],
+  errors: []
+}
+
+// Callback invoked when status changes (set by main/index.ts to push to renderer)
+let _onStatusChanged: ((status: InitialSyncStatus) => void) | null = null
+
+export function setInitialSyncStatusCallback(cb: (status: InitialSyncStatus) => void): void {
+  _onStatusChanged = cb
+}
+
+export function getInitialSyncStatus(): InitialSyncStatus {
+  return { ..._syncStatus }
+}
+
+function updateStatus(patch: Partial<InitialSyncStatus>): void {
+  _syncStatus = { ..._syncStatus, ...patch }
+  _onStatusChanged?.(_syncStatus)
 }
 
 // ── Helpers ──
@@ -188,8 +223,11 @@ export async function reconcileProducts(
 }
 
 /**
- * Run the full initial product reconciliation.  Errors are logged but do not
- * throw so a single bad row never blocks startup.
+ * Run the full initial reconciliation for all merchant-scoped entities.
+ * Errors are logged but do not throw so a single bad row never blocks startup.
+ *
+ * Order matters — dependencies must be reconciled before products:
+ *   settings → tax_codes → distributors → item_types → departments → cashiers → products → transactions
  */
 export async function runInitialSync(supabase: SupabaseClient, merchantId: string): Promise<void> {
   const device = getDeviceConfig()
@@ -198,21 +236,81 @@ export async function runInitialSync(supabase: SupabaseClient, merchantId: strin
     return
   }
 
-  console.log('[initial-sync] Starting product reconciliation…')
+  updateStatus({
+    state: 'running',
+    currentEntity: null,
+    entityProgress: { done: 0, total: null },
+    completed: [],
+    errors: []
+  })
 
+  const allErrors: Array<{ entity: string; message: string }> = []
+  const completed: SyncEntity[] = []
+
+  const run = async (
+    entity: SyncEntity,
+    fn: () => Promise<{ applied: number; uploaded: number; errors: string[] }>
+  ): Promise<void> => {
+    updateStatus({ currentEntity: entity, entityProgress: { done: 0, total: null } })
+    try {
+      const res = await fn()
+      updateStatus({ entityProgress: { done: res.applied + res.uploaded, total: null } })
+      if (res.errors.length > 0) {
+        for (const e of res.errors) {
+          console.error(`[initial-sync][${entity}] ${e}`)
+          allErrors.push({ entity, message: e })
+        }
+      }
+      console.log(
+        `[initial-sync][${entity}] applied=${res.applied} uploaded=${res.uploaded} errors=${res.errors.length}`
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[initial-sync][${entity}] Fatal: ${msg}`)
+      allErrors.push({ entity, message: msg })
+    }
+    completed.push(entity)
+    updateStatus({ completed: [...completed], errors: allErrors })
+  }
+
+  await run('settings', () => reconcileSettings(supabase, merchantId, device.device_id))
+  await run('tax_codes', () => reconcileTaxCodes(supabase, merchantId, device.device_id))
+  await run('distributors', () => reconcileDistributors(supabase, merchantId, device.device_id))
+  await run('item_types', () => reconcileItemTypes(supabase, merchantId, device.device_id))
+  await run('departments', () => reconcileDepartments(supabase, merchantId, device.device_id))
+  await run('cashiers', () => reconcileCashiers(supabase, merchantId, device.device_id))
+
+  // Products — uses dedicated result type to track applied/uploaded separately
+  updateStatus({ currentEntity: 'products', entityProgress: { done: 0, total: null } })
   try {
     const result = await reconcileProducts(supabase, merchantId, device.device_id)
-
-    console.log(
-      `[initial-sync] Done: applied=${result.products_applied} uploaded=${result.products_uploaded} errors=${result.errors.length}`
-    )
-
+    updateStatus({
+      entityProgress: { done: result.products_applied + result.products_uploaded, total: null }
+    })
     if (result.errors.length > 0) {
-      for (const err of result.errors) {
-        console.error(`[initial-sync] ${err}`)
+      for (const e of result.errors) {
+        console.error(`[initial-sync][products] ${e}`)
+        allErrors.push({ entity: 'products', message: e })
       }
     }
+    console.log(
+      `[initial-sync][products] applied=${result.products_applied} uploaded=${result.products_uploaded} errors=${result.errors.length}`
+    )
   } catch (err) {
-    console.error('[initial-sync] Fatal error during reconciliation:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[initial-sync][products] Fatal: ${msg}`)
+    allErrors.push({ entity: 'products', message: msg })
   }
+  completed.push('products')
+
+  await run('transactions', () => backfillRecentTransactions(supabase, merchantId))
+
+  updateStatus({
+    state: allErrors.length > 0 ? 'failed' : 'done',
+    currentEntity: null,
+    completed,
+    errors: allErrors
+  })
+
+  console.log(`[initial-sync] Complete. entities=${completed.length} errors=${allErrors.length}`)
 }

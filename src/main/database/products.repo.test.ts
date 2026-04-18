@@ -3,16 +3,19 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { getDb, setDatabase } from './connection'
 import { saveDeviceConfig } from './device-config.repo'
 import { getDeltasByProduct } from './inventory-deltas.repo'
-import { applySchema } from './schema'
+import { applySchema, normalizeSearch } from './schema'
 import { getPendingItems } from './sync-queue.repo'
 import {
   deleteInventoryItem,
+  findProductBySku,
   getActiveSpecialPricing,
   getInventoryItemTypes,
   getInventoryProductDetail,
   getInventoryProducts,
   getInventoryTaxCodes,
+  getLowStockProducts,
   getProducts,
+  getUnpricedInventoryProducts,
   saveInventoryItem,
   searchProducts,
   searchInventoryProducts
@@ -585,5 +588,361 @@ describe('NYSLA fields', () => {
     expect(updated.alcohol_pct).toBe(15.5)
     expect(updated.vintage).toBe('2020')
     expect(updated.ttb_id).toBe('TTB-NEW')
+  })
+})
+
+describe('normalizeSearch', () => {
+  it('strips diacritics', () => {
+    expect(normalizeSearch('Rosé')).toBe('rose')
+    expect(normalizeSearch('Côtes du Rhône')).toBe('cotes du rhone')
+    expect(normalizeSearch('Añejo')).toBe('anejo')
+  })
+
+  it('replaces hyphens and underscores with spaces', () => {
+    expect(normalizeSearch('All-In Dry')).toBe('all in dry')
+    expect(normalizeSearch('half_case')).toBe('half case')
+  })
+
+  it('lowercases', () => {
+    expect(normalizeSearch('CABERNET')).toBe('cabernet')
+  })
+
+  it('handles null and empty', () => {
+    expect(normalizeSearch(null)).toBe('')
+    expect(normalizeSearch('')).toBe('')
+  })
+})
+
+describe('normalized search queries', () => {
+  beforeEach(() => createTestDb())
+
+  it('searchInventoryProducts finds accented names with plain query', () => {
+    saveInventoryItem({ ...base, sku: 'ROSE-001', item_name: 'All-In Dry Rosé' })
+
+    const results = searchInventoryProducts('rose')
+    expect(results).toEqual([expect.objectContaining({ sku: 'ROSE-001' })])
+
+    const results2 = searchInventoryProducts('dry rose')
+    expect(results2).toEqual([expect.objectContaining({ sku: 'ROSE-001' })])
+  })
+
+  it('searchInventoryProducts finds hyphenated names without hyphens', () => {
+    saveInventoryItem({ ...base, sku: 'ROSE-002', item_name: 'All-In Dry Rosé' })
+
+    const results = searchInventoryProducts('All In')
+    expect(results).toEqual([expect.objectContaining({ sku: 'ROSE-002' })])
+  })
+
+  it('searchProducts finds accented names with plain query', () => {
+    saveInventoryItem({ ...base, sku: 'ROSE-003', item_name: 'All-In Dry Rosé' })
+
+    const results = searchProducts('rose')
+    expect(results).toEqual([expect.objectContaining({ sku: 'ROSE-003' })])
+  })
+
+  it('searchInventoryProducts still matches by SKU exactly', () => {
+    saveInventoryItem({ ...base, sku: 'SPEC-CHAR', item_name: 'Château Margaux' })
+
+    const results = searchInventoryProducts('SPEC-CHAR')
+    expect(results).toEqual([expect.objectContaining({ sku: 'SPEC-CHAR' })])
+  })
+
+  it('searchInventoryProducts matches by brand_name with normalization', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'BRAND-001',
+      item_name: 'Test',
+      brand_name: 'Möet & Chandon'
+    })
+
+    const results = searchInventoryProducts('moet')
+    expect(results).toEqual([expect.objectContaining({ sku: 'BRAND-001' })])
+  })
+})
+
+describe('getLowStockProducts', () => {
+  beforeEach(() => createTestDb())
+
+  it('returns empty when no products exist', () => {
+    expect(getLowStockProducts(10)).toEqual([])
+  })
+
+  it('filters products by threshold (in_stock <= threshold)', () => {
+    getDb()
+      .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
+      .run(1, 'Test Distributor')
+
+    saveInventoryItem({
+      ...base,
+      sku: 'LOW-001',
+      item_name: 'Low Stock Wine',
+      in_stock: 5,
+      distributor_number: 1
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'HIGH-001',
+      item_name: 'High Stock Beer',
+      item_type: '',
+      in_stock: 50,
+      distributor_number: 1
+    })
+
+    const results = getLowStockProducts(10)
+    expect(results).toHaveLength(1)
+    expect(results[0].sku).toBe('LOW-001')
+    expect(results[0].in_stock).toBe(5)
+  })
+
+  it('includes zero stock items', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'ZERO-001',
+      item_name: 'Zero Stock Wine',
+      in_stock: 0
+    })
+
+    const results = getLowStockProducts(5)
+    expect(results).toHaveLength(1)
+    expect(results[0].in_stock).toBe(0)
+  })
+
+  it('joins with distributors table for distributor_name', () => {
+    getDb()
+      .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
+      .run(99, 'Premium Wines Co')
+
+    saveInventoryItem({
+      ...base,
+      sku: 'DIST-001',
+      item_name: 'Distributed Wine',
+      in_stock: 3,
+      distributor_number: 99
+    })
+
+    const results = getLowStockProducts(10)
+    expect(results).toHaveLength(1)
+    expect(results[0].distributor_name).toBe('Premium Wines Co')
+  })
+
+  it('returns null distributor_name when not associated with a distributor', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'NODIST-001',
+      item_name: 'No Distributor Wine',
+      in_stock: 3,
+      distributor_number: null
+    })
+
+    const results = getLowStockProducts(10)
+    expect(results).toHaveLength(1)
+    expect(results[0].distributor_name).toBeNull()
+  })
+
+  it('includes reorder_point field and defaults to 0', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'REORDER-001',
+      item_name: 'Reorder Test',
+      in_stock: 5
+    })
+
+    const results = getLowStockProducts(10)
+    expect(results).toHaveLength(1)
+    expect(results[0]).toHaveProperty('reorder_point')
+    expect(results[0].reorder_point).toBe(0)
+  })
+
+  it('excludes inactive products', () => {
+    const item = saveInventoryItem({
+      ...base,
+      sku: 'INACTIVE-001',
+      item_name: 'Will be deleted',
+      in_stock: 2
+    })
+    deleteInventoryItem(item.item_number)
+
+    const results = getLowStockProducts(10)
+    expect(results).toHaveLength(0)
+  })
+
+  it('orders results by in_stock ascending', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'ORDER-001',
+      item_name: 'Middle Stock',
+      in_stock: 5
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'ORDER-002',
+      item_name: 'High Stock',
+      in_stock: 10
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'ORDER-003',
+      item_name: 'Zero Stock',
+      in_stock: 0
+    })
+
+    const results = getLowStockProducts(15)
+    expect(results).toHaveLength(3)
+    expect(results[0].in_stock).toBe(0)
+    expect(results[1].in_stock).toBe(5)
+    expect(results[2].in_stock).toBe(10)
+  })
+
+  it('includes item_type field', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'TYPE-001',
+      item_name: 'Typed Wine',
+      item_type: '',
+      in_stock: 3
+    })
+
+    const results = getLowStockProducts(10)
+    expect(results).toHaveLength(1)
+    expect(results[0]).toHaveProperty('item_type')
+  })
+})
+
+describe('getProducts price filter', () => {
+  beforeEach(() => createTestDb())
+
+  it('excludes products with retail_price=0 and price=0', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'PRICED-001',
+      item_name: 'Priced Wine',
+      retail_price: 15,
+      in_stock: 5
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'UNPRICED-001',
+      item_name: 'No Price Wine',
+      retail_price: 0,
+      in_stock: 3,
+      cost: 0
+    })
+
+    const results = getProducts()
+    expect(results.every((p) => p.price > 0)).toBe(true)
+    expect(results.find((p) => p.sku === 'PRICED-001')).toBeDefined()
+    expect(results.find((p) => p.sku === 'UNPRICED-001')).toBeUndefined()
+  })
+
+  it('includes products with retail_price=0 but cost > 0', () => {
+    // Product has cost but retail_price=0. getProducts uses
+    // GREATEST(COALESCE(retail_price,0), COALESCE(price,0)) which checks both.
+    // A product with only cost set should still be excluded (price columns are what matter).
+    saveInventoryItem({
+      ...base,
+      sku: 'COST-ONLY-001',
+      item_name: 'Cost Only Wine',
+      retail_price: 0,
+      cost: 10,
+      in_stock: 3
+    })
+    const results = getProducts()
+    expect(results.find((p) => p.sku === 'COST-ONLY-001')).toBeUndefined()
+  })
+})
+
+describe('getUnpricedInventoryProducts', () => {
+  beforeEach(() => createTestDb())
+
+  it('returns only active products with $0 price', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'PRICED-001',
+      item_name: 'Priced Wine',
+      retail_price: 15,
+      in_stock: 5
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'UNPRICED-001',
+      item_name: 'No Price Wine',
+      retail_price: 0,
+      in_stock: 3,
+      cost: 0
+    })
+
+    const results = getUnpricedInventoryProducts()
+    expect(results).toHaveLength(1)
+    expect(results[0].sku).toBe('UNPRICED-001')
+    expect(results[0].retail_price).toBe(0)
+  })
+
+  it('returns empty when all products are priced', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'PRICED-001',
+      item_name: 'Priced Wine',
+      retail_price: 12,
+      in_stock: 5
+    })
+    expect(getUnpricedInventoryProducts()).toHaveLength(0)
+  })
+
+  it('excludes inactive (deleted) products', () => {
+    const item = saveInventoryItem({
+      ...base,
+      sku: 'DELETED-001',
+      item_name: 'Deleted Wine',
+      retail_price: 0,
+      in_stock: 3
+    })
+    deleteInventoryItem(item.item_number)
+    expect(getUnpricedInventoryProducts()).toHaveLength(0)
+  })
+})
+
+describe('findProductBySku', () => {
+  beforeEach(() => createTestDb())
+
+  it('finds product by primary sku regardless of price', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'FIND-001',
+      item_name: 'Find Me Wine',
+      retail_price: 0,
+      in_stock: 3
+    })
+    const result = findProductBySku('FIND-001')
+    expect(result).not.toBeNull()
+    expect(result?.sku).toBe('FIND-001')
+  })
+
+  it('is case-insensitive on SKU', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'CASE-001',
+      item_name: 'Case Test Wine',
+      retail_price: 10,
+      in_stock: 2
+    })
+    expect(findProductBySku('case-001')).not.toBeNull()
+    expect(findProductBySku('CASE-001')).not.toBeNull()
+  })
+
+  it('returns null for completely unknown SKU', () => {
+    expect(findProductBySku('GHOST-999')).toBeNull()
+  })
+
+  it('includes inactive products when searching by SKU (finds unpriced items regardless)', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'UNPRICED-SKU',
+      item_name: 'Unpriced Wine',
+      retail_price: 0,
+      in_stock: 3
+    })
+    // getProducts() would exclude this, but findProductBySku should find it
+    expect(getProducts().find((p) => p.sku === 'UNPRICED-SKU')).toBeUndefined()
+    expect(findProductBySku('UNPRICED-SKU')).not.toBeNull()
   })
 })

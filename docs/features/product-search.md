@@ -99,8 +99,8 @@ Filters are applied _in combination_ with the search text. Changing a filter re-
 
 - Rows are clickable — clicking a row adds the item to the cart and closes the modal
 - Empty state: "No items found. Try a different search." (shown when search returns 0 results)
-- Initial state: "Type a search term to find items." (shown before any search)
-- Max results: display up to 50 rows (paginate or truncate if more)
+- Initial state: on open, auto-runs an empty search and shows all active products (no empty-form prompt)
+- Max results: display up to 100 rows (truncate if more)
 
 ### Search Bar (Bottom)
 
@@ -150,7 +150,7 @@ WHERE p.active = 1
   AND (? IS NULL OR p.dept_id = ?)
   AND (? IS NULL OR p.distributor_number = ?)
 ORDER BY p.name ASC
-LIMIT 50
+LIMIT 100
 ```
 
 ## Component Structure

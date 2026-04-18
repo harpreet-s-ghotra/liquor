@@ -152,10 +152,7 @@ const loginWithPin = async (page: Page): Promise<void> => {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
 
-  await page
-    .locator('.action-panel__product-tile')
-    .first()
-    .waitFor({ state: 'visible', timeout: 10000 })
+  await page.locator('.ticket-panel').waitFor({ state: 'visible', timeout: 10000 })
 }
 
 const gotoAndLogin = async (page: Page): Promise<void> => {
@@ -282,7 +279,7 @@ test.describe('Clock Out', () => {
 
     // Modal should be gone, POS screen visible
     await expect(page.getByTestId('session-list')).not.toBeVisible()
-    await expect(page.locator('.action-panel__product-tile').first()).toBeVisible()
+    await expect(page.locator('.ticket-panel')).toBeVisible()
   })
 
   test('PIN Cancel returns to session list', async ({ page }) => {

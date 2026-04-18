@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 import { PIN_LENGTH } from '../../../shared/constants'
 import { stripIpcPrefix } from '../utils/ipc-error'
+import { PasswordInput } from '../components/common/PasswordInput'
 import '../styles/auth.css'
 
 type PinSection = {
@@ -94,10 +95,8 @@ export function PinSetupScreen(): React.JSX.Element {
               <label htmlFor="admin-pin" className="auth-label">
                 PIN ({PIN_LENGTH} digits)
               </label>
-              <input
+              <PasswordInput
                 id="admin-pin"
-                type="password"
-                className="auth-input"
                 placeholder="4-digit PIN"
                 value={admin.pin}
                 onChange={(e) => setAdmin((p) => ({ ...p, pin: handlePinInput(e.target.value) }))}
@@ -110,10 +109,8 @@ export function PinSetupScreen(): React.JSX.Element {
               <label htmlFor="admin-pin-confirm" className="auth-label">
                 Confirm PIN
               </label>
-              <input
+              <PasswordInput
                 id="admin-pin-confirm"
-                type="password"
-                className="auth-input"
                 placeholder="Confirm PIN"
                 value={admin.confirmPin}
                 onChange={(e) =>
@@ -149,10 +146,8 @@ export function PinSetupScreen(): React.JSX.Element {
               <label htmlFor="cashier-pin" className="auth-label">
                 PIN ({PIN_LENGTH} digits)
               </label>
-              <input
+              <PasswordInput
                 id="cashier-pin"
-                type="password"
-                className="auth-input"
                 placeholder="4-digit PIN"
                 value={cashier.pin}
                 onChange={(e) => setCashier((p) => ({ ...p, pin: handlePinInput(e.target.value) }))}
@@ -165,10 +160,8 @@ export function PinSetupScreen(): React.JSX.Element {
               <label htmlFor="cashier-pin-confirm" className="auth-label">
                 Confirm PIN
               </label>
-              <input
+              <PasswordInput
                 id="cashier-pin-confirm"
-                type="password"
-                className="auth-input"
                 placeholder="Confirm PIN"
                 value={cashier.confirmPin}
                 onChange={(e) =>

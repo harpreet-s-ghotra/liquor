@@ -31,6 +31,8 @@ export type CloudTransactionItemPayload = {
   product_name: string
   quantity: number
   unit_price: number
+  cost_at_sale?: number | null
+  cost_basis_source?: string | null
   total_price: number
 }
 
@@ -58,7 +60,17 @@ export type TransactionSyncPayload = {
     product_name: string
     quantity: number
     unit_price: number
+    cost_at_sale?: number | null
+    cost_basis_source?: string | null
     total_price: number
+  }>
+  payments?: Array<{
+    method: string
+    amount: number
+    card_last_four?: string | null
+    card_type?: string | null
+    finix_authorization_id?: string | null
+    finix_transfer_id?: string | null
   }>
 }
 
@@ -179,6 +191,51 @@ export type ItemTypeSyncPayload = {
     description: string | null
     default_profit_margin: number
     default_tax_rate: number
+    updated_at: string
+  }
+}
+
+/** Payload shape for uploading a department to merchant_departments */
+export type CloudDepartmentPayload = {
+  merchant_id: string
+  name: string
+  tax_code_id: string | null
+  is_deleted: boolean
+  device_id: string
+  updated_at: string
+}
+
+export type DepartmentSyncPayload = {
+  department: {
+    id: number
+    cloud_id?: string | null
+    name: string
+    tax_code_id: string | null
+    is_deleted: number
+    updated_at: string
+  }
+}
+
+/** Payload shape for uploading merchant business settings */
+export type CloudMerchantSettingsPayload = {
+  merchant_id: string
+  store_name: string | null
+  receipt_header: string | null
+  receipt_footer: string | null
+  theme: string | null
+  extras_json: Record<string, unknown>
+  device_id: string
+  updated_at: string
+}
+
+export type MerchantSettingsSyncPayload = {
+  settings: {
+    merchant_id: string
+    store_name: string | null
+    receipt_header: string | null
+    receipt_footer: string | null
+    theme: string | null
+    extras_json: Record<string, unknown>
     updated_at: string
   }
 }

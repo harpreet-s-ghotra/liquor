@@ -46,6 +46,8 @@ const detail = {
   card_type: 'visa',
   status: 'completed',
   original_transaction_id: null,
+  has_refund: false,
+  payments: [],
   created_at: '2026-03-27T10:00:00.000Z',
   items: [
     {
@@ -214,6 +216,44 @@ describe('SalesHistoryModal', () => {
     })
 
     expect(screen.queryByTestId('sales-history-recall-btn')).not.toBeInTheDocument()
+  })
+
+  it('shows split payment tenders in expanded detail', async () => {
+    const splitDetail = {
+      ...detail,
+      payment_method: 'split',
+      card_last_four: null,
+      card_type: null,
+      payments: [
+        { id: 1, method: 'cash', amount: 10 },
+        {
+          id: 2,
+          method: 'credit',
+          amount: 12,
+          card_last_four: '4242',
+          card_type: 'visa',
+          finix_authorization_id: 'AU-1',
+          finix_transfer_id: 'TR-1'
+        }
+      ]
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.getTransactionByNumber = vi.fn().mockResolvedValue(splitDetail)
+
+    render(<SalesHistoryModal isOpen={true} onClose={vi.fn()} onRecallTransaction={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sales-history-row-1')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTestId('sales-history-row-1'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sales-history-tenders')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/Cash: \$10\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/Credit \(Visa \*\*\*\*4242\): \$12\.00/)).toBeInTheDocument()
   })
 
   it('updates page when next button is clicked', async () => {

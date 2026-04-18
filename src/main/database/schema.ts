@@ -158,6 +158,11 @@ function migrateTransactionGatewayColumns(database: InstanceType<typeof Database
  */
 function migrateDepartmentsToItemTypes(database: InstanceType<typeof Database>): void {
   if (!tableExists(database, 'departments')) return
+
+  // New schema reintroduces departments as a first-class table for cloud sync.
+  // If this is the new departments table, skip the legacy rename migration.
+  if (columnExists(database, 'departments', 'tax_code_id')) return
+
   if (tableExists(database, 'item_types')) {
     // item_types already exists — move any departments rows that are missing
     database.exec(`
@@ -185,7 +190,25 @@ function migrateDeptIdToItemType(database: InstanceType<typeof Database>): void 
   `)
 }
 
+/**
+ * Strip diacritics (é→e, ñ→n) and collapse hyphens/punctuation to spaces.
+ * Used as a custom SQLite function so LIKE queries match loosely.
+ */
+export function normalizeSearch(value: string | null): string {
+  if (!value) return ''
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-_./]/g, ' ')
+    .toLowerCase()
+}
+
 export function applySchema(database: InstanceType<typeof Database>): void {
+  // Register custom search normalizer (strips diacritics + punctuation)
+  database.function('normalize_search', { deterministic: true }, (val: unknown) =>
+    normalizeSearch(val as string | null)
+  )
+
   // ── Migrations ──
   migrateVendorsToDistributors(database)
   migrateStaxApiKey(database)
@@ -287,6 +310,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       card_type TEXT,
       status TEXT DEFAULT 'completed',
       notes TEXT,
+      backfilled INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -297,14 +321,52 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       product_name TEXT NOT NULL,
       quantity INTEGER NOT NULL,
       unit_price REAL NOT NULL,
+      cost_at_sale REAL,
+      cost_basis_source TEXT DEFAULT 'fifo_layer',
       total_price REAL NOT NULL,
       FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS transaction_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_id INTEGER NOT NULL,
+      method TEXT NOT NULL,
+      amount REAL NOT NULL,
+      card_last_four TEXT,
+      card_type TEXT,
+      finix_authorization_id TEXT,
+      finix_transfer_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (transaction_id) REFERENCES transactions(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS product_cost_layers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL,
+      received_at DATETIME NOT NULL,
+      quantity_received INTEGER NOT NULL,
+      quantity_remaining INTEGER NOT NULL,
+      cost_per_unit REAL NOT NULL,
+      source TEXT,
+      source_reference TEXT,
+      device_id TEXT,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
 
     CREATE TABLE IF NOT EXISTS item_types (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS departments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      tax_code_id TEXT,
+      is_deleted INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -323,6 +385,11 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       finix_api_password TEXT NOT NULL DEFAULT '',
       merchant_id TEXT NOT NULL,
       merchant_name TEXT NOT NULL,
+      store_name TEXT,
+      receipt_header TEXT,
+      receipt_footer TEXT,
+      theme TEXT,
+      settings_extras_json TEXT NOT NULL DEFAULT '{}',
       activated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -394,6 +461,39 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
+
+    CREATE TABLE IF NOT EXISTS purchase_orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      po_number TEXT UNIQUE NOT NULL,
+      distributor_number INTEGER NOT NULL,
+      distributor_name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft'
+        CHECK (status IN ('draft', 'submitted', 'received', 'cancelled')),
+      notes TEXT,
+      subtotal REAL NOT NULL DEFAULT 0,
+      total REAL NOT NULL DEFAULT 0,
+      received_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (distributor_number) REFERENCES distributors(distributor_number)
+    );
+
+    CREATE TABLE IF NOT EXISTS purchase_order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      po_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      sku TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      unit_cost REAL NOT NULL,
+      quantity_ordered INTEGER NOT NULL CHECK (quantity_ordered > 0),
+      quantity_received INTEGER DEFAULT 0 CHECK (quantity_received >= 0),
+      line_total REAL NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (po_id) REFERENCES purchase_orders(id),
+      FOREIGN KEY (product_id) REFERENCES products(id),
+      UNIQUE(po_id, product_id)
+    );
   `)
 
   // ── Column migrations ──
@@ -406,6 +506,13 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('transactions', 'session_id', 'session_id INTEGER')
   ensureColumn('transactions', 'device_id', 'device_id TEXT')
   ensureColumn('transactions', 'synced_at', 'synced_at DATETIME')
+  ensureColumn('transactions', 'backfilled', 'backfilled INTEGER NOT NULL DEFAULT 0')
+  ensureColumn('transaction_items', 'cost_at_sale', 'cost_at_sale REAL')
+  ensureColumn(
+    'transaction_items',
+    'cost_basis_source',
+    "cost_basis_source TEXT DEFAULT 'fifo_layer'"
+  )
   ensureColumn(
     'merchant_config',
     'finix_api_username',
@@ -441,6 +548,9 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('products', 'ttb_id', 'ttb_id TEXT')
   ensureColumn('products', 'display_name', 'display_name TEXT')
 
+  // Reorder dashboard
+  ensureColumn('products', 'reorder_point', 'reorder_point INTEGER DEFAULT 0')
+
   // Special pricing column migrations
   ensureColumn('special_pricing', 'pricing_type', "pricing_type TEXT DEFAULT 'group'")
 
@@ -455,10 +565,33 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('distributors', 'premises_name', 'premises_name TEXT')
   ensureColumn('distributors', 'premises_address', 'premises_address TEXT')
 
+  // Favorites
+  ensureColumn('products', 'is_favorite', 'is_favorite INTEGER NOT NULL DEFAULT 0')
+
+  // Departments (legacy table upgraded for cloud sync)
+  ensureColumn('departments', 'tax_code_id', 'tax_code_id TEXT')
+  ensureColumn('departments', 'is_deleted', 'is_deleted INTEGER NOT NULL DEFAULT 0')
+
+  // Merchant business settings
+  ensureColumn('merchant_config', 'store_name', 'store_name TEXT')
+  ensureColumn('merchant_config', 'receipt_header', 'receipt_header TEXT')
+  ensureColumn('merchant_config', 'receipt_footer', 'receipt_footer TEXT')
+  ensureColumn('merchant_config', 'theme', 'theme TEXT')
+  ensureColumn(
+    'merchant_config',
+    'settings_extras_json',
+    "settings_extras_json TEXT NOT NULL DEFAULT '{}'"
+  )
+
   // Cloud sync columns — products
   ensureColumn('products', 'cloud_id', 'cloud_id TEXT')
   ensureColumn('products', 'synced_at', 'synced_at DATETIME')
   ensureColumn('products', 'last_modified_by_device', 'last_modified_by_device TEXT')
+
+  // Cloud sync columns — departments
+  ensureColumn('departments', 'cloud_id', 'cloud_id TEXT')
+  ensureColumn('departments', 'synced_at', 'synced_at DATETIME')
+  ensureColumn('departments', 'last_modified_by_device', 'last_modified_by_device TEXT')
 
   // Cloud sync columns — item_types
   ensureColumn('item_types', 'cloud_id', 'cloud_id TEXT')
@@ -469,6 +602,8 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('tax_codes', 'cloud_id', 'cloud_id TEXT')
   ensureColumn('tax_codes', 'synced_at', 'synced_at DATETIME')
   ensureColumn('tax_codes', 'last_modified_by_device', 'last_modified_by_device TEXT')
+  // Default tax — marks the tax code applied to newly-created / imported items
+  ensureColumn('tax_codes', 'is_default', 'is_default INTEGER NOT NULL DEFAULT 0')
 
   // Cloud sync columns — cashiers
   ensureColumn('cashiers', 'cloud_id', 'cloud_id TEXT')
@@ -494,6 +629,12 @@ export function applySchema(database: InstanceType<typeof Database>): void {
     CREATE INDEX IF NOT EXISTS idx_transactions_session_id ON transactions(session_id);
     CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status);
     CREATE INDEX IF NOT EXISTS idx_sync_queue_entity ON sync_queue(entity_type, entity_id);
+    CREATE INDEX IF NOT EXISTS idx_purchase_orders_distributor ON purchase_orders(distributor_number);
+    CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status);
+    CREATE INDEX IF NOT EXISTS idx_purchase_order_items_po ON purchase_order_items(po_id);
+    CREATE INDEX IF NOT EXISTS idx_departments_name ON departments(name);
+    CREATE INDEX IF NOT EXISTS idx_cost_layers_product_remaining ON product_cost_layers(product_id, received_at);
+    CREATE INDEX IF NOT EXISTS idx_transaction_payments_txn ON transaction_payments(transaction_id);
   `)
 
   // ── Backfill nullable columns ──
@@ -507,6 +648,46 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       tax_2 = COALESCE(tax_2, 0),
       category_name = COALESCE(category_name, category),
       bottles_per_case = COALESCE(bottles_per_case, 12)
+  `)
+
+  // Legacy baseline for historical rows created before FIFO cost capture.
+  database.exec(`
+    UPDATE transaction_items
+    SET
+      cost_at_sale = quantity * COALESCE((SELECT cost FROM products WHERE products.id = transaction_items.product_id), 0),
+      cost_basis_source = 'legacy_baseline'
+    WHERE cost_at_sale IS NULL
+  `)
+
+  // Seed a baseline FIFO layer for legacy stock so historical inventory has a
+  // defensible starting cost basis.
+  database.exec(`
+    INSERT INTO product_cost_layers (
+      product_id,
+      received_at,
+      quantity_received,
+      quantity_remaining,
+      cost_per_unit,
+      source,
+      source_reference,
+      device_id
+    )
+    SELECT
+      p.id,
+      COALESCE(p.updated_at, CURRENT_TIMESTAMP),
+      COALESCE(p.in_stock, p.quantity, 0),
+      COALESCE(p.in_stock, p.quantity, 0),
+      COALESCE(p.cost, 0),
+      'migration_seed',
+      'w6-fifo-seed',
+      p.last_modified_by_device
+    FROM products p
+    WHERE COALESCE(p.in_stock, p.quantity, 0) > 0
+      AND NOT EXISTS (
+        SELECT 1
+        FROM product_cost_layers l
+        WHERE l.product_id = p.id
+      )
   `)
 }
 

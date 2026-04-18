@@ -130,8 +130,16 @@ CREATE TABLE IF NOT EXISTS public.merchant_transaction_items (
   product_name TEXT NOT NULL,
   quantity INTEGER NOT NULL,
   unit_price NUMERIC NOT NULL,
+  cost_at_sale NUMERIC,
+  cost_basis_source TEXT DEFAULT 'fifo_layer',
   total_price NUMERIC NOT NULL
 );
+
+ALTER TABLE public.merchant_transaction_items
+  ADD COLUMN IF NOT EXISTS cost_at_sale NUMERIC;
+
+ALTER TABLE public.merchant_transaction_items
+  ADD COLUMN IF NOT EXISTS cost_basis_source TEXT DEFAULT 'fifo_layer';
 
 ALTER TABLE public.merchant_transaction_items ENABLE ROW LEVEL SECURITY;
 

@@ -1,15 +1,17 @@
-import { createHash } from 'crypto'
+import * as bcrypt from 'bcrypt'
 import { getDb } from './connection'
 import { getDeviceConfig } from './device-config.repo'
 import { enqueueSyncItem } from './sync-queue.repo'
 import type { Cashier, CreateCashierInput, UpdateCashierInput } from '../../shared/types'
 import type { CashierSyncPayload } from '../services/sync/types'
 
+const BCRYPT_ROUNDS = 10
+
 /**
- * Hash a 4-digit PIN using SHA-256.
+ * Hash a 4-digit PIN using bcrypt.
  */
 export function hashPin(pin: string): string {
-  return createHash('sha256').update(pin).digest('hex')
+  return bcrypt.hashSync(pin, BCRYPT_ROUNDS)
 }
 
 /**
@@ -47,14 +49,21 @@ export function createCashier(input: CreateCashierInput): Cashier {
  */
 export function validatePin(pin: string): Cashier | null {
   const db = getDb()
-  const pinHash = hashPin(pin)
-  const row = db
+  const rows = db
     .prepare(
-      'SELECT id, name, role, is_active, created_at FROM cashiers WHERE pin_hash = ? AND is_active = 1'
+      'SELECT id, name, role, is_active, created_at, pin_hash FROM cashiers WHERE is_active = 1'
     )
-    .get(pinHash)
+    .all() as (Cashier & { pin_hash: string })[]
 
-  return (row as Cashier) ?? null
+  for (const row of rows) {
+    if (bcrypt.compareSync(pin, row.pin_hash)) {
+      // Return without pin_hash
+      const { pin_hash: _pinHash, ...cashier } = row
+      return cashier as Cashier
+    }
+  }
+
+  return null
 }
 
 /**

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { getDb, setDatabase } from './connection'
 import { saveDeviceConfig } from './device-config.repo'
 import { getDeltasByProduct } from './inventory-deltas.repo'
+import { createCostLayer, listOpenCostLayers } from './product-cost-layers.repo'
 import { saveInventoryItem } from './products.repo'
 import { applySchema } from './schema'
 import { createSession } from './sessions.repo'
@@ -384,5 +385,220 @@ describe('transactions sync hooks', () => {
       original_transaction_id: sale.id,
       notes: `Refund for ${sale.transaction_number}`
     })
+  })
+
+  it('records FIFO cost_at_sale and consumes oldest layers first', () => {
+    const productId = createProduct()
+
+    createCostLayer({
+      productId,
+      quantity: 5,
+      costPerUnit: 12,
+      source: 'receiving',
+      sourceReference: 'test-po'
+    })
+
+    const sale = saveTransaction({
+      subtotal: 180,
+      tax_amount: 0,
+      total: 180,
+      payment_method: 'cash',
+      items: [
+        {
+          product_id: productId,
+          product_name: 'Syncable Bottle',
+          quantity: 12,
+          unit_price: 15,
+          total_price: 180
+        }
+      ]
+    })
+
+    const row = getDb()
+      .prepare('SELECT cost_at_sale FROM transaction_items WHERE transaction_id = ? LIMIT 1')
+      .get(sale.id) as { cost_at_sale: number }
+
+    // 10 units from seed layer @ $8 + 2 units from new layer @ $12 = $104
+    expect(row.cost_at_sale).toBeCloseTo(104, 4)
+
+    const openLayers = listOpenCostLayers(productId)
+    const totalRemaining = openLayers.reduce((sum, l) => sum + l.quantity_remaining, 0)
+    expect(totalRemaining).toBe(3)
+    expect(openLayers[0].cost_per_unit).toBe(12)
+    expect(openLayers[0].quantity_remaining).toBe(3)
+  })
+
+  it('creates a refund cost layer using original sale average unit cost', () => {
+    const productId = createProduct()
+
+    const sale = saveTransaction({
+      subtotal: 30,
+      tax_amount: 0,
+      total: 30,
+      payment_method: 'cash',
+      items: [
+        {
+          product_id: productId,
+          product_name: 'Syncable Bottle',
+          quantity: 2,
+          unit_price: 15,
+          total_price: 30
+        }
+      ]
+    })
+
+    saveRefundTransaction({
+      original_transaction_id: sale.id,
+      original_transaction_number: sale.transaction_number,
+      subtotal: -15,
+      tax_amount: 0,
+      total: -15,
+      payment_method: 'cash',
+      items: [
+        {
+          product_id: productId,
+          product_name: 'Syncable Bottle',
+          quantity: 1,
+          unit_price: -15,
+          total_price: -15
+        }
+      ]
+    })
+
+    const refundLayer = listOpenCostLayers(productId).find((l) => l.source === 'refund')
+    expect(refundLayer).toBeDefined()
+    expect(refundLayer?.quantity_received).toBe(1)
+    expect(refundLayer?.quantity_remaining).toBe(1)
+    expect(refundLayer?.cost_per_unit).toBeCloseTo(8, 4)
+  })
+})
+
+describe('split payments', () => {
+  beforeEach(() => {
+    createTestDb()
+  })
+
+  it('saves payment_method as "split" when multiple tender methods', () => {
+    const productId = createProduct()
+
+    const saved = saveTransaction({
+      subtotal: 10,
+      tax_amount: 0,
+      total: 10,
+      payment_method: 'cash',
+      payments: [
+        { method: 'cash', amount: 2 },
+        {
+          method: 'credit',
+          amount: 8,
+          card_last_four: '4242',
+          card_type: 'visa',
+          finix_authorization_id: 'AU-1',
+          finix_transfer_id: 'TR-1'
+        }
+      ],
+      items: [
+        {
+          product_id: productId,
+          product_name: 'Syncable Bottle',
+          quantity: 1,
+          unit_price: 10,
+          total_price: 10
+        }
+      ]
+    })
+
+    expect(saved.payment_method).toBe('split')
+  })
+
+  it('saves payment_method as the single method when all tenders are the same', () => {
+    const productId = createProduct()
+
+    const saved = saveTransaction({
+      subtotal: 10,
+      tax_amount: 0,
+      total: 10,
+      payment_method: 'cash',
+      payments: [
+        { method: 'cash', amount: 5 },
+        { method: 'cash', amount: 5 }
+      ],
+      items: [
+        {
+          product_id: productId,
+          product_name: 'Syncable Bottle',
+          quantity: 1,
+          unit_price: 10,
+          total_price: 10
+        }
+      ]
+    })
+
+    expect(saved.payment_method).toBe('cash')
+  })
+
+  it('getTransactionByNumber returns payments array for split transaction', () => {
+    const productId = createProduct()
+
+    const saved = saveTransaction({
+      subtotal: 10,
+      tax_amount: 0,
+      total: 10,
+      payment_method: 'cash',
+      payments: [
+        { method: 'cash', amount: 2 },
+        {
+          method: 'credit',
+          amount: 8,
+          card_last_four: '4242',
+          card_type: 'visa',
+          finix_authorization_id: 'AU-1',
+          finix_transfer_id: 'TR-1'
+        }
+      ],
+      items: [
+        {
+          product_id: productId,
+          product_name: 'Syncable Bottle',
+          quantity: 1,
+          unit_price: 10,
+          total_price: 10
+        }
+      ]
+    })
+
+    const detail = getTransactionByNumber(saved.transaction_number)
+    expect(detail).not.toBeNull()
+    expect(detail!.payments).toHaveLength(2)
+    expect(detail!.payments[0].method).toBe('cash')
+    expect(detail!.payments[0].amount).toBe(2)
+    expect(detail!.payments[1].method).toBe('credit')
+    expect(detail!.payments[1].amount).toBe(8)
+    expect(detail!.payments[1].card_last_four).toBe('4242')
+    expect(detail!.payments[1].card_type).toBe('visa')
+    expect(detail!.payments[1].finix_authorization_id).toBe('AU-1')
+  })
+
+  it('getTransactionByNumber returns empty payments array for legacy single-method transaction', () => {
+    const productId = createProduct()
+
+    const saved = saveTransaction({
+      subtotal: 10,
+      tax_amount: 0,
+      total: 10,
+      payment_method: 'cash',
+      items: [
+        {
+          product_id: productId,
+          product_name: 'Syncable Bottle',
+          quantity: 1,
+          unit_price: 10,
+          total_price: 10
+        }
+      ]
+    })
+
+    const detail = getTransactionByNumber(saved.transaction_number)
+    expect(detail!.payments).toHaveLength(0)
   })
 })

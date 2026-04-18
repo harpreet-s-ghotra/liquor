@@ -1,6 +1,8 @@
 import { getDb } from './connection'
 import { getDeviceConfig } from './device-config.repo'
 import { getInventoryDeltaSyncPayload, recordDelta } from './inventory-deltas.repo'
+import { createCostLayer } from './product-cost-layers.repo'
+import { normalizeSearch } from './schema'
 import { enqueueSyncItem } from './sync-queue.repo'
 import { SKU_PATTERN, SKU_MAX_LENGTH, NAME_MAX_LENGTH } from '../../shared/constants'
 import type {
@@ -37,9 +39,11 @@ export function getProducts(): Product[] {
         COALESCE(in_stock, quantity) AS quantity,
         COALESCE(tax_1, tax_rate) AS tax_rate,
         COALESCE(bottles_per_case, 12) AS bottles_per_case,
-        case_discount_price
+        case_discount_price,
+        COALESCE(is_favorite, 0) AS is_favorite
       FROM products
       WHERE is_active = 1
+        AND (COALESCE(retail_price, 0) > 0 OR COALESCE(price, 0) > 0)
       ORDER BY name
       `
     )
@@ -130,10 +134,15 @@ export function searchProducts(
   filters: { departmentId?: number; distributorNumber?: number } = {}
 ): Product[] {
   const normalizedQuery = query.trim()
-  if (!normalizedQuery) return []
 
-  const conditions = ['p.is_active = 1', '(p.name LIKE @likeQuery OR p.sku LIKE @likeQuery)']
-  const params: Record<string, unknown> = { likeQuery: `%${normalizedQuery}%` }
+  const conditions: string[] = ['p.is_active = 1']
+  const params: Record<string, unknown> = {}
+
+  if (normalizedQuery) {
+    conditions.push('(normalize_search(p.name) LIKE @likeQuery OR p.sku LIKE @rawLikeQuery)')
+    params.likeQuery = `%${normalizeSearch(normalizedQuery)}%`
+    params.rawLikeQuery = `%${normalizedQuery}%`
+  }
 
   if (filters.departmentId != null) {
     conditions.push('it.id = @departmentId')
@@ -164,7 +173,7 @@ export function searchProducts(
       LEFT JOIN distributors d ON d.distributor_number = p.distributor_number
       WHERE ${conditions.join(' AND ')}
       ORDER BY p.name ASC
-      LIMIT 50
+      LIMIT 100
       `
     )
     .all(params) as Product[]
@@ -176,6 +185,9 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
   if (!normalizedQuery) {
     return getInventoryProducts()
   }
+
+  const likeQuery = `%${normalizeSearch(normalizedQuery)}%`
+  const rawLikeQuery = `%${normalizedQuery}%`
 
   return getDb()
     .prepare(
@@ -214,11 +226,15 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
-        AND (products.sku LIKE @likeQuery OR products.name LIKE @likeQuery OR products.brand_name LIKE @likeQuery)
+        AND (
+          products.sku LIKE @rawLikeQuery
+          OR normalize_search(products.name) LIKE @likeQuery
+          OR normalize_search(products.brand_name) LIKE @likeQuery
+        )
       ORDER BY products.id
       `
     )
-    .all({ likeQuery: `%${normalizedQuery}%` }) as InventoryProduct[]
+    .all({ likeQuery, rawLikeQuery }) as InventoryProduct[]
 }
 
 export function getInventoryProductDetail(itemNumber: number): InventoryProductDetail | null {
@@ -255,7 +271,8 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         products.alcohol_pct,
         products.vintage,
         products.ttb_id,
-        products.display_name
+        products.display_name,
+        COALESCE(products.is_favorite, 0) AS is_favorite
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.id = ?
@@ -650,8 +667,20 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
   const syncOperation = input.item_number == null && inactiveMatch == null ? 'INSERT' : 'UPDATE'
 
   const tx = db.transaction((payload: SaveInventoryItemInput) => {
-    const primaryTaxRate = normalizedTaxRates.length > 0 ? normalizedTaxRates[0] : null
-    const secondaryTaxRate = normalizedTaxRates.length > 1 ? normalizedTaxRates[1] : null
+    // On INSERT (new item, no user-selected tax rate), fall back to the
+    // merchant's default tax code so "Apply to all items" sticks for future items.
+    const isInsert = payload.item_number == null && inactiveMatch == null
+    let effectiveTaxRates = normalizedTaxRates
+    if (isInsert && effectiveTaxRates.length === 0) {
+      const defaultRow = db
+        .prepare('SELECT rate FROM tax_codes WHERE is_default = 1 LIMIT 1')
+        .get() as { rate: number } | undefined
+      if (defaultRow) {
+        effectiveTaxRates = [normalizeTaxRate(defaultRow.rate)]
+      }
+    }
+    const primaryTaxRate = effectiveTaxRates.length > 0 ? effectiveTaxRates[0] : null
+    const secondaryTaxRate = effectiveTaxRates.length > 1 ? effectiveTaxRates[1] : null
     const hasSpecialPricing = payload.special_pricing.length > 0
 
     const statementPayload = {
@@ -678,7 +707,8 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
       alcohol_pct: payload.alcohol_pct,
       vintage: payload.vintage || null,
       ttb_id: payload.ttb_id || null,
-      display_name: payload.display_name || null
+      display_name: payload.display_name || null,
+      is_favorite: payload.is_favorite ?? 0
     }
 
     let productId = payload.item_number ?? inactiveMatch?.id
@@ -714,6 +744,7 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           vintage = @vintage,
           ttb_id = @ttb_id,
           display_name = @display_name,
+          is_favorite = @is_favorite,
           is_active = 1,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = @id
@@ -729,7 +760,7 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
             special_pricing_enabled, special_price, distributor_number,
             bottles_per_case, case_discount_price,
             item_type, size, case_cost, nysla_discounts,
-            brand_name, proof, alcohol_pct, vintage, ttb_id, display_name
+            brand_name, proof, alcohol_pct, vintage, ttb_id, display_name, is_favorite
           )
           VALUES (
             @sku, @name, @category, @retail_price, @cost, @quantity, @tax_1,
@@ -737,7 +768,7 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
             @special_pricing_enabled, @special_price, @distributor_number,
             @bottles_per_case, @case_discount_price,
             @item_type, @size, @case_cost, @nysla_discounts,
-            @brand_name, @proof, @alcohol_pct, @vintage, @ttb_id, @display_name
+            @brand_name, @proof, @alcohol_pct, @vintage, @ttb_id, @display_name, @is_favorite
           )
           `
         )
@@ -793,6 +824,17 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
   }
 
   if (stockDelta !== 0) {
+    if (stockDelta > 0) {
+      createCostLayer({
+        productId: detail.item_number,
+        quantity: stockDelta,
+        costPerUnit: detail.cost,
+        source: 'manual_adjustment',
+        sourceReference: `inventory-item-${detail.item_number}`,
+        deviceId: device?.device_id ?? null
+      })
+    }
+
     const deltaId = recordDelta({
       product_id: detail.item_number,
       product_sku: detail.sku,
@@ -811,12 +853,38 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
   return detail
 }
 
-export function applyTaxToAllProducts(taxRate: number): number {
+/**
+ * Apply a tax code's rate to every active product AND mark that code as the
+ * merchant's default so future creates/imports inherit the rate automatically.
+ * Runs in a single transaction so the existing items and the default flag
+ * always agree.
+ */
+export function applyTaxToAllProducts(taxCodeId: number): number {
   const db = getDb()
-  const result = db
-    .prepare(`UPDATE products SET tax_1 = ?, updated_at = CURRENT_TIMESTAMP WHERE is_active = 1`)
-    .run(taxRate)
-  return result.changes
+  const taxCode = db.prepare('SELECT id, rate FROM tax_codes WHERE id = ?').get(taxCodeId) as
+    | { id: number; rate: number }
+    | undefined
+
+  if (!taxCode) {
+    throw new Error('Tax code not found')
+  }
+
+  let updatedCount = 0
+  const tx = db.transaction(() => {
+    // Mark this tax code as default, clear default on others
+    db.prepare('UPDATE tax_codes SET is_default = 0 WHERE is_default = 1').run()
+    db.prepare(
+      'UPDATE tax_codes SET is_default = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).run(taxCodeId)
+
+    // Apply the rate to every active product
+    const result = db
+      .prepare(`UPDATE products SET tax_1 = ?, updated_at = CURRENT_TIMESTAMP WHERE is_active = 1`)
+      .run(taxCode.rate)
+    updatedCount = result.changes
+  })
+  tx()
+  return updatedCount
 }
 
 export function deleteInventoryItem(itemNumber: number): void {
@@ -830,4 +898,150 @@ export function deleteInventoryItem(itemNumber: number): void {
   } catch {
     // Sync enqueue failure must never block inventory deletes
   }
+}
+
+export function getLowStockProducts(threshold: number): {
+  id: number
+  sku: string
+  name: string
+  item_type: string | null
+  in_stock: number
+  reorder_point: number
+  distributor_name: string | null
+}[] {
+  const db = getDb()
+  return db
+    .prepare(
+      `SELECT
+        p.id,
+        p.sku,
+        COALESCE(p.display_name, p.name) AS name,
+        p.item_type,
+        COALESCE(p.in_stock, 0) AS in_stock,
+        COALESCE(p.reorder_point, 0) AS reorder_point,
+        d.distributor_name
+      FROM products p
+      LEFT JOIN distributors d ON p.distributor_number = d.distributor_number
+      WHERE p.is_active = 1 AND COALESCE(p.in_stock, 0) <= ?
+      ORDER BY p.in_stock ASC`
+    )
+    .all(threshold) as {
+    id: number
+    sku: string
+    name: string
+    item_type: string | null
+    in_stock: number
+    reorder_point: number
+    distributor_name: string | null
+  }[]
+}
+
+export function getUnpricedInventoryProducts(): InventoryProduct[] {
+  return getDb()
+    .prepare(
+      `
+      SELECT
+        products.id AS item_number,
+        products.sku,
+        products.name AS item_name,
+        products.item_type,
+        products.category_id,
+        products.category_name,
+        COALESCE(products.cost, 0) AS cost,
+        COALESCE(products.retail_price, products.price, 0) AS retail_price,
+        COALESCE(products.in_stock, products.quantity, 0) AS in_stock,
+        COALESCE(products.tax_1, products.tax_rate, 0) AS tax_1,
+        COALESCE(products.tax_2, 0) AS tax_2,
+        products.distributor_number,
+        distributors.distributor_name,
+        COALESCE(products.bottles_per_case, 12) AS bottles_per_case,
+        products.case_discount_price,
+        products.barcode,
+        products.description,
+        COALESCE(products.special_pricing_enabled, 0) AS special_pricing_enabled,
+        products.special_price,
+        products.is_active,
+        products.size,
+        products.case_cost,
+        products.nysla_discounts,
+        products.brand_name,
+        products.proof,
+        products.reorder_point
+      FROM products
+      LEFT JOIN distributors ON products.distributor_number = distributors.distributor_number
+      WHERE products.is_active = 1
+        AND COALESCE(products.retail_price, 0) = 0
+        AND COALESCE(products.price, 0) = 0
+      ORDER BY products.name
+      `
+    )
+    .all() as InventoryProduct[]
+}
+
+export function findProductBySku(sku: string): Product | null {
+  const term = sku.trim().toLowerCase()
+  if (!term) return null
+  const db = getDb()
+  const row = db
+    .prepare(
+      `
+      SELECT
+        p.id,
+        p.sku,
+        COALESCE(p.display_name, p.name) AS name,
+        p.category,
+        p.size,
+        COALESCE(p.retail_price, p.price, 0) AS price,
+        COALESCE(p.in_stock, p.quantity) AS quantity,
+        COALESCE(p.tax_1, p.tax_rate) AS tax_rate,
+        COALESCE(p.bottles_per_case, 12) AS bottles_per_case,
+        p.case_discount_price
+      FROM products p
+      WHERE p.is_active = 1
+        AND (
+          lower(p.sku) = ?
+          OR lower(p.barcode) = ?
+          OR EXISTS (
+            SELECT 1 FROM product_alt_skus a
+            WHERE a.product_id = p.id AND lower(a.alt_sku) = ?
+          )
+        )
+      LIMIT 1
+      `
+    )
+    .get(term, term, term) as Product | undefined
+  return row ?? null
+}
+
+export function toggleFavorite(productId: number): void {
+  getDb()
+    .prepare(
+      `
+      UPDATE products
+      SET is_favorite = CASE WHEN COALESCE(is_favorite, 0) = 0 THEN 1 ELSE 0 END,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND is_active = 1
+      `
+    )
+    .run(productId)
+
+  try {
+    enqueueProductSync(productId, 'UPDATE')
+  } catch {
+    // Sync enqueue failure must never block inventory writes
+  }
+}
+
+export function getDistinctSizes(): string[] {
+  return getDb()
+    .prepare(
+      `
+      SELECT DISTINCT size
+      FROM products
+      WHERE size IS NOT NULL AND size != ''
+      ORDER BY size
+      `
+    )
+    .all()
+    .map((row) => String((row as { size: string }).size))
 }

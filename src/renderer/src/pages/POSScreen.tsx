@@ -1,5 +1,7 @@
 import { ClockOutModal } from '@renderer/components/clock-out/ClockOutModal'
 import { InventoryModal } from '@renderer/components/inventory/InventoryModal'
+import { UnpricedItemPrompt } from '@renderer/components/inventory/items/UnpricedItemPrompt'
+import { ManagerModal } from '@renderer/components/manager/ManagerModal'
 import { PaymentModal } from '@renderer/components/payment/PaymentModal'
 import { PrinterSettingsModal } from '@renderer/components/printer/PrinterSettingsModal'
 import { ReportsModal } from '@renderer/components/reports/ReportsModal'
@@ -12,6 +14,7 @@ import { HoldLookupModal } from '@renderer/components/hold/HoldLookupModal'
 import { BottomShortcutBar } from '@renderer/components/layout/BottomShortcutBar'
 import { HeaderBar } from '@renderer/components/layout/HeaderBar'
 import { TicketPanel } from '@renderer/components/ticket/TicketPanel'
+import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
 import { usePosScreen } from '@renderer/store/usePosScreen'
 import { useAlertStore } from '@renderer/store/useAlertStore'
 import { useAuthStore } from '@renderer/store/useAuthStore'
@@ -19,6 +22,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import '../styles/auth.css'
 import './pos-screen.css'
 import type { PaymentMethod, PaymentResult } from '@renderer/types/pos'
+import type { Product } from '../../../shared/types'
 
 export function POSScreen(): React.JSX.Element {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false)
@@ -32,13 +36,17 @@ export function POSScreen(): React.JSX.Element {
   const [isClockOutOpen, setIsClockOutOpen] = useState(false)
   const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false)
   const [isReportsOpen, setIsReportsOpen] = useState(false)
+  const [isManagerOpen, setIsManagerOpen] = useState(false)
   const [alwaysPrint, setAlwaysPrint] = useState(false)
   const [searchKey, setSearchKey] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
   const [skuError, setSkuError] = useState('')
+  const [unpricedProduct, setUnpricedProduct] = useState<Product | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const isRefundingRef = useRef(false)
 
   const currentCashier = useAuthStore((s) => s.currentCashier)
+  const isAdmin = currentCashier?.role === 'admin'
   const merchantConfig = useAuthStore((s) => s.merchantConfig)
   const logout = useAuthStore((s) => s.logout)
   const showError = useAlertStore((s) => s.showError)
@@ -61,25 +69,37 @@ export function POSScreen(): React.JSX.Element {
     })
   }, [showError, showInfo, showSuccess])
 
-  // Keyboard shortcuts: Ctrl+L for logout, F3 for clock out
+  // Keyboard shortcuts: Ctrl/Cmd+L logout and footer F-key actions
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
         e.preventDefault()
         logout()
       }
+      if (e.key === 'F2' && isAdmin) {
+        e.preventDefault()
+        setIsInventoryOpen(true)
+      }
       if (e.key === 'F3') {
         e.preventDefault()
         setIsClockOutOpen(true)
       }
-      if (e.key === 'F5') {
+      if (e.key === 'F5' && isAdmin) {
         e.preventDefault()
         setIsReportsOpen(true)
+      }
+      if (e.key === 'F6' && isAdmin) {
+        e.preventDefault()
+        setIsManagerOpen(true)
+      }
+      if (e.key === 'F7' && isAdmin) {
+        e.preventDefault()
+        setIsSalesHistoryOpen(true)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [logout])
+  }, [logout, isAdmin])
 
   const {
     activeCategory,
@@ -129,7 +149,8 @@ export function POSScreen(): React.JSX.Element {
     returnTotal,
     toggleReturnItem,
     toggleReturnAll,
-    setReturnItemQuantity
+    setReturnItemQuantity,
+    toggleFavoriteProduct
   } = usePosScreen()
 
   // Load held transactions on mount so the badge is accurate on startup
@@ -226,6 +247,15 @@ export function POSScreen(): React.JSX.Element {
           }
         })
 
+        const tendersForSave = result.payments?.map((p) => ({
+          method: p.method,
+          amount: p.amount,
+          card_last_four: p.card_last_four ?? null,
+          card_type: p.card_type ?? null,
+          finix_authorization_id: p.finix_authorization_id ?? null,
+          finix_transfer_id: p.finix_transfer_id ?? null
+        }))
+
         window.api
           .saveTransaction({
             subtotal: subtotalDiscounted,
@@ -236,6 +266,7 @@ export function POSScreen(): React.JSX.Element {
             finix_transfer_id: result.finix_transfer_id ?? null,
             card_last_four: result.card_last_four ?? null,
             card_type: result.card_type ?? null,
+            payments: tendersForSave,
             items: lineItems
           })
           .then((savedTxn) => {
@@ -262,7 +293,8 @@ export function POSScreen(): React.JSX.Element {
                   total,
                   payment_method: result.method,
                   card_last_four: result.card_last_four ?? null,
-                  card_type: result.card_type ?? null
+                  card_type: result.card_type ?? null,
+                  payments: tendersForSave
                 })
                 ?.catch((err: unknown) => {
                   console.error('Receipt print failed:', err)
@@ -301,6 +333,16 @@ export function POSScreen(): React.JSX.Element {
   const handleRefundComplete = useCallback(
     async (result: PaymentResult) => {
       if (!viewingTransaction || !window.api?.saveRefundTransaction) return
+      if (isRefundingRef.current) return
+      if (viewingTransaction.has_refund) {
+        showError('This transaction has already been refunded.')
+        setIsPaymentOpen(false)
+        setIsPaymentComplete(false)
+        setPaymentMethod(undefined)
+        dismissRecalledTransaction()
+        return
+      }
+      isRefundingRef.current = true
 
       const refundItems = Object.entries(returnItems)
         .map(([cartItemIdStr, returnQty]) => {
@@ -372,6 +414,8 @@ export function POSScreen(): React.JSX.Element {
       } catch (err) {
         console.error('Failed to process refund:', err)
         showError('Failed to process refund. Please try again.')
+      } finally {
+        isRefundingRef.current = false
       }
     },
     [
@@ -432,8 +476,26 @@ export function POSScreen(): React.JSX.Element {
     }
     const found = addToCartBySku(search)
     if (!found) {
-      setSkuError(`Item "${trimmed}" not found`)
-      setSearch('')
+      // Check if the item exists but has no price set
+      void window.api?.findProductBySku?.(trimmed).then((product) => {
+        if (product) {
+          // Item exists — price is missing
+          setSearch('')
+          if (isAdmin) {
+            // Admin/manager: open inventory to set the price
+            setPendingInventoryItemNumber(product.id)
+            setIsInventoryOpen(true)
+          } else {
+            // Cashier: allow one-off price entry
+            setUnpricedProduct(product)
+          }
+        } else {
+          setSkuError(`Item "${trimmed}" not found`)
+          setSearch('')
+        }
+        focusSearch()
+      })
+      return
     }
     focusSearch()
   }, [
@@ -443,13 +505,15 @@ export function POSScreen(): React.JSX.Element {
     clearTransaction,
     focusSearch,
     recallTransaction,
-    setSearch
+    setSearch,
+    isAdmin
   ])
 
   return (
     <div className="pos-screen">
       <HeaderBar
         cashierName={currentCashier?.name}
+        cashierRole={currentCashier?.role}
         onPrinterSettings={() => setIsPrinterSettingsOpen(true)}
         onCheckForUpdates={() => window.api?.checkForUpdates()}
       />
@@ -493,6 +557,7 @@ export function POSScreen(): React.JSX.Element {
           filteredProducts={filteredProducts}
           setActiveCategory={setActiveCategory}
           addToCart={handleAddToCart}
+          onToggleFavorite={isAdmin ? (p) => void toggleFavoriteProduct(p.id) : undefined}
           subtotalBeforeDiscount={
             isReturning
               ? returnSubtotal
@@ -526,10 +591,12 @@ export function POSScreen(): React.JSX.Element {
       </main>
 
       <BottomShortcutBar
+        isAdmin={isAdmin}
         onInventoryClick={() => setIsInventoryOpen(true)}
         onClockOutClick={() => setIsClockOutOpen(true)}
         onSalesHistoryClick={() => setIsSalesHistoryOpen(true)}
         onReportsClick={() => setIsReportsOpen(true)}
+        onManagerClick={() => setIsManagerOpen(true)}
       />
 
       <PrinterSettingsModal
@@ -572,11 +639,15 @@ export function POSScreen(): React.JSX.Element {
         onAddToCart={(product) => {
           handleAddToCart(product)
         }}
-        onOpenInInventory={(product) => {
-          setIsSearchOpen(false)
-          setPendingInventoryItemNumber(product.id)
-          setIsInventoryOpen(true)
-        }}
+        onOpenInInventory={
+          isAdmin
+            ? (product) => {
+                setIsSearchOpen(false)
+                setPendingInventoryItemNumber(product.id)
+                setIsInventoryOpen(true)
+              }
+            : undefined
+        }
       />
 
       <HoldLookupModal
@@ -590,7 +661,7 @@ export function POSScreen(): React.JSX.Element {
 
       <PaymentModal
         isOpen={isPaymentOpen}
-        total={isReturning ? returnTotal : total}
+        total={isReturning ? Math.abs(returnTotal) : total}
         initialMethod={paymentMethod}
         onComplete={isReturning ? handleRefundComplete : handlePaymentComplete}
         onCancel={handlePaymentCancel}
@@ -615,6 +686,14 @@ export function POSScreen(): React.JSX.Element {
         }}
       />
 
+      <ManagerModal
+        isOpen={isManagerOpen}
+        onClose={() => {
+          setIsManagerOpen(false)
+          focusSearch()
+        }}
+      />
+
       <ErrorModal
         isOpen={!!skuError}
         message={skuError}
@@ -623,6 +702,26 @@ export function POSScreen(): React.JSX.Element {
           setTimeout(() => searchRef.current?.focus(), 0)
         }}
       />
+
+      <Dialog open={!!unpricedProduct} onOpenChange={(open) => !open && setUnpricedProduct(null)}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle className="dialog__sr-only">Item Has No Price</DialogTitle>
+          {unpricedProduct && (
+            <UnpricedItemPrompt
+              product={unpricedProduct}
+              onConfirm={(price) => {
+                addToCart({ ...unpricedProduct, price })
+                setUnpricedProduct(null)
+                focusSearch()
+              }}
+              onCancel={() => {
+                setUnpricedProduct(null)
+                focusSearch()
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {productsLoadError && <div className="pos-screen__error">{productsLoadError}</div>}
     </div>

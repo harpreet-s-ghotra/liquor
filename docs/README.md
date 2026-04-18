@@ -22,11 +22,13 @@
 | [Clock In/Clock Out](features/clock-in-clock-out.md)         | Complete | Register sessions, end-of-day report, cash reconciliation            |
 | [Supabase Onboarding](features/supabase-onboarding.md)       | Complete | Supabase auth, PIN setup, distributor catalog import                 |
 | [Cloud Sync](features/cloud-sync.md)                         | Complete | Multi-register transaction & inventory sync via Supabase Realtime    |
+| [Central Catalog Admin](features/central-catalog-admin.md)   | Planned  | Local-only merchant-to-catalog curation dashboard and access model   |
 | [Finix Integration](features/finix-integration.md)           | Complete | Finix payment processing, manual card charges, refunds               |
 | [NYSLA Schema Alignment](features/nysla-schema-alignment.md) | Complete | Inventory fields aligned with NYSLA Price Postings for future import |
 | [Sales Reports](features/sales-reports.md)                   | Complete | Sales summary, product/category analysis, tax report, comparisons    |
 | [Auto-Update](features/auto-update.md)                       | Complete | Automatic app updates via electron-updater and GitHub Releases       |
-| [Edge Functions](features/edge-functions.md)                  | Complete | Supabase Edge Functions, Finix secrets, sandbox-to-live migration    |
+| [Edge Functions](features/edge-functions.md)                 | Complete | Supabase Edge Functions, Finix secrets, sandbox-to-live migration    |
+| [Manager Modal](features/manager-modal.md)                   | Complete | Cashiers, Registers, Merchant Info, Reorder Dashboard (F6)           |
 
 ## AI Navigation
 

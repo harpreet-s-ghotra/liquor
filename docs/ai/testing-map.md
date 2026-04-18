@@ -17,18 +17,20 @@ Coverage threshold: **>= 80%** (statements, branches, functions, lines).
 
 ### Backend (Node/SQLite) — `src/main/database/`
 
-| Test file                        | Tests                                                                 |
-| -------------------------------- | --------------------------------------------------------------------- |
-| `inventory-deltas.repo.test.ts`  | Inventory delta insert/query/sync-marking helpers                     |
-| `products.repo.test.ts`          | Product CRUD, search, inventory queries, special pricing              |
-| `transactions.repo.test.ts`      | Transaction sync queue hooks and inventory delta writes               |
-| `held-transactions.repo.test.ts` | Hold save/list/delete/clear                                           |
-| `sessions.repo.test.ts`          | Session CRUD, report generation, cash reconciliation                  |
-| `tax-codes.repo.test.ts`         | Tax code CRUD + `enqueueTaxCodeSync` hook coverage                    |
-| `item-types.repo.test.ts`        | Item type CRUD + `enqueueItemTypeSync` hook coverage                  |
-| `distributors.repo.test.ts`      | Distributor CRUD + `enqueueDistributorSync` hook                      |
-| `cashiers.repo.test.ts`          | Cashier CRUD + `enqueueCashierSync` hook coverage                     |
-| `reports.repo.test.ts`           | Sales summary, product/category/tax/comparison/cashier/hourly reports |
+| Test file                          | Tests                                                                 |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `inventory-deltas.repo.test.ts`    | Inventory delta insert/query/sync-marking helpers                     |
+| `products.repo.test.ts`            | Product CRUD, search, inventory queries, special pricing              |
+| `transactions.repo.test.ts`        | Transaction sync hooks, inventory deltas, FIFO cost_at_sale coverage  |
+| `product-cost-layers.repo.test.ts` | FIFO layer creation/consumption and fallback cost behavior            |
+| `held-transactions.repo.test.ts`   | Hold save/list/delete/clear                                           |
+| `sessions.repo.test.ts`            | Session CRUD, report generation, cash reconciliation                  |
+| `tax-codes.repo.test.ts`           | Tax code CRUD + `enqueueTaxCodeSync` hook coverage                    |
+| `item-types.repo.test.ts`          | Item type CRUD + `enqueueItemTypeSync` hook coverage                  |
+| `distributors.repo.test.ts`        | Distributor CRUD + `enqueueDistributorSync` hook                      |
+| `cashiers.repo.test.ts`            | Cashier CRUD + `enqueueCashierSync` hook coverage                     |
+| `reports.repo.test.ts`             | Sales summary, product/category/tax/comparison/cashier/hourly reports |
+| `purchase-orders.repo.test.ts`     | Purchase order CRUD, status transitions, item receiving, auto-receive |
 
 Pattern: `createTestDb()` with in-memory SQLite, `foreign_keys = ON`.
 
@@ -52,47 +54,48 @@ Pattern: Mock Supabase client via `vi.fn()` chains, `createTestDb()` for apply-s
 
 ### Renderer — `src/renderer/src/`
 
-| Area                             | Test files                                                                  |
-| -------------------------------- | --------------------------------------------------------------------------- |
-| Pages                            | `pages/{POSScreen,LoginScreen,ActivationScreen,BusinessSetupScreen}.test.tsx` |
-| Stores                           | `store/{useAuthStore,usePosScreen,useThemeStore}.test.ts(x)`                |
-| Utils                            | `utils/{currency,pricing-engine}.test.ts`                                   |
-| Components/action                | `action/ActionPanel.test.tsx`                                               |
-| Components/ticket                | `ticket/TicketPanel.test.tsx`                                               |
-| Components/payment               | `payment/PaymentModal.test.tsx`                                             |
-| Components/search                | `search/SearchModal.test.tsx`                                               |
-| Components/hold                  | `hold/HoldLookupModal.test.tsx`                                             |
-| Components/clock-out             | `clock-out/{ClockOutModal,ClockOutReport}.test.tsx`                         |
-| Components/layout                | `layout/HeaderBar.test.tsx`                                                 |
-| Components/common                | `common/{AppButton,ValidatedInput,FormField,TabBar,ConfirmDialog,ErrorModal}.test.tsx` |
-| Components/inventory             | `inventory/{InventoryModal,FooterActionBar}.test.tsx`                       |
-| Components/printer               | `printer/PrinterSettingsModal.test.tsx`                                     |
-| Components/reports               | `reports/{ReportsModal,ReportDateRangePicker}.test.tsx`                     |
-| Components/sales-history         | `sales-history/SalesHistoryModal.test.tsx`                                 |
-| Components/inventory/items       | `items/ItemForm.test.tsx`                                                   |
-| Components/inventory/dept        | `departments/DepartmentPanel.test.tsx`                                      |
-| Components/inventory/tax         | `tax-codes/TaxCodePanel.test.tsx`                                           |
-| Components/inventory/distributor | `distributors/DistributorPanel.test.tsx`                                    |
-| App                              | `App.test.tsx`                                                              |
+| Area                             | Test files                                                                                                         |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Pages                            | `pages/{POSScreen,LoginScreen,ActivationScreen,BusinessSetupScreen}.test.tsx`                                      |
+| Stores                           | `store/{useAuthStore,usePosScreen,useThemeStore}.test.ts(x)`                                                       |
+| Utils                            | `utils/{currency,pricing-engine}.test.ts`                                                                          |
+| Components/action                | `action/ActionPanel.test.tsx`                                                                                      |
+| Components/ticket                | `ticket/TicketPanel.test.tsx`                                                                                      |
+| Components/payment               | `payment/PaymentModal.test.tsx`                                                                                    |
+| Components/search                | `search/SearchModal.test.tsx`                                                                                      |
+| Components/hold                  | `hold/HoldLookupModal.test.tsx`                                                                                    |
+| Components/clock-out             | `clock-out/{ClockOutModal,ClockOutReport}.test.tsx`                                                                |
+| Components/layout                | `layout/HeaderBar.test.tsx`                                                                                        |
+| Components/common                | `common/{AppButton,ValidatedInput,FormField,TabBar,ConfirmDialog,ErrorModal}.test.tsx`                             |
+| Components/inventory             | `inventory/{InventoryModal,FooterActionBar}.test.tsx`                                                              |
+| Components/printer               | `printer/PrinterSettingsModal.test.tsx`                                                                            |
+| Components/reports               | `reports/{ReportsModal,ReportDateRangePicker}.test.tsx`                                                            |
+| Components/sales-history         | `sales-history/SalesHistoryModal.test.tsx`                                                                         |
+| Components/manager               | `manager/{ManagerModal,CashierPanel,RegisterPanel,MerchantInfoPanel,ReorderDashboard,PurchaseOrderPanel}.test.tsx` |
+| Components/inventory/items       | `items/ItemForm.test.tsx`                                                                                          |
+| Components/inventory/dept        | `departments/DepartmentPanel.test.tsx`                                                                             |
+| Components/inventory/tax         | `tax-codes/TaxCodePanel.test.tsx`                                                                                  |
+| Components/inventory/distributor | `distributors/DistributorPanel.test.tsx`                                                                           |
+| App                              | `App.test.tsx`                                                                                                     |
 
 Pattern: Mock `window.api` in `beforeEach`, use `vi.mocked()`, Zustand `setState` for stores.
 
 ## E2E Test Locations — `tests/e2e/`
 
-| Spec file                          | Covers                                    |
-| ---------------------------------- | ----------------------------------------- |
-| `startup.spec.ts`                  | App launch, activation, cashier login       |
-| `finix-payments.spec.ts`           | Finix credit/debit flow, decline, split pay |
-| `transactions.spec.ts`             | Checkout, payments, refunds, history        |
-| `inventory.spec.ts`                | Inventory item CRUD, SKUs, special pricing  |
-| `inventory-management.spec.ts`     | Departments, Tax Codes, Distributors CRUD   |
-| `hold-transactions.spec.ts`        | Hold and recall transactions                |
-| `search-modal.spec.ts`             | Search filters, item type/distributor       |
-| `search-open-in-inventory.spec.ts` | Search → open in inventory                  |
-| `clock-out.spec.ts`                | Clock out flow, PIN, report, print          |
-| `reports.spec.ts`                  | Sales reports modal, tabs, export buttons   |
-| `printer-settings.spec.ts`        | Printer config, receipt settings, test print |
-| `refunds.spec.ts`                 | Sales history recall, return workflow        |
+| Spec file                          | Covers                                       |
+| ---------------------------------- | -------------------------------------------- |
+| `startup.spec.ts`                  | App launch, activation, cashier login        |
+| `finix-payments.spec.ts`           | Finix credit/debit flow, decline, split pay  |
+| `transactions.spec.ts`             | Checkout, payments, refunds, history         |
+| `inventory.spec.ts`                | Inventory item CRUD, SKUs, special pricing   |
+| `inventory-management.spec.ts`     | Departments, Tax Codes, Distributors CRUD    |
+| `hold-transactions.spec.ts`        | Hold and recall transactions                 |
+| `search-modal.spec.ts`             | Search filters, item type/distributor        |
+| `search-open-in-inventory.spec.ts` | Search → open in inventory                   |
+| `clock-out.spec.ts`                | Clock out flow, PIN, report, print           |
+| `reports.spec.ts`                  | Sales reports modal, tabs, export buttons    |
+| `printer-settings.spec.ts`         | Printer config, receipt settings, test print |
+| `refunds.spec.ts`                  | Sales history recall, return workflow        |
 
 Pattern: `page.addInitScript()` to inject mock `window.api`, including `consumePendingDeepLink()` for current app bootstrap. `loginWithPin` helper for auth bypass.
 

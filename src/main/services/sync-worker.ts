@@ -23,6 +23,8 @@ import { uploadTaxCode, applyRemoteTaxCodeChange } from './sync/tax-code-sync'
 import { uploadDistributor, applyRemoteDistributorChange } from './sync/distributor-sync'
 import { uploadItemType, applyRemoteItemTypeChange } from './sync/item-type-sync'
 import { uploadCashier, applyRemoteCashierChange } from './sync/cashier-sync'
+import { uploadDepartment, applyRemoteDepartmentChange } from './sync/department-sync'
+import { uploadSettings, applyRemoteSettingsChange } from './sync/settings-sync'
 import type {
   InventoryDeltaSyncPayload,
   ProductSyncPayload,
@@ -30,7 +32,9 @@ import type {
   TaxCodeSyncPayload,
   DistributorSyncPayload,
   ItemTypeSyncPayload,
-  CashierSyncPayload
+  CashierSyncPayload,
+  DepartmentSyncPayload,
+  MerchantSettingsSyncPayload
 } from './sync/types'
 
 // ── Configuration ──
@@ -187,6 +191,16 @@ async function processItem(_id: number, entityType: string, payloadJson: string)
       await uploadItemType(supabase, merchantId, deviceId, payload)
       break
     }
+    case 'department': {
+      const payload = JSON.parse(payloadJson) as DepartmentSyncPayload
+      await uploadDepartment(supabase, merchantId, deviceId, payload)
+      break
+    }
+    case 'settings': {
+      const payload = JSON.parse(payloadJson) as MerchantSettingsSyncPayload
+      await uploadSettings(supabase, merchantId, deviceId, payload)
+      break
+    }
     case 'tax_code': {
       const payload = JSON.parse(payloadJson) as TaxCodeSyncPayload
       await uploadTaxCode(supabase, merchantId, deviceId, payload)
@@ -240,6 +254,36 @@ function subscribeToRealtime(): void {
         if (!payload.new) return
         handleRemoteProduct(payload.new).catch((err) => {
           console.error('[sync-worker] remote product error:', err)
+        })
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'merchant_departments',
+        filter: `merchant_id=eq.${merchantId}`
+      },
+      (payload) => {
+        if (!payload.new) return
+        applyRemoteDepartmentChange(supabase!, merchantId!, payload.new).catch((err) => {
+          console.error('[sync-worker] remote department error:', err)
+        })
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'merchant_business_settings',
+        filter: `merchant_id=eq.${merchantId}`
+      },
+      (payload) => {
+        if (!payload.new) return
+        applyRemoteSettingsChange(supabase!, merchantId!, payload.new).catch((err) => {
+          console.error('[sync-worker] remote settings error:', err)
         })
       }
     )
@@ -355,8 +399,17 @@ async function handleRemoteTransaction(row: any): Promise<void> {
       if (localTxn) {
         const insertItem = db.prepare(
           `INSERT OR IGNORE INTO transaction_items
-            (transaction_id, product_id, product_name, quantity, unit_price, total_price)
-           VALUES (?, ?, ?, ?, ?, ?)`
+            (
+              transaction_id,
+              product_id,
+              product_name,
+              quantity,
+              unit_price,
+              cost_at_sale,
+              cost_basis_source,
+              total_price
+            )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
         )
 
         // Look up product_id by SKU, fallback to 0 if not found locally
@@ -366,12 +419,16 @@ async function handleRemoteTransaction(row: any): Promise<void> {
 
         for (const item of items) {
           const product = findProduct.get(item.product_sku) as { id: number } | undefined
+          if (!product) continue
+
           insertItem.run(
             localTxn.id,
-            product?.id ?? 0,
+            product.id,
             item.product_name,
             item.quantity,
             item.unit_price,
+            (item.cost_at_sale as number | null | undefined) ?? null,
+            (item.cost_basis_source as string | null | undefined) ?? 'fifo_layer',
             item.total_price
           )
         }

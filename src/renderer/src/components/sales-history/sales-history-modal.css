@@ -84,13 +84,13 @@
 .sales-history__table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .sales-history__table th {
   border-bottom: 1px solid var(--border-default);
   background: var(--bg-surface);
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
   text-align: left;
   color: var(--text-label);
   font-weight: 700;
@@ -111,6 +111,7 @@
 .sales-history__row {
   border-bottom: 1px solid var(--border-soft);
   cursor: pointer;
+  height: 4.25rem;
 }
 
 .sales-history__row--refund {
@@ -126,13 +127,14 @@
 }
 
 .sales-history__row td {
-  padding: 0.625rem 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
 }
 
 .sales-history__txn-number {
   color: var(--accent-blue);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
 }
 
 .sales-history__row td:nth-child(3) {
@@ -234,6 +236,23 @@
   padding-top: 0.25rem;
   color: var(--text-muted);
   font-size: 0.75rem;
+}
+
+.sales-history__tenders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.sales-history__tender-entry {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 0.125rem 0.5rem;
 }
 
 .sales-history__detail-actions {

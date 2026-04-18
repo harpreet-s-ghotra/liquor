@@ -39,6 +39,22 @@
   grid-column: span 2;
 }
 
+.item-form__checkbox-label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.item-form__checkbox {
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent-blue);
+}
+
 .item-form__label {
   display: block;
   margin-bottom: 0.25rem;
@@ -203,6 +219,11 @@
   gap: 0.5rem;
   align-content: start;
   padding: 0.75rem;
+}
+
+.item-form__tab-panel[hidden],
+.item-form__tab-panel[data-state='inactive'] {
+  display: none;
 }
 
 /* ── Case & Quantity tab ── */

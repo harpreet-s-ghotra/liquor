@@ -23,6 +23,10 @@ const mockSummary: SalesSummaryReport = {
     { payment_method: 'cash', transaction_count: 6, total_amount: 300 },
     { payment_method: 'credit', transaction_count: 4, total_amount: 200 }
   ],
+  sales_by_card_brand: [
+    { card_brand: 'Visa', transaction_count: 3, total_amount: 150 },
+    { card_brand: 'Mastercard', transaction_count: 1, total_amount: 50 }
+  ],
   sales_by_day: [
     {
       date: '2024-06-10',
@@ -47,6 +51,7 @@ const mockProductReport: ProductSalesReport = {
       product_id: 1,
       product_name: 'Test Wine',
       item_type: 'Wine',
+      distributor_name: 'Alpha',
       sku: 'SKU1',
       quantity_sold: 20,
       revenue: 400,
@@ -62,6 +67,8 @@ const mockTaxReport: TaxReport = {
 }
 
 const mockApi = {
+  getDeviceConfig: vi.fn(),
+  getMerchantConfig: vi.fn(),
   getReportSalesSummary: vi.fn(),
   getReportProductSales: vi.fn(),
   getReportCategorySales: vi.fn(),
@@ -77,6 +84,12 @@ describe('ReportsModal', () => {
     Object.values(mockApi).forEach((fn) => fn.mockReset())
     ;(window as unknown as { api: typeof mockApi }).api = mockApi
     mockApi.getReportSalesSummary.mockResolvedValue(mockSummary)
+    mockApi.getDeviceConfig.mockResolvedValue({ device_id: 'register-a' })
+    mockApi.getMerchantConfig.mockResolvedValue({
+      merchant_id: 'MU123',
+      merchant_name: 'High Spirits LLC',
+      store_name: 'High Spirits - Main'
+    })
     mockApi.getReportProductSales.mockResolvedValue(mockProductReport)
     mockApi.getReportCategorySales.mockResolvedValue({ categories: [] })
     mockApi.getReportTaxSummary.mockResolvedValue(mockTaxReport)
@@ -101,10 +114,10 @@ describe('ReportsModal', () => {
     await waitFor(() => {
       expect(screen.getByText('Sales Reports')).toBeInTheDocument()
     })
-    expect(screen.getByText('Sales Summary')).toBeInTheDocument()
-    expect(screen.getByText('Product Analysis')).toBeInTheDocument()
-    expect(screen.getByText('Tax Report')).toBeInTheDocument()
-    expect(screen.getByText('Comparisons')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Sales Summary' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Product Analysis' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Tax Report' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Comparisons' })).toBeInTheDocument()
   })
 
   it('loads sales summary on open', async () => {
@@ -182,6 +195,25 @@ describe('ReportsModal', () => {
     })
   })
 
+  it('exports selected report type from export dropdown', async () => {
+    const user = userEvent.setup()
+    mockApi.exportReport.mockResolvedValue('/tmp/transactions.csv')
+    render(<ReportsModal isOpen={true} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(mockApi.getReportSalesSummary).toHaveBeenCalled()
+    })
+
+    await user.selectOptions(screen.getByLabelText('Export'), 'transaction-list')
+    await user.click(screen.getByText('Download CSV'))
+
+    await waitFor(() => {
+      expect(mockApi.exportReport).toHaveBeenCalledWith(
+        expect.objectContaining({ format: 'csv', report_type: 'transaction-list' })
+      )
+    })
+  })
+
   it('calls onClose when dialog is dismissed', async () => {
     const onClose = vi.fn()
     render(<ReportsModal isOpen={true} onClose={onClose} />)
@@ -192,18 +224,6 @@ describe('ReportsModal', () => {
 
   it('switches to Comparisons tab and shows comparison UI', async () => {
     const user = userEvent.setup()
-    mockApi.getReportComparison.mockResolvedValue({
-      period_a: mockSummary,
-      period_b: { ...mockSummary, gross_sales: 600 },
-      deltas: [
-        {
-          field: 'Gross Sales',
-          period_a_value: 500,
-          period_b_value: 600,
-          change_pct: 20
-        }
-      ]
-    })
     render(<ReportsModal isOpen={true} onClose={vi.fn()} />)
     await waitFor(() => {
       expect(mockApi.getReportSalesSummary).toHaveBeenCalled()
@@ -211,18 +231,51 @@ describe('ReportsModal', () => {
 
     await user.click(screen.getByText('Comparisons'))
     await waitFor(() => {
-      expect(mockApi.getReportComparison).toHaveBeenCalled()
+      expect(mockApi.getReportSalesSummary.mock.calls.length).toBeGreaterThanOrEqual(3)
     })
-    expect(screen.getAllByText('Period A').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Period B').length).toBeGreaterThan(0)
-    expect(screen.getByText('Compare')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'This Year vs Last Year by Month' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Last Year' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'This Year (YTD)' })).toBeInTheDocument()
+  })
+
+  it('updates comparison grouping when a new granularity is selected', async () => {
+    const user = userEvent.setup()
+    render(<ReportsModal isOpen={true} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(mockApi.getReportSalesSummary).toHaveBeenCalled()
+    })
+
+    await user.click(screen.getByText('Comparisons'))
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: 'This Year vs Last Year by Month' })
+      ).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('radio', { name: 'Group by quarter' }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: 'This Year vs Last Year by Quarter' })
+      ).toBeInTheDocument()
+    })
   })
 
   it('renders product table rows in product tab', async () => {
     const user = userEvent.setup()
     mockApi.getReportCategorySales.mockResolvedValue({
       categories: [
-        { item_type: 'Wine', quantity_sold: 20, revenue: 400, cost_total: 200, profit: 200 }
+        {
+          item_type: 'Wine',
+          transaction_count: 6,
+          quantity_sold: 20,
+          revenue: 400,
+          profit: 200,
+          profit_margin_pct: 50
+        }
       ]
     })
     render(<ReportsModal isOpen={true} onClose={vi.fn()} />)
@@ -243,6 +296,7 @@ describe('ReportsModal', () => {
       ...mockSummary,
       sales_by_day: [],
       sales_by_payment: [],
+      sales_by_card_brand: [],
       refund_count: 0
     })
     render(<ReportsModal isOpen={true} onClose={vi.fn()} />)
@@ -253,18 +307,13 @@ describe('ReportsModal', () => {
 
   it('does not call export on comparison tab (no export available)', async () => {
     const user = userEvent.setup()
-    mockApi.getReportComparison.mockResolvedValue({
-      period_a: mockSummary,
-      period_b: mockSummary,
-      deltas: []
-    })
     render(<ReportsModal isOpen={true} onClose={vi.fn()} />)
     await waitFor(() => {
       expect(mockApi.getReportSalesSummary).toHaveBeenCalled()
     })
     await user.click(screen.getByText('Comparisons'))
     await waitFor(() => {
-      expect(mockApi.getReportComparison).toHaveBeenCalled()
+      expect(mockApi.getReportSalesSummary.mock.calls.length).toBeGreaterThanOrEqual(3)
     })
     // No Download buttons on comparison tab
     expect(screen.queryByText('Download PDF')).not.toBeInTheDocument()

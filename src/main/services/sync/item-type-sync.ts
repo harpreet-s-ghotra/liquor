@@ -101,3 +101,97 @@ export async function applyRemoteItemTypeChange(
     )
   }
 }
+
+const BATCH_SIZE = 500
+
+export async function reconcileItemTypes(
+  supabase: SupabaseClient,
+  merchantId: string,
+  deviceId: string
+): Promise<{ applied: number; uploaded: number; errors: string[] }> {
+  const result = { applied: 0, uploaded: 0, errors: [] as string[] }
+
+  let lastUpdatedAt: string | null = null
+  let lastId: string | null = null
+  let hasMore = true
+
+  while (hasMore) {
+    let query = supabase
+      .from('merchant_item_types')
+      .select('*')
+      .eq('merchant_id', merchantId)
+      .order('updated_at', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(BATCH_SIZE)
+
+    if (lastUpdatedAt && lastId) {
+      query = query.or(
+        `updated_at.gt.${lastUpdatedAt},and(updated_at.eq.${lastUpdatedAt},id.gt.${lastId})`
+      )
+    }
+
+    const { data, error } = await query
+    if (error) {
+      result.errors.push(`Remote item type fetch failed: ${error.message}`)
+      break
+    }
+    if (!data || data.length === 0) {
+      hasMore = false
+      break
+    }
+
+    for (const row of data) {
+      try {
+        await applyRemoteItemTypeChange(supabase, merchantId, row)
+        result.applied++
+      } catch (err) {
+        result.errors.push(
+          `Apply failed for item type ${row.name}: ${err instanceof Error ? err.message : String(err)}`
+        )
+      }
+    }
+
+    const last = data[data.length - 1]
+    lastUpdatedAt = last.updated_at as string
+    lastId = last.id as string
+    hasMore = data.length === BATCH_SIZE
+  }
+
+  const localOnly = getDb()
+    .prepare(
+      `SELECT id, name, description, default_profit_margin, default_tax_rate, updated_at
+       FROM item_types
+       WHERE (cloud_id IS NULL OR cloud_id = '')
+       ORDER BY id`
+    )
+    .all() as {
+    id: number
+    name: string
+    description: string | null
+    default_profit_margin: number
+    default_tax_rate: number
+    updated_at: string
+  }[]
+
+  for (const it of localOnly) {
+    try {
+      await uploadItemType(supabase, merchantId, deviceId, {
+        item_type: {
+          id: it.id,
+          name: it.name,
+          description: it.description,
+          default_profit_margin: it.default_profit_margin,
+          default_tax_rate: it.default_tax_rate,
+          updated_at: it.updated_at
+        }
+      })
+      result.uploaded++
+    } catch (err) {
+      result.errors.push(
+        `Upload failed for item type id=${it.id}: ${err instanceof Error ? err.message : String(err)}`
+      )
+    }
+  }
+
+  return result
+}

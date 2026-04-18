@@ -64,6 +64,7 @@ export function PaymentModal({
 }: PaymentModalProps): React.JSX.Element | null {
   const nextPaymentIdRef = useRef(1)
   const [payments, setPayments] = useState<PaymentEntry[]>([])
+  const paymentsRef = useRef<PaymentEntry[]>([])
   const [status, setStatus] = useState<PaymentStatus>('idle')
   const [cardError, setCardError] = useState('')
   const paymentResultRef = useRef<PaymentResult>({ method: 'cash' })
@@ -79,6 +80,7 @@ export function PaymentModal({
 
   const resetState = useCallback(() => {
     setPayments([])
+    paymentsRef.current = []
     setStatus('idle')
     setCardError('')
     paymentResultRef.current = { method: 'cash' }
@@ -91,13 +93,17 @@ export function PaymentModal({
   }, [onCancel, resetState])
 
   const handleOk = useCallback(() => {
-    const result = { ...paymentResultRef.current, shouldPrint: false }
+    const result = {
+      ...paymentResultRef.current,
+      shouldPrint: false,
+      payments: paymentsRef.current
+    }
     resetState()
     onComplete(result)
   }, [onComplete, resetState])
 
   const handlePrint = useCallback(() => {
-    const result = { ...paymentResultRef.current, shouldPrint: true }
+    const result = { ...paymentResultRef.current, shouldPrint: true, payments: paymentsRef.current }
     resetState()
     onComplete(result)
   }, [onComplete, resetState])
@@ -133,6 +139,7 @@ export function PaymentModal({
 
       const newPayments = [...payments, entry]
       setPayments(newPayments)
+      paymentsRef.current = newPayments
 
       const newTotal = newPayments.reduce((sum, e) => sum + e.amount, 0)
       if (newTotal >= total) {
@@ -156,7 +163,11 @@ export function PaymentModal({
       label: `$${cashAmount.toFixed(2)} Cash (Exact)`
     }
 
-    setPayments((prev) => [...prev, entry])
+    setPayments((prev) => {
+      const updated = [...prev, entry]
+      paymentsRef.current = updated
+      return updated
+    })
     finishTransaction(true, { method: 'cash' })
   }, [remaining, status, finishTransaction])
 
@@ -194,11 +205,16 @@ export function PaymentModal({
           id: nextPaymentIdRef.current++,
           method,
           amount: cardAmount,
-          label: `$${cardAmount.toFixed(2)} ${method === 'credit' ? 'Credit' : 'Debit'} (${result.card_type} ****${result.last_four})`
+          label: `$${cardAmount.toFixed(2)} ${method === 'credit' ? 'Credit' : 'Debit'} (${result.card_type} ****${result.last_four})`,
+          card_last_four: result.last_four ?? null,
+          card_type: result.card_type ?? null,
+          finix_authorization_id: result.authorization_id ?? null,
+          finix_transfer_id: result.transfer_id ?? null
         }
 
         setPayments((prev) => {
           const updated = [...prev, entry]
+          paymentsRef.current = updated
           const updatedTotal = updated.reduce((sum, e) => sum + e.amount, 0)
 
           if (updatedTotal >= total) {

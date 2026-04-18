@@ -78,6 +78,10 @@ export type PaymentEntry = {
   method: PaymentMethod
   amount: number
   label: string
+  card_last_four?: string | null
+  card_type?: string | null
+  finix_authorization_id?: string | null
+  finix_transfer_id?: string | null
 }
 
 export type PaymentStatus = 'idle' | 'collecting' | 'processing-card' | 'complete'
@@ -85,6 +89,8 @@ export type PaymentStatus = 'idle' | 'collecting' | 'processing-card' | 'complet
 /** Summary of a completed payment, emitted by PaymentModal → POSScreen */
 export type PaymentResult = {
   method: PaymentMethod
+  /** All tender entries — populated for both single and split payments */
+  payments?: PaymentEntry[]
   /** Finix Authorization ID (only for card payments) */
   finix_authorization_id?: string | null
   /** Finix Transfer ID created by capture (only for card payments) */

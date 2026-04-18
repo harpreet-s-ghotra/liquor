@@ -145,10 +145,7 @@ const loginWithPin = async (page: Page): Promise<void> => {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
 
-  await page
-    .locator('.action-panel__product-tile')
-    .first()
-    .waitFor({ state: 'visible', timeout: 10000 })
+  await page.locator('.ticket-panel').waitFor({ state: 'visible', timeout: 10000 })
 }
 
 test.describe('Printer Settings Modal', () => {
@@ -207,16 +204,12 @@ test.describe('Printer Settings Modal', () => {
     await page.getByTestId('printer-settings-btn').click()
 
     // Find and fill store name input
-    const storeNameInput = page
-      .locator('.printer-settings-modal__text-input')
-      .nth(0)
+    const storeNameInput = page.locator('.printer-settings-modal__text-input').nth(0)
     await storeNameInput.fill('My Liquor Store')
     await expect(storeNameInput).toHaveValue('My Liquor Store')
 
     // Find and fill footer message input
-    const footerInput = page
-      .locator('.printer-settings-modal__text-input')
-      .nth(1)
+    const footerInput = page.locator('.printer-settings-modal__text-input').nth(1)
     await footerInput.fill('Thank you for shopping!')
     await expect(footerInput).toHaveValue('Thank you for shopping!')
   })
@@ -226,15 +219,11 @@ test.describe('Printer Settings Modal', () => {
     await page.getByTestId('printer-settings-btn').click()
 
     // Find font size stepper (looks for "pt" text to identify the value span)
-    const fontSizeValue = page
-      .locator('.printer-settings-modal__stepper-value')
-      .first()
+    const fontSizeValue = page.locator('.printer-settings-modal__stepper-value').first()
     await expect(fontSizeValue).toHaveText('10 pt')
 
     // Click the + button to increase font size
-    const fontStepper = page
-      .locator('.printer-settings-modal__stepper')
-      .first()
+    const fontStepper = page.locator('.printer-settings-modal__stepper').first()
     const incrementBtn = fontStepper.locator('button').nth(1)
     await incrementBtn.click()
 
@@ -259,9 +248,7 @@ test.describe('Printer Settings Modal', () => {
     const paddingRows = page.locator('.printer-settings-modal__padding-row')
 
     // First padding row is Y (top/bottom)
-    const yPaddingValue = paddingRows
-      .nth(0)
-      .locator('.printer-settings-modal__stepper-value')
+    const yPaddingValue = paddingRows.nth(0).locator('.printer-settings-modal__stepper-value')
     await expect(yPaddingValue).toHaveText('4 pt')
 
     // Increment Y padding
@@ -270,9 +257,7 @@ test.describe('Printer Settings Modal', () => {
     await expect(yPaddingValue).toHaveText('6 pt')
 
     // Second padding row is X (left/right)
-    const xPaddingValue = paddingRows
-      .nth(1)
-      .locator('.printer-settings-modal__stepper-value')
+    const xPaddingValue = paddingRows.nth(1).locator('.printer-settings-modal__stepper-value')
     await expect(xPaddingValue).toHaveText('4 pt')
 
     // Increment X padding
@@ -307,15 +292,11 @@ test.describe('Printer Settings Modal', () => {
     await printerSelect.selectOption('Network Printer')
 
     // Update store name
-    const storeNameInput = page
-      .locator('.printer-settings-modal__text-input')
-      .nth(0)
+    const storeNameInput = page.locator('.printer-settings-modal__text-input').nth(0)
     await storeNameInput.fill('Updated Store Name')
 
     // Update footer message
-    const footerInput = page
-      .locator('.printer-settings-modal__text-input')
-      .nth(1)
+    const footerInput = page.locator('.printer-settings-modal__text-input').nth(1)
     await footerInput.fill('Updated Footer')
 
     // Click Save Settings button
@@ -328,7 +309,9 @@ test.describe('Printer Settings Modal', () => {
     ).toBeVisible()
   })
 
-  test('print sample button disabled state changes based on printer selection', async ({ page }) => {
+  test('print sample button disabled state changes based on printer selection', async ({
+    page
+  }) => {
     await page.getByTestId('settings-button').click()
     await page.getByTestId('printer-settings-btn').click()
 
@@ -386,15 +369,11 @@ test.describe('Printer Settings Modal', () => {
     await page.getByTestId('printer-settings-btn').click()
 
     // Make some changes
-    const storeNameInput = page
-      .locator('.printer-settings-modal__text-input')
-      .nth(0)
+    const storeNameInput = page.locator('.printer-settings-modal__text-input').nth(0)
     await storeNameInput.fill('Test Store')
 
     // Increment font size
-    const fontStepper = page
-      .locator('.printer-settings-modal__stepper')
-      .first()
+    const fontStepper = page.locator('.printer-settings-modal__stepper').first()
     const incrementBtn = fontStepper.locator('button').nth(1)
     await incrementBtn.click()
 

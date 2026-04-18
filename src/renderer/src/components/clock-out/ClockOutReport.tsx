@@ -1,4 +1,4 @@
-import { formatCurrency } from '@renderer/utils/currency'
+import { formatCurrency, formatInteger } from '@renderer/utils/currency'
 import type { ClockOutReport } from '@renderer/types/pos'
 import './clock-out-report.css'
 
@@ -48,7 +48,7 @@ export function ClockOutReportView({ report }: ClockOutReportProps): React.JSX.E
               {report.sales_by_item_type.map((row) => (
                 <tr key={row.item_type_name}>
                   <td>{row.item_type_name}</td>
-                  <td>{row.transaction_count}</td>
+                  <td>{formatInteger(row.transaction_count)}</td>
                   <td>{formatCurrency(row.total_amount)}</td>
                 </tr>
               ))}
@@ -90,7 +90,7 @@ export function ClockOutReportView({ report }: ClockOutReportProps): React.JSX.E
         <div className="clock-out-report__summary" data-testid="summary-section">
           <div className="clock-out-report__summary-row">
             <span>Total Sales</span>
-            <span>{report.total_sales_count}</span>
+            <span>{formatInteger(report.total_sales_count)}</span>
           </div>
           <div className="clock-out-report__summary-row">
             <span>Gross Sales</span>
@@ -118,7 +118,7 @@ export function ClockOutReportView({ report }: ClockOutReportProps): React.JSX.E
           <div className="clock-out-report__summary" data-testid="refund-section">
             <div className="clock-out-report__summary-row">
               <span>Refund Count</span>
-              <span>{report.total_refund_count}</span>
+              <span>{formatInteger(report.total_refund_count)}</span>
             </div>
             <div className="clock-out-report__summary-row">
               <span>Refund Total</span>

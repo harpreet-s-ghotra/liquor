@@ -12,6 +12,8 @@
     "npx vitest": true,
     "npx eslint": true,
     "npx vite": true,
-    "npx playwright": true
+    "npx playwright": true,
+    "npx prettier": true,
+    "npx tsx": true
   }
 }

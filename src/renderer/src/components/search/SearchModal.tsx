@@ -10,7 +10,7 @@ type SearchModalProps = {
   isOpen: boolean
   onClose: () => void
   onAddToCart: (product: Product) => void
-  onOpenInInventory: (product: Product) => void
+  onOpenInInventory?: (product: Product) => void
 }
 
 export function SearchModal({
@@ -73,17 +73,42 @@ export function SearchModal({
     return () => clearTimeout(timeout)
   }, [isOpen])
 
+  // Auto-run empty search on open to show all products
+  useEffect(() => {
+    if (!isOpen) return
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setQuery('')
+    setItemTypeId(undefined)
+    setDistributorNumber(undefined)
+    /* eslint-enable react-hooks/set-state-in-effect */
+    lastFiltersRef.current = { itemTypeId: undefined, distributorNumber: undefined }
+    const api = window.api
+    if (!api?.searchProducts) return
+    let active = true
+    api
+      .searchProducts('', {})
+      .then((data) => {
+        if (!active) return
+        setResults(data)
+        setSelectedProduct(null)
+        setHasSearched(true)
+      })
+      .catch(() => {
+        if (!active) return
+        setResults([])
+        setHasSearched(true)
+      })
+    return () => {
+      active = false
+    }
+  }, [isOpen])
+
   const runSearch = useCallback(
     async (searchQuery: string, filters?: { itemTypeId?: number; distributorNumber?: number }) => {
       const trimmed = searchQuery.trim()
-      if (!trimmed) {
-        setResults([])
-        setHasSearched(false)
-        return
-      }
+      const f = filters ?? { itemTypeId, distributorNumber }
       const api = window.api
       if (!api?.searchProducts) return
-      const f = filters ?? { itemTypeId, distributorNumber }
       try {
         const data = await api.searchProducts(trimmed, {
           departmentId: f.itemTypeId,
@@ -112,7 +137,7 @@ export function SearchModal({
     (value: number | undefined) => {
       setItemTypeId(value)
       lastFiltersRef.current.itemTypeId = value
-      if (hasSearched && query.trim()) {
+      if (hasSearched) {
         runSearch(query, {
           itemTypeId: value,
           distributorNumber: lastFiltersRef.current.distributorNumber
@@ -126,7 +151,7 @@ export function SearchModal({
     (value: number | undefined) => {
       setDistributorNumber(value)
       lastFiltersRef.current.distributorNumber = value
-      if (hasSearched && query.trim()) {
+      if (hasSearched) {
         runSearch(query, {
           itemTypeId: lastFiltersRef.current.itemTypeId,
           distributorNumber: value
@@ -148,7 +173,7 @@ export function SearchModal({
   }, [selectedProduct, onAddToCart, onClose])
 
   const handleOpenInInventory = useCallback(() => {
-    if (selectedProduct) {
+    if (selectedProduct && onOpenInInventory) {
       onOpenInInventory(selectedProduct)
       onClose()
     }
@@ -223,7 +248,9 @@ export function SearchModal({
 
           <div className="search-modal__results-body" data-testid="search-results">
             {!hasSearched ? (
-              <div className="search-modal__result-empty">Type a search term to find items.</div>
+              <div className="search-modal__result-empty">
+                Type a search term or pick a filter, then press Go.
+              </div>
             ) : results.length === 0 ? (
               <div className="search-modal__result-empty">
                 No items found. Try a different search.
@@ -268,9 +295,15 @@ export function SearchModal({
             >
               Add to Cart
             </Button>
-            <Button size="md" className="search-modal__action-btn" onClick={handleOpenInInventory}>
-              Open in Inventory
-            </Button>
+            {onOpenInInventory && (
+              <Button
+                size="md"
+                className="search-modal__action-btn"
+                onClick={handleOpenInInventory}
+              >
+                Open in Inventory
+              </Button>
+            )}
           </div>
         )}
 
@@ -287,7 +320,7 @@ export function SearchModal({
             placeholder="Search items..."
             className="search-modal__search-input"
           />
-          <Button type="submit" size="md">
+          <Button type="submit" size="lg" className="search-modal__go-btn">
             Go
           </Button>
         </form>

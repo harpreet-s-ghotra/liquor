@@ -1,4 +1,3 @@
-import { AppButton } from '@renderer/components/common/AppButton'
 import type { ReportDateRange } from '../../../../shared/types'
 import { computeRange } from './report-date-utils'
 import type { DatePreset } from './report-date-utils'
@@ -54,17 +53,22 @@ export function ReportDateRangePicker({
 
   return (
     <div className="report-date-picker">
-      <div className="report-date-picker__presets">
-        {PRESETS.map(({ key, label }) => (
-          <AppButton
-            key={key}
-            size="sm"
-            variant={activePreset === key ? 'default' : 'neutral'}
-            onClick={() => handlePreset(key)}
-          >
-            {label}
-          </AppButton>
-        ))}
+      <div className="report-date-picker__preset-select-wrap">
+        <label className="report-date-picker__preset-label" htmlFor="report-period-select">
+          Period
+        </label>
+        <select
+          id="report-period-select"
+          className="report-date-picker__preset-select"
+          value={activePreset}
+          onChange={(e) => handlePreset(e.target.value as DatePreset)}
+        >
+          {PRESETS.map(({ key, label }) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </select>
       </div>
       {activePreset === 'custom' && (
         <div className="report-date-picker__custom">

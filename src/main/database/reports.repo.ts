@@ -5,6 +5,7 @@ import type {
   SalesSummaryReport,
   DailySalesRow,
   PaymentMethodSalesRow,
+  CardBrandSalesRow,
   ProductSalesReport,
   ProductSalesRow,
   CategorySalesReport,
@@ -16,19 +17,28 @@ import type {
   CashierSalesReport,
   CashierSalesRow,
   HourlySalesReport,
-  HourlySalesRow
+  HourlySalesRow,
+  TransactionListReport,
+  TransactionListRow
 } from '../../shared/types'
 
-function dateWhere(range: ReportDateRange): { from: string; to: string } {
+function dateWhere(range: ReportDateRange): {
+  from: string
+  to: string
+  deviceClause: string
+  deviceArgs: string[]
+} {
   return {
     from: toSqliteFormat(range.from),
-    to: toSqliteFormat(range.to)
+    to: toSqliteFormat(range.to),
+    deviceClause: range.deviceId ? 'AND device_id = ?' : '',
+    deviceArgs: range.deviceId ? [range.deviceId] : []
   }
 }
 
 export function getSalesSummary(range: ReportDateRange): SalesSummaryReport {
   const db = getDb()
-  const { from, to } = dateWhere(range)
+  const { from, to, deviceClause, deviceArgs } = dateWhere(range)
 
   const totals = db
     .prepare(
@@ -40,9 +50,14 @@ export function getSalesSummary(range: ReportDateRange): SalesSummaryReport {
       FROM transactions
       WHERE status = 'completed'
         AND created_at >= ? AND created_at <= ?
+        ${deviceClause}
       `
     )
-    .get(from, to) as { transaction_count: number; gross_sales: number; tax_collected: number }
+    .get(from, to, ...deviceArgs) as {
+    transaction_count: number
+    gross_sales: number
+    tax_collected: number
+  }
 
   const refunds = db
     .prepare(
@@ -53,9 +68,10 @@ export function getSalesSummary(range: ReportDateRange): SalesSummaryReport {
       FROM transactions
       WHERE status = 'refund'
         AND created_at >= ? AND created_at <= ?
+        ${deviceClause}
       `
     )
-    .get(from, to) as { refund_count: number; refund_amount: number }
+    .get(from, to, ...deviceArgs) as { refund_count: number; refund_amount: number }
 
   const salesByPayment = db
     .prepare(
@@ -67,11 +83,12 @@ export function getSalesSummary(range: ReportDateRange): SalesSummaryReport {
       FROM transactions
       WHERE status = 'completed'
         AND created_at >= ? AND created_at <= ?
+        ${deviceClause}
       GROUP BY payment_method
       ORDER BY total_amount DESC
       `
     )
-    .all(from, to) as PaymentMethodSalesRow[]
+    .all(from, to, ...deviceArgs) as PaymentMethodSalesRow[]
 
   const salesByDay = db
     .prepare(
@@ -85,11 +102,37 @@ export function getSalesSummary(range: ReportDateRange): SalesSummaryReport {
       FROM transactions
       WHERE status = 'completed'
         AND created_at >= ? AND created_at <= ?
+        ${deviceClause}
       GROUP BY DATE(created_at)
       ORDER BY date ASC
       `
     )
-    .all(from, to) as DailySalesRow[]
+    .all(from, to, ...deviceArgs) as DailySalesRow[]
+
+  const salesByCardBrand = db
+    .prepare(
+      `
+      SELECT
+        CASE
+          WHEN LOWER(TRIM(card_type)) LIKE '%visa%' THEN 'Visa'
+          WHEN LOWER(TRIM(card_type)) LIKE '%master%' THEN 'Mastercard'
+          WHEN LOWER(TRIM(card_type)) LIKE '%amex%' OR LOWER(TRIM(card_type)) LIKE '%american express%' THEN 'Amex'
+          WHEN LOWER(TRIM(card_type)) LIKE '%discover%' THEN 'Discover'
+          ELSE 'Other'
+        END AS card_brand,
+        COUNT(*) AS transaction_count,
+        COALESCE(SUM(total), 0) AS total_amount
+      FROM transactions
+      WHERE status = 'completed'
+        AND created_at >= ? AND created_at <= ?
+        AND card_type IS NOT NULL
+        AND TRIM(card_type) != ''
+        ${deviceClause}
+      GROUP BY card_brand
+      ORDER BY total_amount DESC
+      `
+    )
+    .all(from, to, ...deviceArgs) as CardBrandSalesRow[]
 
   const netSales = totals.gross_sales - totals.tax_collected
   const avgTransaction =
@@ -104,6 +147,7 @@ export function getSalesSummary(range: ReportDateRange): SalesSummaryReport {
     transaction_count: totals.transaction_count,
     avg_transaction: Math.round(avgTransaction * 100) / 100,
     sales_by_payment: salesByPayment,
+    sales_by_card_brand: salesByCardBrand,
     sales_by_day: salesByDay
   }
 }
@@ -114,7 +158,7 @@ export function getProductSales(
   limit = 50
 ): ProductSalesReport {
   const db = getDb()
-  const { from, to } = dateWhere(range)
+  const { from, to, deviceClause, deviceArgs } = dateWhere(range)
 
   const orderCol = sortBy === 'quantity' ? 'quantity_sold' : 'revenue'
 
@@ -125,21 +169,24 @@ export function getProductSales(
         ti.product_id,
         ti.product_name,
         COALESCE(p.item_type, 'Unknown') AS item_type,
+        COALESCE(d.distributor_name, 'Unassigned') AS distributor_name,
         COALESCE(p.sku, '') AS sku,
         COALESCE(SUM(ti.quantity), 0) AS quantity_sold,
         COALESCE(SUM(ti.total_price), 0) AS revenue,
-        COALESCE(SUM(ti.quantity * COALESCE(p.cost, 0)), 0) AS cost_total
+        COALESCE(SUM(COALESCE(ti.cost_at_sale, ti.quantity * COALESCE(p.cost, 0))), 0) AS cost_total
       FROM transaction_items ti
       INNER JOIN transactions t ON t.id = ti.transaction_id
       LEFT JOIN products p ON p.id = ti.product_id
+      LEFT JOIN distributors d ON d.distributor_number = p.distributor_number
       WHERE t.status = 'completed'
         AND t.created_at >= ? AND t.created_at <= ?
-      GROUP BY ti.product_id, ti.product_name
+        ${deviceClause}
+      GROUP BY ti.product_id, ti.product_name, item_type, distributor_name, sku
       ORDER BY ${orderCol} DESC
       LIMIT ?
       `
     )
-    .all(from, to, limit) as Array<
+    .all(from, to, ...deviceArgs, limit) as Array<
     Omit<ProductSalesRow, 'profit' | 'margin_pct'> & { cost_total: number }
   >
 
@@ -158,7 +205,7 @@ export function getProductSales(
 
 export function getCategorySales(range: ReportDateRange): CategorySalesReport {
   const db = getDb()
-  const { from, to } = dateWhere(range)
+  const { from, to, deviceClause, deviceArgs } = dateWhere(range)
 
   const categories = db
     .prepare(
@@ -168,24 +215,42 @@ export function getCategorySales(range: ReportDateRange): CategorySalesReport {
         COUNT(DISTINCT t.id) AS transaction_count,
         COALESCE(SUM(ti.quantity), 0) AS quantity_sold,
         COALESCE(SUM(ti.total_price), 0) AS revenue,
-        COALESCE(SUM(ti.total_price) - SUM(ti.quantity * COALESCE(p.cost, 0)), 0) AS profit
+        COALESCE(
+          SUM(ti.total_price) - SUM(COALESCE(ti.cost_at_sale, ti.quantity * COALESCE(p.cost, 0))),
+          0
+        ) AS profit,
+        ROUND(
+          CASE
+            WHEN COALESCE(SUM(ti.total_price), 0) > 0 THEN (
+              (
+                COALESCE(
+                  SUM(ti.total_price) - SUM(COALESCE(ti.cost_at_sale, ti.quantity * COALESCE(p.cost, 0))),
+                  0
+                ) / SUM(ti.total_price)
+              ) * 100
+            )
+            ELSE 0
+          END,
+          1
+        ) AS profit_margin_pct
       FROM transaction_items ti
       INNER JOIN transactions t ON t.id = ti.transaction_id
       LEFT JOIN products p ON p.id = ti.product_id
       WHERE t.status = 'completed'
         AND t.created_at >= ? AND t.created_at <= ?
+        ${deviceClause}
       GROUP BY item_type
       ORDER BY revenue DESC
       `
     )
-    .all(from, to) as CategorySalesRow[]
+    .all(from, to, ...deviceArgs) as CategorySalesRow[]
 
   return { categories }
 }
 
 export function getTaxSummary(range: ReportDateRange): TaxReport {
   const db = getDb()
-  const { from, to } = dateWhere(range)
+  const { from, to, deviceClause, deviceArgs } = dateWhere(range)
 
   // Products store tax_1 and tax_2 rates directly. We group by effective tax rate
   // from the product, calculating taxable sales from the line items.
@@ -205,11 +270,12 @@ export function getTaxSummary(range: ReportDateRange): TaxReport {
       LEFT JOIN products p ON p.id = ti.product_id
       WHERE t.status = 'completed'
         AND t.created_at >= ? AND t.created_at <= ?
+        ${deviceClause}
       GROUP BY tax_code_name
       ORDER BY tax_collected DESC
       `
     )
-    .all(from, to) as TaxReportRow[]
+    .all(from, to, ...deviceArgs) as TaxReportRow[]
 
   return { tax_rows: taxRows }
 }
@@ -247,7 +313,7 @@ export function getComparisonData(
 
 export function getCashierSales(range: ReportDateRange): CashierSalesReport {
   const db = getDb()
-  const { from, to } = dateWhere(range)
+  const { from, to, deviceClause, deviceArgs } = dateWhere(range)
 
   const cashiers = db
     .prepare(
@@ -261,11 +327,12 @@ export function getCashierSales(range: ReportDateRange): CashierSalesReport {
       INNER JOIN sessions s ON s.id = t.session_id
       WHERE t.status = 'completed'
         AND t.created_at >= ? AND t.created_at <= ?
+        ${deviceClause}
       GROUP BY s.opened_by_cashier_id, s.opened_by_cashier_name
       ORDER BY gross_sales DESC
       `
     )
-    .all(from, to) as Array<Omit<CashierSalesRow, 'avg_transaction'>>
+    .all(from, to, ...deviceArgs) as Array<Omit<CashierSalesRow, 'avg_transaction'>>
 
   const result: CashierSalesRow[] = cashiers.map((c) => ({
     ...c,
@@ -278,7 +345,7 @@ export function getCashierSales(range: ReportDateRange): CashierSalesReport {
 
 export function getHourlySales(range: ReportDateRange): HourlySalesReport {
   const db = getDb()
-  const { from, to } = dateWhere(range)
+  const { from, to, deviceClause, deviceArgs } = dateWhere(range)
 
   const hours = db
     .prepare(
@@ -290,11 +357,37 @@ export function getHourlySales(range: ReportDateRange): HourlySalesReport {
       FROM transactions
       WHERE status = 'completed'
         AND created_at >= ? AND created_at <= ?
+        ${deviceClause}
       GROUP BY hour
       ORDER BY hour ASC
       `
     )
-    .all(from, to) as HourlySalesRow[]
+    .all(from, to, ...deviceArgs) as HourlySalesRow[]
 
   return { hours }
+}
+
+export function getTransactionList(range: ReportDateRange): TransactionListReport {
+  const db = getDb()
+  const { from, to, deviceClause, deviceArgs } = dateWhere(range)
+
+  const transactions = db
+    .prepare(
+      `
+      SELECT
+        t.transaction_number,
+        t.created_at,
+        COALESCE(s.opened_by_cashier_name, 'Unknown') AS cashier_name,
+        COALESCE(t.device_id, 'Unknown') AS register_name,
+        t.status
+      FROM transactions t
+      LEFT JOIN sessions s ON s.id = t.session_id
+      WHERE t.created_at >= ? AND t.created_at <= ?
+        ${deviceClause}
+      ORDER BY t.created_at ASC
+      `
+    )
+    .all(from, to, ...deviceArgs) as TransactionListRow[]
+
+  return { transactions }
 }

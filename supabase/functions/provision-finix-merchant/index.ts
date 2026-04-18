@@ -33,7 +33,11 @@ interface BusinessInfoInput {
   bank_account: {
     account_number: string
     routing_number: string
-    account_type: 'PERSONAL_CHECKING' | 'PERSONAL_SAVINGS' | 'BUSINESS_CHECKING' | 'BUSINESS_SAVINGS'
+    account_type:
+      | 'PERSONAL_CHECKING'
+      | 'PERSONAL_SAVINGS'
+      | 'BUSINESS_CHECKING'
+      | 'BUSINESS_SAVINGS'
     name: string
   }
 }
@@ -150,9 +154,7 @@ Deno.serve(async (req: Request) => {
       ...(input.annual_card_volume !== undefined
         ? { annual_card_volume: input.annual_card_volume }
         : {}),
-      ...(input.incorporation_date
-        ? { incorporation_date: input.incorporation_date }
-        : {})
+      ...(input.incorporation_date ? { incorporation_date: input.incorporation_date } : {})
     }
   }
 
@@ -165,7 +167,10 @@ Deno.serve(async (req: Request) => {
   if (!identityRes.ok) {
     const errBody = await identityRes.text()
     console.error('[provision] Identity creation failed:', identityRes.status, errBody)
-    return jsonResponse({ error: `Failed to create business identity: ${identityRes.status}`, finix_error: errBody }, 502)
+    return jsonResponse(
+      { error: `Failed to create business identity: ${identityRes.status}`, finix_error: errBody },
+      502
+    )
   }
 
   const identity = (await identityRes.json()) as { id: string }

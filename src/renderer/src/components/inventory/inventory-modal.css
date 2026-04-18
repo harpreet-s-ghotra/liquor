@@ -96,6 +96,45 @@
   padding: 0 0.5rem;
 }
 
+.inventory-modal__filter-chips {
+  display: flex;
+  gap: 6px;
+  padding: 6px 4px 8px;
+}
+
+.inventory-modal__filter-chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid rgba(194, 199, 202, 0.2);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  padding: 3px 10px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.inventory-modal__filter-chip--active {
+  border-color: #a3f69c;
+  background: rgba(163, 246, 156, 0.1);
+  color: #a3f69c;
+}
+
+.inventory-modal__filter-chip-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.2);
+  padding: 0 5px;
+  min-width: 18px;
+  height: 16px;
+  color: #f87171;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .inventory-modal__tab-list {
   display: flex;
   gap: 0;

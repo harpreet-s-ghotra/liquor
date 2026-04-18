@@ -3,6 +3,8 @@ import { AppButton } from '@renderer/components/common/AppButton'
 import { formatCurrency } from '@renderer/utils/currency'
 import { cn } from '@renderer/lib/utils'
 import { useState, useEffect, useCallback } from 'react'
+import { useAuthStore } from '@renderer/store/useAuthStore'
+import { useAlertStore } from '@renderer/store/useAlertStore'
 import type {
   TransactionListFilter,
   TransactionSummary,
@@ -59,6 +61,9 @@ export function SalesHistoryModal({
   onClose,
   onRecallTransaction
 }: SalesHistoryModalProps): React.JSX.Element {
+  const merchantConfig = useAuthStore((s) => s.merchantConfig)
+  const currentCashier = useAuthStore((s) => s.currentCashier)
+  const showError = useAlertStore((s) => s.showError)
   const [transactions, setTransactions] = useState<TransactionSummary[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(0)
@@ -132,6 +137,36 @@ export function SalesHistoryModal({
       onClose()
     },
     [onRecallTransaction, onClose]
+  )
+
+  const handlePrintReceipt = useCallback(
+    async (detail: TransactionDetail) => {
+      if (!window.api?.printReceipt) return
+      try {
+        await window.api.printReceipt({
+          transaction_number: detail.transaction_number,
+          store_name: merchantConfig?.merchant_name ?? 'Liquor Store',
+          cashier_name: currentCashier?.name ?? '',
+          items: detail.items.map((li) => ({
+            product_name: li.product_name,
+            quantity: li.quantity,
+            unit_price: li.unit_price,
+            total_price: li.total_price
+          })),
+          subtotal: detail.subtotal,
+          tax_amount: detail.tax_amount,
+          total: detail.total,
+          payment_method: detail.payment_method,
+          card_last_four: detail.card_last_four ?? null,
+          card_type: detail.card_type ?? null,
+          payments: detail.payments.length > 0 ? detail.payments : undefined
+        })
+      } catch (err) {
+        console.error('Receipt print failed:', err)
+        showError('Failed to print receipt.')
+      }
+    },
+    [merchantConfig, currentCashier, showError]
   )
 
   const hasActiveFilters =
@@ -259,6 +294,7 @@ export function SalesHistoryModal({
                       expandedDetail={isExpanded ? expandedDetail : null}
                       onExpand={() => handleExpand(txn)}
                       onRecall={handleRecall}
+                      onPrint={handlePrintReceipt}
                     />
                   )
                 })}
@@ -305,6 +341,7 @@ type TransactionRowProps = {
   expandedDetail: TransactionDetail | null
   onExpand: () => void
   onRecall: (txnNumber: string) => void
+  onPrint: (detail: TransactionDetail) => void
 }
 
 function TransactionRow({
@@ -313,11 +350,14 @@ function TransactionRow({
   isExpanded,
   expandedDetail,
   onExpand,
-  onRecall
+  onRecall,
+  onPrint
 }: TransactionRowProps): React.JSX.Element {
-  const paymentLabel = txn.payment_method || '-'
+  const paymentLabel = txn.payment_method === 'split' ? 'Split' : txn.payment_method || '-'
   const cardInfo =
-    txn.card_type && txn.card_last_four ? ` (${txn.card_type} ****${txn.card_last_four})` : ''
+    txn.payment_method !== 'split' && txn.card_type && txn.card_last_four
+      ? ` (${txn.card_type} ****${txn.card_last_four})`
+      : ''
 
   return (
     <>
@@ -445,6 +485,26 @@ function TransactionRow({
                   </span>
                 </div>
 
+                {/* Payment tenders */}
+                {expandedDetail.payments.length > 0 && (
+                  <div className="sales-history__tenders" data-testid="sales-history-tenders">
+                    {expandedDetail.payments.map((p, i) => {
+                      let label = p.method.charAt(0).toUpperCase() + p.method.slice(1)
+                      if ((p.method === 'credit' || p.method === 'debit') && p.card_last_four) {
+                        const brand = p.card_type
+                          ? p.card_type.charAt(0).toUpperCase() + p.card_type.slice(1) + ' '
+                          : ''
+                        label = `${label} (${brand}****${p.card_last_four})`
+                      }
+                      return (
+                        <span key={i} className="sales-history__tender-entry">
+                          {label}: {formatCurrency(p.amount)}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
+
                 {/* Notes / linked transaction */}
                 {txn.notes && <p className="sales-history__notes">{txn.notes}</p>}
 
@@ -463,6 +523,17 @@ function TransactionRow({
                       Recall for Return
                     </AppButton>
                   )}
+                  <AppButton
+                    variant="neutral"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (expandedDetail) onPrint(expandedDetail)
+                    }}
+                    data-testid="sales-history-print-btn"
+                  >
+                    Print Receipt
+                  </AppButton>
                 </div>
               </div>
             ) : (

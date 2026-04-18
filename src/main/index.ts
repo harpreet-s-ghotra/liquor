@@ -61,7 +61,28 @@ import {
   getTaxSummary,
   getComparisonData,
   getCashierSales,
-  getHourlySales
+  getHourlySales,
+  getTransactionList,
+  getLowStockProducts,
+  getUnpricedInventoryProducts,
+  findProductBySku,
+  toggleFavorite,
+  getDistinctSizes
+} from './database'
+import type {
+  CreatePurchaseOrderInput,
+  UpdatePurchaseOrderInput,
+  ReceivePurchaseOrderItemInput
+} from '../shared/types'
+import {
+  getPurchaseOrders,
+  getPurchaseOrderDetail,
+  createPurchaseOrder,
+  updatePurchaseOrder,
+  receivePurchaseOrderItem,
+  addPurchaseOrderItem,
+  removePurchaseOrderItem,
+  deletePurchaseOrder
 } from './database'
 import {
   verifyMerchant,
@@ -106,9 +127,14 @@ import {
   onConnectivityChange
 } from './services/connectivity'
 import { registerDevice } from './services/device-registration'
+import { listRegisters, renameRegister, deleteRegister } from './services/register-management'
 import { getSupabaseClient, getMerchantCloudId } from './services/supabase'
 import { getLastSyncedAt, startSyncWorker, stopSyncWorker } from './services/sync-worker'
-import { runInitialSync } from './services/sync/initial-sync'
+import {
+  runInitialSync,
+  getInitialSyncStatus,
+  setInitialSyncStatusCallback
+} from './services/sync/initial-sync'
 import { getDeviceConfig } from './database/device-config.repo'
 import { getQueueStats } from './database/sync-queue.repo'
 import { initAutoUpdater, checkForUpdates, installUpdate } from './services/auto-updater'
@@ -628,6 +654,18 @@ app.whenReady().then(() => {
             AND item_type IS NOT NULL
         `
         ).run()
+
+        // Fall back to the merchant's default tax code for any product still
+        // without a tax rate. Keeps imports consistent with "Apply to all items".
+        db.prepare(
+          `
+          UPDATE products
+          SET tax_1 = (SELECT rate FROM tax_codes WHERE is_default = 1 LIMIT 1)
+          WHERE is_active = 1
+            AND (tax_1 IS NULL OR tax_1 = 0)
+            AND EXISTS (SELECT 1 FROM tax_codes WHERE is_default = 1)
+        `
+        ).run()
       })
 
       importTx()
@@ -648,7 +686,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('cashiers:create', async (_, input) => {
     try {
-      return createCashier(input)
+      return await createCashier(input)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to create cashier')
     }
@@ -656,7 +694,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('cashiers:validate-pin', async (_, pin: string) => {
     try {
-      return validatePin(pin)
+      return await validatePin(pin)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to validate PIN')
     }
@@ -664,7 +702,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('cashiers:update', async (_, input) => {
     try {
-      return updateCashier(input)
+      return await updateCashier(input)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to update cashier')
     }
@@ -956,9 +994,9 @@ app.whenReady().then(() => {
 
   // ── Cloud Sync IPC ──
 
-  ipcMain.handle('inventory:apply-tax-to-all', async (_, taxRate: number) => {
+  ipcMain.handle('inventory:apply-tax-to-all', async (_, taxCodeId: number) => {
     try {
-      const updated = applyTaxToAllProducts(taxRate)
+      const updated = applyTaxToAllProducts(taxCodeId)
       return { updated }
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to apply tax')
@@ -971,6 +1009,23 @@ app.whenReady().then(() => {
       online: isOnline(),
       pending_count: stats.pending + stats.in_flight,
       last_synced_at: getLastSyncedAt()
+    }
+  })
+
+  ipcMain.handle('sync:get-initial-status', () => {
+    return getInitialSyncStatus()
+  })
+
+  ipcMain.handle('sync:retry-initial-sync', async () => {
+    try {
+      const merchantCloudId = await getMerchantCloudId()
+      if (!merchantCloudId) throw new Error('Not authenticated')
+      const client = getSupabaseClient()
+      runInitialSync(client, merchantCloudId).catch((err) => {
+        console.error('[sync] Retry initial sync error:', err)
+      })
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to retry initial sync')
     }
   })
 
@@ -1044,6 +1099,16 @@ app.whenReady().then(() => {
 
   ipcMain.handle('reports:export', async (_, request: ReportExportRequest) => {
     try {
+      const merchantConfig = getMerchantConfig()
+      const exportMetadata = {
+        store_name:
+          request.metadata?.store_name ??
+          merchantConfig?.store_name ??
+          merchantConfig?.merchant_name,
+        merchant_name: request.metadata?.merchant_name ?? merchantConfig?.merchant_name,
+        merchant_id: request.metadata?.merchant_id ?? merchantConfig?.merchant_id
+      }
+
       let data
       switch (request.report_type) {
         case 'sales-summary':
@@ -1058,13 +1123,16 @@ app.whenReady().then(() => {
         case 'tax-summary':
           data = getTaxSummary(request.date_range)
           break
+        case 'transaction-list':
+          data = getTransactionList(request.date_range)
+          break
         case 'comparison':
           throw new Error('Use reports:comparison for comparison exports')
       }
       if (request.format === 'pdf') {
-        return await exportToPdf(data, request.report_type, request.date_range)
+        return await exportToPdf(data, request.report_type, request.date_range, exportMetadata)
       } else {
-        return await exportToCsv(data, request.report_type, request.date_range)
+        return await exportToCsv(data, request.report_type, request.date_range, exportMetadata)
       }
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to export report')
@@ -1077,6 +1145,12 @@ app.whenReady().then(() => {
   onConnectivityChange((online) => {
     const win = BrowserWindow.getAllWindows()[0]
     if (win) win.webContents.send('sync:connectivity-changed', online)
+  })
+
+  // Push initial sync status changes to renderer
+  setInitialSyncStatusCallback((status) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) win.webContents.send('sync:initial-status-changed', status)
   })
 
   // Start sync worker after a short delay to let auth settle
@@ -1092,8 +1166,8 @@ app.whenReady().then(() => {
       // Backfill device_id on transactions written before device registration
       backfillTransactionDeviceId(deviceId)
 
-      // Run initial product reconciliation after the worker is started so the
-      // queue is already draining while we pull remote rows.
+      // Run initial reconciliation for all entities after the worker is started
+      // so the queue is already draining while we pull remote rows.
       runInitialSync(client, merchantCloudId).catch((err) => {
         console.error('[sync] Initial sync error:', err)
       })
@@ -1203,6 +1277,177 @@ ipcMain.handle('auth:consume-pending-deep-link', () => {
   const url = pendingDeepLinkUrl
   pendingDeepLinkUrl = null
   return url
+})
+
+// ── Manager Modal IPC ──
+
+// Registers (Supabase-backed)
+ipcMain.handle('registers:list', async () => {
+  try {
+    const supabase = getSupabaseClient()
+    const merchantCloudId = await getMerchantCloudId()
+    if (!supabase || !merchantCloudId) throw new Error('Not connected to cloud')
+    const rows = await listRegisters(supabase, merchantCloudId)
+    const localConfig = getDeviceConfig()
+    return rows.map((r) => ({ ...r, is_current: r.id === localConfig?.device_id }))
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to list registers')
+  }
+})
+
+ipcMain.handle('registers:rename', async (_, id: string, newName: string) => {
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) throw new Error('Not connected to cloud')
+    await renameRegister(supabase, id, newName)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to rename register')
+  }
+})
+
+ipcMain.handle('registers:delete', async (_, id: string) => {
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) throw new Error('Not connected to cloud')
+    await deleteRegister(supabase, id)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to delete register')
+  }
+})
+
+// Low-stock products
+ipcMain.handle('inventory:low-stock', async (_, threshold: number) => {
+  try {
+    return getLowStockProducts(threshold)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to get low-stock products')
+  }
+})
+
+// Unpriced products (active items with $0 price)
+ipcMain.handle('inventory:unpriced-products', async () => {
+  try {
+    return getUnpricedInventoryProducts()
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to get unpriced products')
+  }
+})
+
+// Find product by SKU/barcode/alt-SKU regardless of price (for scan fallback)
+ipcMain.handle('inventory:find-by-sku', async (_, sku: string) => {
+  try {
+    return findProductBySku(sku)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to find product')
+  }
+})
+
+// Toggle is_favorite flag on a product
+ipcMain.handle('inventory:toggle-favorite', async (_, productId: number) => {
+  try {
+    toggleFavorite(productId)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to toggle favorite')
+  }
+})
+
+// Get distinct sizes from local products table
+ipcMain.handle('inventory:distinct-sizes', async () => {
+  try {
+    return getDistinctSizes()
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to get sizes')
+  }
+})
+
+// Finix merchant status
+ipcMain.handle('finix:merchant-status', async () => {
+  try {
+    const config = getMerchantConfig()
+    if (!config) throw new Error('No merchant configured')
+    return await verifyMerchant(
+      config.finix_api_username,
+      config.finix_api_password,
+      config.merchant_id
+    )
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to get merchant status')
+  }
+})
+
+// ── Purchase Orders IPC ──
+
+ipcMain.handle('purchase-orders:list', async () => {
+  try {
+    return getPurchaseOrders()
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to list purchase orders')
+  }
+})
+
+ipcMain.handle('purchase-orders:detail', async (_, poId: number) => {
+  try {
+    return getPurchaseOrderDetail(poId)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to get purchase order')
+  }
+})
+
+ipcMain.handle('purchase-orders:create', async (_, input: CreatePurchaseOrderInput) => {
+  try {
+    return createPurchaseOrder(input)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to create purchase order')
+  }
+})
+
+ipcMain.handle('purchase-orders:update', async (_, input: UpdatePurchaseOrderInput) => {
+  try {
+    return updatePurchaseOrder(input)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to update purchase order')
+  }
+})
+
+ipcMain.handle('purchase-orders:receive-item', async (_, input: ReceivePurchaseOrderItemInput) => {
+  try {
+    return receivePurchaseOrderItem(input)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to receive item')
+  }
+})
+
+ipcMain.handle(
+  'purchase-orders:add-item',
+  async (_, poId: number, productId: number, quantityOrdered: number) => {
+    try {
+      return addPurchaseOrderItem(poId, productId, quantityOrdered)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to add item to order')
+    }
+  }
+)
+
+ipcMain.handle('purchase-orders:remove-item', async (_, poId: number, itemId: number) => {
+  try {
+    removePurchaseOrderItem(poId, itemId)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to remove item from order')
+  }
+})
+
+ipcMain.handle('purchase-orders:delete', async (_, poId: number) => {
+  try {
+    deletePurchaseOrder(poId)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to delete purchase order')
+  }
+})
+
+// Zoom — set/get via webContents so it matches Cmd+= / Cmd+- / Cmd+0
+ipcMain.handle('zoom:get', (event) => event.sender.getZoomFactor())
+ipcMain.handle('zoom:set', (event, factor: number) => {
+  event.sender.setZoomFactor(Math.min(2.0, Math.max(0.5, factor)))
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common

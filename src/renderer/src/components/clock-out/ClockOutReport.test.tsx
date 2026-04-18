@@ -314,7 +314,7 @@ describe('ClockOutReportView', () => {
       render(<ClockOutReportView report={report} />)
 
       expect(screen.getByText('Gross Sales')).toBeInTheDocument()
-      expect(screen.getByText('$1234.56')).toBeInTheDocument()
+      expect(screen.getByText('$1,234.56')).toBeInTheDocument()
     })
 
     it('displays tax collected with currency formatting', () => {
@@ -334,7 +334,7 @@ describe('ClockOutReportView', () => {
       render(<ClockOutReportView report={report} />)
 
       expect(screen.getByText('Net Sales')).toBeInTheDocument()
-      expect(screen.getByText('$1135.80')).toBeInTheDocument()
+      expect(screen.getByText('$1,135.80')).toBeInTheDocument()
     })
 
     it('displays average transaction value with currency formatting', () => {
@@ -556,9 +556,9 @@ describe('ClockOutReportView', () => {
       render(<ClockOutReportView report={report} />)
 
       const summary = screen.getByTestId('summary-section')
-      expect(summary).toHaveTextContent('$99999.99')
+      expect(summary).toHaveTextContent('$99,999.99')
       const payTable = screen.getByTestId('payment-breakdown-table')
-      expect(payTable).toHaveTextContent('$50000.00')
+      expect(payTable).toHaveTextContent('$50,000.00')
     })
 
     it('handles currency with cents only (e.g., $0.50)', () => {
@@ -626,7 +626,7 @@ describe('ClockOutReportView', () => {
       render(<ClockOutReportView report={report} />)
 
       expect(screen.getByText('100')).toBeInTheDocument()
-      expect(screen.getByText('$5000.00')).toBeInTheDocument()
+      expect(screen.getByText('$5,000.00')).toBeInTheDocument()
     })
   })
 

@@ -169,10 +169,7 @@ const loginWithPin = async (page: Page): Promise<void> => {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
 
-  await page
-    .locator('.action-panel__product-tile')
-    .first()
-    .waitFor({ state: 'visible', timeout: 10000 })
+  await page.locator('.ticket-panel').waitFor({ state: 'visible', timeout: 10000 })
 }
 
 test.describe('Sales Reports', () => {
@@ -185,10 +182,10 @@ test.describe('Sales Reports', () => {
   test('opens Reports modal via F5 shortcut bar button', async ({ page }) => {
     await page.locator('.bottom-bar__key-btn:has-text("Reports")').click()
     await expect(page.locator('text=Sales Reports')).toBeVisible()
-    await expect(page.locator('text=Sales Summary')).toBeVisible()
-    await expect(page.locator('text=Product Analysis')).toBeVisible()
-    await expect(page.locator('text=Tax Report')).toBeVisible()
-    await expect(page.locator('text=Comparisons')).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Sales Summary' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Product Analysis' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Tax Report' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Comparisons' })).toBeVisible()
   })
 
   test('displays summary cards with data', async ({ page }) => {
@@ -197,7 +194,7 @@ test.describe('Sales Reports', () => {
     await expect(page.locator('text=Gross Sales')).toBeVisible()
     await expect(page.locator('text=Net Sales')).toBeVisible()
     await expect(page.locator('text=Tax Collected')).toBeVisible()
-    await expect(page.locator('text=Transactions')).toBeVisible()
+    await expect(page.getByText('Transactions', { exact: true })).toBeVisible()
   })
 
   test('switches to Product Analysis tab', async ({ page }) => {
@@ -228,6 +225,8 @@ test.describe('Sales Reports', () => {
   test('shows export buttons on summary tab', async ({ page }) => {
     await page.locator('.bottom-bar__key-btn:has-text("Reports")').click()
     await expect(page.locator('text=Sales Reports')).toBeVisible()
+    await expect(page.getByLabel('Period')).toBeVisible()
+    await expect(page.getByLabel('Export')).toBeVisible()
     await expect(page.locator('button:has-text("Download PDF")')).toBeVisible()
     await expect(page.locator('button:has-text("Download CSV")')).toBeVisible()
   })

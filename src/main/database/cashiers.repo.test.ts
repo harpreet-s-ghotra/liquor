@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import * as bcrypt from 'bcrypt'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb, setDatabase } from './connection'
 import { applySchema } from './schema'
@@ -40,9 +41,9 @@ describe('cashiers.repo', () => {
       expect(cashiers).toEqual([])
     })
 
-    it('returns all cashiers ordered by name', () => {
-      createCashier({ name: 'Zoe', pin: '1234', role: 'admin' })
-      createCashier({ name: 'Alice', pin: '5678', role: 'cashier' })
+    it('returns all cashiers ordered by name', async () => {
+      await createCashier({ name: 'Zoe', pin: '1234', role: 'admin' })
+      await createCashier({ name: 'Alice', pin: '5678', role: 'cashier' })
 
       const list = getCashiers()
       expect(list.length).toBe(2)
@@ -50,8 +51,8 @@ describe('cashiers.repo', () => {
       expect(list[1].name).toBe('Zoe')
     })
 
-    it('does not expose pin_hash in returned cashier objects', () => {
-      createCashier({ name: 'Test', pin: '1234' })
+    it('does not expose pin_hash in returned cashier objects', async () => {
+      await createCashier({ name: 'Test', pin: '1234' })
 
       const cashiers = getCashiers()
       expect(cashiers[0]).not.toHaveProperty('pin_hash')
@@ -59,28 +60,35 @@ describe('cashiers.repo', () => {
   })
 
   describe('hashPin', () => {
-    it('returns consistent hash for same PIN', () => {
-      const hash1 = hashPin('1234')
-      const hash2 = hashPin('1234')
-      expect(hash1).toBe(hash2)
+    it('returns different hash each time due to bcrypt salt', async () => {
+      const hash1 = await hashPin('1234')
+      const hash2 = await hashPin('1234')
+      expect(hash1).not.toBe(hash2) // bcrypt includes random salt
     })
 
-    it('returns different hash for different PINs', () => {
-      const hash1 = hashPin('1234')
-      const hash2 = hashPin('5678')
-      expect(hash1).not.toBe(hash2)
+    it('can verify PIN against hash using bcrypt.compare', async () => {
+      const pin = '1234'
+      const hash = await hashPin(pin)
+      const isValid = await bcrypt.compare(pin, hash)
+      expect(isValid).toBe(true)
     })
 
-    it('returns a non-empty string', () => {
-      const hash = hashPin('1234')
+    it('fails verification for wrong PIN', async () => {
+      const hash = await hashPin('1234')
+      const isValid = await bcrypt.compare('5678', hash)
+      expect(isValid).toBe(false)
+    })
+
+    it('returns a non-empty string', async () => {
+      const hash = await hashPin('1234')
       expect(typeof hash).toBe('string')
       expect(hash.length).toBeGreaterThan(0)
     })
   })
 
   describe('createCashier', () => {
-    it('creates a new cashier with hashed PIN and enqueues INSERT', () => {
-      const result = createCashier({
+    it('creates a new cashier with bcrypt-hashed PIN and enqueues INSERT', async () => {
+      const result = await createCashier({
         name: 'John Cashier',
         pin: '1234',
         role: 'cashier'
@@ -100,8 +108,8 @@ describe('cashiers.repo', () => {
       expect(pending[0].operation).toBe('INSERT')
     })
 
-    it('defaults role to cashier if not provided', () => {
-      const result = createCashier({
+    it('defaults role to cashier if not provided', async () => {
+      const result = await createCashier({
         name: 'Default Role',
         pin: '1234'
       })
@@ -109,8 +117,8 @@ describe('cashiers.repo', () => {
       expect(result.role).toBe('cashier')
     })
 
-    it('stores PIN hash, not the PIN itself', () => {
-      const result = createCashier({
+    it('stores bcrypt PIN hash, not the PIN itself', async () => {
+      const result = await createCashier({
         name: 'Secure',
         pin: '1234',
         role: 'cashier'
@@ -121,11 +129,13 @@ describe('cashiers.repo', () => {
         .get(result.id) as { pin_hash: string }
 
       expect(stored.pin_hash).not.toBe('1234')
-      expect(stored.pin_hash).toBe(hashPin('1234'))
+      // Verify it's a valid bcrypt hash
+      const isValid = await bcrypt.compare('1234', stored.pin_hash)
+      expect(isValid).toBe(true)
     })
 
-    it('enqueues payload with pin_hash for sync', () => {
-      const result = createCashier({
+    it('enqueues payload with pin_hash for sync', async () => {
+      const result = await createCashier({
         name: 'Sync Test',
         pin: '9999',
         role: 'admin'
@@ -137,52 +147,70 @@ describe('cashiers.repo', () => {
       expect(payload.cashier).toBeDefined()
       expect(payload.cashier.id).toBe(result.id)
       expect(payload.cashier.name).toBe('Sync Test')
-      expect(payload.cashier.pin_hash).toBe(hashPin('9999'))
       expect(payload.cashier.role).toBe('admin')
+      // Verify pin_hash in payload is valid bcrypt hash
+      const isValid = await bcrypt.compare('9999', payload.cashier.pin_hash)
+      expect(isValid).toBe(true)
     })
   })
 
   describe('validatePin', () => {
-    it('returns the cashier for a valid PIN and active status', () => {
-      const created = createCashier({
+    it('returns the cashier for a valid PIN and active status', async () => {
+      const created = await createCashier({
         name: 'Validator',
         pin: '7777',
         role: 'cashier'
       })
 
-      const result = validatePin('7777')
+      const result = await validatePin('7777')
       expect(result).toBeDefined()
       expect(result?.id).toBe(created.id)
       expect(result?.name).toBe('Validator')
     })
 
-    it('returns null for invalid PIN', () => {
-      createCashier({ name: 'Test', pin: '1234' })
+    it('returns null for invalid PIN', async () => {
+      await createCashier({ name: 'Test', pin: '1234' })
 
-      const result = validatePin('9999')
+      const result = await validatePin('9999')
       expect(result).toBeNull()
     })
 
-    it('returns null for inactive cashier', () => {
-      const created = createCashier({ name: 'Inactive', pin: '1234' })
+    it('returns null for inactive cashier', async () => {
+      const created = await createCashier({ name: 'Inactive', pin: '1234' })
 
       // Manually deactivate
       getDb().prepare('UPDATE cashiers SET is_active = 0 WHERE id = ?').run(created.id)
 
-      const result = validatePin('1234')
+      const result = await validatePin('1234')
       expect(result).toBeNull()
+    })
+
+    it('uses timing-safe bcrypt.compare for validation', async () => {
+      const created = await createCashier({
+        name: 'Timing Safe',
+        pin: '5555',
+        role: 'cashier'
+      })
+
+      // Valid PIN should return cashier
+      const valid = await validatePin('5555')
+      expect(valid?.id).toBe(created.id)
+
+      // Invalid PIN should return null (not throw)
+      const invalid = await validatePin('0000')
+      expect(invalid).toBeNull()
     })
   })
 
   describe('updateCashier', () => {
-    it('updates name and enqueues UPDATE sync', () => {
-      const created = createCashier({
+    it('updates name and enqueues UPDATE sync', async () => {
+      const created = await createCashier({
         name: 'Old Name',
         pin: '1234',
         role: 'cashier'
       })
 
-      const result = updateCashier({
+      const result = await updateCashier({
         id: created.id,
         name: 'New Name'
       })
@@ -197,34 +225,34 @@ describe('cashiers.repo', () => {
       expect(updates[0].entity_id).toBe(String(created.id))
     })
 
-    it('updates PIN hash if new PIN provided', () => {
-      const created = createCashier({
+    it('updates PIN hash if new PIN provided', async () => {
+      const created = await createCashier({
         name: 'Pin Update',
         pin: '1111',
         role: 'cashier'
       })
 
-      updateCashier({
+      await updateCashier({
         id: created.id,
         pin: '2222'
       })
 
       // Old PIN should fail
-      expect(validatePin('1111')).toBeNull()
+      expect(await validatePin('1111')).toBeNull()
 
       // New PIN should work
-      const validated = validatePin('2222')
+      const validated = await validatePin('2222')
       expect(validated?.id).toBe(created.id)
     })
 
-    it('updates role and is_active status', () => {
-      const created = createCashier({
+    it('updates role and is_active status', async () => {
+      const created = await createCashier({
         name: 'Status Test',
         pin: '1234',
         role: 'cashier'
       })
 
-      const result = updateCashier({
+      const result = await updateCashier({
         id: created.id,
         role: 'admin',
         is_active: 0
@@ -234,14 +262,14 @@ describe('cashiers.repo', () => {
       expect(result.is_active).toBe(0)
     })
 
-    it('allows partial updates (omitted fields preserved)', () => {
-      const created = createCashier({
+    it('allows partial updates (omitted fields preserved)', async () => {
+      const created = await createCashier({
         name: 'Preserve Test',
         pin: '1234',
         role: 'admin'
       })
 
-      updateCashier({
+      await updateCashier({
         id: created.id,
         name: 'New Name'
         // role and pin omitted (should be preserved)
@@ -253,7 +281,9 @@ describe('cashiers.repo', () => {
 
       expect(updated.name).toBe('New Name')
       expect(updated.role).toBe('admin')
-      expect(updated.pin_hash).toBe(hashPin('1234'))
+      // Verify PIN is still original using bcrypt
+      const isValid = await bcrypt.compare('1234', updated.pin_hash)
+      expect(isValid).toBe(true)
     })
 
     it('throws when cashier does not exist', () => {
@@ -264,8 +294,8 @@ describe('cashiers.repo', () => {
   })
 
   describe('deleteCashier', () => {
-    it('enqueues DELETE before deleting and throws if not found', () => {
-      const created = createCashier({
+    it('enqueues DELETE before deleting and throws if not found', async () => {
+      const created = await createCashier({
         name: 'To Delete',
         pin: '1234'
       })
@@ -286,8 +316,8 @@ describe('cashiers.repo', () => {
       expect(list.length).toBe(0)
     })
 
-    it('enqueues DELETE with pin_hash available at save time', () => {
-      const created = createCashier({
+    it('enqueues DELETE with pin_hash available at save time', async () => {
+      const created = await createCashier({
         name: 'Delete Sync',
         pin: '4444'
       })
@@ -302,7 +332,9 @@ describe('cashiers.repo', () => {
 
       expect(deleteOp).toBeDefined()
       const payload = JSON.parse(deleteOp!.payload)
-      expect(payload.cashier.pin_hash).toBe(hashPin('4444'))
+      // Verify pin_hash is valid bcrypt hash
+      const isValid = await bcrypt.compare('4444', payload.cashier.pin_hash)
+      expect(isValid).toBe(true)
     })
 
     it('throws when cashier does not exist', () => {
@@ -311,8 +343,8 @@ describe('cashiers.repo', () => {
   })
 
   describe('enqueue sync integrity', () => {
-    it('enqueues payload with correct structure on create', () => {
-      const created = createCashier({
+    it('enqueues payload with correct structure on create', async () => {
+      const created = await createCashier({
         name: 'Payload Test',
         pin: '5555',
         role: 'admin'
@@ -325,16 +357,18 @@ describe('cashiers.repo', () => {
       expect(payload.cashier.id).toBe(created.id)
       expect(payload.cashier.name).toBe('Payload Test')
       expect(payload.cashier.role).toBe('admin')
-      expect(payload.cashier.pin_hash).toBe(hashPin('5555'))
       expect(payload.cashier.is_active).toBe(1)
       expect(payload.cashier.updated_at).toBeDefined()
+      // Verify pin_hash is valid bcrypt
+      const isValid = await bcrypt.compare('5555', payload.cashier.pin_hash)
+      expect(isValid).toBe(true)
     })
 
-    it('enqueues multiple operations in FIFO order', () => {
-      const c1 = createCashier({ name: 'First', pin: '1111' })
-      const c2 = createCashier({ name: 'Second', pin: '2222' })
+    it('enqueues multiple operations in FIFO order', async () => {
+      const c1 = await createCashier({ name: 'First', pin: '1111' })
+      const c2 = await createCashier({ name: 'Second', pin: '2222' })
 
-      updateCashier({ id: c1.id, name: 'First Updated' })
+      await updateCashier({ id: c1.id, name: 'First Updated' })
       deleteCashier(c2.id)
 
       const pending = getPendingItems()

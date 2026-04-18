@@ -117,17 +117,32 @@ function renderContent(
   // ── Payment ─────────────────────────────────────────────────────────────
   drawLine(doc, cfg.paddingX)
   doc.font('Helvetica').fontSize(cfg.fontSize)
-  let payLabel = input.payment_method.toUpperCase()
-  if (
-    (input.payment_method === 'credit' || input.payment_method === 'debit') &&
-    input.card_last_four
-  ) {
-    const brand = input.card_type
-      ? input.card_type.charAt(0).toUpperCase() + input.card_type.slice(1) + ' '
-      : ''
-    payLabel = `${payLabel} (${brand}****${input.card_last_four})`
+
+  if (input.payments && input.payments.length > 1) {
+    for (const p of input.payments) {
+      let label = p.method.toUpperCase()
+      if ((p.method === 'credit' || p.method === 'debit') && p.card_last_four) {
+        const brand = p.card_type
+          ? p.card_type.charAt(0).toUpperCase() + p.card_type.slice(1) + ' '
+          : ''
+        label = `${label} (${brand}****${p.card_last_four})`
+      }
+      labelValue(doc, label + ':', `$${p.amount.toFixed(2)}`, cfg.paddingX)
+    }
+  } else {
+    let payLabel = input.payment_method.toUpperCase()
+    if (
+      (input.payment_method === 'credit' || input.payment_method === 'debit') &&
+      input.card_last_four
+    ) {
+      const brand = input.card_type
+        ? input.card_type.charAt(0).toUpperCase() + input.card_type.slice(1) + ' '
+        : ''
+      payLabel = `${payLabel} (${brand}****${input.card_last_four})`
+    }
+    labelValue(doc, payLabel + ':', `$${input.total.toFixed(2)}`, cfg.paddingX)
   }
-  labelValue(doc, payLabel + ':', `$${input.total.toFixed(2)}`, cfg.paddingX)
+
   drawLine(doc, cfg.paddingX)
 
   // ── Barcode ─────────────────────────────────────────────────────────────

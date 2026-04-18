@@ -1,5 +1,10 @@
 import { getDb } from './connection'
 import { getDeviceConfig } from './device-config.repo'
+import {
+  ensureDepartmentFromItemType,
+  renameDepartmentFromItemType,
+  softDeleteDepartmentFromItemType
+} from './departments.repo'
 import { enqueueSyncItem } from './sync-queue.repo'
 import { DEPARTMENT_NAME_MAX_LENGTH } from '../../shared/constants'
 import type { ItemType, CreateItemTypeInput, UpdateItemTypeInput } from '../../shared/types'
@@ -45,6 +50,7 @@ export function createItemType(input: CreateItemTypeInput): ItemType {
     )
   const newId = Number(result.lastInsertRowid)
   enqueueItemTypeSync(newId, 'INSERT')
+  ensureDepartmentFromItemType(name)
   return {
     id: newId,
     name,
@@ -96,6 +102,7 @@ export function updateItemType(input: UpdateItemTypeInput): ItemType {
   db.prepare('UPDATE products SET item_type = ? WHERE item_type = ?').run(name, current.name)
 
   enqueueItemTypeSync(input.id, 'UPDATE')
+  renameDepartmentFromItemType(current.name, name)
   return {
     id: input.id,
     name,
@@ -125,6 +132,7 @@ export function deleteItemType(id: number): void {
   }
 
   enqueueItemTypeSync(id, 'DELETE')
+  softDeleteDepartmentFromItemType(itemType.name)
   db.prepare('DELETE FROM item_types WHERE id = ?').run(id)
 }
 

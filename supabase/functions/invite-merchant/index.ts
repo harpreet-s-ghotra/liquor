@@ -43,7 +43,7 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' }
     })
   }
 
@@ -55,7 +55,7 @@ Deno.serve(async (req: Request) => {
   if (!adminSecret || callerToken !== adminSecret) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' }
     })
   }
 
@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' }
     })
   }
 
@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
   if (!email) {
     return new Response(JSON.stringify({ error: 'email is required' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' }
     })
   }
 
@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: { persistSession: false, autoRefreshToken: false }
   })
 
   // Check if user already exists
@@ -93,12 +93,12 @@ Deno.serve(async (req: Request) => {
 
   const { data: listData, error: listError } = await admin.auth.admin.listUsers({
     page: 1,
-    perPage: 1000,
+    perPage: 1000
   })
   if (listError) {
     return new Response(JSON.stringify({ error: `Failed to list users: ${listError.message}` }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' }
     })
   }
 
@@ -122,10 +122,12 @@ Deno.serve(async (req: Request) => {
   }
 
   // Upsert merchant row
-  const { error: merchantError } = await admin.from('merchants').upsert(
-    { user_id: userId, merchant_name: merchantName, finix_merchant_id: null },
-    { onConflict: 'user_id' }
-  )
+  const { error: merchantError } = await admin
+    .from('merchants')
+    .upsert(
+      { user_id: userId, merchant_name: merchantName, finix_merchant_id: null },
+      { onConflict: 'user_id' }
+    )
   if (merchantError) {
     return new Response(
       JSON.stringify({ error: `Failed to provision merchant: ${merchantError.message}` }),
@@ -133,8 +135,8 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  return new Response(
-    JSON.stringify({ success: true, userId, merchantName, invited }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } }
-  )
+  return new Response(JSON.stringify({ success: true, userId, merchantName, invited }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  })
 })

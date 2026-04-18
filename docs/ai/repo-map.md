@@ -65,19 +65,31 @@ Channels follow `entity:action` pattern:
 - `peripheral:get-receipt-config`, `peripheral:save-receipt-config`
 - `peripheral:get-receipt-printer-config`, `peripheral:save-receipt-printer-config`, `peripheral:list-receipt-printers`, `peripheral:get-printer-status`
 - `finix:verify-merchant`, `finix:charge:card`, `finix:refund:transfer`, `finix:devices:list`, `finix:devices:create`, `finix:charge:terminal`, `finix:provision-merchant`
+- `finix:merchant-status` — read-only Finix merchant verification (Manager modal)
+- `registers:list`, `registers:rename`, `registers:delete` — Supabase multi-register management
+- `inventory:low-stock` — low-stock products for reorder dashboard
+- `purchase-orders:list`, `purchase-orders:detail`, `purchase-orders:create`, `purchase-orders:update`, `purchase-orders:receive-item`, `purchase-orders:add-item`, `purchase-orders:remove-item`, `purchase-orders:delete` — purchase order CRUD
 - `reports:sales-summary`, `reports:product-sales`, `reports:category-sales`, `reports:tax-summary`, `reports:comparison`, `reports:cashier-sales`, `reports:hourly-sales`, `reports:export`
-- `sync:get-status`, `sync:get-device-config`, `sync:connectivity-changed` (event)
+
+Report payload notes:
+
+- `reports:sales-summary` now includes `sales_by_card_brand` (Visa/Mastercard/Amex/Discover/Other grouping).
+- `reports:product-sales` rows include `distributor_name`.
+- `reports:category-sales` rows include `profit_margin_pct`.
+- `reports:export` accepts optional `metadata` (`store_name`, `merchant_name`, `merchant_id`) for PDF/CSV headers.
+- `sync:get-status`, `sync:get-device-config`, `sync:get-initial-status`, `sync:retry-initial-sync`, `sync:connectivity-changed` (event), `sync:initial-status-changed` (event)
 - `updater:check`, `updater:install`, `updater:update-available` (event), `updater:update-not-available` (event), `updater:update-downloaded` (event), `updater:error` (event)
 
 ## Auth State Machine
 
 ```
-loading → auth → set-password → pin-setup → business-setup → distributor-onboarding → login → pos
+loading → auth → set-password → syncing-initial → pin-setup → business-setup → distributor-onboarding → login → pos
 ```
 
 - `loading`: App initializing
 - `auth`: No valid Supabase session → `AuthScreen`
 - `set-password`: Invite link accepted, user sets password → `SetPasswordScreen`
+- `syncing-initial`: Initial multi-entity cloud restore in progress → `SyncProgressModal`
 - `pin-setup`: Session valid, no cashiers in SQLite → `PinSetupScreen`
 - `business-setup`: Cashiers exist, no merchant config → `BusinessSetupScreen`
 - `distributor-onboarding`: Merchant configured, no products → `DistributorOnboardingScreen`
@@ -109,9 +121,13 @@ Sync code lives entirely in `src/main/` (main process only). Never imported by r
 | `src/main/services/sync/inventory-delta-sync.ts` | `uploadInventoryDelta` (append-only cloud deltas)                                  |
 | `src/main/services/sync/transaction-sync.ts`     | `uploadTransaction`, `applyRemoteTransaction`                                      |
 | `src/main/services/sync/item-type-sync.ts`       | `uploadItemType`, `applyRemoteItemTypeChange` (name renames propagate to products) |
+| `src/main/services/sync/department-sync.ts`      | `uploadDepartment`, `applyRemoteDepartmentChange`, `reconcileDepartments`          |
 | `src/main/services/sync/tax-code-sync.ts`        | `uploadTaxCode`, `applyRemoteTaxCodeChange`                                        |
 | `src/main/services/sync/distributor-sync.ts`     | `uploadDistributor`, `applyRemoteDistributorChange`                                |
 | `src/main/services/sync/cashier-sync.ts`         | `uploadCashier`, `applyRemoteCashierChange` (includes pin_hash, main-process only) |
+| `src/main/services/sync/settings-sync.ts`        | `uploadSettings`, `applyRemoteSettingsChange`, `reconcileSettings`                 |
+| `src/main/services/sync/transaction-backfill.ts` | 7-day historical transaction backfill on first-login restore                       |
+| `src/main/database/product-cost-layers.repo.ts`  | FIFO cost layer creation/consumption for accurate COGS                             |
 | `src/main/database/sync-queue.repo.ts`           | Local sync queue CRUD                                                              |
 | `src/main/database/device-config.repo.ts`        | Device UUID + fingerprint storage                                                  |
 | `src/main/services/connectivity.ts`              | `net.isOnline()` polling + listener                                                |
@@ -119,7 +135,7 @@ Sync code lives entirely in `src/main/` (main process only). Never imported by r
 
 ### SyncEntityType values
 
-`'product' | 'inventory_delta' | 'transaction' | 'item_type' | 'tax_code' | 'distributor' | 'cashier'`
+`'product' | 'inventory_delta' | 'transaction' | 'item_type' | 'department' | 'settings' | 'tax_code' | 'distributor' | 'cashier'`
 
 ### Natural identity keys (for upsert)
 
@@ -135,4 +151,7 @@ Sync code lives entirely in `src/main/` (main process only). Never imported by r
 
 - `sync:get-status` → queue stats + last_synced_at
 - `sync:get-device-config` → device UUID + name
+- `sync:get-initial-status` → multi-entity initial sync progress/state
+- `sync:retry-initial-sync` → re-run startup restore flow on demand
 - `sync:connectivity-changed` → event emitted by connectivity monitor
+- `sync:initial-status-changed` → push event when initial sync progress updates

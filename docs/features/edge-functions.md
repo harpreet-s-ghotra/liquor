@@ -4,11 +4,11 @@ All Edge Functions live in `supabase/functions/` and run as Deno serverless func
 
 ## Functions Overview
 
-| Function                   | Purpose                                      | Auth                       | Called From                            |
-| -------------------------- | -------------------------------------------- | -------------------------- | -------------------------------------- |
-| `invite-merchant`          | Create merchant row + send Supabase invite    | `INVITE_ADMIN_SECRET` bearer token | Admin CLI / scripts                    |
-| `provision-finix-merchant` | Create Finix Identity + Bank Account + Merchant | Supabase JWT (user session) | `BusinessSetupScreen` via IPC          |
-| `get-finix-config`         | Return Finix API creds + merchant ID          | Supabase JWT (user session) | App startup via `fetchAndSaveMerchant` |
+| Function                   | Purpose                                         | Auth                               | Called From                            |
+| -------------------------- | ----------------------------------------------- | ---------------------------------- | -------------------------------------- |
+| `invite-merchant`          | Create merchant row + send Supabase invite      | `INVITE_ADMIN_SECRET` bearer token | Admin CLI / scripts                    |
+| `provision-finix-merchant` | Create Finix Identity + Bank Account + Merchant | Supabase JWT (user session)        | `BusinessSetupScreen` via IPC          |
+| `get-finix-config`         | Return Finix API creds + merchant ID            | Supabase JWT (user session)        | App startup via `fetchAndSaveMerchant` |
 
 ## Deployment
 
@@ -30,16 +30,16 @@ npx supabase functions logs <function-name>
 
 Set via `npx supabase secrets set KEY=VALUE`. All three functions share the same secret store.
 
-| Secret                      | Used By                                | Description                                    |
-| --------------------------- | -------------------------------------- | ---------------------------------------------- |
-| `FINIX_API_USERNAME`        | `provision-finix-merchant`, `get-finix-config` | Platform-level Finix API key username          |
-| `FINIX_API_PASSWORD`        | `provision-finix-merchant`, `get-finix-config` | Platform-level Finix API key password          |
-| `FINIX_APPLICATION_ID`      | `provision-finix-merchant`             | Finix Application ID (tags created identities) |
-| `FINIX_ENVIRONMENT`         | `provision-finix-merchant`             | `sandbox` or `live` — controls API URL + processor |
-| `INVITE_ADMIN_SECRET`       | `invite-merchant`                      | Shared secret for admin-only invite endpoint   |
-| `SUPABASE_URL`              | All (auto-injected)                    | Supabase project URL                           |
-| `SUPABASE_ANON_KEY`         | All (auto-injected)                    | Supabase anon/public key                       |
-| `SUPABASE_SERVICE_ROLE_KEY` | `invite-merchant`, `provision-finix-merchant` | Bypasses RLS for admin writes                  |
+| Secret                      | Used By                                        | Description                                        |
+| --------------------------- | ---------------------------------------------- | -------------------------------------------------- |
+| `FINIX_API_USERNAME`        | `provision-finix-merchant`, `get-finix-config` | Platform-level Finix API key username              |
+| `FINIX_API_PASSWORD`        | `provision-finix-merchant`, `get-finix-config` | Platform-level Finix API key password              |
+| `FINIX_APPLICATION_ID`      | `provision-finix-merchant`                     | Finix Application ID (tags created identities)     |
+| `FINIX_ENVIRONMENT`         | `provision-finix-merchant`                     | `sandbox` or `live` — controls API URL + processor |
+| `INVITE_ADMIN_SECRET`       | `invite-merchant`                              | Shared secret for admin-only invite endpoint       |
+| `SUPABASE_URL`              | All (auto-injected)                            | Supabase project URL                               |
+| `SUPABASE_ANON_KEY`         | All (auto-injected)                            | Supabase anon/public key                           |
+| `SUPABASE_SERVICE_ROLE_KEY` | `invite-merchant`, `provision-finix-merchant`  | Bypasses RLS for admin writes                      |
 
 ### Current Sandbox Values
 
@@ -67,6 +67,7 @@ Creates a new merchant in the system. Steps:
 4. Upserts a row in the `merchants` table with `user_id` and `merchant_name`
 
 **Request:**
+
 ```bash
 curl -X POST https://<project>.supabase.co/functions/v1/invite-merchant \
   -H "Authorization: Bearer <INVITE_ADMIN_SECRET>" \
@@ -75,6 +76,7 @@ curl -X POST https://<project>.supabase.co/functions/v1/invite-merchant \
 ```
 
 **Response (200):**
+
 ```json
 { "success": true, "userId": "uuid", "merchantName": "Corner Bottle Shop", "invited": true }
 ```
@@ -97,6 +99,7 @@ The core onboarding function. Called when a merchant submits the Business Setup 
 6. **Store result** — updates `merchants.finix_merchant_id` in Supabase via service role client
 
 **Request:** Called internally via `window.api.finixProvisionMerchant(businessInfoInput)` which hits:
+
 ```
 POST https://<project>.supabase.co/functions/v1/provision-finix-merchant
 Authorization: Bearer <user-jwt>
@@ -104,6 +107,7 @@ Body: BusinessInfoInput JSON
 ```
 
 **Response (200):**
+
 ```json
 { "finix_merchant_id": "MU...", "merchant_name": "Corner Spirits" }
 ```
@@ -125,6 +129,7 @@ Returns the platform's Finix API credentials and the merchant's Finix ID to the 
 3. Returns the platform API credentials (from secrets) + merchant ID
 
 **Response (200):**
+
 ```json
 {
   "finix_merchant_id": "MU...",
@@ -181,6 +186,7 @@ npx supabase secrets set \
 ```
 
 This controls:
+
 - **API URL:** `provision-finix-merchant` switches from `finix.sandbox-payments-api.com` to `finix.live-payments-api.com`
 - **Processor:** merchant creation uses `FINIX_V1` instead of `DUMMY_V1`
 
@@ -205,6 +211,7 @@ This can be set in `electron-builder.yml` or the build CI environment. Alternati
 Existing sandbox merchants **do not carry over to live**. Every merchant must re-run the Business Setup flow so `provision-finix-merchant` creates new Finix resources under the live application.
 
 **Steps:**
+
 1. Clear `finix_merchant_id` in Supabase `merchants` table for all users
 2. Clear `merchant_config` in each POS terminal's local SQLite DB
 3. On next app launch, each merchant sees the Business Setup screen and re-provisions
@@ -212,20 +219,21 @@ Existing sandbox merchants **do not carry over to live**. Every merchant must re
 ### 4. Remove Test Cards from PaymentModal
 
 The `TEST_CARDS` constant in `PaymentModal.tsx` is sandbox-only. In production:
+
 - **Phase A (manual card entry):** replace with a real card input form, or remove entirely if only using terminals
 - **Phase B (card-present terminals):** the PAX terminal handles card data — no changes needed
 
 ### 5. Checklist
 
-| Item | Where | Change |
-|------|-------|--------|
-| Finix API credentials | Supabase secrets | Set live username/password |
-| Finix Application ID | Supabase secrets | Set live application ID |
-| Finix environment flag | Supabase secrets | `FINIX_ENVIRONMENT=live` |
-| Finix API URL | `finix.ts` / build env | `FINIX_API_URL=https://finix.live-payments-api.com` |
-| Merchant data | Supabase + local SQLite | Clear and re-provision |
-| Test cards | `PaymentModal.tsx` | Remove `TEST_CARDS` or replace with card input UI |
-| Buyer identity email | `finix.ts` `chargeWithCard()` | Replace placeholder `customer@example.com` |
+| Item                   | Where                         | Change                                              |
+| ---------------------- | ----------------------------- | --------------------------------------------------- |
+| Finix API credentials  | Supabase secrets              | Set live username/password                          |
+| Finix Application ID   | Supabase secrets              | Set live application ID                             |
+| Finix environment flag | Supabase secrets              | `FINIX_ENVIRONMENT=live`                            |
+| Finix API URL          | `finix.ts` / build env        | `FINIX_API_URL=https://finix.live-payments-api.com` |
+| Merchant data          | Supabase + local SQLite       | Clear and re-provision                              |
+| Test cards             | `PaymentModal.tsx`            | Remove `TEST_CARDS` or replace with card input UI   |
+| Buyer identity email   | `finix.ts` `chargeWithCard()` | Replace placeholder `customer@example.com`          |
 
 ### 6. What Does NOT Change
 

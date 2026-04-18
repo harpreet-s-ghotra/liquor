@@ -492,6 +492,8 @@ describe('TicketPanel', () => {
       card_last_four: null,
       card_type: null,
       original_transaction_id: null,
+      has_refund: false,
+      payments: [],
       items: [
         {
           id: 1,

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import type { CartItem, CartLineItem, TransactionDetail } from '../../types/pos'
 import { Button } from '../ui/button'
+import { AppButton } from '../common/AppButton'
 import { Input } from '../ui/input'
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
 import { Label } from '../ui/label'
@@ -637,7 +638,41 @@ export function TicketPanel({
 
       {/* ── Edit keypad modal ── */}
       {editMode && (
-        <div className="ticket-panel__edit-overlay" data-testid="edit-modal">
+        <div
+          className="ticket-panel__edit-overlay"
+          data-testid="edit-modal"
+          onKeyDown={(e) => {
+            if (!isKeypadMode) return
+            if (e.key === 'Escape') {
+              e.preventDefault()
+              closeEditModal()
+              return
+            }
+            if (e.key === 'Enter') {
+              // Allow form submit to handle it
+              return
+            }
+            if (e.key === 'Backspace') {
+              e.preventDefault()
+              handleKeypadInput('⌫')
+              return
+            }
+            if (/^[0-9]$/.test(e.key)) {
+              e.preventDefault()
+              handleKeypadInput(e.key)
+              return
+            }
+            if (e.key === '.' && editMode === 'discount') {
+              e.preventDefault()
+              handleKeypadInput('.')
+              return
+            }
+            if (e.key === 'c' || e.key === 'C') {
+              e.preventDefault()
+              handleKeypadInput('C')
+            }
+          }}
+        >
           <div className="ticket-panel__edit-dialog" role="dialog" aria-modal="true">
             <h3 className="ticket-panel__edit-title">
               {editMode === 'quantity' && 'Qty Change'}
@@ -724,16 +759,21 @@ export function TicketPanel({
                 </div>
               )}
               <div className="ticket-panel__edit-footer">
-                <Button
+                <AppButton
                   type="button"
+                  variant="danger"
                   className="ticket-panel__edit-footer-btn"
                   onClick={closeEditModal}
                 >
                   Cancel
-                </Button>
-                <Button type="submit" className="ticket-panel__edit-footer-btn">
+                </AppButton>
+                <AppButton
+                  type="submit"
+                  variant="success"
+                  className="ticket-panel__edit-footer-btn"
+                >
                   Save
-                </Button>
+                </AppButton>
               </div>
             </form>
           </div>

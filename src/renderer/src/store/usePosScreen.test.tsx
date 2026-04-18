@@ -10,7 +10,8 @@ const mockProducts = [
     category: 'Wine',
     price: 19.99,
     quantity: 24,
-    tax_rate: 0.13
+    tax_rate: 0.13,
+    is_favorite: 1
   },
   {
     id: 2,
@@ -19,7 +20,8 @@ const mockProducts = [
     category: 'Beer',
     price: 13.49,
     quantity: 40,
-    tax_rate: 0.13
+    tax_rate: 0.13,
+    is_favorite: 1
   },
   {
     id: 3,
@@ -28,7 +30,8 @@ const mockProducts = [
     category: 'Spirits',
     price: 32.99,
     quantity: 18,
-    tax_rate: 0.13
+    tax_rate: 0.13,
+    is_favorite: 0
   }
 ]
 
@@ -312,7 +315,7 @@ describe('usePosScreen', () => {
     expect(result.current.selectedCartId).toBe(firstProduct.id)
   })
 
-  it('uses top-quantity fallback for favorites when preferred SKUs are absent', async () => {
+  it('shows only is_favorite products in Favorites category', async () => {
     const apiProducts = [
       {
         id: 51,
@@ -321,7 +324,8 @@ describe('usePosScreen', () => {
         category: 'Custom',
         price: 5,
         quantity: 1,
-        tax_rate: 0.13
+        tax_rate: 0.13,
+        is_favorite: 1
       },
       {
         id: 52,
@@ -330,7 +334,8 @@ describe('usePosScreen', () => {
         category: 'Custom',
         price: 6,
         quantity: 20,
-        tax_rate: 0.13
+        tax_rate: 0.13,
+        is_favorite: 1
       }
     ]
 
@@ -382,6 +387,9 @@ describe('usePosScreen', () => {
       expect(result.current.filteredProducts.length).toBeGreaterThan(0)
     })
 
+    const specialPricingCallsBeforeReload = vi.mocked(window.api!.getActiveSpecialPricing).mock
+      .calls.length
+
     // Switch to All so the new product is visible regardless of favorites
     act(() => {
       result.current.setActiveCategory('All')
@@ -411,6 +419,10 @@ describe('usePosScreen', () => {
     await waitFor(() => {
       expect(result.current.filteredProducts.length).toBe(initialCount + 1)
     })
+
+    expect(window.api?.getActiveSpecialPricing).toHaveBeenCalledTimes(
+      specialPricingCallsBeforeReload + 1
+    )
   })
 
   it('search by SKU shows results across all categories', async () => {
@@ -926,6 +938,8 @@ describe('usePosScreen', () => {
       card_last_four: null,
       card_type: null,
       original_transaction_id: null,
+      has_refund: false,
+      payments: [],
       items: [
         {
           id: 1,
@@ -1155,6 +1169,22 @@ describe('usePosScreen', () => {
 
       expect(result.current.returnItems).toEqual({})
       expect(result.current.isReturning).toBe(false)
+    })
+
+    it('clearTransaction resets recalled invoice state', async () => {
+      setupRecalledState()
+      usePosStore.setState({ returnItems: { 1: 1 } })
+      const { result } = renderHook(() => usePosScreen())
+      await waitForHookStartup()
+
+      act(() => {
+        result.current.clearTransaction()
+      })
+
+      expect(result.current.viewingTransaction).toBeNull()
+      expect(result.current.returnItems).toEqual({})
+      expect(result.current.isReturning).toBe(false)
+      expect(result.current.cart).toEqual([])
     })
 
     it('computes negative return totals', async () => {

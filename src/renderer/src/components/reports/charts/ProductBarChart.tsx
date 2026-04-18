@@ -1,6 +1,7 @@
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import type { ProductSalesRow } from '../../../../../shared/types'
+import { formatCurrency } from '@renderer/utils/currency'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -30,13 +31,18 @@ export function ProductBarChart({ data }: ProductBarChartProps): React.JSX.Eleme
         animation: false,
         indexAxis: 'y',
         plugins: {
-          legend: { display: false }
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => formatCurrency(Number(ctx.parsed.x ?? 0))
+            }
+          }
         },
         scales: {
           x: {
             beginAtZero: true,
             ticks: {
-              callback: (value) => `$${value}`
+              callback: (value) => formatCurrency(Number(value))
             }
           }
         }

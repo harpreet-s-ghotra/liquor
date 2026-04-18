@@ -11,28 +11,30 @@ describe('ReportDateRangePicker', () => {
     preset: 'this-month'
   }
 
-  it('renders all preset buttons', () => {
+  it('renders period dropdown with presets', () => {
     render(<ReportDateRangePicker value={defaultRange} onChange={vi.fn()} />)
-    expect(screen.getByText('Today')).toBeInTheDocument()
-    expect(screen.getByText('Yesterday')).toBeInTheDocument()
-    expect(screen.getByText('This Week')).toBeInTheDocument()
-    expect(screen.getByText('This Month')).toBeInTheDocument()
-    expect(screen.getByText('Custom')).toBeInTheDocument()
+    const select = screen.getByLabelText('Period')
+    expect(select).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Today' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Yesterday' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'This Week' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'This Month' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Custom' })).toBeInTheDocument()
   })
 
-  it('calls onChange with computed range when preset clicked', async () => {
+  it('calls onChange with computed range when preset selected', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
     render(<ReportDateRangePicker value={defaultRange} onChange={onChange} />)
-    await user.click(screen.getByText('Today'))
+    await user.selectOptions(screen.getByLabelText('Period'), 'today')
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ preset: 'today' }))
   })
 
-  it('calls onChange with custom preset when Custom clicked', async () => {
+  it('calls onChange with custom preset when Custom selected', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
     render(<ReportDateRangePicker value={defaultRange} onChange={onChange} />)
-    await user.click(screen.getByText('Custom'))
+    await user.selectOptions(screen.getByLabelText('Period'), 'custom')
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ preset: 'custom' }))
   })
 

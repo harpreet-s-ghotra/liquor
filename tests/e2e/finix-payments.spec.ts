@@ -151,6 +151,9 @@ const attachFinixMock = async (
 }
 
 const addProductToCart = async (page: Page): Promise<void> => {
+  await page.locator('.action-panel__category-trigger').click()
+  await page.locator('.action-panel__category-item', { hasText: 'All' }).click()
+  await expect(page.locator('.action-panel__product-tile').first()).toBeVisible()
   const firstProduct = page.locator('.action-panel__product-tile').first()
   await firstProduct.click()
 }
@@ -163,10 +166,7 @@ const loginWithPin = async (page: Page): Promise<void> => {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
 
-  await page
-    .locator('.action-panel__product-tile')
-    .first()
-    .waitFor({ state: 'visible', timeout: 10000 })
+  await page.locator('.ticket-panel').waitFor({ state: 'visible', timeout: 10000 })
 }
 
 const gotoAndLogin = async (page: Page): Promise<void> => {
@@ -207,8 +207,8 @@ test.describe('Finix Card Payments', () => {
 
     const paidList = page.getByTestId('paid-so-far-list')
     await expect(paidList).toContainText('Debit')
-    await expect(paidList).toContainText('mastercard')
-    await expect(paidList).toContainText('4444')
+    await expect(paidList).toContainText('visa')
+    await expect(paidList).toContainText('4242')
 
     await page.getByTestId('payment-ok-btn').click()
   })

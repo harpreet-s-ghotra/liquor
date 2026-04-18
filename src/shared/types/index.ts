@@ -13,6 +13,7 @@ export type Product = {
   tax_rate: number
   bottles_per_case?: number | null
   case_discount_price?: number | null
+  is_favorite?: number
 }
 
 export type InventoryProduct = {
@@ -45,6 +46,7 @@ export type InventoryProduct = {
   vintage: string | null
   ttb_id: string | null
   display_name: string | null
+  is_favorite?: number
 }
 
 export type NyslaDiscount = {
@@ -70,6 +72,17 @@ export type TransactionHistoryItem = InventorySalesHistory & {
   status: string
 }
 
+/** A single tender entry within a split (or single) payment */
+export type TransactionPayment = {
+  id?: number
+  method: string
+  amount: number
+  card_last_four?: string | null
+  card_type?: string | null
+  finix_authorization_id?: string | null
+  finix_transfer_id?: string | null
+}
+
 /** Input for saving a completed transaction */
 export type SaveTransactionInput = {
   subtotal: number
@@ -82,6 +95,8 @@ export type SaveTransactionInput = {
   card_type?: string | null
   notes?: string | null
   session_id?: number | null
+  /** All tender entries (required for split payments; single entry for single-method) */
+  payments?: TransactionPayment[]
   items: Array<{
     product_id: number
     product_name: string
@@ -148,6 +163,8 @@ export type PrintReceiptInput = {
   card_last_four?: string | null
   card_type?: string | null
   footer_message?: string | null
+  /** All tender entries for split-payment receipt rendering */
+  payments?: TransactionPayment[]
 }
 
 /** Saved transaction record returned from the database */
@@ -176,12 +193,16 @@ export type TransactionLineItem = {
   product_name: string
   quantity: number
   unit_price: number
+  cost_at_sale?: number | null
+  cost_basis_source?: string | null
   total_price: number
 }
 
 /** Full transaction with line items, used for transaction recall */
 export type TransactionDetail = SavedTransaction & {
   items: TransactionLineItem[]
+  has_refund: boolean
+  payments: TransactionPayment[]
 }
 
 // ── Sales History Listing ──
@@ -261,6 +282,7 @@ export type SaveInventoryItemInput = {
   vintage: string
   ttb_id: string
   display_name: string
+  is_favorite?: number
 }
 
 export type InventoryTaxCode = {
@@ -280,6 +302,7 @@ export type TaxCode = {
   id: number
   code: string
   rate: number
+  is_default?: number
 }
 
 export type Distributor = {
@@ -434,6 +457,11 @@ export type MerchantConfig = {
   finix_api_password: string
   merchant_id: string
   merchant_name: string
+  store_name?: string | null
+  receipt_header?: string | null
+  receipt_footer?: string | null
+  theme?: string | null
+  settings_extras_json?: string
   activated_at: string
   updated_at: string
 }
@@ -443,6 +471,11 @@ export type SaveMerchantConfigInput = {
   finix_api_password: string
   merchant_id: string
   merchant_name: string
+  store_name?: string | null
+  receipt_header?: string | null
+  receipt_footer?: string | null
+  theme?: string | null
+  settings_extras_json?: string
 }
 
 // ── Finix Merchant Provisioning ──
@@ -482,7 +515,11 @@ export type BusinessInfoInput = {
   bank_account: {
     account_number: string
     routing_number: string
-    account_type: 'PERSONAL_CHECKING' | 'PERSONAL_SAVINGS' | 'BUSINESS_CHECKING' | 'BUSINESS_SAVINGS'
+    account_type:
+      | 'PERSONAL_CHECKING'
+      | 'PERSONAL_SAVINGS'
+      | 'BUSINESS_CHECKING'
+      | 'BUSINESS_SAVINGS'
     name: string
   }
 }
@@ -626,6 +663,13 @@ export type PaymentMethodSalesRow = {
   total_amount: number
 }
 
+/** Sales breakdown by card brand/network */
+export type CardBrandSalesRow = {
+  card_brand: string
+  transaction_count: number
+  total_amount: number
+}
+
 /** Full End-of-Day (clock-out) report data */
 export type ClockOutReport = {
   session: Session
@@ -679,6 +723,8 @@ export type SyncEntityType =
   | 'transaction'
   | 'product'
   | 'item_type'
+  | 'department'
+  | 'settings'
   | 'tax_code'
   | 'cashier'
   | 'distributor'
@@ -713,6 +759,24 @@ export type SyncStatus = {
   last_synced_at: string | null
 }
 
+export type InitialSyncEntity =
+  | 'settings'
+  | 'tax_codes'
+  | 'distributors'
+  | 'item_types'
+  | 'departments'
+  | 'cashiers'
+  | 'products'
+  | 'transactions'
+
+export type InitialSyncStatus = {
+  state: 'idle' | 'running' | 'done' | 'failed'
+  currentEntity: InitialSyncEntity | null
+  entityProgress: { done: number; total: number | null }
+  completed: InitialSyncEntity[]
+  errors: Array<{ entity: string; message: string }>
+}
+
 /** Queue statistics for monitoring */
 export type SyncQueueStats = {
   pending: number
@@ -727,6 +791,8 @@ export type ReportDateRange = {
   from: string
   to: string
   preset?: string
+  /** When set, scope results to this device only (register-scoped reports) */
+  deviceId?: string
 }
 
 /** A single day's sales aggregate */
@@ -748,6 +814,7 @@ export type SalesSummaryReport = {
   transaction_count: number
   avg_transaction: number
   sales_by_payment: PaymentMethodSalesRow[]
+  sales_by_card_brand: CardBrandSalesRow[]
   sales_by_day: DailySalesRow[]
 }
 
@@ -756,6 +823,7 @@ export type ProductSalesRow = {
   product_id: number
   product_name: string
   item_type: string | null
+  distributor_name: string | null
   sku: string
   quantity_sold: number
   revenue: number
@@ -776,6 +844,7 @@ export type CategorySalesRow = {
   quantity_sold: number
   revenue: number
   profit: number
+  profit_margin_pct: number
 }
 
 /** Category sales report */
@@ -837,9 +906,125 @@ export type HourlySalesReport = {
   hours: HourlySalesRow[]
 }
 
+/** A single transaction row for all-transactions export */
+export type TransactionListRow = {
+  transaction_number: string
+  created_at: string
+  cashier_name: string
+  register_name: string
+  status: string
+}
+
+/** Transaction list report */
+export type TransactionListReport = {
+  transactions: TransactionListRow[]
+}
+
 /** Export request from the renderer */
 export type ReportExportRequest = {
-  report_type: 'sales-summary' | 'product-sales' | 'category-sales' | 'tax-summary' | 'comparison'
+  report_type:
+    | 'sales-summary'
+    | 'product-sales'
+    | 'category-sales'
+    | 'tax-summary'
+    | 'comparison'
+    | 'transaction-list'
   date_range: ReportDateRange
   format: 'pdf' | 'csv'
+  metadata?: {
+    store_name?: string | null
+    merchant_name?: string | null
+    merchant_id?: string | null
+  }
+}
+
+// ── Manager Modal ──
+
+/** A cloud register (Supabase `registers` table) */
+export type Register = {
+  id: string
+  device_name: string
+  device_fingerprint: string
+  last_seen_at: string
+  created_at: string
+  is_current: boolean
+}
+
+/** A product row in the low-stock / reorder dashboard */
+export type LowStockProduct = {
+  id: number
+  sku: string
+  name: string
+  item_type: string | null
+  in_stock: number
+  reorder_point: number
+  distributor_name: string | null
+}
+
+/** Finix merchant status (read-only) */
+export type MerchantStatus = {
+  merchant_id: string
+  merchant_name: string
+  processing_enabled: boolean
+}
+
+// ── Purchase Orders ──
+
+export type PurchaseOrderStatus = 'draft' | 'submitted' | 'received' | 'cancelled'
+
+/** A purchase order master record */
+export type PurchaseOrder = {
+  id: number
+  po_number: string
+  distributor_number: number
+  distributor_name: string
+  status: PurchaseOrderStatus
+  notes: string | null
+  subtotal: number
+  total: number
+  item_count: number
+  received_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** A single line item in a purchase order */
+export type PurchaseOrderItem = {
+  id: number
+  po_id: number
+  product_id: number
+  sku: string
+  product_name: string
+  unit_cost: number
+  quantity_ordered: number
+  quantity_received: number
+  line_total: number
+}
+
+/** Full purchase order with line items */
+export type PurchaseOrderDetail = PurchaseOrder & {
+  items: PurchaseOrderItem[]
+}
+
+/** Input for creating a new purchase order */
+export type CreatePurchaseOrderInput = {
+  distributor_number: number
+  items: Array<{
+    product_id: number
+    quantity_ordered: number
+  }>
+  notes?: string
+}
+
+/** Input for updating a purchase order */
+export type UpdatePurchaseOrderInput = {
+  id: number
+  status?: PurchaseOrderStatus
+  notes?: string
+}
+
+/** Input for receiving items on a purchase order line */
+export type ReceivePurchaseOrderItemInput = {
+  id: number
+  quantity_received: number
 }

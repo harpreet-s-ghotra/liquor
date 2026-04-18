@@ -1,3 +1,29 @@
+## Implementation Update (2026-04-18)
+
+The following reporting/export upgrades are now implemented in code:
+
+- Sales Summary now surfaces tax-audit metadata (store name, merchant name, Finix merchant ID) in the UI and in exported report headers.
+- Daily Sales Trend now renders as a full-width chart panel for better readability.
+- Sales Summary now includes card-brand breakdown (Visa, Mastercard, Amex, Discover, Other).
+- Product Analysis now includes a Distributors tile.
+- Sales by Category now includes profit margin % in both UI and exports.
+- Comparisons now provide explicit grouping controls (day, week, month, quarter, year) and always show this-year (YTD) sales against last-year sales in those buckets.
+
+- Added explicit period-total rows in CSV exports so totals for the full selected date range are clear.
+- Added a new all-transactions export mode (`transaction-list`) with default columns:
+  - Transaction number
+  - Date/time
+  - Cashier
+  - Register
+  - Status
+- Added first-class category export selection in the export controls (`category-sales`).
+- Replaced one-line preset period buttons with a dropdown-based period selector in the reports modal.
+- Upgraded PDF output to professional tabular formatting with:
+  - Report title and period metadata
+  - Structured column/row tables
+  - Consistent numeric alignment
+  - Totals sections where relevant
+
 ## Plan: Sales Reporting Feature
 
 ### TL;DR

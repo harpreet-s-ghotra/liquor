@@ -106,3 +106,91 @@ export async function applyRemoteDistributorChange(
     )
   }
 }
+
+const BATCH_SIZE = 500
+
+export async function reconcileDistributors(
+  supabase: SupabaseClient,
+  merchantId: string,
+  deviceId: string
+): Promise<{ applied: number; uploaded: number; errors: string[] }> {
+  const result = { applied: 0, uploaded: 0, errors: [] as string[] }
+
+  let lastUpdatedAt: string | null = null
+  let lastId: string | null = null
+  let hasMore = true
+
+  while (hasMore) {
+    let query = supabase
+      .from('merchant_distributors')
+      .select('*')
+      .eq('merchant_id', merchantId)
+      .order('updated_at', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(BATCH_SIZE)
+
+    if (lastUpdatedAt && lastId) {
+      query = query.or(
+        `updated_at.gt.${lastUpdatedAt},and(updated_at.eq.${lastUpdatedAt},id.gt.${lastId})`
+      )
+    }
+
+    const { data, error } = await query
+    if (error) {
+      result.errors.push(`Remote distributor fetch failed: ${error.message}`)
+      break
+    }
+    if (!data || data.length === 0) {
+      hasMore = false
+      break
+    }
+
+    for (const row of data) {
+      try {
+        await applyRemoteDistributorChange(supabase, merchantId, row)
+        result.applied++
+      } catch (err) {
+        result.errors.push(
+          `Apply failed for distributor ${row.distributor_number}: ${err instanceof Error ? err.message : String(err)}`
+        )
+      }
+    }
+
+    const last = data[data.length - 1]
+    lastUpdatedAt = last.updated_at as string
+    lastId = last.id as string
+    hasMore = data.length === BATCH_SIZE
+  }
+
+  const localOnly = getDb()
+    .prepare(
+      `SELECT distributor_number, distributor_name, license_id, serial_number,
+              premises_name, premises_address, is_active, updated_at
+       FROM distributors
+       WHERE (cloud_id IS NULL OR cloud_id = '')
+       ORDER BY distributor_number`
+    )
+    .all() as {
+    distributor_number: number
+    distributor_name: string
+    license_id: string | null
+    serial_number: string | null
+    premises_name: string | null
+    premises_address: string | null
+    is_active: number
+    updated_at: string
+  }[]
+
+  for (const dist of localOnly) {
+    try {
+      await uploadDistributor(supabase, merchantId, deviceId, { distributor: dist })
+      result.uploaded++
+    } catch (err) {
+      result.errors.push(
+        `Upload failed for distributor ${dist.distributor_number}: ${err instanceof Error ? err.message : String(err)}`
+      )
+    }
+  }
+
+  return result
+}

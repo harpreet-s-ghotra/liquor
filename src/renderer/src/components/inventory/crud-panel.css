@@ -120,6 +120,19 @@
   background: var(--accent-blue-soft);
 }
 
+.crud-panel__default-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  border-radius: 0.75rem;
+  background: var(--semantic-success-text, #1b7a3a);
+  padding: 0.1rem 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-on-dark, white);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
 /* ── Layout helpers used by all 3 panels ── */
 .crud-panel__root {
   display: grid;

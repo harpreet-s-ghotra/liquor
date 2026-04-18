@@ -72,7 +72,7 @@ describe('useAuthStore', () => {
       expect(result.current.merchantConfig).toBeNull()
     })
 
-    it('sets appState to pin-setup when session exists but no cashiers', async () => {
+    it('sets appState to syncing-initial when session exists but no cashiers', async () => {
       mockApi.authCheckSession.mockResolvedValue(authResult)
       mockApi.getCashiers.mockResolvedValue([])
       mockApi.getProducts.mockResolvedValue([])
@@ -83,7 +83,7 @@ describe('useAuthStore', () => {
         await result.current.initialize()
       })
 
-      expect(result.current.appState).toBe('pin-setup')
+      expect(result.current.appState).toBe('syncing-initial')
       expect(result.current.merchantConfig).toEqual(merchantConfig)
     })
 
@@ -152,7 +152,7 @@ describe('useAuthStore', () => {
   })
 
   describe('emailLogin', () => {
-    it('logs in and transitions to pin-setup when no cashiers exist', async () => {
+    it('logs in and transitions to syncing-initial when no cashiers exist', async () => {
       mockApi.authLogin.mockResolvedValue(authResult)
       mockApi.getCashiers.mockResolvedValue([])
       mockApi.getProducts.mockResolvedValue([])
@@ -164,7 +164,7 @@ describe('useAuthStore', () => {
       })
 
       expect(mockApi.authLogin).toHaveBeenCalledWith('admin@store.com', 'pass123')
-      expect(result.current.appState).toBe('pin-setup')
+      expect(result.current.appState).toBe('syncing-initial')
       expect(result.current.merchantConfig).toEqual(merchantConfig)
       expect(result.current.error).toBeNull()
     })
@@ -363,7 +363,7 @@ describe('useAuthStore', () => {
       expect(result.current.error).toBe('Invalid PIN')
     })
 
-    it('locks out after 3 failed attempts', async () => {
+    it('allows unlimited failed attempts without locking out', async () => {
       useAuthStore.setState({ appState: 'login' as AppState, loginAttempts: 2 })
       mockApi.validatePin.mockResolvedValue(null)
 
@@ -374,25 +374,15 @@ describe('useAuthStore', () => {
       })
 
       expect(result.current.loginAttempts).toBe(3)
-      expect(result.current.lockoutUntil).toBeGreaterThan(Date.now())
-      expect(result.current.error).toMatch(/Too many attempts/)
-    })
+      expect(result.current.lockoutUntil).toBeNull()
+      expect(result.current.error).toBe('Invalid PIN')
 
-    it('prevents login during lockout', async () => {
-      useAuthStore.setState({
-        appState: 'login' as AppState,
-        lockoutUntil: Date.now() + 30000
-      })
-
-      const { result } = renderHook(() => useAuthStore())
-
-      let loginResult: boolean | undefined
+      // Additional attempts still allowed
       await act(async () => {
-        loginResult = await result.current.login('1234')
+        await result.current.login('0000')
       })
-
-      expect(loginResult).toBe(false)
-      expect(mockApi.validatePin).not.toHaveBeenCalled()
+      expect(result.current.loginAttempts).toBe(4)
+      expect(result.current.lockoutUntil).toBeNull()
     })
   })
 

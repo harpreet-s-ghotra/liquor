@@ -165,8 +165,8 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
     setApplyingAll(true)
     crud.clearMessages()
     try {
-      const result = await window.api!.applyTaxToAll(selectedTc.rate)
-      applyAllResultRef.current = `${selectedTc.code} applied to ${result.updated.toLocaleString()} items.`
+      const result = await window.api!.applyTaxToAll(selectedTc.id)
+      applyAllResultRef.current = `${selectedTc.code} applied to ${result.updated.toLocaleString()} items and set as the default for new items.`
       crud.setSuccess(applyAllResultRef.current)
     } catch (err) {
       crud.setError(err instanceof Error ? err.message : 'Failed to apply tax')
@@ -260,7 +260,17 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
                   )}
                   onClick={() => selectTaxCode(tc)}
                 >
-                  <td>{tc.code}</td>
+                  <td>
+                    {tc.code}
+                    {tc.is_default ? (
+                      <span
+                        className="crud-panel__default-badge"
+                        title="Default tax — applied to new and imported items"
+                      >
+                        Default
+                      </span>
+                    ) : null}
+                  </td>
                   <td>{`${parseFloat((tc.rate * 100).toFixed(4))}%`}</td>
                 </tr>
               ))}
@@ -357,7 +367,7 @@ export function TaxCodePanel({ searchFilter = '' }: TaxCodePanelProps): React.JS
       <ConfirmDialog
         isOpen={showApplyAllConfirm}
         title="Apply Tax to All Items"
-        message={`This will set "${selectedTc?.code}" (${selectedTc ? parseFloat((selectedTc.rate * 100).toFixed(4)) : 0}%) as the tax rate on every active product. This overwrites existing tax assignments. Continue?`}
+        message={`This will set "${selectedTc?.code}" (${selectedTc ? parseFloat((selectedTc.rate * 100).toFixed(4)) : 0}%) as the tax rate on every active product AND mark it as the default, so new items and future imports inherit it automatically. This overwrites existing tax assignments. Continue?`}
         confirmLabel="Yes, Apply to All"
         cancelLabel="Cancel"
         variant="warning"

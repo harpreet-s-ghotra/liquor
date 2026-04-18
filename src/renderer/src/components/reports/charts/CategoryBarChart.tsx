@@ -1,6 +1,7 @@
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import type { CategorySalesRow } from '../../../../../shared/types'
+import { formatCurrency } from '@renderer/utils/currency'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -32,13 +33,18 @@ export function CategoryBarChart({ data }: CategoryBarChartProps): React.JSX.Ele
         responsive: true,
         animation: false,
         plugins: {
-          legend: { position: 'top' }
+          legend: { position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(Number(ctx.parsed.y ?? 0))}`
+            }
+          }
         },
         scales: {
           y: {
             beginAtZero: true,
             ticks: {
-              callback: (value) => `$${value}`
+              callback: (value) => formatCurrency(Number(value))
             }
           }
         }

@@ -8,10 +8,57 @@ import './BusinessSetupScreen.css'
 const IS_DEV = import.meta.env.DEV
 
 const US_STATES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA',
-  'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT',
-  'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+  'DC'
 ]
 
 const BUSINESS_TYPES = [
@@ -65,7 +112,11 @@ type FormState = {
   // Bank account
   bank_account_number: string
   bank_routing_number: string
-  bank_account_type: 'PERSONAL_CHECKING' | 'PERSONAL_SAVINGS' | 'BUSINESS_CHECKING' | 'BUSINESS_SAVINGS'
+  bank_account_type:
+    | 'PERSONAL_CHECKING'
+    | 'PERSONAL_SAVINGS'
+    | 'BUSINESS_CHECKING'
+    | 'BUSINESS_SAVINGS'
   bank_account_name: string
 }
 
@@ -379,130 +430,130 @@ export function BusinessSetupScreen(): React.JSX.Element {
                       <option key={t.value} value={t.value}>
                         {t.label}
                       </option>
-                ))}
-              </select>
-            </div>
-            <div className="auth-input-group">
-              <label htmlFor="bs-business-phone" className="auth-label">
-                Business Phone
-              </label>
-              <input
-                id="bs-business-phone"
-                type="tel"
-                className="auth-input"
-                placeholder="(555) 555-5555"
-                value={form.business_phone}
-                onChange={(e) => update('business_phone', e.target.value)}
-                disabled={isSubmitting}
-              />
-            </div>
-          </div>
+                    ))}
+                  </select>
+                </div>
+                <div className="auth-input-group">
+                  <label htmlFor="bs-business-phone" className="auth-label">
+                    Business Phone
+                  </label>
+                  <input
+                    id="bs-business-phone"
+                    type="tel"
+                    className="auth-input"
+                    placeholder="(555) 555-5555"
+                    value={form.business_phone}
+                    onChange={(e) => update('business_phone', e.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
 
-          <div className="auth-input-group">
-            <label htmlFor="bs-address1" className="auth-label">
-              Address Line 1
-            </label>
-            <input
-              id="bs-address1"
-              type="text"
-              className="auth-input"
-              placeholder="Street address"
-              value={form.address_line1}
-              onChange={(e) => update('address_line1', e.target.value)}
-              disabled={isSubmitting}
-            />
-          </div>
+              <div className="auth-input-group">
+                <label htmlFor="bs-address1" className="auth-label">
+                  Address Line 1
+                </label>
+                <input
+                  id="bs-address1"
+                  type="text"
+                  className="auth-input"
+                  placeholder="Street address"
+                  value={form.address_line1}
+                  onChange={(e) => update('address_line1', e.target.value)}
+                  disabled={isSubmitting}
+                />
+              </div>
 
-          <div className="auth-input-group">
-            <label htmlFor="bs-address2" className="auth-label">
-              Address Line 2
-            </label>
-            <input
-              id="bs-address2"
-              type="text"
-              className="auth-input"
-              placeholder="Suite, unit, etc. (optional)"
-              value={form.address_line2}
-              onChange={(e) => update('address_line2', e.target.value)}
-              disabled={isSubmitting}
-            />
-          </div>
+              <div className="auth-input-group">
+                <label htmlFor="bs-address2" className="auth-label">
+                  Address Line 2
+                </label>
+                <input
+                  id="bs-address2"
+                  type="text"
+                  className="auth-input"
+                  placeholder="Suite, unit, etc. (optional)"
+                  value={form.address_line2}
+                  onChange={(e) => update('address_line2', e.target.value)}
+                  disabled={isSubmitting}
+                />
+              </div>
 
-          <div className="business-setup__row--address">
-            <div className="auth-input-group">
-              <label htmlFor="bs-city" className="auth-label">
-                City
-              </label>
-              <input
-                id="bs-city"
-                type="text"
-                className="auth-input"
-                placeholder="City"
-                value={form.city}
-                onChange={(e) => update('city', e.target.value)}
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="auth-input-group">
-              <label htmlFor="bs-state" className="auth-label">
-                State
-              </label>
-              <select
-                id="bs-state"
-                className="auth-input"
-                value={form.region}
-                onChange={(e) => update('region', e.target.value)}
-                disabled={isSubmitting}
-              >
-                <option value="">--</option>
-                {US_STATES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="auth-input-group">
-              <label htmlFor="bs-zip" className="auth-label">
-                ZIP
-              </label>
-              <input
-                id="bs-zip"
-                type="text"
-                className="auth-input"
-                placeholder="12345"
-                value={form.postal_code}
-                onChange={(e) => update('postal_code', digitsOnly(e.target.value, 5))}
-                disabled={isSubmitting}
-                maxLength={5}
-                inputMode="numeric"
-              />
-            </div>
-          </div>
+              <div className="business-setup__row--address">
+                <div className="auth-input-group">
+                  <label htmlFor="bs-city" className="auth-label">
+                    City
+                  </label>
+                  <input
+                    id="bs-city"
+                    type="text"
+                    className="auth-input"
+                    placeholder="City"
+                    value={form.city}
+                    onChange={(e) => update('city', e.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div className="auth-input-group">
+                  <label htmlFor="bs-state" className="auth-label">
+                    State
+                  </label>
+                  <select
+                    id="bs-state"
+                    className="auth-input"
+                    value={form.region}
+                    onChange={(e) => update('region', e.target.value)}
+                    disabled={isSubmitting}
+                  >
+                    <option value="">--</option>
+                    {US_STATES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="auth-input-group">
+                  <label htmlFor="bs-zip" className="auth-label">
+                    ZIP
+                  </label>
+                  <input
+                    id="bs-zip"
+                    type="text"
+                    className="auth-input"
+                    placeholder="12345"
+                    value={form.postal_code}
+                    onChange={(e) => update('postal_code', digitsOnly(e.target.value, 5))}
+                    disabled={isSubmitting}
+                    maxLength={5}
+                    inputMode="numeric"
+                  />
+                </div>
+              </div>
 
-          {/* ── Section nav ── */}
-          {error && <div className="auth-error">{error}</div>}
-          <div className="business-setup__nav">
-            {stepIndex > 0 && (
-              <button
-                type="button"
-                className="business-setup__nav-back"
-                onClick={handleBack}
-                disabled={isSubmitting}
-              >
-                Back
-              </button>
-            )}
-            <button
-              type="button"
-              className="auth-submit-btn business-setup__nav-next"
-              onClick={handleNext}
-              disabled={isSubmitting}
-            >
-              Next
-            </button>
-          </div>
-        </>
+              {/* ── Section nav ── */}
+              {error && <div className="auth-error">{error}</div>}
+              <div className="business-setup__nav">
+                {stepIndex > 0 && (
+                  <button
+                    type="button"
+                    className="business-setup__nav-back"
+                    onClick={handleBack}
+                    disabled={isSubmitting}
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="auth-submit-btn business-setup__nav-next"
+                  onClick={handleNext}
+                  disabled={isSubmitting}
+                >
+                  Next
+                </button>
+              </div>
+            </>
           )}
 
           {/* ── Section: Owner Details ── */}
@@ -876,9 +927,7 @@ export function BusinessSetupScreen(): React.JSX.Element {
                     className="auth-input"
                     placeholder="123456789"
                     value={form.bank_routing_number}
-                    onChange={(e) =>
-                      update('bank_routing_number', digitsOnly(e.target.value, 9))
-                    }
+                    onChange={(e) => update('bank_routing_number', digitsOnly(e.target.value, 9))}
                     disabled={isSubmitting}
                     maxLength={9}
                     inputMode="numeric"
@@ -949,4 +998,3 @@ export function BusinessSetupScreen(): React.JSX.Element {
     </div>
   )
 }
-

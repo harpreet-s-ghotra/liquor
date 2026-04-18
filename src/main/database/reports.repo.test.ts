@@ -9,7 +9,8 @@ import {
   getTaxSummary,
   getComparisonData,
   getCashierSales,
-  getHourlySales
+  getHourlySales,
+  getTransactionList
 } from './reports.repo'
 import type { ReportDateRange } from '../../shared/types'
 
@@ -84,13 +85,14 @@ function insertTransactionItem(
   transactionId: number,
   productId: number,
   quantity: number = 1,
-  unitPrice: number = 10.0
+  unitPrice: number = 10.0,
+  costAtSale: number | null = null
 ): void {
   getDb()
     .prepare(
-      `INSERT INTO transaction_items (transaction_id, product_id, product_name, quantity, unit_price, total_price) VALUES (?, ?, 'Test Product', ?, ?, ?)`
+      `INSERT INTO transaction_items (transaction_id, product_id, product_name, quantity, unit_price, cost_at_sale, total_price) VALUES (?, ?, 'Test Product', ?, ?, ?, ?)`
     )
-    .run(transactionId, productId, quantity, unitPrice, quantity * unitPrice)
+    .run(transactionId, productId, quantity, unitPrice, costAtSale, quantity * unitPrice)
 }
 
 // Date range covering June 2024
@@ -169,15 +171,25 @@ describe('reports.repo', () => {
     })
 
     it('groups sales by payment method', () => {
-      insertTransaction(null, 'cash', 30.0, 2.0, 'completed', '2024-06-15 10:00:00')
-      insertTransaction(null, 'credit', 50.0, 4.0, 'completed', '2024-06-15 11:00:00')
-      insertTransaction(null, 'cash', 20.0, 1.5, 'completed', '2024-06-15 12:00:00')
+      const db = getDb()
+      const tx1 = insertTransaction(null, 'cash', 30.0, 2.0, 'completed', '2024-06-15 10:00:00')
+      const tx2 = insertTransaction(null, 'credit', 50.0, 4.0, 'completed', '2024-06-15 11:00:00')
+      const tx3 = insertTransaction(null, 'cash', 20.0, 1.5, 'completed', '2024-06-15 12:00:00')
+      db.prepare(`UPDATE transactions SET card_type = 'Visa' WHERE id = ?`).run(tx2)
+      db.prepare(`UPDATE transactions SET card_type = 'mastercard' WHERE id = ?`).run(tx3)
 
       const report = getSalesSummary(juneRange)
       expect(report.sales_by_payment.length).toBe(2)
       const cash = report.sales_by_payment.find((r) => r.payment_method === 'cash')
       expect(cash?.transaction_count).toBe(2)
       expect(cash?.total_amount).toBe(50.0)
+
+      const visa = report.sales_by_card_brand.find((r) => r.card_brand === 'Visa')
+      const mastercard = report.sales_by_card_brand.find((r) => r.card_brand === 'Mastercard')
+      expect(visa?.transaction_count).toBe(1)
+      expect(mastercard?.transaction_count).toBe(1)
+      expect(report.sales_by_card_brand.length).toBe(2)
+      expect(tx1).toBeGreaterThan(0)
     })
 
     it('groups sales by day', () => {
@@ -198,8 +210,15 @@ describe('reports.repo', () => {
     })
 
     it('aggregates product sales and computes profit/margin', () => {
+      getDb()
+        .prepare(
+          `INSERT INTO distributors (distributor_number, distributor_name) VALUES (1, 'Alpha')`
+        )
+        .run()
+
       const p1 = insertProduct('SKU1', 'Wine A', 20.0, 8.0, 0.08, 'Wine')
       const p2 = insertProduct('SKU2', 'Vodka B', 30.0, 12.0, 0.08, 'Spirit')
+      getDb().prepare(`UPDATE products SET distributor_number = 1 WHERE id IN (?, ?)`).run(p1, p2)
       const txn = insertTransaction(null, 'cash', 80.0, 6.0, 'completed', '2024-06-15 10:00:00')
       insertTransactionItem(txn, p1, 2, 20.0)
       insertTransactionItem(txn, p2, 1, 30.0)
@@ -213,6 +232,7 @@ describe('reports.repo', () => {
       expect(wine.cost_total).toBe(16.0) // 2 * 8
       expect(wine.profit).toBe(24.0)
       expect(wine.margin_pct).toBe(60.0)
+      expect(wine.distributor_name).toBe('Alpha')
     })
 
     it('respects limit parameter', () => {
@@ -224,6 +244,19 @@ describe('reports.repo', () => {
 
       const report = getProductSales(juneRange, 'revenue', 1)
       expect(report.items.length).toBe(1)
+    })
+
+    it('uses cost_at_sale over current product cost when present', () => {
+      const p1 = insertProduct('SKU-COGS', 'COGS Product', 20.0, 50.0, 0.08, 'Wine')
+      const txn = insertTransaction(null, 'cash', 20.0, 1.6, 'completed', '2024-06-15 10:00:00')
+
+      insertTransactionItem(txn, p1, 1, 20.0, 8.0)
+
+      const report = getProductSales(juneRange)
+      const row = report.items.find((i) => i.sku === 'SKU-COGS')!
+      expect(row.cost_total).toBe(8.0)
+      expect(row.profit).toBe(12.0)
+      expect(row.margin_pct).toBe(60.0)
     })
   })
 
@@ -246,6 +279,7 @@ describe('reports.repo', () => {
       const wine = report.categories.find((c) => c.item_type === 'Wine')!
       expect(wine.revenue).toBe(40.0)
       expect(wine.quantity_sold).toBe(2)
+      expect(wine.profit_margin_pct).toBeCloseTo(60.0, 1)
     })
   })
 
@@ -350,6 +384,95 @@ describe('reports.repo', () => {
       const h14 = report.hours.find((h) => h.hour === 14)!
       expect(h14.transaction_count).toBe(1)
       expect(h14.gross_sales).toBe(20.0)
+    })
+  })
+
+  describe('deviceId filter', () => {
+    it('getSalesSummary scopes to a single device when deviceId is set', () => {
+      // Insert transactions for two different devices
+      getDb()
+        .prepare(
+          `INSERT INTO transactions (transaction_number, subtotal, tax_amount, total, payment_method, status, device_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run('TXN-DEV-A-1', 18.0, 2.0, 20.0, 'cash', 'completed', 'device-a', '2024-06-10 12:00:00')
+      getDb()
+        .prepare(
+          `INSERT INTO transactions (transaction_number, subtotal, tax_amount, total, payment_method, status, device_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run('TXN-DEV-B-1', 45.0, 5.0, 50.0, 'cash', 'completed', 'device-b', '2024-06-10 13:00:00')
+
+      const allReport = getSalesSummary(juneRange)
+      expect(allReport.gross_sales).toBeCloseTo(70.0)
+
+      const deviceAReport = getSalesSummary({ ...juneRange, deviceId: 'device-a' })
+      expect(deviceAReport.gross_sales).toBeCloseTo(20.0)
+
+      const deviceBReport = getSalesSummary({ ...juneRange, deviceId: 'device-b' })
+      expect(deviceBReport.gross_sales).toBeCloseTo(50.0)
+    })
+
+    it('getHourlySales scopes to device when deviceId is set', () => {
+      getDb()
+        .prepare(
+          `INSERT INTO transactions (transaction_number, subtotal, tax_amount, total, payment_method, status, device_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          'TXN-DEV-H-1',
+          18.0,
+          2.0,
+          20.0,
+          'cash',
+          'completed',
+          'register-1',
+          '2024-06-10 09:00:00'
+        )
+      getDb()
+        .prepare(
+          `INSERT INTO transactions (transaction_number, subtotal, tax_amount, total, payment_method, status, device_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          'TXN-DEV-H-2',
+          18.0,
+          2.0,
+          20.0,
+          'cash',
+          'completed',
+          'register-2',
+          '2024-06-10 09:15:00'
+        )
+
+      const all = getHourlySales(juneRange)
+      expect(all.hours.find((h) => h.hour === 9)?.transaction_count).toBe(2)
+
+      const scoped = getHourlySales({ ...juneRange, deviceId: 'register-1' })
+      expect(scoped.hours.find((h) => h.hour === 9)?.transaction_count).toBe(1)
+    })
+  })
+
+  describe('getTransactionList', () => {
+    it('returns empty for empty range', () => {
+      const report = getTransactionList(emptyRange)
+      expect(report.transactions).toEqual([])
+    })
+
+    it('returns transaction rows with cashier and register details', () => {
+      const cashierId = insertCashier('Alice')
+      const sessionId = insertSession(cashierId, 'Alice')
+
+      insertTransaction(sessionId, 'cash', 30.0, 2.0, 'completed', '2024-06-10 10:00:00')
+      insertTransaction(null, 'cash', -10.0, -0.8, 'refund', '2024-06-10 11:00:00')
+
+      const report = getTransactionList(juneRange)
+      expect(report.transactions.length).toBe(2)
+
+      expect(report.transactions[0].cashier_name).toBe('Alice')
+      expect(report.transactions[0].status).toBe('completed')
+      expect(report.transactions[1].cashier_name).toBe('Unknown')
+      expect(report.transactions[1].status).toBe('refund')
     })
   })
 })

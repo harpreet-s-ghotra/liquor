@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useImperativeHandle, useMemo, useState, forwardRef } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  forwardRef
+} from 'react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
@@ -60,6 +68,7 @@ type InventoryFormState = {
   vintage: string
   ttb_id: string
   display_name: string
+  is_favorite: number
 }
 
 const emptyFormState: InventoryFormState = {
@@ -84,7 +93,8 @@ const emptyFormState: InventoryFormState = {
   alcohol_pct: '',
   vintage: '',
   ttb_id: '',
-  display_name: ''
+  display_name: '',
+  is_favorite: 0
 }
 
 export type ItemFormHandle = {
@@ -127,6 +137,12 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   const [saveError, setSaveError] = useState('')
   const [activeTab, setActiveTab] = useState('case-settings')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const tabScrollRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!tabScrollRef.current) return
+    tabScrollRef.current.scrollTop = 0
+  }, [activeTab])
 
   const hasBackendApi =
     typeof api?.searchInventoryProducts === 'function' &&
@@ -208,7 +224,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         const bpc = detail.bottles_per_case ?? 12
         const fullCasePrice = detail.retail_price * bpc
         if (fullCasePrice <= 0) return ''
-        const pct = parseFloat(((1 - detail.case_discount_price / fullCasePrice) * 100).toFixed(4))
+        const pct = parseFloat(((1 - detail.case_discount_price / fullCasePrice) * 100).toFixed(2))
         return pct > 0 ? String(pct) : ''
       })(),
       case_discount_mode: 'percent' as CaseDiscountMode,
@@ -220,7 +236,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       alcohol_pct: detail.alcohol_pct != null ? String(detail.alcohol_pct) : '',
       vintage: detail.vintage ?? '',
       ttb_id: detail.ttb_id ?? '',
-      display_name: detail.display_name ?? ''
+      display_name: detail.display_name ?? '',
+      is_favorite: detail.is_favorite ?? 0
     })
   }
 
@@ -406,7 +423,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       alcohol_pct: formState.alcohol_pct ? parseFloat(formState.alcohol_pct) : null,
       vintage: formState.vintage.trim(),
       ttb_id: formState.ttb_id.trim(),
-      display_name: formState.display_name.trim()
+      display_name: formState.display_name.trim(),
+      is_favorite: formState.is_favorite
     }
   }
 
@@ -719,6 +737,20 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             />
           </div>
 
+          <div className="item-form__field-span-2">
+            <label className="item-form__checkbox-label">
+              <input
+                type="checkbox"
+                className="item-form__checkbox"
+                checked={formState.is_favorite === 1}
+                onChange={(e) =>
+                  setFormState((c) => ({ ...c, is_favorite: e.target.checked ? 1 : 0 }))
+                }
+              />
+              Show on Favorites tab
+            </label>
+          </div>
+
           {/* Per Bottle Cost */}
           <div>
             <label className={labelCls}>Per Bottle Cost {requiredStar}</label>
@@ -905,7 +937,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           </TabsTrigger>
         </TabsList>
 
-        <div className="item-form__tab-scroll">
+        <div className="item-form__tab-scroll" ref={tabScrollRef}>
           {/* Case & Quantity */}
           <TabsContent value="case-settings" className="item-form__tab-panel">
             <div className="item-form__case-grid">

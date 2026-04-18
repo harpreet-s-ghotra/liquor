@@ -443,23 +443,25 @@ Routing: read `repo-map.md` first for general tasks. Read the feature-specific m
 
 All documentation lives in `docs/`. See `docs/README.md` for the full index.
 
-| Doc                                    | Covers                                                            |
-| -------------------------------------- | ----------------------------------------------------------------- |
-| `docs/project-plan.md`                 | Full project vision, roadmap, DB schema, Finix architecture       |
-| `docs/design-system.md`                | Visual spec -- colors, typography, layout rules, component specs  |
-| `docs/features/inventory-v1.md`        | Inventory CRUD spec (v1, historical)                              |
-| `docs/features/inventory-v2.md`        | Inventory modal redesign (active)                                 |
-| `docs/features/pricing-engine.md`      | Special pricing rules, mix-and-match                              |
-| `docs/features/product-search.md`      | Search modal spec                                                 |
-| `docs/features/returns-and-refunds.md` | Return workflow, refund scenarios                                 |
-| `docs/features/clock-in-clock-out.md`  | Register sessions, end-of-day report, cash reconciliation         |
-| `docs/features/features-overview.md`   | Customer-facing feature summary (for website use)                 |
-| `docs/features/supabase-onboarding.md` | Supabase auth, PIN setup, distributor catalog import              |
-| `docs/features/cloud-sync.md`          | Multi-register transaction & inventory sync via Supabase Realtime |
-| `docs/features/finix-integration.md`   | Finix payment processing, manual card charges, refunds            |
-| `docs/features/sales-reports.md`       | Sales summary, product/category analysis, tax report, comparisons |
-| `docs/features/auto-update.md`         | Automatic app updates via electron-updater and GitHub Releases    |
-| `docs/features/edge-functions.md`      | Supabase Edge Functions, Finix secrets, sandbox-to-live migration |
+| Doc                                      | Covers                                                            |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| `docs/project-plan.md`                   | Full project vision, roadmap, DB schema, Finix architecture       |
+| `docs/design-system.md`                  | Visual spec -- colors, typography, layout rules, component specs  |
+| `docs/features/inventory-v1.md`          | Inventory CRUD spec (v1, historical)                              |
+| `docs/features/inventory-v2.md`          | Inventory modal redesign (active)                                 |
+| `docs/features/pricing-engine.md`        | Special pricing rules, mix-and-match                              |
+| `docs/features/product-search.md`        | Search modal spec                                                 |
+| `docs/features/returns-and-refunds.md`   | Return workflow, refund scenarios                                 |
+| `docs/features/clock-in-clock-out.md`    | Register sessions, end-of-day report, cash reconciliation         |
+| `docs/features/features-overview.md`     | Customer-facing feature summary (for website use)                 |
+| `docs/features/supabase-onboarding.md`   | Supabase auth, PIN setup, distributor catalog import              |
+| `docs/features/cloud-sync.md`            | Multi-register transaction & inventory sync via Supabase Realtime |
+| `docs/features/central-catalog-admin.md` | Local-only merchant→catalog curation dashboard, super-user access |
+| `docs/features/finix-integration.md`     | Finix payment processing, manual card charges, refunds            |
+| `docs/features/sales-reports.md`         | Sales summary, product/category analysis, tax report, comparisons |
+| `docs/features/auto-update.md`           | Automatic app updates via electron-updater and GitHub Releases    |
+| `docs/features/edge-functions.md`        | Supabase Edge Functions, Finix secrets, sandbox-to-live migration |
+| `docs/features/manager-modal.md`         | Cashiers, Registers, Merchant Info, Reorder Dashboard (F6)        |
 
 ### Documentation Conventions
 

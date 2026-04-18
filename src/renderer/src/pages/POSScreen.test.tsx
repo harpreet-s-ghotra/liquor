@@ -8,7 +8,14 @@ const mockDismissAlert = vi.fn()
 const mockLogout = vi.fn()
 
 const authStoreState = {
-  currentCashier: { id: 1, name: 'Cashier 1', pin: '1234', created_at: '', updated_at: '' },
+  currentCashier: {
+    id: 1,
+    name: 'Cashier 1',
+    role: 'admin',
+    pin: '1234',
+    created_at: '',
+    updated_at: ''
+  },
   merchantConfig: {
     id: 1,
     finix_api_username: 'UStest',
@@ -421,6 +428,7 @@ describe('POSScreen', () => {
           card_type: 'visa',
           status: 'completed',
           original_transaction_id: null,
+          has_refund: false,
           created_at: '2026-03-27T10:00:00.000Z',
           items: [
             {
@@ -568,5 +576,109 @@ describe('POSScreen', () => {
     })
 
     expect(screen.getByRole('dialog', { name: 'Sessions' })).toBeInTheDocument()
+  })
+
+  it('opens inventory modal when F2 is pressed', async () => {
+    mockUsePosScreen.mockReturnValue(createDefaultMock())
+    render(<POSScreen />)
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'F2' })
+    })
+
+    expect(screen.getByText('Inventory Maintenance')).toBeInTheDocument()
+  })
+
+  it('opens reports modal when F5 is pressed', async () => {
+    mockUsePosScreen.mockReturnValue(createDefaultMock())
+    render(<POSScreen />)
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'F5' })
+    })
+
+    expect(screen.getByRole('dialog', { name: 'Sales Reports' })).toBeInTheDocument()
+  })
+
+  it('opens sales history modal when F7 is pressed', async () => {
+    mockUsePosScreen.mockReturnValue(createDefaultMock())
+    render(<POSScreen />)
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'F7' })
+    })
+
+    expect(screen.getByRole('dialog', { name: 'Sales History' })).toBeInTheDocument()
+  })
+
+  it('blocks F2/F5/F7 shortcuts for cashier role', async () => {
+    authStoreState.currentCashier = {
+      id: 2,
+      name: 'Cashier 2',
+      role: 'cashier',
+      pin: '5678',
+      created_at: '',
+      updated_at: ''
+    }
+    mockUsePosScreen.mockReturnValue(createDefaultMock())
+    render(<POSScreen />)
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'F2' })
+    })
+    expect(screen.queryByRole('dialog', { name: 'Inventory' })).not.toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'F5' })
+    })
+    expect(screen.queryByRole('dialog', { name: /reports/i })).not.toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'F7' })
+    })
+    expect(screen.queryByRole('dialog', { name: 'Sales History' })).not.toBeInTheDocument()
+
+    // Restore admin for other tests
+    authStoreState.currentCashier = {
+      id: 1,
+      name: 'Cashier 1',
+      role: 'admin',
+      pin: '1234',
+      created_at: '',
+      updated_at: ''
+    }
+  })
+
+  it('disables admin-only bottom bar buttons for cashier role', () => {
+    authStoreState.currentCashier = {
+      id: 2,
+      name: 'Cashier 2',
+      role: 'cashier',
+      pin: '5678',
+      created_at: '',
+      updated_at: ''
+    }
+    mockUsePosScreen.mockReturnValue(createDefaultMock())
+    render(<POSScreen />)
+
+    const inventoryBtn = screen.getByRole('button', { name: /F2.*Inventory/i })
+    const reportsBtn = screen.getByRole('button', { name: /F5.*Reports/i })
+    const salesHistoryBtn = screen.getByRole('button', { name: /F7.*Sales History/i })
+    const clockOutBtn = screen.getByRole('button', { name: /F3.*Clock/i })
+
+    expect(inventoryBtn).toBeDisabled()
+    expect(reportsBtn).toBeDisabled()
+    expect(salesHistoryBtn).toBeDisabled()
+    expect(clockOutBtn).not.toBeDisabled()
+
+    // Restore admin for other tests
+    authStoreState.currentCashier = {
+      id: 1,
+      name: 'Cashier 1',
+      role: 'admin',
+      pin: '1234',
+      created_at: '',
+      updated_at: ''
+    }
   })
 })

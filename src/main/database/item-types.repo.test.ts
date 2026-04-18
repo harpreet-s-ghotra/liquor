@@ -234,12 +234,16 @@ describe('item-types.repo', () => {
       })
 
       const pending = getPendingItems()
-      expect(pending).toHaveLength(1)
-      expect(pending[0].entity_type).toBe('item_type')
-      expect(pending[0].entity_id).toBe(String(created.id))
-      expect(pending[0].operation).toBe('INSERT')
-      expect(pending[0].status).toBe('pending')
-      expect(pending[0].device_id).toBe('test-device-uuid')
+      const itemTypeInsert = pending.find(
+        (p) =>
+          p.entity_type === 'item_type' &&
+          p.entity_id === String(created.id) &&
+          p.operation === 'INSERT'
+      )
+
+      expect(itemTypeInsert).toBeDefined()
+      expect(itemTypeInsert?.status).toBe('pending')
+      expect(itemTypeInsert?.device_id).toBe('test-device-uuid')
     })
 
     it('enqueues UPDATE when updating an item type', () => {
@@ -299,7 +303,15 @@ describe('item-types.repo', () => {
       })
 
       const pending = getPendingItems()
-      const payload = JSON.parse(pending[0].payload)
+      const itemTypeInsert = pending.find(
+        (p) =>
+          p.entity_type === 'item_type' &&
+          p.entity_id === String(created.id) &&
+          p.operation === 'INSERT'
+      )
+
+      expect(itemTypeInsert).toBeDefined()
+      const payload = JSON.parse(itemTypeInsert!.payload)
 
       expect(payload.item_type).toBeDefined()
       expect(payload.item_type.id).toBe(created.id)
@@ -334,7 +346,15 @@ describe('item-types.repo', () => {
       deleteItemType(it2.id)
 
       const pending = getPendingItems()
-      expect(pending.map((p) => p.operation)).toEqual(['INSERT', 'INSERT', 'UPDATE', 'DELETE'])
+      const itemTypeOps = pending
+        .filter((p) => p.entity_type === 'item_type')
+        .map((p) => p.operation)
+      const departmentOps = pending
+        .filter((p) => p.entity_type === 'department')
+        .map((p) => p.operation)
+
+      expect(itemTypeOps).toEqual(['INSERT', 'INSERT', 'UPDATE', 'DELETE'])
+      expect(departmentOps).toEqual(['INSERT', 'INSERT', 'DELETE'])
     })
   })
 })

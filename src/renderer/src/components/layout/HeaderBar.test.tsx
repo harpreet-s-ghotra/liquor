@@ -8,23 +8,35 @@ describe('HeaderBar', () => {
     useThemeStore.setState({ theme: 'dark' })
   })
 
-  it('renders status text, help, settings, and admin badge', () => {
-    render(<HeaderBar />)
+  it('renders status text, help, settings, and cashier badge', () => {
+    render(<HeaderBar cashierName="Alice" />)
     expect(screen.getByText('Register Active')).toBeInTheDocument()
     expect(screen.getByLabelText('Help')).toBeInTheDocument()
     expect(screen.getByLabelText('Settings')).toBeInTheDocument()
-    expect(screen.getByText('Admin')).toBeInTheDocument()
-  })
-
-  it('shows cashier name when provided', () => {
-    render(<HeaderBar cashierName="Alice" />)
     expect(screen.getByText('Alice')).toBeInTheDocument()
-    expect(screen.queryByText('Admin')).not.toBeInTheDocument()
   })
 
-  it('shows "Admin" when no cashierName is provided', () => {
+  it('shows cashier name without admin badge for cashier role', () => {
+    render(<HeaderBar cashierName="Alice" cashierRole="cashier" />)
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+    expect(screen.queryByTestId('admin-badge')).not.toBeInTheDocument()
+  })
+
+  it('shows "Cashier" when no cashierName is provided', () => {
     render(<HeaderBar />)
-    expect(screen.getByText('Admin')).toBeInTheDocument()
+    expect(screen.getByText('Cashier')).toBeInTheDocument()
+  })
+
+  it('shows ADMIN badge when cashierRole is admin', () => {
+    render(<HeaderBar cashierName="Bob" cashierRole="admin" />)
+    expect(screen.getByText('Bob')).toBeInTheDocument()
+    expect(screen.getByTestId('admin-badge')).toBeInTheDocument()
+    expect(screen.getByText('ADMIN')).toBeInTheDocument()
+  })
+
+  it('hides ADMIN badge when cashierRole is cashier', () => {
+    render(<HeaderBar cashierName="Alice" cashierRole="cashier" />)
+    expect(screen.queryByTestId('admin-badge')).not.toBeInTheDocument()
   })
 
   it('opens settings dropdown on click', () => {

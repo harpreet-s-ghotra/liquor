@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
+import { PasswordInput } from '../components/common/PasswordInput'
 import '../styles/auth.css'
 
 export function AuthScreen(): React.JSX.Element {
@@ -66,10 +67,8 @@ export function AuthScreen(): React.JSX.Element {
             <label htmlFor="password-input" className="auth-label">
               Password
             </label>
-            <input
+            <PasswordInput
               id="password-input"
-              type="password"
-              className="auth-input"
               placeholder="Password"
               value={password}
               onChange={(e) => {

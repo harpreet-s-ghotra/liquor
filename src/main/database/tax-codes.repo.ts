@@ -10,7 +10,11 @@ function normalizeTaxRate(value: number): number {
 }
 
 export function getTaxCodes(): TaxCode[] {
-  return getDb().prepare('SELECT id, code, rate FROM tax_codes ORDER BY rate').all() as TaxCode[]
+  return getDb()
+    .prepare(
+      'SELECT id, code, rate, COALESCE(is_default, 0) AS is_default FROM tax_codes ORDER BY rate'
+    )
+    .all() as TaxCode[]
 }
 
 export function createTaxCode(input: CreateTaxCodeInput): TaxCode {
@@ -75,6 +79,37 @@ export function updateTaxCode(input: UpdateTaxCodeInput): TaxCode {
 
   enqueueTaxCodeSync(input.id, 'UPDATE')
   return { id: input.id, code, rate }
+}
+
+/**
+ * Return the rate of the tax code flagged as default, or null if none is set.
+ * Used to auto-populate tax_1 on newly-created or imported products so
+ * merchants don't have to re-run "Apply to all items" after every import.
+ */
+export function getDefaultTaxRate(): number | null {
+  const row = getDb().prepare('SELECT rate FROM tax_codes WHERE is_default = 1 LIMIT 1').get() as
+    | { rate: number }
+    | undefined
+  return row ? row.rate : null
+}
+
+/**
+ * Mark the given tax code as the default. Clears is_default on all other rows
+ * in a single transaction so at most one default exists at any time.
+ */
+export function setDefaultTaxCode(id: number): void {
+  const db = getDb()
+  const tx = db.transaction((taxCodeId: number) => {
+    db.prepare('UPDATE tax_codes SET is_default = 0 WHERE is_default = 1').run()
+    const result = db
+      .prepare('UPDATE tax_codes SET is_default = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(taxCodeId)
+    if (result.changes === 0) {
+      throw new Error('Tax code not found')
+    }
+  })
+  tx(id)
+  enqueueTaxCodeSync(id, 'UPDATE')
 }
 
 export function deleteTaxCode(id: number): void {

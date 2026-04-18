@@ -68,12 +68,12 @@
   border-bottom: 1px solid var(--border-soft);
   background: var(--bg-surface);
   cursor: pointer;
-  padding: 0 0.75rem;
+  padding: 0.5rem 1rem;
   width: 100%;
-  min-height: 2.75rem;
+  min-height: 4.25rem;
   text-align: left;
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 1.125rem;
 }
 
 .search-modal__result-row:hover {
@@ -93,7 +93,7 @@
 
 .search-modal__result-size {
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .search-modal__result-distributor {
@@ -101,7 +101,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .search-modal__result-qty {
@@ -132,4 +132,12 @@
 
 .search-modal__search-input {
   font-size: 1.125rem;
+}
+
+.search-modal__go-btn {
+  padding: 0 1.75rem;
+  min-width: 7rem;
+  min-height: 3rem;
+  font-size: 1.125rem;
+  font-weight: 700;
 }

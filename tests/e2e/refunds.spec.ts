@@ -252,10 +252,7 @@ const loginWithPin = async (page: Page): Promise<void> => {
     await page.locator(`.pin-key:text("${digit}")`).click()
   }
 
-  await page
-    .locator('.action-panel__product-tile')
-    .first()
-    .waitFor({ state: 'visible', timeout: 10000 })
+  await page.locator('.ticket-panel').waitFor({ state: 'visible', timeout: 10000 })
 }
 
 test.describe('Refund Workflow', () => {
@@ -267,19 +264,19 @@ test.describe('Refund Workflow', () => {
 
   test('opens Sales History modal via F7 shortcut', async ({ page }) => {
     await page.locator('.bottom-bar__key-btn:has-text("Sales History")').click()
-    await expect(page.locator('text=Sales History')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sales History' })).toBeVisible()
   })
 
   test('displays past transactions in the list', async ({ page }) => {
     await page.locator('.bottom-bar__key-btn:has-text("Sales History")').click()
-    await expect(page.locator('text=Sales History')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sales History' })).toBeVisible()
     await expect(page.locator('text=TXN-20260328-001')).toBeVisible()
     await expect(page.locator('text=TXN-20260328-002')).toBeVisible()
   })
 
   test('expands a transaction to show details', async ({ page }) => {
     await page.locator('.bottom-bar__key-btn:has-text("Sales History")').click()
-    await expect(page.locator('text=Sales History')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sales History' })).toBeVisible()
 
     // Click the first transaction row to expand
     await page.locator('text=TXN-20260328-001').click()
@@ -291,7 +288,7 @@ test.describe('Refund Workflow', () => {
 
   test('shows Recall for Return button on expanded transaction', async ({ page }) => {
     await page.locator('.bottom-bar__key-btn:has-text("Sales History")').click()
-    await expect(page.locator('text=Sales History')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sales History' })).toBeVisible()
 
     await page.locator('text=TXN-20260328-001').click()
     await expect(page.locator('[data-testid="sales-history-recall-btn"]')).toBeVisible()
@@ -300,16 +297,39 @@ test.describe('Refund Workflow', () => {
 
   test('recalling a transaction loads it into the ticket panel for return', async ({ page }) => {
     await page.locator('.bottom-bar__key-btn:has-text("Sales History")').click()
-    await expect(page.locator('text=Sales History')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sales History' })).toBeVisible()
 
     await page.locator('text=TXN-20260328-001').click()
     await page.locator('[data-testid="sales-history-recall-btn"]').click()
 
     // Sales history modal should close
-    await expect(page.locator('text=Sales History').first()).not.toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: 'Sales History' })).toHaveCount(0)
 
     // The recalled transaction items should appear in the ticket panel
-    await expect(page.locator('.ticket-panel').locator('text=Cabernet Sauvignon 750ml')).toBeVisible()
+    await expect(
+      page.locator('.ticket-panel').locator('text=Cabernet Sauvignon 750ml')
+    ).toBeVisible()
     await expect(page.locator('.ticket-panel').locator('text=Craft IPA 6-Pack')).toBeVisible()
+  })
+
+  test('recalled invoice disappears from main screen after refund completes', async ({ page }) => {
+    await page.locator('.bottom-bar__key-btn:has-text("Sales History")').click()
+    await expect(page.getByRole('heading', { name: 'Sales History' })).toBeVisible()
+
+    await page.locator('text=TXN-20260328-001').click()
+    await page.locator('[data-testid="sales-history-recall-btn"]').click()
+
+    await expect(page.getByTestId('recall-banner')).toBeVisible()
+
+    await page.getByTestId('return-all-btn').click()
+    await expect(page.getByTestId('recall-banner')).toContainText('Returning')
+
+    await page.getByRole('button', { name: 'Process Refund' }).click()
+    await page.getByRole('button', { name: 'Cash (Exact)' }).click()
+    await expect(page.getByTestId('payment-complete')).toBeVisible()
+    await page.getByTestId('payment-ok-btn').click()
+
+    await expect(page.getByTestId('recall-banner')).toHaveCount(0)
+    await expect(page.locator('.ticket-panel__line')).toHaveCount(0)
   })
 })

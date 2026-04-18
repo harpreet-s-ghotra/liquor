@@ -15,7 +15,7 @@
 - [x] `device-registration.ts` — registers terminal with Supabase `registers` table (upsert by fingerprint)
 - [x] `sync-worker.ts` — background queue drain loop, Realtime subscription setup, exponential backoff retry
 - [x] `supabase.ts` — exposed `getSupabaseClient()` and `getMerchantCloudId()`
-- [x] IPC channels: `sync:get-status`, `sync:get-device-config`, `sync:connectivity-changed` (event)
+- [x] IPC channels: `sync:get-status`, `sync:get-device-config`, `sync:get-initial-status`, `sync:retry-initial-sync`, `sync:connectivity-changed` (event), `sync:initial-status-changed` (event)
 - [x] Preload + type definitions for sync IPC
 - [x] Startup wiring: connectivity monitor + sync worker auto-start after auth
 
@@ -50,9 +50,14 @@
 - [x] `tax-code-sync.ts` — upload (upsert by merchant_id+code) + applyRemoteTaxCodeChange (LWW)
 - [x] `distributor-sync.ts` — upload (upsert by merchant_id+distributor_number) + applyRemoteDistributorChange (LWW)
 - [x] `cashier-sync.ts` — upload (upsert by merchant_id+pin_hash) + applyRemoteCashierChange (LWW); includes pin_hash for cross-register PIN validation
+- [x] `department-sync.ts` — upload (upsert by merchant_id+name) + applyRemoteDepartmentChange (LWW)
+- [x] `settings-sync.ts` — upload/apply for merchant business settings (`store_name`, `receipt_header`, `receipt_footer`, `theme`, `extras_json`)
+- [x] `transaction-backfill.ts` — initial 7-day historical transaction restore for refund lookup on new installs
+- [x] FIFO COGS primitives — `transaction_items.cost_at_sale`, `cost_basis_source`, and local `product_cost_layers`
 - [x] Enqueue hooks in: `item-types.repo.ts`, `tax-codes.repo.ts`, `cashiers.repo.ts`, `distributors.repo.ts` (create/update/delete, delete enqueued before row removal)
-- [x] Sync worker: dispatch cases for `item_type`, `tax_code`, `cashier`, `distributor` + Realtime subscriptions on all four tables
-- [x] Supabase tables: `merchant_item_types`, `merchant_tax_codes`, `merchant_cashiers`, `merchant_distributors`
+- [x] Sync worker: dispatch cases for `item_type`, `department`, `settings`, `tax_code`, `cashier`, `distributor` + Realtime subscriptions
+- [x] Initial restore order: `settings → tax_codes → distributors → item_types → departments → cashiers → products → transactions`
+- [x] Supabase tables: `merchant_item_types`, `merchant_departments`, `merchant_tax_codes`, `merchant_cashiers`, `merchant_distributors`, `merchant_business_settings`
 
 ### Renderer: Sync Indicator — In Progress
 

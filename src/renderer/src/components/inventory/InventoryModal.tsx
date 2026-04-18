@@ -43,6 +43,8 @@ export function InventoryModal({
   const [searchResults, setSearchResults] = useState<InventoryProduct[]>([])
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
   const [noResultsSku, setNoResultsSku] = useState<string | null>(null)
+  const [inventoryFilter, setInventoryFilter] = useState<'all' | 'needs-pricing'>('all')
+  const [unpricedCount, setUnpricedCount] = useState(0)
   const searchWrapperRef = useRef<HTMLDivElement>(null)
   const debouncedSearch = useDebounce(searchTerm, 300)
 
@@ -53,6 +55,7 @@ export function InventoryModal({
         setActiveTab('items')
         setSearchTerm('')
         setNoResultsSku(null)
+        setInventoryFilter('all')
         if (openItemNumber != null) {
           void itemFormRef.current?.selectItem({ item_number: openItemNumber } as InventoryProduct)
         } else {
@@ -62,9 +65,28 @@ export function InventoryModal({
     }
   }, [isOpen, openItemNumber])
 
+  // Load unpriced product count whenever the modal is open
+  useEffect(() => {
+    if (!isOpen || typeof api?.getUnpricedProducts !== 'function') return
+    void api.getUnpricedProducts().then((items) => setUnpricedCount(items.length))
+  }, [isOpen, api])
+
   // Debounced search — only for Items tab autocomplete
   useEffect(() => {
     if (activeTab !== 'items') return
+    // When "needs pricing" filter is active and no manual search term, show unpriced list
+    if (inventoryFilter === 'needs-pricing' && !debouncedSearch.trim()) {
+      if (typeof api?.getUnpricedProducts !== 'function') return
+      let active = true
+      void api.getUnpricedProducts().then((results) => {
+        if (!active) return
+        setSearchResults(results)
+        setShowSearchDropdown(results.length > 0)
+      })
+      return () => {
+        active = false
+      }
+    }
     if (!debouncedSearch.trim() || typeof api?.searchInventoryProducts !== 'function') return
     let active = true
     void api.searchInventoryProducts(debouncedSearch).then((results) => {
@@ -75,16 +97,32 @@ export function InventoryModal({
     return () => {
       active = false
     }
-  }, [debouncedSearch, api, activeTab])
+  }, [debouncedSearch, api, activeTab, inventoryFilter])
 
   // Clear no-results prompt when the user edits the search term
   const handleSearchTermChange = (term: string): void => {
     setSearchTerm(term)
     if (noResultsSku) setNoResultsSku(null)
+    // Typing cancels the "needs pricing" filter mode
+    if (inventoryFilter !== 'all' && term.trim()) setInventoryFilter('all')
     if (!term.trim()) {
-      setShowSearchDropdown(false)
-      setSearchResults([])
+      if (inventoryFilter === 'all') {
+        setShowSearchDropdown(false)
+        setSearchResults([])
+      }
+      // If filter is active, the debounced effect will repopulate the dropdown
     }
+  }
+
+  const handleFilterChange = (filter: 'all' | 'needs-pricing'): void => {
+    setInventoryFilter(filter)
+    setSearchTerm('')
+    setNoResultsSku(null)
+    if (filter === 'all') {
+      setSearchResults([])
+      setShowSearchDropdown(false)
+    }
+    // 'needs-pricing' — the debounced effect will load unpriced products
   }
 
   useEffect(() => {
@@ -134,9 +172,23 @@ export function InventoryModal({
   }
 
   const handleSaveComplete = useCallback((): void => {
+    // Refresh unpriced count so the badge stays accurate
+    if (typeof api?.getUnpricedProducts === 'function') {
+      void api.getUnpricedProducts().then((items) => setUnpricedCount(items.length))
+    }
+    if (inventoryFilter === 'needs-pricing') {
+      // Refresh the unpriced list in the dropdown
+      if (typeof api?.getUnpricedProducts === 'function') {
+        void api.getUnpricedProducts().then((results) => {
+          setSearchResults(results)
+          setShowSearchDropdown(results.length > 0)
+        })
+      }
+      return
+    }
     if (!searchTerm.trim() || typeof api?.searchInventoryProducts !== 'function') return
     void api.searchInventoryProducts(searchTerm).then(setSearchResults)
-  }, [searchTerm, api])
+  }, [searchTerm, api, inventoryFilter])
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -211,6 +263,27 @@ export function InventoryModal({
                 </TabsTrigger>
               ))}
             </TabsList>
+            {activeTab === 'items' && (
+              <div className="inventory-modal__filter-chips">
+                <button
+                  type="button"
+                  className={`inventory-modal__filter-chip${inventoryFilter === 'all' ? ' inventory-modal__filter-chip--active' : ''}`}
+                  onClick={() => handleFilterChange('all')}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={`inventory-modal__filter-chip${inventoryFilter === 'needs-pricing' ? ' inventory-modal__filter-chip--active' : ''}`}
+                  onClick={() => handleFilterChange('needs-pricing')}
+                >
+                  Needs pricing
+                  {unpricedCount > 0 && (
+                    <span className="inventory-modal__filter-chip-badge">{unpricedCount}</span>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Content */}

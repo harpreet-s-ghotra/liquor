@@ -63,6 +63,8 @@ export async function uploadTransaction(
       product_name: item.product_name,
       quantity: item.quantity,
       unit_price: item.unit_price,
+      cost_at_sale: item.cost_at_sale ?? null,
+      cost_basis_source: item.cost_basis_source ?? 'fifo_layer',
       total_price: item.total_price
     }))
 

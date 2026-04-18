@@ -6,6 +6,7 @@ import { PinSetupScreen } from './pages/PinSetupScreen'
 import { BusinessSetupScreen } from './pages/BusinessSetupScreen'
 import { DistributorOnboardingScreen } from './pages/DistributorOnboardingScreen'
 import { LoginScreen } from './pages/LoginScreen'
+import { SyncProgressModal } from './components/common/SyncProgressModal'
 import { useAuthStore } from './store/useAuthStore'
 import { useThemeStore } from './store/useThemeStore'
 
@@ -21,6 +22,7 @@ function App(): React.JSX.Element {
   const appState = useAuthStore((s) => s.appState)
   const initialize = useAuthStore((s) => s.initialize)
   const handleInviteLink = useAuthStore((s) => s.handleInviteLink)
+  const completeSyncAndContinue = useAuthStore((s) => s.completeSyncAndContinue)
   const isDevBrowser = useIsDevBrowser()
   const theme = useThemeStore((s) => s.theme)
 
@@ -89,6 +91,13 @@ function App(): React.JSX.Element {
       return <AuthScreen />
     case 'set-password':
       return <SetPasswordScreen />
+    case 'syncing-initial':
+      return (
+        <SyncProgressModal
+          onComplete={() => void completeSyncAndContinue()}
+          onContinueOffline={() => void completeSyncAndContinue()}
+        />
+      )
     case 'pin-setup':
       return <PinSetupScreen />
     case 'business-setup':

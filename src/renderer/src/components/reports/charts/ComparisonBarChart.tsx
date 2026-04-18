@@ -1,25 +1,35 @@
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
-import type { ComparisonDelta } from '../../../../../shared/types'
+import { formatCurrency } from '@renderer/utils/currency'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 type ComparisonBarChartProps = {
-  deltas: ComparisonDelta[]
+  points: Array<{
+    label: string
+    valueA: number
+    valueB: number | null
+  }>
+  labelA: string
+  labelB: string
 }
 
-export function ComparisonBarChart({ deltas }: ComparisonBarChartProps): React.JSX.Element {
+export function ComparisonBarChart({
+  points,
+  labelA,
+  labelB
+}: ComparisonBarChartProps): React.JSX.Element {
   const chartData = {
-    labels: deltas.map((d) => d.field),
+    labels: points.map((point) => point.label),
     datasets: [
       {
-        label: 'Period A',
-        data: deltas.map((d) => d.period_a_value),
+        label: labelA,
+        data: points.map((point) => point.valueA),
         backgroundColor: '#3d82c6'
       },
       {
-        label: 'Period B',
-        data: deltas.map((d) => d.period_b_value),
+        label: labelB,
+        data: points.map((point) => point.valueB),
         backgroundColor: '#d4956a'
       }
     ]
@@ -30,15 +40,21 @@ export function ComparisonBarChart({ deltas }: ComparisonBarChartProps): React.J
       data={chartData}
       options={{
         responsive: true,
+        maintainAspectRatio: false,
         animation: false,
         plugins: {
-          legend: { position: 'top' }
+          legend: { position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(Number(ctx.parsed.y ?? 0))}`
+            }
+          }
         },
         scales: {
           y: {
             beginAtZero: true,
             ticks: {
-              callback: (value) => `$${value}`
+              callback: (value) => formatCurrency(Number(value))
             }
           }
         }
