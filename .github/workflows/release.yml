@@ -8,7 +8,13 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    uses: ./.github/workflows/test-windows.yml
+    permissions:
+      contents: read
+
   build-windows:
+    needs: test
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
