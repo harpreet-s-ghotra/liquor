@@ -124,6 +124,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
         transaction_count: 0,
         avg_transaction: 0,
         sales_by_payment: [],
+        sales_by_card_brand: [],
         sales_by_day: []
       }),
       getReportProductSales: async () => ({ items: [] }),

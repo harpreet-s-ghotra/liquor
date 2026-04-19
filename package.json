@@ -27,9 +27,9 @@
     "build:linux": "electron-vite build && electron-builder --linux",
     "crawl:nysla:lr": "node scripts/nysla/crawl-lr-to-csv.cjs",
     "prepare": "husky",
-    "test:node": "npm rebuild better-sqlite3 2>/dev/null; node scripts/run-vitest.mjs run --config vitest.config.node.ts",
-    "test:node:watch": "npm rebuild better-sqlite3 2>/dev/null; node scripts/run-vitest.mjs --config vitest.config.node.ts",
-    "test:node:coverage": "npm rebuild better-sqlite3 2>/dev/null; node scripts/run-vitest.mjs run --config vitest.config.node.ts --coverage",
+    "test:node": "npm rebuild better-sqlite3 && node scripts/run-vitest.mjs run --config vitest.config.node.ts",
+    "test:node:watch": "npm rebuild better-sqlite3 && node scripts/run-vitest.mjs --config vitest.config.node.ts",
+    "test:node:coverage": "npm rebuild better-sqlite3 && node scripts/run-vitest.mjs run --config vitest.config.node.ts --coverage",
     "seed:prices": "npm rebuild better-sqlite3 2>/dev/null; npx tsx scripts/seed-prices.ts",
     "seed:tx": "npm rebuild better-sqlite3 2>/dev/null; npx tsx scripts/seed-transactions.ts",
     "reset:pin": "npm rebuild better-sqlite3 2>/dev/null; npx tsx scripts/reset-local-pin.ts"

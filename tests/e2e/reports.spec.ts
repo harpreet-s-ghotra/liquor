@@ -56,6 +56,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
         { payment_method: 'cash', transaction_count: 6, total_amount: 300 },
         { payment_method: 'credit', transaction_count: 4, total_amount: 200 }
       ],
+      sales_by_card_brand: [],
       sales_by_day: [
         {
           date: '2024-06-10',
@@ -213,13 +214,13 @@ test.describe('Sales Reports', () => {
     await expect(page.locator('th:has-text("Rate")')).toBeVisible()
   })
 
-  test('switches to Comparisons tab and shows Compare button', async ({ page }) => {
+  test('switches to Comparisons tab and shows granularity toggle', async ({ page }) => {
     await page.locator('.bottom-bar__key-btn:has-text("Reports")').click()
     await expect(page.locator('text=Sales Reports')).toBeVisible()
     await page.getByRole('tab', { name: 'Comparisons' }).click()
-    await expect(page.locator('.reports-modal__range-label:has-text("Period A")')).toBeVisible()
-    await expect(page.locator('.reports-modal__range-label:has-text("Period B")')).toBeVisible()
-    await expect(page.locator('button:has-text("Compare")')).toBeVisible()
+    await expect(page.locator('.reports-modal__range-label:has-text("Group By")')).toBeVisible()
+    await expect(page.getByLabel('Group by month')).toBeVisible()
+    await expect(page.getByLabel('Group by week')).toBeVisible()
   })
 
   test('shows export buttons on summary tab', async ({ page }) => {

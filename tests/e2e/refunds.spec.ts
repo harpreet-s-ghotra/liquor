@@ -94,6 +94,10 @@ const attachRefundMock = async (page: Page): Promise<void> => {
           unit_price: 13.49,
           total_price: 13.49
         }
+      ],
+      has_refund: false,
+      payments: [
+        { method: 'cash', amount: 36.16 }
       ]
     }
 
@@ -123,6 +127,10 @@ const attachRefundMock = async (page: Page): Promise<void> => {
           unit_price: 19.99,
           total_price: 19.99
         }
+      ],
+      has_refund: false,
+      payments: [
+        { method: 'credit', amount: 21.59, card_last_four: '4242', card_type: 'visa' }
       ]
     }
 
@@ -218,6 +226,7 @@ const attachRefundMock = async (page: Page): Promise<void> => {
         transaction_count: 0,
         avg_transaction: 0,
         sales_by_payment: [],
+        sales_by_card_brand: [],
         sales_by_day: []
       }),
       getReportProductSales: async () => ({ items: [] }),
