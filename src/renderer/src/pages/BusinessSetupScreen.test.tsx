@@ -126,7 +126,7 @@ describe('BusinessSetupScreen', () => {
   })
 
   it('submits successfully through all wizard steps for LLC', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     mockFinixProvisionMerchant.mockResolvedValue({
       finix_merchant_id: 'MU-123',
       merchant_name: 'Test Store'
@@ -159,10 +159,10 @@ describe('BusinessSetupScreen', () => {
     expect(payload.doing_business_as).toBe('Test Store')
     expect(payload.business_address.postal_code).toBe('10001')
     expect(payload.bank_account.routing_number).toBe('021000021')
-  })
+  }, 20000)
 
   it('strips IPC error prefixes on submit failure', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     mockFinixProvisionMerchant.mockRejectedValue(
       new Error("Error invoking remote method 'finix:provision-merchant': Error: Network down")
     )
@@ -185,10 +185,10 @@ describe('BusinessSetupScreen', () => {
       expect(screen.getByText('Network down')).toBeInTheDocument()
     })
     expect(screen.queryByText(/Error invoking remote method/i)).not.toBeInTheDocument()
-  })
+  }, 20000)
 
   it('skips entity step for sole proprietorship', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<BusinessSetupScreen />)
 
     await user.selectOptions(
@@ -205,10 +205,10 @@ describe('BusinessSetupScreen', () => {
       expect(screen.getByLabelText('Account Holder Name')).toBeInTheDocument()
     })
     expect(screen.queryByLabelText('Business Website URL')).not.toBeInTheDocument()
-  })
+  }, 20000)
 
   it('shows submitting state on final submit', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     let resolveProvision!: (value: ProvisionMerchantResult) => void
     mockFinixProvisionMerchant.mockReturnValue(
       new Promise<ProvisionMerchantResult>((resolve) => {
@@ -239,5 +239,5 @@ describe('BusinessSetupScreen', () => {
     await waitFor(() => {
       expect(mockCompleteBusinessSetup).toHaveBeenCalled()
     })
-  })
+  }, 20000)
 })

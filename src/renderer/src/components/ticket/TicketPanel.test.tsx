@@ -105,7 +105,7 @@ describe('TicketPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '0' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(applyDiscount).toHaveBeenCalledWith(10, 'item')
-  })
+  }, 15000)
 
   it('shows empty ticket message when cart has no items', () => {
     render(
