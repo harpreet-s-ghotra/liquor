@@ -33,7 +33,14 @@ describe('ManagerModal', () => {
         merchant_id: 'MU12345678',
         processing_enabled: true
       }),
-      getLowStockProducts: vi.fn().mockResolvedValue([
+      getReorderDistributors: vi.fn().mockResolvedValue([
+        {
+          distributor_number: 1,
+          distributor_name: 'North Wines',
+          product_count: 1
+        }
+      ]),
+      getReorderProducts: vi.fn().mockResolvedValue([
         {
           id: 1,
           sku: 'WINE-001',
@@ -41,7 +48,14 @@ describe('ManagerModal', () => {
           item_type: 'Wine',
           in_stock: 5,
           reorder_point: 10,
-          distributor_name: 'North Wines'
+          distributor_number: 1,
+          distributor_name: 'North Wines',
+          cost: 8,
+          bottles_per_case: 12,
+          price: 15,
+          velocity_per_day: 0,
+          days_of_supply: null,
+          projected_stock: 5
         }
       ])
     }
@@ -150,7 +164,7 @@ describe('ManagerModal', () => {
 
     // Initially should show Cashiers in breadcrumb
     expect(
-      screen.getByText('Cashiers', { selector: '.manager-modal__header-title' })
+      screen.getByText('Cashiers', { selector: '.app-modal-header__title' })
     ).toBeInTheDocument()
 
     const registersTab = screen.getByRole('tab', { name: 'Registers' })
@@ -158,7 +172,7 @@ describe('ManagerModal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Registers', { selector: '.manager-modal__header-title' })
+        screen.getByText('Registers', { selector: '.app-modal-header__title' })
       ).toBeInTheDocument()
     })
   })
@@ -166,7 +180,7 @@ describe('ManagerModal', () => {
   it('displays close button in header', () => {
     render(<ManagerModal isOpen={true} onClose={vi.fn()} />)
 
-    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Close/ })).toBeInTheDocument()
   })
 
   it('calls onClose when close button is clicked', async () => {
@@ -174,7 +188,7 @@ describe('ManagerModal', () => {
     const onClose = vi.fn()
     render(<ManagerModal isOpen={true} onClose={onClose} />)
 
-    const closeButton = screen.getByRole('button', { name: 'Close' })
+    const closeButton = screen.getByRole('button', { name: /^Close/ })
     await user.click(closeButton)
 
     expect(onClose).toHaveBeenCalled()
@@ -183,7 +197,7 @@ describe('ManagerModal', () => {
   it('displays header with manager icon', () => {
     render(<ManagerModal isOpen={true} onClose={vi.fn()} />)
 
-    const headerIcon = document.querySelector('.manager-modal__header-icon svg')
+    const headerIcon = document.querySelector('.app-modal-header__icon svg')
     expect(headerIcon).toBeInTheDocument()
   })
 

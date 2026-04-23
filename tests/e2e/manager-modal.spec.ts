@@ -148,26 +148,64 @@ const attachManagerModalMock = async (page: Page): Promise<void> => {
         merchant_id: 'MU-test-merchant-id',
         processing_enabled: true
       }),
-      getLowStockProducts: async () => [
+      getReorderDistributors: async () => [
         {
-          id: 2,
-          sku: 'BEER-001',
-          name: 'Craft IPA 6-Pack',
-          item_type: 'Beer',
-          in_stock: 5,
-          reorder_point: 10,
-          distributor_name: 'North Breweries'
+          distributor_number: 10,
+          distributor_name: 'North Breweries',
+          product_count: 1
         },
         {
-          id: 3,
-          sku: 'SPIRIT-001',
-          name: 'Premium Vodka 1L',
-          item_type: 'Spirits',
-          in_stock: 2,
-          reorder_point: 8,
-          distributor_name: 'Premium Imports'
+          distributor_number: 20,
+          distributor_name: 'Premium Imports',
+          product_count: 1
         }
       ],
+      getReorderProducts: async (query: {
+        distributor: number | 'unassigned'
+        unit_threshold: number
+        window_days: number
+      }) => {
+        if (query.distributor === 10) {
+          return [
+            {
+              id: 2,
+              sku: 'BEER-001',
+              name: 'Craft IPA 6-Pack',
+              item_type: 'Beer',
+              in_stock: 5,
+              reorder_point: 10,
+              distributor_number: 10,
+              distributor_name: 'North Breweries',
+              price: 13.49,
+              velocity_per_day: 0.25,
+              days_of_supply: 20,
+              projected_stock: -2.5
+            }
+          ]
+        }
+
+        if (query.distributor === 20) {
+          return [
+            {
+              id: 3,
+              sku: 'SPIRIT-001',
+              name: 'Premium Vodka 1L',
+              item_type: 'Spirits',
+              in_stock: 2,
+              reorder_point: 8,
+              distributor_number: 20,
+              distributor_name: 'Premium Imports',
+              price: 32.99,
+              velocity_per_day: 0.1,
+              days_of_supply: 20,
+              projected_stock: -1
+            }
+          ]
+        }
+
+        return []
+      },
+      setProductDiscontinued: async () => {},
 
       // Payment APIs (for normal transactions)
       finixChargeCard: async (input: { total: number; card_number?: string }) => {
@@ -254,8 +292,8 @@ test.describe('Manager Modal (F6)', () => {
 
     // Test Reorder Dashboard tab
     await page.getByRole('tab', { name: 'Reorder Dashboard' }).click()
+    await expect(page.locator('#reorder-distributor-select')).toHaveValue('10')
     await expect(page.getByText('Craft IPA 6-Pack')).toBeVisible()
-    await expect(page.getByText('Premium Vodka 1L')).toBeVisible()
   })
 
   test('creates a new cashier in manager modal', async ({ page }) => {
@@ -304,24 +342,38 @@ test.describe('Manager Modal (F6)', () => {
     await expect(page.getByRole('tab', { name: 'Registers' })).toBeVisible()
   })
 
-  test('displays reorder dashboard with low stock products', async ({ page }) => {
+  test('displays reorder dashboard with distributor-scoped products', async ({ page }) => {
     await attachManagerModalMock(page)
     await gotoAndLogin(page)
 
     await page.keyboard.press('F6')
     await page.getByRole('tab', { name: 'Reorder Dashboard' }).click()
 
-    // Both low stock products should be visible
-    await expect(page.getByText('Craft IPA 6-Pack')).toBeVisible()
-    await expect(page.getByText('Premium Vodka 1L')).toBeVisible()
+    await expect(page.locator('#reorder-distributor-select')).toHaveValue('10')
+    await expect(page.locator('#reorder-distributor-select option:checked')).toHaveText(
+      'North Breweries'
+    )
 
-    // Should show stock levels
-    await expect(page.getByRole('cell', { name: '5' })).toBeVisible()
-    await expect(page.getByRole('cell', { name: '2' })).toBeVisible()
+    const beerRow = page.locator('.reorder-dashboard__row', {
+      has: page.getByText('Craft IPA 6-Pack')
+    })
+    await expect(beerRow).toBeVisible()
+    await expect(beerRow.locator('.reorder-dashboard__cell').first()).toHaveText('5')
 
-    // Should show distributor info
-    await expect(page.getByText('North Breweries')).toBeVisible()
-    await expect(page.getByText('Premium Imports')).toBeVisible()
+    await page.locator('#reorder-distributor-select').selectOption('20')
+    await expect(page.locator('#reorder-distributor-select option:checked')).toHaveText(
+      'Premium Imports'
+    )
+
+    await expect(
+      page.locator('.reorder-dashboard__row', { has: page.getByText('Craft IPA 6-Pack') })
+    ).toHaveCount(0)
+
+    const vodkaRow = page.locator('.reorder-dashboard__row', {
+      has: page.getByText('Premium Vodka 1L')
+    })
+    await expect(vodkaRow).toBeVisible()
+    await expect(vodkaRow.locator('.reorder-dashboard__cell').first()).toHaveText('2')
   })
 
   test('displays merchant info with payment processor status', async ({ page }) => {

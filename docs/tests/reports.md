@@ -53,14 +53,14 @@ Tests opening the reports modal, switching report tabs, and visibility of summar
 
 ---
 
-## 5. Switches to Comparisons tab and shows Compare button
+## 5. Switches to Comparisons tab and shows granularity toggle
 
-| #   | Step                  | Assertion                       |
-| --- | --------------------- | ------------------------------- |
-| 1   | Open Reports modal    | Sales Reports title is visible  |
-| 2   | Click Comparisons tab | Period A range label is visible |
-| 3   | --                    | Period B range label is visible |
-| 4   | --                    | Compare button is visible       |
+| #   | Step                  | Assertion                        |
+| --- | --------------------- | -------------------------------- |
+| 1   | Open Reports modal    | Sales Reports title is visible   |
+| 2   | Click Comparisons tab | Group By label is visible        |
+| 3   | --                    | Group by month option is visible |
+| 4   | --                    | Group by week option is visible  |
 
 ---
 

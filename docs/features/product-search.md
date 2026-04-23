@@ -77,14 +77,15 @@ A centered overlay modal following the existing modal pattern (like InventoryMod
 
 ### Filters Row
 
-Two dropdown selects side by side:
+Three dropdown selects side by side:
 
-| Filter      | Source              | Default |
-| ----------- | ------------------- | ------- |
-| Department  | `getDepartments()`  | All     |
-| Distributor | `getDistributors()` | All     |
+| Filter      | Source                                            | Default |
+| ----------- | ------------------------------------------------- | ------- |
+| Item Type   | `getItemTypes()` (or `getDepartments()` fallback) | All     |
+| Distributor | `getDistributors()`                               | All     |
+| Size        | `getDistinctSizes()`                              | All     |
 
-Filters are applied _in combination_ with the search text. Changing a filter re-runs the search automatically if there is existing search text.
+Filters are applied _in combination_ with the search text. Changing a filter re-runs the search automatically if the user has already searched once. The size dropdown is populated from the distinct set of `products.size` values in the local database so only sizes actually in use appear.
 
 ### Results Table
 

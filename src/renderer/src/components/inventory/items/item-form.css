@@ -11,7 +11,28 @@
 /* ── General Information section ── */
 
 .item-form__section {
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  min-height: 80px;
+  overflow-y: auto;
+}
+
+/* ── Resize handle between top section and inner tabs ── */
+
+.item-form__resize-handle {
+  flex: 0 0 6px;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-surface-soft);
+  cursor: row-resize;
+  height: 6px;
+  touch-action: none;
+  user-select: none;
+}
+
+.item-form__resize-handle:hover,
+.item-form__resize-handle:focus-visible {
+  outline: none;
+  background: var(--accent-blue);
 }
 
 .item-form__section-header {

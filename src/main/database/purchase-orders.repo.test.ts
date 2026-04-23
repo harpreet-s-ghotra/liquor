@@ -171,6 +171,28 @@ describe('createPurchaseOrder', () => {
     expect(() => createPurchaseOrder(input)).toThrow('Product 999 not found')
   })
 
+  it('throws if a product belongs to a different distributor', () => {
+    seedTestData()
+    const db = getDb()
+
+    db.prepare(
+      `INSERT INTO distributors (distributor_number, distributor_name, is_active)
+       VALUES (2, 'Other Distributor', 1)`
+    ).run()
+
+    db.prepare(
+      `INSERT INTO products (sku, name, category, price, cost, distributor_number)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run('SKU003', 'Product C', 'Spirits', 12.0, 6.0, 2)
+
+    const input: CreatePurchaseOrderInput = {
+      distributor_number: 1,
+      items: [{ product_id: 3, quantity_ordered: 5 }]
+    }
+
+    expect(() => createPurchaseOrder(input)).toThrow('Product 3 does not belong to distributor 1')
+  })
+
   it('calculates correct line totals with null cost', () => {
     const db = getDb()
 
@@ -196,6 +218,21 @@ describe('createPurchaseOrder', () => {
     expect(result.items[0].unit_cost).toBe(0)
     expect(result.items[0].line_total).toBe(0)
     expect(result.subtotal).toBe(0)
+  })
+
+  it('uses unit_cost from create input when provided', () => {
+    seedTestData()
+
+    const input: CreatePurchaseOrderInput = {
+      distributor_number: 1,
+      items: [{ product_id: 1, quantity_ordered: 5, unit_cost: 7.5 }]
+    }
+
+    const result = createPurchaseOrder(input)
+
+    expect(result.items[0].unit_cost).toBe(7.5)
+    expect(result.items[0].line_total).toBe(37.5)
+    expect(result.subtotal).toBe(37.5)
   })
 })
 

@@ -89,7 +89,7 @@ describe('PaymentModal', () => {
     const onCancel = vi.fn()
     render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={onCancel} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Cancel/ }))
     expect(onCancel).toHaveBeenCalledTimes(1)
   })
 
@@ -491,7 +491,7 @@ describe('PaymentModal', () => {
         expect(screen.getByTestId('payment-processing')).toBeInTheDocument()
       })
 
-      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /^Cancel/ })).toBeDisabled()
     })
 
     it('disables payment method buttons while processing', async () => {
@@ -729,7 +729,7 @@ describe('PaymentModal', () => {
         screen.getByTestId('paid-so-far-list').querySelectorAll('.payment-modal__paid-entry')
       ).toHaveLength(1)
 
-      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      fireEvent.click(screen.getByRole('button', { name: /^Cancel/ }))
       expect(onCancel).toHaveBeenCalledTimes(1)
 
       rerender(<PaymentModal isOpen={true} total={10} onComplete={vi.fn()} onCancel={onCancel} />)

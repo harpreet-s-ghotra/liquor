@@ -234,16 +234,22 @@ export function LoginScreen(): React.JSX.Element {
   useEffect(() => {
     const api = window.api
     if (!api) return
-    api.onUpdateAvailable?.((info) => {
+    const offAvailable = api.onUpdateAvailable?.((info) => {
       setUpdateVersion(info.version)
       setUpdateStatus('downloading')
     })
-    api.onUpdateNotAvailable?.(() => setUpdateStatus('not-available'))
-    api.onUpdateDownloaded?.((info) => {
+    const offNotAvailable = api.onUpdateNotAvailable?.(() => setUpdateStatus('not-available'))
+    const offDownloaded = api.onUpdateDownloaded?.((info) => {
       setUpdateVersion(info.version)
       setUpdateStatus('ready')
     })
-    api.onUpdateError?.(() => setUpdateStatus('idle'))
+    const offError = api.onUpdateError?.(() => setUpdateStatus('idle'))
+    return () => {
+      offAvailable?.()
+      offNotAvailable?.()
+      offDownloaded?.()
+      offError?.()
+    }
   }, [])
 
   const handleCheckUpdate = useCallback(async () => {

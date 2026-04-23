@@ -351,6 +351,10 @@
   grid-template-columns: repeat(2, 1fr);
 }
 
+.action-panel__product-card {
+  position: relative;
+}
+
 .action-panel__product-tile {
   display: grid;
   position: relative;
@@ -358,6 +362,7 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow-xs);
   cursor: pointer;
+  width: 100%;
   text-align: left;
   font-family: var(--font-display);
 }
@@ -370,6 +375,7 @@
   align-items: center;
   justify-content: center;
   opacity: 0.5;
+  z-index: 1;
   border: none;
   border-radius: 50%;
   background: transparent;

@@ -104,11 +104,11 @@
   cursor: pointer;
   padding: 0.25rem 0.5rem;
   min-width: 3.5rem;
+  text-align: center;
   color: var(--text-primary);
   font-family: var(--font-display);
   font-size: 0.8rem;
   font-weight: 700;
-  text-align: center;
 }
 
 .header-bar__badge {

@@ -3,9 +3,23 @@
 .import-distributors-dialog {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  background: var(--bg-panel);
+  padding: 0;
   max-width: 640px;
   max-height: 80vh;
+  overflow: hidden;
+}
+
+.import-distributors-dialog > :not(.app-modal-header) {
+  margin: 0 1.5rem;
+}
+
+.import-distributors-dialog > :not(.app-modal-header):first-of-type {
+  margin-top: 1rem;
+}
+
+.import-distributors-dialog > :not(.app-modal-header):last-child {
+  margin-bottom: 1rem;
 }
 
 /* ── Header ── */

@@ -334,3 +334,50 @@ Tests cart operations, SKU-driven search flows, payment modal behavior, case-dis
 | 1   | Log in with the 25-product grid-cap mock | POS screen loads                  |
 | 2   | Switch category to "All"                 | Product tiles render              |
 | 3   | --                                       | Product tile count is 20 or fewer |
+
+---
+
+## 32. Split payment saves both tenders in payments array with correct method and amount
+
+| #   | Step                                                   | Assertion                                                        |
+| --- | ------------------------------------------------------ | ---------------------------------------------------------------- |
+| 1   | Log in, select "All", add first product, click Pay Now | Payment modal is visible                                         |
+| 2   | Click `$10`, then click Credit                         | Payment complete screen is visible                               |
+| 3   | Click OK                                               | Transaction is saved                                             |
+| 4   | Call `getRecentTransactions` via page.evaluate         | Saved transaction includes both `cash` and `credit` tender       |
+| 5   | --                                                     | Cash amount is `$10.00`; credit amount is approximately `$12.59` |
+
+---
+
+## 33. Split payment saves payment_method as split when methods differ
+
+| #   | Step                                                   | Assertion                                        |
+| --- | ------------------------------------------------------ | ------------------------------------------------ |
+| 1   | Log in, select "All", add first product, click Pay Now | Payment modal is visible                         |
+| 2   | Click `$10`, then click Credit                         | Payment completes                                |
+| 3   | Click OK                                               | Transaction is saved                             |
+| 4   | Call `getRecentTransactions` via page.evaluate         | Saved transaction payments include cash method   |
+| 5   | --                                                     | Saved transaction payments include credit method |
+
+---
+
+## 34. Paid-so-far list shows both cash and card entries for split payment
+
+| #   | Step                                                   | Assertion                                             |
+| --- | ------------------------------------------------------ | ----------------------------------------------------- |
+| 1   | Log in, select "All", add first product, click Pay Now | Payment modal is visible                              |
+| 2   | Click `$10`                                            | Paid-so-far list shows one cash entry                 |
+| 3   | Click Credit                                           | Payment complete screen is visible                    |
+| 4   | --                                                     | Paid-so-far list shows two entries                    |
+| 5   | --                                                     | Paid-so-far list contains both Cash and Credit labels |
+
+---
+
+## 35. Cash-only tender saves all payment entries as cash
+
+| #   | Step                                                   | Assertion                                                 |
+| --- | ------------------------------------------------------ | --------------------------------------------------------- |
+| 1   | Log in, select "All", add first product, click Pay Now | Payment modal is visible                                  |
+| 2   | Click `$10`, click `$10`, then click `$5`              | Payment complete screen is visible                        |
+| 3   | Click OK                                               | Transaction is saved                                      |
+| 4   | Call `getRecentTransactions` via page.evaluate         | Saved transaction has only cash entries in payments array |

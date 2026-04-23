@@ -9,6 +9,7 @@ import { applySchema } from './schema'
 import { createSession } from './sessions.repo'
 import { getPendingItems } from './sync-queue.repo'
 import {
+  getLocalTransactionHistoryStats,
   getProductSalesHistory,
   getRecentTransactions,
   getTransactionByNumber,
@@ -46,7 +47,8 @@ function createProduct(): number {
     alcohol_pct: null,
     vintage: '',
     ttb_id: '',
-    display_name: ''
+    display_name: '',
+    is_discontinued: false
   })
 
   return product.item_number
@@ -600,5 +602,55 @@ describe('split payments', () => {
 
     const detail = getTransactionByNumber(saved.transaction_number)
     expect(detail!.payments).toHaveLength(0)
+  })
+
+  describe('getLocalTransactionHistoryStats', () => {
+    it('returns zero count and null bounds when no transactions exist', () => {
+      const stats = getLocalTransactionHistoryStats()
+      expect(stats.count).toBe(0)
+      expect(stats.earliest).toBeNull()
+      expect(stats.latest).toBeNull()
+    })
+
+    it('returns count plus earliest/latest timestamps when transactions exist', () => {
+      const productId = createProduct()
+
+      saveTransaction({
+        subtotal: 10,
+        tax_amount: 0,
+        total: 10,
+        payment_method: 'cash',
+        items: [
+          {
+            product_id: productId,
+            product_name: 'Syncable Bottle',
+            quantity: 1,
+            unit_price: 10,
+            total_price: 10
+          }
+        ]
+      })
+
+      saveTransaction({
+        subtotal: 20,
+        tax_amount: 0,
+        total: 20,
+        payment_method: 'cash',
+        items: [
+          {
+            product_id: productId,
+            product_name: 'Syncable Bottle',
+            quantity: 2,
+            unit_price: 10,
+            total_price: 20
+          }
+        ]
+      })
+
+      const stats = getLocalTransactionHistoryStats()
+      expect(stats.count).toBe(2)
+      expect(stats.earliest).not.toBeNull()
+      expect(stats.latest).not.toBeNull()
+    })
   })
 })

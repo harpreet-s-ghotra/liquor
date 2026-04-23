@@ -66,7 +66,8 @@ describe('SearchModal', () => {
       searchProducts: vi.fn().mockResolvedValue(mockProducts),
       getItemTypes: vi.fn().mockResolvedValue(mockItemTypes),
       getDepartments: vi.fn().mockResolvedValue(mockItemTypes),
-      getDistributors: vi.fn().mockResolvedValue(mockDistributors)
+      getDistributors: vi.fn().mockResolvedValue(mockDistributors),
+      getDistinctSizes: vi.fn().mockResolvedValue(['750ML', '1.5L'])
     }
   })
 
@@ -93,7 +94,7 @@ describe('SearchModal', () => {
     expect(screen.getByText('Product Search')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Search items...')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Go' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Close/ })).toBeInTheDocument()
   })
 
   it('auto-searches on open and shows all products', async () => {
@@ -239,7 +240,7 @@ describe('SearchModal', () => {
     const onClose = vi.fn()
     await renderOpenSearchModal({ onClose })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Close/ }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
@@ -270,7 +271,8 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('', {
         departmentId: undefined,
-        distributorNumber: undefined
+        distributorNumber: undefined,
+        size: undefined
       })
     })
   })
@@ -295,7 +297,8 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(3)
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('wine', {
         departmentId: 1,
-        distributorNumber: undefined
+        distributorNumber: undefined,
+        size: undefined
       })
     })
   })
@@ -320,7 +323,70 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(3)
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('beer', {
         departmentId: undefined,
-        distributorNumber: 1
+        distributorNumber: 1,
+        size: undefined
+      })
+    })
+  })
+
+  it('loads distinct sizes and renders them in the size filter', async () => {
+    await renderOpenSearchModal()
+
+    await waitFor(() => {
+      expect(window.api!.getDistinctSizes).toHaveBeenCalled()
+    })
+
+    const sizeFilter = screen.getByLabelText('Filter by size') as HTMLSelectElement
+    const options = Array.from(sizeFilter.options).map((o) => o.textContent)
+    expect(options).toEqual(['All Sizes', '750ML', '1.5L'])
+  })
+
+  it('re-searches when size filter changes after a search', async () => {
+    await renderOpenSearchModal()
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(1)
+    })
+
+    fireEvent.change(screen.getByPlaceholderText('Search items...'), {
+      target: { value: 'cabernet' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
+    })
+
+    fireEvent.change(screen.getByLabelText('Filter by size'), { target: { value: '750ML' } })
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(3)
+      expect(window.api!.searchProducts).toHaveBeenLastCalledWith('cabernet', {
+        departmentId: undefined,
+        distributorNumber: undefined,
+        size: '750ML'
+      })
+    })
+  })
+
+  it('combines size with existing filters', async () => {
+    await renderOpenSearchModal()
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(1)
+    })
+
+    fireEvent.change(screen.getByLabelText('Filter by item type'), { target: { value: '1' } })
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
+    })
+
+    fireEvent.change(screen.getByLabelText('Filter by size'), { target: { value: '1.5L' } })
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenLastCalledWith('', {
+        departmentId: 1,
+        distributorNumber: undefined,
+        size: '1.5L'
       })
     })
   })

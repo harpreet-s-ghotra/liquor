@@ -259,10 +259,10 @@ describe('PrinterSettingsModal', () => {
     render(<PrinterSettingsModal isOpen={true} onClose={onClose} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Close/ })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Close/ }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

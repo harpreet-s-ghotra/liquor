@@ -1,66 +1,52 @@
-# Reorder Dashboard Tests — Updates
+# Reorder Dashboard Component Tests
 
 **File:** `src/renderer/src/components/manager/reorder/ReorderDashboard.test.tsx`
 
-## Updates for onCreateOrder Prop
+## Overview
 
-Added 5 new tests to verify the "Create Order" button integration with the Manager Modal.
+Focused renderer-unit coverage for the reorder dashboard. The current tests verify distributor selection defaults, refetch behavior for every filter, summary/header rendering, row severity classes, the create-order handoff, empty-state handling, and expanded-row metric details.
 
-### New Tests
+## Test Setup
 
-#### onCreateOrder Integration (5 tests)
+The suite stubs `localStorage` and mocks `window.api` with:
 
-- **shows "Create Order" button when onCreateOrder prop is provided and products exist**
-  - Verifies button renders when callback provided AND products present
-  - Tests conditional rendering logic
+- `getReorderDistributors()` — Returns distributor rows, including an unassigned bucket
+- `getReorderProducts()` — Returns reorder products with cost, bottles-per-case, and projection data
+- `searchInventoryProducts()` — Returns an empty list for the embedded search dependency
 
-- **does not show "Create Order" button when onCreateOrder prop is not provided**
-  - Button hidden when `onCreateOrder` is undefined
-  - Confirms backward compatibility (existing usage without prop)
+## Test Suites
 
-- **does not show "Create Order" button when no products exist**
-  - Button hidden even with callback when empty product list
-  - Prevents creating orders from empty dashboard
+### Loading and filter refetch (5 tests)
 
-- **calls onCreateOrder with products when "Create Order" button is clicked**
-  - Clicking button invokes callback with full product array
-  - Callback receives all current products (after threshold filter)
+- **loads reorder distributors and defaults to the first alphabetical choice** — Sorts distributor options and fetches products for distributor `1` with default threshold/window values.
+- **refetches when distributor changes** — Calls `getReorderProducts()` again with distributor `2` after selection changes.
+- **supports the unassigned bucket** — Sends `distributor: 'unassigned'` when the unassigned option is chosen.
+- **refetches when unit threshold changes** — Requeries with `unit_threshold: 20`.
+- **refetches when time window changes** — Requeries with `window_days: 90`.
 
-- **passes all low stock products to onCreateOrder**
-  - Tests with filtered product subset (2 of 4)
-  - Verifies callback receives correct array of products
-  - Confirms callback called exactly once
+### Rendering and row state (5 tests)
 
-## Component Integration
+- **renders column headers and summary cards** — Confirms `Days Supply`, `Est. at 30d`, projected values, and summary-card labels render.
+- **assigns row classes at each threshold boundary** — Applies `--out`, `--below-reorder`, and `--below-threshold` row classes to the expected products.
+- **shows empty state instead of hanging when no reorderable distributors exist** — Displays the no-distributors message when the distributor query returns an empty array.
+- **velocity is shown in expanded body, not in collapsed row** — Hides the per-day velocity until the row is expanded.
+- **shows zero-velocity fallback in expanded body** — Displays the no-sales fallback message for items with zero velocity.
 
-The "Create Order" button connects ReorderDashboard to PurchaseOrderPanel:
+### Order handoff (2 tests)
 
-1. User clicks "Create Order" in ReorderDashboard
-2. `onCreateOrder(lowStockProducts)` callback fires
-3. Parent component (Manager Modal) receives selected products
-4. Passes products to PurchaseOrderPanel via `prefillItems` prop
-5. PurchaseOrderPanel opens create view with items pre-populated
+- **passes all products to onCreateOrder when none are selected** — Clicking `Create Order` forwards the full product list with distributor `1` and threshold `10`.
+- **disables create order for the unassigned bucket** — Prevents order creation when the selected distributor is the unassigned bucket.
 
 ## Mock Data
 
-Uses existing `mockProducts` array (4 products with varying stock levels).
+- **Distributors** — `Alpha Wine`, `Beta Spirits`, and an unassigned bucket
+- **Products** — One out-of-stock projection, one below-reorder product, and one zero-velocity product
 
-## Coverage Impact
+## Coverage
 
-- 5 new test cases (total 28 tests in file)
-- Tests cover the complete button interaction flow
-- Validates conditional rendering (with/without prop)
-- Confirms callback integration
+The suite currently covers 12 user-visible behaviors in the reorder dashboard, including filter-driven IPC calls, CSS row-state thresholds, and the purchase-order creation handoff used by the Manager modal.
 
 ## Related Tests
 
-- `PurchaseOrderPanel.test.tsx` — Tests receiving `prefillItems` from this callback
-- See `purchase-order-panel.md` for prefill integration tests
-
-## Backward Compatibility
-
-The optional `onCreateOrder?: (items: LowStockProduct[]) => void` prop ensures:
-
-- ReorderDashboard works standalone without button
-- Can be used in other contexts without Manager Modal
-- Existing tests pass without prop (button hidden)
+- `PurchaseOrderPanel.test.tsx` — Covers the create view that receives reorder-prefilled items
+- `manager-modal.spec.ts` — Covers the distributor-scoped reorder flow in Playwright

@@ -242,17 +242,17 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  padding: 0.25rem 0;
   border-top: 1px solid var(--border-soft);
+  padding: 0.25rem 0;
 }
 
 .sales-history__tender-entry {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  background: var(--bg-surface);
   border: 1px solid var(--border-soft);
   border-radius: 4px;
+  background: var(--bg-surface);
   padding: 0.125rem 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .sales-history__detail-actions {

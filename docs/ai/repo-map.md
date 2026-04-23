@@ -21,6 +21,7 @@ Renderer (React)  →  window.api  →  Preload (contextBridge)  →  IPC  →  
 | Schema           | `src/main/database/schema.ts`        | DDL + migrations (`applySchema`)                    |
 | Finix service    | `src/main/services/finix.ts`         | Merchant verification, charges, refunds, devices    |
 | Auto-updater     | `src/main/services/auto-updater.ts`  | electron-updater, checks public releases repo       |
+| Telemetry        | `src/main/services/telemetry.ts`     | Local-first telemetry buffering and JSONL flush     |
 | Report export    | `src/main/services/report-export.ts` | PDF/CSV export via pdfkit                           |
 | Reports repo     | `src/main/database/reports.repo.ts`  | SQLite aggregation queries for all reports          |
 | Preload          | `src/preload/index.ts`               | `contextBridge.exposeInMainWorld`                   |
@@ -67,8 +68,16 @@ Channels follow `entity:action` pattern:
 - `finix:verify-merchant`, `finix:charge:card`, `finix:refund:transfer`, `finix:devices:list`, `finix:devices:create`, `finix:charge:terminal`, `finix:provision-merchant`
 - `finix:merchant-status` — read-only Finix merchant verification (Manager modal)
 - `registers:list`, `registers:rename`, `registers:delete` — Supabase multi-register management
-- `inventory:low-stock` — low-stock products for reorder dashboard
+- `inventory:reorder-products` — projected reorder products for the selected distributor, threshold, and time window
+- `inventory:reorder-distributors` — distributors with at least one reorderable product plus the unassigned bucket
+- `inventory:set-discontinued` — toggles `products.is_discontinued` without deleting the product
 - `purchase-orders:list`, `purchase-orders:detail`, `purchase-orders:create`, `purchase-orders:update`, `purchase-orders:receive-item`, `purchase-orders:add-item`, `purchase-orders:remove-item`, `purchase-orders:delete` — purchase order CRUD
+- `telemetry:track` — lightweight event ingestion from renderer/preload into main telemetry buffer
+
+Reorder + purchase-order payload notes:
+
+- `ReorderProduct` rows now include `cost` and `bottles_per_case` so create-order handoff can prefill editable unit costs and case-based quantities.
+- `purchase-orders:create` input supports optional per-line `unit_cost` overrides from the purchase-order create form.
 - `reports:sales-summary`, `reports:product-sales`, `reports:category-sales`, `reports:tax-summary`, `reports:comparison`, `reports:cashier-sales`, `reports:hourly-sales`, `reports:export`
 
 Report payload notes:

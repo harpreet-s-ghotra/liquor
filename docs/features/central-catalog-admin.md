@@ -48,6 +48,12 @@ Prices are explicitly excluded from central-to-store curation.
 - It is installed and run only on the current maintainer workstation.
 - It is not packaged with Electron, not published, and not exposed over LAN/WAN.
 
+### Local Startup Troubleshooting
+
+- A browser-side `404 Not Found` on `/api/merchants` or any other `/api/*` route means the request is not reaching the catalog-admin API middleware.
+- The most common cause is starting the main Electron app with `npm run dev` instead of the admin tool with `npm run admin`, but stale local servers or broken middleware registration can present the same way.
+- A `401 Unauthorized` response means the route is live and the next debugging step is the bearer token or Supabase session, not local server startup.
+
 ### Operator Policy
 
 - For v1, only one operator uses the dashboard.
@@ -122,6 +128,26 @@ The dashboard requires privileged Supabase access for curated catalog writes, bu
 7. Promote selected merchant values into curated catalog fields.
 8. Write an audit row for every accepted or cleared field.
 9. Bump `catalog_revision` so downstream store clients can review the change.
+
+### Matching Rules
+
+- The primary join key is `ttb_id`, but `ttb_id` is not unique in `catalog_products`.
+- When multiple catalog rows share the same `ttb_id`, the tool must choose the best match using:
+	1. normalized size (`750` = `750ML`, `1.5` = `1.5LT`)
+	2. canonical distributor id
+- Merchant-local `distributor_number` values are not directly comparable to catalog distributor ids.
+- The tool must translate merchant distributor numbers through `merchant_distributors.license_id` to the canonical catalog distributor id via `catalog_distributors.distributor_permit_id`.
+- If no reliable catalog row can be identified for a merchant product, show `no_catalog_match` rather than a field-level diff.
+
+### Diff Baselines
+
+- Show any field where the merchant value differs from the effective catalog value (curated override if present, else the native catalog baseline).
+- Native baselines per field:
+	- **size** — `catalog_products.item_size`
+	- **cost** — `catalog_products.bot_price` (merchant cost is seeded from bot_price during catalog import, so it is the true baseline)
+	- **sku** and **barcode** — no native baseline; any merchant value surfaces as `merchant_has_value_catalog_missing` until a curated override is seeded by the first promotion.
+- When a catalog row lacks the baseline (e.g. `bot_price` is null), the merchant value surfaces as `merchant_has_value_catalog_missing` so the operator can seed a curated override.
+- Cost and size tolerate NYSLA price history: `catalog_products` can hold multiple rows per `ttb_id` with different `bot_price` / `item_size` values. A merchant value is treated as matching when it equals the baseline of any candidate row sharing the same `ttb_id`, not just the row selected by `bestCatalogMatch`.
 
 ---
 

@@ -9,6 +9,9 @@ import type {
   Product,
   InventoryProduct,
   InventoryProductDetail,
+  ReorderDistributorRow,
+  ReorderProduct,
+  ReorderQuery,
   TransactionHistoryItem,
   SpecialPricingRule,
   ActiveSpecialPricingRule,
@@ -40,7 +43,8 @@ export function getProducts(): Product[] {
         COALESCE(tax_1, tax_rate) AS tax_rate,
         COALESCE(bottles_per_case, 12) AS bottles_per_case,
         case_discount_price,
-        COALESCE(is_favorite, 0) AS is_favorite
+        COALESCE(is_favorite, 0) AS is_favorite,
+        COALESCE(is_discontinued, 0) AS is_discontinued
       FROM products
       WHERE is_active = 1
         AND (COALESCE(retail_price, 0) > 0 OR COALESCE(price, 0) > 0)
@@ -84,7 +88,8 @@ export function getInventoryProducts(): InventoryProduct[] {
         products.alcohol_pct,
         products.vintage,
         products.ttb_id,
-        products.display_name
+        products.display_name,
+        COALESCE(products.is_discontinued, 0) AS is_discontinued
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
@@ -131,7 +136,7 @@ export function getInventoryTaxCodes(): InventoryTaxCode[] {
 
 export function searchProducts(
   query: string,
-  filters: { departmentId?: number; distributorNumber?: number } = {}
+  filters: { departmentId?: number; distributorNumber?: number; size?: string } = {}
 ): Product[] {
   const normalizedQuery = query.trim()
 
@@ -151,6 +156,10 @@ export function searchProducts(
   if (filters.distributorNumber != null) {
     conditions.push('p.distributor_number = @distributorNumber')
     params.distributorNumber = filters.distributorNumber
+  }
+  if (filters.size != null && filters.size.trim() !== '') {
+    conditions.push('p.size = @size')
+    params.size = filters.size.trim()
   }
 
   return getDb()
@@ -222,7 +231,8 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
         products.alcohol_pct,
         products.vintage,
         products.ttb_id,
-        products.display_name
+        products.display_name,
+        COALESCE(products.is_discontinued, 0) AS is_discontinued
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.is_active = 1
@@ -272,7 +282,8 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         products.vintage,
         products.ttb_id,
         products.display_name,
-        COALESCE(products.is_favorite, 0) AS is_favorite
+        COALESCE(products.is_favorite, 0) AS is_favorite,
+        COALESCE(products.is_discontinued, 0) AS is_discontinued
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
       WHERE products.id = ?
@@ -333,7 +344,7 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
   const specialPricing = getDb()
     .prepare(
       `
-      SELECT quantity, price, duration_days
+      SELECT quantity, price
       FROM special_pricing
       WHERE product_id = ?
       ORDER BY quantity
@@ -351,8 +362,8 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
 }
 
 /**
- * Return all active (non-expired) special pricing rules for POS cart evaluation.
- * A rule is active if created_at + duration_days >= today.
+ * Return all special pricing rules for active products for POS cart evaluation.
+ * Rules are permanent until the merchant deletes them.
  */
 export function getActiveSpecialPricing(): ActiveSpecialPricingRule[] {
   return getDb()
@@ -364,7 +375,6 @@ export function getActiveSpecialPricing(): ActiveSpecialPricingRule[] {
         sp.price
       FROM special_pricing sp
       INNER JOIN products p ON p.id = sp.product_id AND p.is_active = 1
-      WHERE date(sp.created_at, '+' || sp.duration_days || ' days') >= date('now')
       ORDER BY sp.product_id, sp.quantity
       `
     )
@@ -404,6 +414,7 @@ function getProductSyncPayload(itemNumber: number): ProductSyncPayload {
         alcohol_pct,
         vintage,
         ttb_id,
+        is_discontinued,
         updated_at
       FROM products
       WHERE id = ?
@@ -431,7 +442,7 @@ function getProductSyncPayload(itemNumber: number): ProductSyncPayload {
   const special_pricing = db
     .prepare(
       `
-      SELECT quantity, price, duration_days
+      SELECT quantity, price
       FROM special_pricing
       WHERE product_id = ?
       ORDER BY quantity
@@ -519,12 +530,10 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
         !Number.isInteger(rule.quantity) ||
         rule.quantity < 1 ||
         !Number.isFinite(rule.price) ||
-        rule.price < 0 ||
-        !Number.isInteger(rule.duration_days) ||
-        rule.duration_days < 1
+        rule.price < 0
     )
   ) {
-    throw new Error('Special pricing rules must have valid quantity, price, and duration')
+    throw new Error('Special pricing rules must have valid quantity and price')
   }
 
   if (normalizedItemType) {
@@ -708,7 +717,8 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
       vintage: payload.vintage || null,
       ttb_id: payload.ttb_id || null,
       display_name: payload.display_name || null,
-      is_favorite: payload.is_favorite ?? 0
+      is_favorite: payload.is_favorite ?? 0,
+      is_discontinued: payload.is_discontinued ? 1 : 0
     }
 
     let productId = payload.item_number ?? inactiveMatch?.id
@@ -745,6 +755,7 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
           ttb_id = @ttb_id,
           display_name = @display_name,
           is_favorite = @is_favorite,
+          is_discontinued = @is_discontinued,
           is_active = 1,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = @id
@@ -760,7 +771,8 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
             special_pricing_enabled, special_price, distributor_number,
             bottles_per_case, case_discount_price,
             item_type, size, case_cost, nysla_discounts,
-            brand_name, proof, alcohol_pct, vintage, ttb_id, display_name, is_favorite
+            brand_name, proof, alcohol_pct, vintage, ttb_id, display_name, is_favorite,
+            is_discontinued
           )
           VALUES (
             @sku, @name, @category, @retail_price, @cost, @quantity, @tax_1,
@@ -768,7 +780,8 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
             @special_pricing_enabled, @special_price, @distributor_number,
             @bottles_per_case, @case_discount_price,
             @item_type, @size, @case_cost, @nysla_discounts,
-            @brand_name, @proof, @alcohol_pct, @vintage, @ttb_id, @display_name, @is_favorite
+            @brand_name, @proof, @alcohol_pct, @vintage, @ttb_id, @display_name, @is_favorite,
+            @is_discontinued
           )
           `
         )
@@ -795,13 +808,13 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
 
     const insertPricingRule = db.prepare(
       `
-      INSERT INTO special_pricing (product_id, quantity, price, duration_days)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO special_pricing (product_id, quantity, price)
+      VALUES (?, ?, ?)
       `
     )
 
     for (const rule of payload.special_pricing) {
-      insertPricingRule.run(productId, rule.quantity, rule.price, rule.duration_days)
+      insertPricingRule.run(productId, rule.quantity, rule.price)
     }
 
     return productId
@@ -900,40 +913,118 @@ export function deleteInventoryItem(itemNumber: number): void {
   }
 }
 
-export function getLowStockProducts(threshold: number): {
-  id: number
-  sku: string
-  name: string
-  item_type: string | null
-  in_stock: number
-  reorder_point: number
-  distributor_name: string | null
-}[] {
+export function setProductDiscontinued(id: number, discontinued: boolean): void {
   const db = getDb()
-  return db
+  db.prepare(
+    `UPDATE products
+     SET is_discontinued = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`
+  ).run(discontinued ? 1 : 0, id)
+
+  try {
+    enqueueProductSync(id, 'UPDATE')
+  } catch {
+    // Sync enqueue failure must never block inventory updates
+  }
+}
+
+export function getDistributorsWithReorderable(): ReorderDistributorRow[] {
+  return getDb()
     .prepare(
       `SELECT
+        p.distributor_number,
+        d.distributor_name,
+        COUNT(*) AS product_count
+      FROM products p
+      LEFT JOIN distributors d ON p.distributor_number = d.distributor_number
+      WHERE p.is_active = 1
+        AND COALESCE(p.is_discontinued, 0) = 0
+        AND COALESCE(p.retail_price, p.price, 0) > 0
+      GROUP BY p.distributor_number, d.distributor_name
+      ORDER BY d.distributor_name IS NULL, d.distributor_name ASC`
+    )
+    .all() as ReorderDistributorRow[]
+}
+
+export function getReorderProducts(query: ReorderQuery): ReorderProduct[] {
+  const distributorClause =
+    query.distributor === 'unassigned'
+      ? 'p.distributor_number IS NULL'
+      : 'p.distributor_number = @distributor_number'
+
+  const rows = getDb()
+    .prepare(
+      `WITH sales_velocity AS (
+        SELECT
+          ti.product_id,
+          SUM(ti.quantity) / 365.0 AS velocity_per_day
+        FROM transaction_items ti
+        INNER JOIN transactions t ON t.id = ti.transaction_id
+        WHERE t.status = 'completed'
+          AND t.created_at >= date('now', '-365 days')
+        GROUP BY ti.product_id
+      )
+      SELECT
         p.id,
         p.sku,
         COALESCE(p.display_name, p.name) AS name,
         p.item_type,
         COALESCE(p.in_stock, 0) AS in_stock,
         COALESCE(p.reorder_point, 0) AS reorder_point,
-        d.distributor_name
+        p.distributor_number,
+        d.distributor_name,
+        COALESCE(
+          NULLIF(p.cost, 0),
+          CASE
+            WHEN COALESCE(p.bottles_per_case, 0) > 0 AND COALESCE(p.case_cost, 0) > 0
+              THEN p.case_cost / CAST(p.bottles_per_case AS REAL)
+          END,
+          0
+        ) AS cost,
+        CASE
+          WHEN COALESCE(p.bottles_per_case, 0) > 0 THEN p.bottles_per_case
+          ELSE 12
+        END AS bottles_per_case,
+        COALESCE(p.retail_price, p.price, 0) AS price,
+        COALESCE(sv.velocity_per_day, 0) AS velocity_per_day
       FROM products p
       LEFT JOIN distributors d ON p.distributor_number = d.distributor_number
-      WHERE p.is_active = 1 AND COALESCE(p.in_stock, 0) <= ?
-      ORDER BY p.in_stock ASC`
+      LEFT JOIN sales_velocity sv ON sv.product_id = p.id
+      WHERE p.is_active = 1
+        AND COALESCE(p.is_discontinued, 0) = 0
+        AND COALESCE(p.retail_price, p.price, 0) > 0
+        AND ${distributorClause}`
     )
-    .all(threshold) as {
+    .all(
+      query.distributor === 'unassigned' ? {} : { distributor_number: query.distributor }
+    ) as Array<{
     id: number
     sku: string
     name: string
     item_type: string | null
     in_stock: number
     reorder_point: number
+    distributor_number: number | null
     distributor_name: string | null
-  }[]
+    cost: number
+    bottles_per_case: number
+    price: number
+    velocity_per_day: number
+  }>
+
+  return rows
+    .map((row) => {
+      const velocityPerDay = Number(row.velocity_per_day ?? 0)
+      const projectedStock = row.in_stock - velocityPerDay * query.window_days
+      return {
+        ...row,
+        velocity_per_day: velocityPerDay,
+        days_of_supply: velocityPerDay > 0 ? row.in_stock / velocityPerDay : null,
+        projected_stock: projectedStock
+      }
+    })
+    .filter((row) => row.projected_stock < query.unit_threshold)
+    .sort((left, right) => left.projected_stock - right.projected_stock)
 }
 
 export function getUnpricedInventoryProducts(): InventoryProduct[] {

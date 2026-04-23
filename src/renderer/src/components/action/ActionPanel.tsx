@@ -310,19 +310,7 @@ export function ActionPanel({
         )}
       >
         {filteredProducts.map((product) => (
-          <button
-            key={product.id}
-            type="button"
-            className={cn(
-              'action-panel__product-tile',
-              itemSize === 'small'
-                ? 'action-panel__product-tile--small'
-                : 'action-panel__product-tile--large',
-              categoryToneMap.get(product.category) ?? 'category-tone-all'
-            )}
-            disabled={!!isViewingTransaction}
-            onClick={() => addToCart(product)}
-          >
+          <div key={product.id} className="action-panel__product-card">
             {onToggleFavorite && (
               <button
                 type="button"
@@ -333,31 +321,41 @@ export function ActionPanel({
                 aria-label={
                   product.is_favorite === 1 ? 'Remove from favorites' : 'Add to favorites'
                 }
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onToggleFavorite(product)
-                }}
+                onClick={() => onToggleFavorite(product)}
               >
                 ★
               </button>
             )}
-            <span className="action-panel__product-name">{product.name}</span>
-            {product.size ? (
-              <span className="action-panel__product-size">{product.size}</span>
-            ) : (
-              <span />
-            )}
-            <strong
+            <button
+              type="button"
               className={cn(
-                'action-panel__product-price',
+                'action-panel__product-tile',
                 itemSize === 'small'
-                  ? 'action-panel__product-price--small'
-                  : 'action-panel__product-price--large'
+                  ? 'action-panel__product-tile--small'
+                  : 'action-panel__product-tile--large',
+                categoryToneMap.get(product.category) ?? 'category-tone-all'
               )}
+              disabled={!!isViewingTransaction}
+              onClick={() => addToCart(product)}
             >
-              ${product.price.toFixed(2)}
-            </strong>
-          </button>
+              <span className="action-panel__product-name">{product.name}</span>
+              {product.size ? (
+                <span className="action-panel__product-size">{product.size}</span>
+              ) : (
+                <span />
+              )}
+              <strong
+                className={cn(
+                  'action-panel__product-price',
+                  itemSize === 'small'
+                    ? 'action-panel__product-price--small'
+                    : 'action-panel__product-price--large'
+                )}
+              >
+                ${product.price.toFixed(2)}
+              </strong>
+            </button>
+          </div>
         ))}
       </div>
 

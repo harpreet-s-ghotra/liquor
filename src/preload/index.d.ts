@@ -50,6 +50,8 @@ import type {
   ImportResult,
   SyncStatus,
   InitialSyncStatus,
+  TransactionBackfillStatus,
+  LocalTransactionHistoryStats,
   DeviceConfig,
   ReportDateRange,
   SalesSummaryReport,
@@ -63,14 +65,17 @@ import type {
   BusinessInfoInput,
   ProvisionMerchantResult,
   Register,
-  LowStockProduct,
   MerchantStatus,
+  ReorderDistributorRow,
+  ReorderProduct,
+  ReorderQuery,
   PurchaseOrder,
   PurchaseOrderItem,
   PurchaseOrderDetail,
   CreatePurchaseOrderInput,
   UpdatePurchaseOrderInput,
-  ReceivePurchaseOrderItemInput
+  ReceivePurchaseOrderItemInput,
+  TelemetryEventInput
 } from '../shared/types'
 
 type AppApi = {
@@ -186,6 +191,12 @@ type AppApi = {
   onConnectivityChanged: (callback: (online: boolean) => void) => void
   onInitialSyncStatusChanged: (callback: (status: InitialSyncStatus) => void) => void
 
+  // Transaction history / backfill
+  getLocalHistoryStats: () => Promise<LocalTransactionHistoryStats>
+  getBackfillStatus: () => Promise<TransactionBackfillStatus>
+  triggerBackfill: (days: number) => Promise<{ started: boolean; days: number }>
+  onBackfillStatusChanged: (callback: (status: TransactionBackfillStatus) => void) => () => void
+
   // Sessions
   getActiveSession: () => Promise<Session | null>
   createSession: (input: CreateSessionInput) => Promise<Session>
@@ -212,10 +223,12 @@ type AppApi = {
   exportReport: (request: ReportExportRequest) => Promise<string | null>
 
   // Auto-updater
-  onUpdateAvailable: (callback: (info: { version: string; releaseDate: string }) => void) => void
-  onUpdateNotAvailable: (callback: () => void) => void
-  onUpdateDownloaded: (callback: (info: { version: string }) => void) => void
-  onUpdateError: (callback: (err: { message: string }) => void) => void
+  onUpdateAvailable: (
+    callback: (info: { version: string; releaseDate: string }) => void
+  ) => () => void
+  onUpdateNotAvailable: (callback: () => void) => () => void
+  onUpdateDownloaded: (callback: (info: { version: string }) => void) => () => void
+  onUpdateError: (callback: (err: { message: string }) => void) => () => void
   checkForUpdates: () => Promise<void>
   installUpdate: () => Promise<void>
 
@@ -224,8 +237,10 @@ type AppApi = {
   renameRegister: (id: string, newName: string) => Promise<void>
   deleteRegister: (id: string) => Promise<void>
 
-  // Manager — Low Stock
-  getLowStockProducts: (threshold: number) => Promise<LowStockProduct[]>
+  // Manager — Reorder
+  getReorderProducts: (query: ReorderQuery) => Promise<ReorderProduct[]>
+  getReorderDistributors: () => Promise<ReorderDistributorRow[]>
+  setProductDiscontinued: (id: number, discontinued: boolean) => Promise<void>
   getUnpricedProducts: () => Promise<InventoryProduct[]>
   findProductBySku: (sku: string) => Promise<Product | null>
   toggleFavorite: (productId: number) => Promise<void>
@@ -251,6 +266,9 @@ type AppApi = {
   // Zoom
   getZoomFactor: () => Promise<number>
   setZoomFactor: (factor: number) => Promise<void>
+
+  // Monitoring
+  trackEvent: (event: TelemetryEventInput) => Promise<void>
 }
 
 declare global {

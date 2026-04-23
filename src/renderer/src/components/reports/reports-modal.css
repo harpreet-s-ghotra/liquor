@@ -3,6 +3,7 @@
   flex-direction: column;
   border-radius: var(--radius);
   background: var(--bg-panel);
+  padding: 0;
   width: 90vw;
   max-width: 1100px;
   height: 85vh;
@@ -38,7 +39,9 @@
   gap: 12px;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 8px 0;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+  padding: 12px 1.5rem;
 }
 
 .reports-modal__export-btns {
@@ -123,7 +126,7 @@
 
 .reports-modal__content {
   flex: 1;
-  padding: 8px 0;
+  padding: 1rem 1.5rem;
   overflow-y: auto;
 }
 
@@ -196,22 +199,22 @@
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
   background: var(--bg-surface);
+  padding: 12px;
   height: 320px;
   min-height: 320px;
   overflow: hidden;
-  padding: 12px;
 }
 
 .reports-modal__chart-body {
+  position: relative;
   flex: 1;
   min-height: 0;
-  position: relative;
 }
 
 .reports-modal__chart-panel--full-width {
+  margin-bottom: 16px;
   height: 380px;
   min-height: 380px;
-  margin-bottom: 16px;
 }
 
 .reports-modal__chart-panel--small {

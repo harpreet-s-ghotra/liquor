@@ -8,6 +8,7 @@ import {
   forwardRef
 } from 'react'
 import { Button } from '@renderer/components/ui/button'
+import { Checkbox } from '@renderer/components/ui/checkbox'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@renderer/components/ui/tabs'
@@ -36,10 +37,16 @@ import {
 import { cn } from '@renderer/lib/utils'
 import './item-form.css'
 
+const TOP_HEIGHT_STORAGE_KEY = 'inventory-form-top-height'
+const DEFAULT_TOP_HEIGHT = 260
+const TOP_MIN_HEIGHT = 80
+const BOTTOM_MIN_HEIGHT = 240
+const RESIZE_HANDLE_PX = 6
+const RESIZE_KEYBOARD_STEP = 20
+
 type SpecialPricingFormRow = {
   quantity: string
   price: string
-  duration_days: string
 }
 
 type CaseDiscountMode = 'percent' | 'dollar'
@@ -69,6 +76,7 @@ type InventoryFormState = {
   ttb_id: string
   display_name: string
   is_favorite: number
+  is_discontinued: boolean
 }
 
 const emptyFormState: InventoryFormState = {
@@ -94,7 +102,8 @@ const emptyFormState: InventoryFormState = {
   vintage: '',
   ttb_id: '',
   display_name: '',
-  is_favorite: 0
+  is_favorite: 0,
+  is_discontinued: false
 }
 
 export type ItemFormHandle = {
@@ -138,6 +147,80 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   const [activeTab, setActiveTab] = useState('case-settings')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const tabScrollRef = useRef<HTMLDivElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const topHeightRef = useRef<number>(0)
+  const [topHeight, setTopHeight] = useState<number>(() => {
+    if (typeof window === 'undefined') return DEFAULT_TOP_HEIGHT
+    const stored = window.localStorage.getItem(TOP_HEIGHT_STORAGE_KEY)
+    if (!stored) return DEFAULT_TOP_HEIGHT
+    const parsed = Number.parseInt(stored, 10)
+    if (!Number.isFinite(parsed) || parsed < TOP_MIN_HEIGHT) return DEFAULT_TOP_HEIGHT
+    return parsed
+  })
+
+  useEffect(() => {
+    topHeightRef.current = topHeight
+  }, [topHeight])
+
+  const clampTopHeight = useCallback((next: number): number => {
+    const container = containerRef.current
+    const containerHeight = container?.clientHeight ?? 0
+    const maxTop = Math.max(TOP_MIN_HEIGHT, containerHeight - BOTTOM_MIN_HEIGHT - RESIZE_HANDLE_PX)
+    if (containerHeight === 0) {
+      return Math.max(TOP_MIN_HEIGHT, next)
+    }
+    return Math.min(Math.max(next, TOP_MIN_HEIGHT), maxTop)
+  }, [])
+
+  const persistTopHeight = useCallback((value: number): void => {
+    try {
+      window.localStorage.setItem(TOP_HEIGHT_STORAGE_KEY, String(value))
+    } catch {
+      // ignore storage write failures (private mode)
+    }
+  }, [])
+
+  const handleResizePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>): void => {
+      e.preventDefault()
+      const startY = e.clientY
+      const startTop = topHeightRef.current
+      const onMove = (ev: PointerEvent): void => {
+        setTopHeight(clampTopHeight(startTop + (ev.clientY - startY)))
+      }
+      const onUp = (): void => {
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+        persistTopHeight(topHeightRef.current)
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    },
+    [clampTopHeight, persistTopHeight]
+  )
+
+  const handleResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>): void => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+      e.preventDefault()
+      const delta = e.key === 'ArrowDown' ? RESIZE_KEYBOARD_STEP : -RESIZE_KEYBOARD_STEP
+      setTopHeight((prev) => {
+        const next = clampTopHeight(prev + delta)
+        persistTopHeight(next)
+        return next
+      })
+    },
+    [clampTopHeight, persistTopHeight]
+  )
+
+  const handleResizeDoubleClick = useCallback((): void => {
+    setTopHeight(clampTopHeight(DEFAULT_TOP_HEIGHT))
+    try {
+      window.localStorage.removeItem(TOP_HEIGHT_STORAGE_KEY)
+    } catch {
+      // ignore
+    }
+  }, [clampTopHeight])
 
   useEffect(() => {
     if (!tabScrollRef.current) return
@@ -214,8 +297,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       tax_rate: filteredTaxRates[0] != null ? String(filteredTaxRates[0]) : '',
       special_pricing: (detail.special_pricing ?? []).map((rule) => ({
         quantity: String(rule.quantity),
-        price: formatCurrency(rule.price),
-        duration_days: String(rule.duration_days)
+        price: formatCurrency(rule.price)
       })),
       additional_skus: [...detail.additional_skus],
       bottles_per_case: String(detail.bottles_per_case ?? 12),
@@ -237,7 +319,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       vintage: detail.vintage ?? '',
       ttb_id: detail.ttb_id ?? '',
       display_name: detail.display_name ?? '',
-      is_favorite: detail.is_favorite ?? 0
+      is_favorite: detail.is_favorite ?? 0,
+      is_discontinued: Boolean(detail.is_discontinued)
     })
   }
 
@@ -365,17 +448,14 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     const specialPricing: SpecialPricingRule[] = formState.special_pricing
       .map((row) => ({
         quantity: Number.parseInt(row.quantity, 10),
-        price: parseCurrencyDigitsToDollars(row.price),
-        duration_days: Number.parseInt(row.duration_days, 10)
+        price: parseCurrencyDigitsToDollars(row.price)
       }))
       .filter(
         (rule) =>
           Number.isInteger(rule.quantity) &&
           rule.quantity >= 1 &&
           Number.isFinite(rule.price) &&
-          rule.price >= 0 &&
-          Number.isInteger(rule.duration_days) &&
-          rule.duration_days >= 1
+          rule.price >= 0
       )
 
     if (Number.isNaN(cost) || Number.isNaN(retailPrice) || Number.isNaN(inStock)) {
@@ -424,7 +504,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       vintage: formState.vintage.trim(),
       ttb_id: formState.ttb_id.trim(),
       display_name: formState.display_name.trim(),
-      is_favorite: formState.is_favorite
+      is_favorite: formState.is_favorite,
+      is_discontinued: formState.is_discontinued
     }
   }
 
@@ -537,7 +618,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   const addSpecialPricingRow = (): void => {
     setFormState((current) => ({
       ...current,
-      special_pricing: [...current.special_pricing, { quantity: '', price: '', duration_days: '' }]
+      special_pricing: [...current.special_pricing, { quantity: '', price: '' }]
     }))
   }
 
@@ -607,9 +688,13 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   const tabTriggerCls = 'item-form__tab-trigger'
 
   return (
-    <div className="item-form">
+    <div className="item-form" ref={containerRef}>
       {/* ── General Information ── */}
-      <section aria-label="General Information" className="item-form__section">
+      <section
+        aria-label="General Information"
+        className="item-form__section"
+        style={{ height: topHeight }}
+      >
         {/* Section header band */}
         <div className="item-form__section-header">
           <span className="item-form__section-title">General Information</span>
@@ -739,15 +824,28 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
 
           <div className="item-form__field-span-2">
             <label className="item-form__checkbox-label">
-              <input
-                type="checkbox"
-                className="item-form__checkbox"
+              <Checkbox
                 checked={formState.is_favorite === 1}
-                onChange={(e) =>
-                  setFormState((c) => ({ ...c, is_favorite: e.target.checked ? 1 : 0 }))
+                onCheckedChange={(checked) =>
+                  setFormState((c) => ({ ...c, is_favorite: checked === true ? 1 : 0 }))
                 }
               />
               Show on Favorites tab
+            </label>
+          </div>
+
+          <div className="item-form__field-span-2">
+            <label className="item-form__checkbox-label">
+              <Checkbox
+                checked={formState.is_discontinued}
+                onCheckedChange={(checked) =>
+                  setFormState((current) => ({
+                    ...current,
+                    is_discontinued: checked === true
+                  }))
+                }
+              />
+              Discontinued - exclude from reorder suggestions
             </label>
           </div>
 
@@ -917,6 +1015,19 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         </div>
       </section>
 
+      {/* ── Resize handle ── */}
+      <div
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize inventory sections"
+        tabIndex={0}
+        className="item-form__resize-handle"
+        onPointerDown={handleResizePointerDown}
+        onKeyDown={handleResizeKeyDown}
+        onDoubleClick={handleResizeDoubleClick}
+        data-testid="item-form-resize-handle"
+      />
+
       {/* ── Inner Tabs ── */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="item-form__tabs">
         <TabsList className="item-form__tab-list">
@@ -1066,9 +1177,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           {/* Special Pricing */}
           <TabsContent value="special-pricing" className="item-form__tab-panel">
             <div className="item-form__sp-header">
-              <Label>
-                Set quantity-based pricing deals (e.g. 2 bottles for $19.99 for 20 days)
-              </Label>
+              <Label>Set quantity-based pricing deals (e.g. 2 bottles for $19.99)</Label>
               <Button size="sm" onClick={addSpecialPricingRow}>
                 Add Rule
               </Button>
@@ -1083,7 +1192,6 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                   <tr>
                     <th>Quantity</th>
                     <th>Price</th>
-                    <th>Duration (days)</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -1108,17 +1216,6 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                           placeholder="e.g. $19.99 total"
                           value={row.price}
                           onChange={(e) => updateSpecialPricingRow(index, 'price', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <Input
-                          aria-label={`Rule ${index + 1} Duration`}
-                          inputMode="numeric"
-                          placeholder="e.g. 20"
-                          value={row.duration_days}
-                          onChange={(e) =>
-                            updateSpecialPricingRow(index, 'duration_days', e.target.value)
-                          }
                         />
                       </td>
                       <td>

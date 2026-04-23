@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
+import { AppModalHeader } from '@renderer/components/common/AppModalHeader'
+import { ClockOutIcon } from '@renderer/components/common/modal-icons'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { useAuthStore } from '@renderer/store/useAuthStore'
 import { cn } from '@renderer/lib/utils'
@@ -227,16 +229,19 @@ export function ClockOutModal({ isOpen, onClose }: ClockOutModalProps): React.JS
         aria-describedby={undefined}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <DialogHeader>
-          <DialogTitle>
-            {view === 'list' && 'Sessions'}
-            {view === 'pin' && 'Confirm Clock Out'}
-            {view === 'report' && 'End of Day Report'}
-          </DialogTitle>
-          <AppButton size="sm" variant="danger" onClick={handleClose}>
-            Close
-          </AppButton>
-        </DialogHeader>
+        <DialogTitle className="dialog__sr-only">Clock Out</DialogTitle>
+        <AppModalHeader
+          icon={<ClockOutIcon />}
+          label="Clock Out"
+          title={
+            view === 'list'
+              ? 'Sessions'
+              : view === 'pin'
+                ? 'Confirm Clock Out'
+                : 'End of Day Report'
+          }
+          onClose={handleClose}
+        />
 
         {error && <p className="clock-out-modal__error">{error}</p>}
 

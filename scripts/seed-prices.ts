@@ -236,7 +236,7 @@ function main(): void {
     `SELECT alt_sku FROM product_alt_skus WHERE product_id = ? ORDER BY alt_sku`
   )
   const specialPricingStmt = db.prepare(
-    `SELECT quantity, price, duration_days FROM special_pricing WHERE product_id = ? ORDER BY quantity`
+    `SELECT quantity, price FROM special_pricing WHERE product_id = ? ORDER BY quantity`
   )
   const enqueueStmt = db.prepare(
     `INSERT INTO sync_queue (entity_type, entity_id, operation, payload, device_id)

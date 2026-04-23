@@ -62,8 +62,7 @@ async function syncRelatedRows(
         merchant_id: merchantId,
         product_sku: sku,
         quantity: rule.quantity,
-        price: rule.price,
-        duration_days: rule.duration_days
+        price: rule.price
       }))
     )
 
@@ -159,7 +158,7 @@ export async function applyRemoteProductChange(
         .eq('product_sku', row.sku),
       supabase
         .from('merchant_special_pricing')
-        .select('quantity, price, duration_days')
+        .select('quantity, price')
         .eq('merchant_id', merchantId)
         .eq('product_sku', row.sku)
     ])
@@ -342,11 +341,11 @@ export async function applyRemoteProductChange(
 
     db.prepare('DELETE FROM special_pricing WHERE product_id = ?').run(productId)
     const insertPricing = db.prepare(
-      'INSERT INTO special_pricing (product_id, quantity, price, duration_days) VALUES (?, ?, ?, ?)'
+      'INSERT INTO special_pricing (product_id, quantity, price) VALUES (?, ?, ?)'
     )
     for (const pricingRow of pricingRows ?? []) {
-      const rule = pricingRow as { quantity: number; price: number; duration_days: number }
-      insertPricing.run(productId, rule.quantity, rule.price, rule.duration_days)
+      const rule = pricingRow as { quantity: number; price: number }
+      insertPricing.run(productId, rule.quantity, rule.price)
     }
   })
 

@@ -12,7 +12,7 @@ export default defineConfig({
     name: 'node',
     environment: 'node',
     globals: true,
-    include: ['src/main/**/*.test.ts'],
+    include: ['src/main/**/*.test.ts', 'tools/catalog-admin/**/*.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

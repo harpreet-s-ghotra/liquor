@@ -55,18 +55,24 @@ export function POSScreen(): React.JSX.Element {
 
   useEffect(() => {
     if (!window.api?.onUpdateAvailable) return
-    window.api.onUpdateAvailable(({ version }) => {
+    const offAvailable = window.api.onUpdateAvailable(({ version }) => {
       showInfo(`Downloading update ${version}...`)
     })
-    window.api.onUpdateNotAvailable(() => {
+    const offNotAvailable = window.api.onUpdateNotAvailable(() => {
       showInfo('You are up to date.')
     })
-    window.api.onUpdateDownloaded(({ version }) => {
+    const offDownloaded = window.api.onUpdateDownloaded(({ version }) => {
       showSuccess(`Update ${version} ready — it will install the next time the app is closed.`)
     })
-    window.api.onUpdateError(() => {
+    const offError = window.api.onUpdateError(() => {
       showError('Update check failed. Please try again later.')
     })
+    return () => {
+      offAvailable()
+      offNotAvailable()
+      offDownloaded()
+      offError()
+    }
   }, [showError, showInfo, showSuccess])
 
   // Keyboard shortcuts: Ctrl/Cmd+L logout and footer F-key actions

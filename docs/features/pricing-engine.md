@@ -54,10 +54,10 @@ Both features require a unified **Pricing Engine** so the cart correctly applies
 
 | Layer                            | State                                                     |
 | -------------------------------- | --------------------------------------------------------- |
-| DB table `special_pricing`       | ✅ Has `product_id`, `quantity`, `price`, `duration_days` |
+| DB table `special_pricing`       | ✅ Has `product_id`, `quantity`, `price`                  |
 | DB table `products`              | ✅ Has `special_pricing_enabled`, `special_price` columns |
 | Inventory Form (ItemForm.tsx)    | ✅ Allows adding/editing rules                            |
-| Shared type `SpecialPricingRule` | ✅ `{ quantity, price, duration_days }`                   |
+| Shared type `SpecialPricingRule` | ✅ `{ quantity, price }`                                  |
 | `getProducts()` query            | ❌ Does NOT load special pricing data                     |
 | `Product` type                   | ❌ Does NOT include special pricing fields                |
 | `deriveCartTotals()`             | ❌ No promo logic                                         |
@@ -67,7 +67,7 @@ Both features require a unified **Pricing Engine** so the cart correctly applies
 
 #### 1. New IPC endpoint: `getActiveSpecialPricing()`
 
-Returns all currently active special pricing rules (where `created_at + duration_days >= now`), keyed by product ID.
+Returns every special pricing rule for active products, keyed by product ID. Rules are permanent — they apply until the merchant deletes them. (The previous `duration_days` expiration field was removed 2026-04-21 because it caused confusing silent-expiry bugs.)
 
 ```typescript
 // New shared type
@@ -386,6 +386,6 @@ The item search in the edit section uses the existing product search backend. Ty
 ## Open Questions
 
 1. **Stacking policy:** Current plan = best deal wins, no stacking. Should the merchant be able to override this per-group?
-2. **Mix-match time limits:** Should mix-match groups have an expiration date like special pricing has `duration_days`?
+2. **Mix-match time limits:** Should mix-match groups have an expiration date? (Special pricing rules used to expire via `duration_days` but the field was removed 2026-04-21 — rules are now permanent until deleted.)
 3. **Receipt printing:** When receipts are implemented (Phase 4), promo savings should be itemized on the receipt. Noted for later.
 4. **Reporting:** Should there be a report showing promo usage / savings given? Noted for later.

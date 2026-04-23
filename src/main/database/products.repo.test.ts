@@ -9,18 +9,20 @@ import {
   deleteInventoryItem,
   findProductBySku,
   getActiveSpecialPricing,
+  getDistributorsWithReorderable,
   getInventoryItemTypes,
   getInventoryProductDetail,
   getInventoryProducts,
   getInventoryTaxCodes,
-  getLowStockProducts,
   getProducts,
+  getReorderProducts,
   getUnpricedInventoryProducts,
   saveInventoryItem,
+  setProductDiscontinued,
   searchProducts,
   searchInventoryProducts
 } from './products.repo'
-import type { SaveInventoryItemInput } from '../../shared/types'
+import type { ReorderQuery, SaveInventoryItemInput } from '../../shared/types'
 
 function createTestDb(): void {
   const db = new Database(':memory:')
@@ -50,7 +52,8 @@ const base: SaveInventoryItemInput = {
   alcohol_pct: null,
   vintage: '',
   ttb_id: '',
-  display_name: ''
+  display_name: '',
+  is_discontinued: false
 }
 
 describe('saveInventoryItem', () => {
@@ -435,25 +438,68 @@ describe('inventory read queries', () => {
     ])
   })
 
-  it('getActiveSpecialPricing returns only unexpired rules', () => {
+  it('searchProducts filters by size', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'SIZE-750',
+      item_name: 'Cabernet 750',
+      size: '750ML'
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'SIZE-1500',
+      item_name: 'Cabernet Magnum',
+      size: '1.5L'
+    })
+
+    expect(searchProducts('Cabernet', { size: '750ML' })).toEqual([
+      expect.objectContaining({ sku: 'SIZE-750', size: '750ML' })
+    ])
+    expect(searchProducts('Cabernet', { size: '1.5L' })).toEqual([
+      expect.objectContaining({ sku: 'SIZE-1500', size: '1.5L' })
+    ])
+    expect(searchProducts('Cabernet', { size: '' })).toHaveLength(2)
+  })
+
+  it('getActiveSpecialPricing returns rules for active products regardless of age', () => {
     const created = saveInventoryItem({
       ...base,
       sku: 'SPECIAL-001',
       item_name: 'Promo Bottle',
-      special_pricing: [{ quantity: 2, price: 20, duration_days: 7 }]
+      special_pricing: [{ quantity: 2, price: 20 }]
     })
 
+    // An older rule inserted directly should still be returned — rules no
+    // longer expire after removal of duration_days.
     getDb()
       .prepare(
         `
-        INSERT INTO special_pricing (product_id, quantity, price, duration_days, created_at)
-        VALUES (?, ?, ?, ?, datetime('now', '-10 days'))
+        INSERT INTO special_pricing (product_id, quantity, price, created_at)
+        VALUES (?, ?, ?, datetime('now', '-400 days'))
         `
       )
-      .run(created.item_number, 3, 27, 5)
+      .run(created.item_number, 3, 27)
 
     expect(getActiveSpecialPricing()).toEqual([
-      { product_id: created.item_number, quantity: 2, price: 20 }
+      { product_id: created.item_number, quantity: 2, price: 20 },
+      { product_id: created.item_number, quantity: 3, price: 27 }
+    ])
+  })
+
+  it('saveInventoryItem accepts special pricing with just quantity and price', () => {
+    const created = saveInventoryItem({
+      ...base,
+      sku: 'SPECIAL-002',
+      item_name: 'Another Promo',
+      special_pricing: [
+        { quantity: 6, price: 9.99 },
+        { quantity: 12, price: 8.99 }
+      ]
+    })
+
+    expect(created.special_pricing).toEqual([
+      { quantity: 6, price: 9.99 },
+      { quantity: 12, price: 8.99 }
     ])
   })
 })
@@ -660,151 +706,307 @@ describe('normalized search queries', () => {
   })
 })
 
-describe('getLowStockProducts', () => {
+describe('getReorderProducts', () => {
   beforeEach(() => createTestDb())
 
+  function reorderQuery(overrides: Partial<ReorderQuery> = {}): ReorderQuery {
+    return {
+      distributor: 1,
+      unit_threshold: 10,
+      window_days: 30,
+      ...overrides
+    }
+  }
+
+  function insertTransaction(
+    productId: number,
+    quantity: number,
+    status = 'completed',
+    createdAt = '2026-04-01 10:00:00'
+  ): void {
+    const db = getDb()
+    const result = db
+      .prepare(
+        `INSERT INTO transactions (transaction_number, subtotal, tax_amount, total, payment_method, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(`TXN-${productId}-${quantity}-${createdAt}`, 10, 0, 10, 'cash', status, createdAt)
+
+    db.prepare(
+      `INSERT INTO transaction_items (transaction_id, product_id, product_name, quantity, unit_price, total_price)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(result.lastInsertRowid, productId, 'Test Product', quantity, 10, quantity * 10)
+  }
+
   it('returns empty when no products exist', () => {
-    expect(getLowStockProducts(10)).toEqual([])
+    expect(getReorderProducts(reorderQuery())).toEqual([])
   })
 
-  it('filters products by threshold (in_stock <= threshold)', () => {
+  it('excludes price = 0, is_discontinued = 1, and inactive products', () => {
     getDb()
       .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
       .run(1, 'Test Distributor')
 
     saveInventoryItem({
       ...base,
-      sku: 'LOW-001',
-      item_name: 'Low Stock Wine',
+      sku: 'GOOD-001',
+      item_name: 'Good Product',
       in_stock: 5,
       distributor_number: 1
     })
     saveInventoryItem({
       ...base,
-      sku: 'HIGH-001',
-      item_name: 'High Stock Beer',
-      item_type: '',
-      in_stock: 50,
+      sku: 'FREE-001',
+      item_name: 'Free Product',
+      retail_price: 0,
+      cost: 0,
+      in_stock: 0,
+      distributor_number: 1
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'DISC-001',
+      item_name: 'Discontinued Product',
+      in_stock: 4,
+      distributor_number: 1,
+      is_discontinued: true
+    })
+    const inactive = saveInventoryItem({
+      ...base,
+      sku: 'INACTIVE-001',
+      item_name: 'Inactive Product',
+      in_stock: 3,
+      distributor_number: 1
+    })
+    deleteInventoryItem(inactive.item_number)
+
+    const results = getReorderProducts(reorderQuery())
+    expect(results).toHaveLength(1)
+    expect(results[0].sku).toBe('GOOD-001')
+  })
+
+  it('filters by distributor_number', () => {
+    getDb()
+      .prepare(
+        'INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?), (?, ?)'
+      )
+      .run(1, 'Alpha Wine', 2, 'Beta Spirits')
+
+    saveInventoryItem({
+      ...base,
+      sku: 'ALPHA-001',
+      item_name: 'Alpha Product',
+      in_stock: 5,
+      distributor_number: 1
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'BETA-001',
+      item_name: 'Beta Product',
+      in_stock: 5,
+      distributor_number: 2
+    })
+
+    const results = getReorderProducts(reorderQuery({ distributor: 1 }))
+    expect(results).toHaveLength(1)
+    expect(results[0].sku).toBe('ALPHA-001')
+  })
+
+  it("returns only orphan products for the 'unassigned' bucket", () => {
+    getDb()
+      .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
+      .run(1, 'Assigned Dist')
+
+    saveInventoryItem({
+      ...base,
+      sku: 'ORPHAN-001',
+      item_name: 'Orphan Product',
+      in_stock: 5,
+      distributor_number: null
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'ASSIGNED-001',
+      item_name: 'Assigned Product',
+      in_stock: 5,
       distributor_number: 1
     })
 
-    const results = getLowStockProducts(10)
+    const results = getReorderProducts(reorderQuery({ distributor: 'unassigned' }))
     expect(results).toHaveLength(1)
-    expect(results[0].sku).toBe('LOW-001')
-    expect(results[0].in_stock).toBe(5)
+    expect(results[0].sku).toBe('ORPHAN-001')
+    expect(results[0].distributor_number).toBeNull()
   })
 
-  it('includes zero stock items', () => {
-    saveInventoryItem({
-      ...base,
-      sku: 'ZERO-001',
-      item_name: 'Zero Stock Wine',
-      in_stock: 0
-    })
-
-    const results = getLowStockProducts(5)
-    expect(results).toHaveLength(1)
-    expect(results[0].in_stock).toBe(0)
-  })
-
-  it('joins with distributors table for distributor_name', () => {
+  it('uses last 365 days velocity and does not flag projected stock equal to the threshold', () => {
     getDb()
       .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
-      .run(99, 'Premium Wines Co')
+      .run(1, 'Test Distributor')
 
-    saveInventoryItem({
+    const item = saveInventoryItem({
       ...base,
-      sku: 'DIST-001',
-      item_name: 'Distributed Wine',
-      in_stock: 3,
-      distributor_number: 99
+      sku: 'EDGE-001',
+      item_name: 'Threshold Edge',
+      in_stock: 40,
+      distributor_number: 1
     })
 
-    const results = getLowStockProducts(10)
-    expect(results).toHaveLength(1)
-    expect(results[0].distributor_name).toBe('Premium Wines Co')
+    insertTransaction(item.item_number, 365)
+
+    expect(getReorderProducts(reorderQuery())).toEqual([])
   })
 
-  it('returns null distributor_name when not associated with a distributor', () => {
+  it('flags projected stock below the threshold', () => {
+    getDb()
+      .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
+      .run(1, 'Test Distributor')
+
+    const item = saveInventoryItem({
+      ...base,
+      sku: 'EDGE-002',
+      item_name: 'Threshold Below',
+      in_stock: 39,
+      distributor_number: 1
+    })
+
+    insertTransaction(item.item_number, 365)
+
+    const results = getReorderProducts(reorderQuery())
+    expect(results).toHaveLength(1)
+    expect(results[0].velocity_per_day).toBe(1)
+    expect(results[0].projected_stock).toBe(9)
+  })
+
+  it('uses zero sales fallback for velocity and projected stock', () => {
+    getDb()
+      .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
+      .run(1, 'Test Distributor')
+
     saveInventoryItem({
       ...base,
-      sku: 'NODIST-001',
-      item_name: 'No Distributor Wine',
-      in_stock: 3,
+      sku: 'NOSALES-001',
+      item_name: 'No Sales Product',
+      in_stock: 8,
+      distributor_number: 1
+    })
+
+    const results = getReorderProducts(reorderQuery())
+    expect(results).toHaveLength(1)
+    expect(results[0].velocity_per_day).toBe(0)
+    expect(results[0].days_of_supply).toBeNull()
+    expect(results[0].projected_stock).toBe(8)
+  })
+
+  it('falls back to case cost when bottle cost is missing', () => {
+    getDb()
+      .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
+      .run(1, 'Test Distributor')
+
+    saveInventoryItem({
+      ...base,
+      sku: 'CASE-COST-001',
+      item_name: 'Case Cost Product',
+      in_stock: 5,
+      cost: 0,
+      case_cost: 120,
+      bottles_per_case: 12,
+      distributor_number: 1
+    })
+
+    const results = getReorderProducts(reorderQuery())
+    expect(results).toHaveLength(1)
+    expect(results[0].cost).toBe(10)
+    expect(results[0].bottles_per_case).toBe(12)
+  })
+
+  it('ignores transactions with non-completed status and transactions older than 365 days', () => {
+    getDb()
+      .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
+      .run(1, 'Test Distributor')
+
+    const item = saveInventoryItem({
+      ...base,
+      sku: 'SALES-001',
+      item_name: 'Sales Product',
+      in_stock: 20,
+      distributor_number: 1
+    })
+
+    insertTransaction(item.item_number, 365, 'pending')
+    insertTransaction(item.item_number, 365, 'completed', '2024-01-01 10:00:00')
+
+    expect(getReorderProducts(reorderQuery())).toEqual([])
+  })
+})
+
+describe('setProductDiscontinued', () => {
+  beforeEach(() => createTestDb())
+
+  it('toggles the flag and changes reorder visibility', () => {
+    getDb()
+      .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
+      .run(1, 'Test Distributor')
+
+    const item = saveInventoryItem({
+      ...base,
+      sku: 'DISC-TOGGLE-001',
+      item_name: 'Toggle Product',
+      in_stock: 5,
+      distributor_number: 1
+    })
+
+    expect(
+      getReorderProducts({ distributor: 1, unit_threshold: 10, window_days: 30 })
+    ).toHaveLength(1)
+
+    setProductDiscontinued(item.item_number, true)
+
+    expect(getReorderProducts({ distributor: 1, unit_threshold: 10, window_days: 30 })).toEqual([])
+  })
+})
+
+describe('getDistributorsWithReorderable', () => {
+  beforeEach(() => createTestDb())
+
+  it('returns only distributors with at least one reorderable product and includes unassigned', () => {
+    getDb()
+      .prepare(
+        'INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?), (?, ?)'
+      )
+      .run(1, 'Alpha Wine', 2, 'Beta Spirits')
+
+    saveInventoryItem({
+      ...base,
+      sku: 'ALPHA-REORDER-001',
+      item_name: 'Alpha Product',
+      in_stock: 5,
+      distributor_number: 1
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'BETA-FREE-001',
+      item_name: 'Beta Free Product',
+      retail_price: 0,
+      cost: 0,
+      in_stock: 0,
+      distributor_number: 2
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'UNASSIGNED-001',
+      item_name: 'Unassigned Product',
+      in_stock: 5,
       distributor_number: null
     })
 
-    const results = getLowStockProducts(10)
-    expect(results).toHaveLength(1)
-    expect(results[0].distributor_name).toBeNull()
-  })
-
-  it('includes reorder_point field and defaults to 0', () => {
-    saveInventoryItem({
-      ...base,
-      sku: 'REORDER-001',
-      item_name: 'Reorder Test',
-      in_stock: 5
-    })
-
-    const results = getLowStockProducts(10)
-    expect(results).toHaveLength(1)
-    expect(results[0]).toHaveProperty('reorder_point')
-    expect(results[0].reorder_point).toBe(0)
-  })
-
-  it('excludes inactive products', () => {
-    const item = saveInventoryItem({
-      ...base,
-      sku: 'INACTIVE-001',
-      item_name: 'Will be deleted',
-      in_stock: 2
-    })
-    deleteInventoryItem(item.item_number)
-
-    const results = getLowStockProducts(10)
-    expect(results).toHaveLength(0)
-  })
-
-  it('orders results by in_stock ascending', () => {
-    saveInventoryItem({
-      ...base,
-      sku: 'ORDER-001',
-      item_name: 'Middle Stock',
-      in_stock: 5
-    })
-    saveInventoryItem({
-      ...base,
-      sku: 'ORDER-002',
-      item_name: 'High Stock',
-      in_stock: 10
-    })
-    saveInventoryItem({
-      ...base,
-      sku: 'ORDER-003',
-      item_name: 'Zero Stock',
-      in_stock: 0
-    })
-
-    const results = getLowStockProducts(15)
-    expect(results).toHaveLength(3)
-    expect(results[0].in_stock).toBe(0)
-    expect(results[1].in_stock).toBe(5)
-    expect(results[2].in_stock).toBe(10)
-  })
-
-  it('includes item_type field', () => {
-    saveInventoryItem({
-      ...base,
-      sku: 'TYPE-001',
-      item_name: 'Typed Wine',
-      item_type: '',
-      in_stock: 3
-    })
-
-    const results = getLowStockProducts(10)
-    expect(results).toHaveLength(1)
-    expect(results[0]).toHaveProperty('item_type')
+    const rows = getDistributorsWithReorderable()
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ distributor_number: 1, distributor_name: 'Alpha Wine' }),
+        expect.objectContaining({ distributor_number: null, distributor_name: null })
+      ])
+    )
+    expect(rows.find((row) => row.distributor_number === 2)).toBeUndefined()
   })
 })
 

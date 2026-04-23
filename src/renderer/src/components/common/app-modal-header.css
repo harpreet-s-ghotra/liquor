@@ -1,0 +1,178 @@
+.app-modal-header {
+  display: flex;
+  flex-shrink: 0;
+  gap: 1rem;
+  align-items: center;
+  background: #2d3133;
+  padding: 1rem 1.5rem;
+}
+
+.app-modal-header__icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: #1a3a5c;
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.app-modal-header__breadcrumb {
+  display: flex;
+  flex: 1;
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.app-modal-header__label {
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.app-modal-header__separator {
+  flex-shrink: 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.app-modal-header__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e8ecf0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.app-modal-header__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.app-modal-header__close-btn {
+  outline: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  padding: 0 1.25rem;
+  min-height: 2.75rem;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.app-modal-header__close-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.app-modal-header__close-btn:focus-visible {
+  outline: 2px solid var(--accent-blue, #60a5fa);
+  outline-offset: 2px;
+}
+
+/* ── Shared modal tabs ──
+   Opt-in tab styling that matches the AppModalHeader toolbar strip.
+   Add the `app-modal-tabs` class to Radix <Tabs> to activate. The rules below
+   override the base `.tabs__*` styles from ui/tabs.css via descendant
+   specificity (two classes beats the base rule's single class). */
+
+.app-modal-tabs {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-modal-tabs__bar {
+  flex-shrink: 0;
+  background: #2d3133;
+  padding: 0 0.5rem;
+}
+
+.app-modal-tabs .tabs__list,
+.app-modal-tabs__list {
+  display: flex;
+  gap: 0;
+  justify-content: flex-start;
+  border-bottom: 1px solid rgba(194, 199, 202, 0.15);
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+  height: auto;
+}
+
+.app-modal-tabs .tabs__trigger,
+.app-modal-tabs__trigger {
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.75rem 1.5rem;
+  min-height: 3rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #6b7280;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.app-modal-tabs .tabs__trigger[data-state='active'],
+.app-modal-tabs__trigger[data-state='active'] {
+  border-bottom: 3px solid #60a5fa;
+  box-shadow: none;
+  background: transparent;
+  color: #e8ecf0;
+}
+
+.app-modal-tabs .tabs__trigger:hover,
+.app-modal-tabs__trigger:hover {
+  color: #cbd5e1;
+}
+
+.app-modal-tabs__content {
+  flex: 1;
+  margin: 0;
+  padding: 1rem 1.5rem;
+  overflow: auto;
+}
+
+/* ── Shared body wrapper ──
+   Use this for the scrolling content area below the header. Gives every modal
+   the same horizontal gutter (1.5rem) and vertical rhythm (1rem). Modals that
+   need a sub-bar (filters, date picker) above the body can pair it with
+   `.app-modal__sub-bar`. */
+
+.app-modal__body {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  min-height: 0;
+  overflow: auto;
+}
+
+.app-modal__body--grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.app-modal__sub-bar {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.75rem;
+  align-items: center;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+  padding: 0.75rem 1.5rem;
+}

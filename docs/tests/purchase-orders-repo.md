@@ -4,7 +4,7 @@
 
 ## Overview
 
-Comprehensive backend tests for the Purchase Orders repository functions using Vitest and SQLite in-memory databases. Tests cover all CRUD operations, status transitions, item management, and error handling for purchase orders.
+Comprehensive backend tests for the Purchase Orders repository functions using Vitest and SQLite in-memory databases. Tests cover CRUD operations, status transitions, distributor/product validation, receiving cost-layer creation, unit-cost overrides, and deletion rules for purchase orders.
 
 ## Test Setup
 
@@ -20,14 +20,16 @@ Comprehensive backend tests for the Purchase Orders repository functions using V
 - **returns created purchase orders** — Confirms orders appear in list after creation
 - **returns orders sorted by created_at DESC** — Validates ordering by creation timestamp
 
-### createPurchaseOrder (7 tests)
+### createPurchaseOrder (8 tests)
 
 - **creates and returns PurchaseOrderDetail with items** — Core creation with items and totals
 - **throws if distributor not found** — Validates distributor existence check
 - **throws if items array is empty** — Prevents zero-item orders
 - **generates sequential PO numbers** — Validates PO-YYYY-MM-NNNN format incrementing
 - **throws if product not found** — Validates product existence for each item
+- **throws if a product belongs to a different distributor** — Rejects cross-distributor order items
 - **calculates correct line totals with null cost** — Handles null product costs (defaults to 0)
+- **uses unit_cost from create input when provided** — Prefers create-form overrides over the product's stored cost
 
 ### getPurchaseOrderDetail (2 tests)
 
@@ -45,16 +47,18 @@ Comprehensive backend tests for the Purchase Orders repository functions using V
 - **transitions draft to cancelled** — Validates draft→cancelled
 - **transitions submitted to cancelled** — Validates submitted→cancelled
 
-### receivePurchaseOrderItem (6 tests)
+### receivePurchaseOrderItem (8 tests)
 
 - **sets quantity_received on submitted PO item** — Updates item receipt quantity
+- **increments stock and creates a receiving cost layer for newly received quantity** — Adds inventory and an open FIFO receiving layer with the item cost
 - **throws for draft PO items** — Requires PO to be submitted first
 - **auto-marks PO as received when all items fully received** — Completes PO when all items received
 - **throws if qty > quantity_ordered** — Prevents over-receiving
 - **throws if qty is negative** — Validates non-negative quantities
 - **allows zero quantity received** — Permits receiving 0 items on a line
+- **does not allow decreasing previously received quantity** — Prevents lowering a previously recorded receipt amount
 
-### addPurchaseOrderItem (4 tests)
+### addPurchaseOrderItem (5 tests)
 
 - **adds item to draft PO** — Appends new product to order
 - **throws for submitted PO** — Prevents adding items to submitted orders
@@ -79,10 +83,14 @@ Comprehensive backend tests for the Purchase Orders repository functions using V
 ## Key Edge Cases Covered
 
 - Null product costs (treated as 0)
+- Create-time unit cost overrides
 - Sequential PO number generation by month
+- Products assigned to the wrong distributor
 - Status transition validation (state machine)
+- Receiving creates FIFO inventory cost layers
 - Auto-completion when all items received
 - Item quantity bounds checking (0 ≤ qty ≤ ordered)
+- Received quantity cannot be reduced after recording
 - Transaction atomicity (multi-item orders created together)
 
 ## Coverage

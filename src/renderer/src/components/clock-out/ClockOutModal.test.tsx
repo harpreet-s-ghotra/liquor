@@ -456,7 +456,7 @@ describe('ClockOutModal', () => {
       expect(screen.getByText('Confirm Clock Out')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Cancel/ }))
 
     await waitFor(() => {
       expect(screen.getByText('Sessions')).toBeInTheDocument()
@@ -1085,10 +1085,10 @@ describe('ClockOutModal', () => {
     render(<ClockOutModal isOpen={true} onClose={onClose} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Close/ })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Close/ }))
 
     expect(onClose).toHaveBeenCalledTimes(1)
   })

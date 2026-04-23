@@ -1,9 +1,24 @@
 .clock-out-modal {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  background: var(--bg-panel);
+  padding: 0;
   width: min(48rem, 95vw);
   max-height: 85vh;
+  overflow: hidden;
+}
+
+/* Every direct body child below the header picks up the shared gutter. */
+.clock-out-modal > :not(.app-modal-header) {
+  margin: 0 1.5rem;
+}
+
+.clock-out-modal > :not(.app-modal-header):first-of-type {
+  margin-top: 1rem;
+}
+
+.clock-out-modal > :not(.app-modal-header):last-child {
+  margin-bottom: 1rem;
 }
 
 .clock-out-modal__error {

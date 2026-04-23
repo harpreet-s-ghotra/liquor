@@ -1,4 +1,6 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
+import { AppModalHeader } from '@renderer/components/common/AppModalHeader'
+import { ReportsIcon } from '@renderer/components/common/modal-icons'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@renderer/components/ui/toggle-group'
 import { AppButton } from '@renderer/components/common/AppButton'
@@ -331,20 +333,35 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
         aria-describedby={undefined}
         onPointerDownOutside={(e) => e.preventDefault()}
       >
-        <DialogHeader>
-          <DialogTitle>Sales Reports</DialogTitle>
-          <button type="button" className="reports-modal__close-btn" onClick={onClose}>
-            Close
-          </button>
-        </DialogHeader>
+        <DialogTitle className="dialog__sr-only">Reports</DialogTitle>
+        <AppModalHeader
+          icon={<ReportsIcon />}
+          label="Reports"
+          title="Sales Reports"
+          onClose={onClose}
+        />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="reports-modal__tabs">
-          <TabsList>
-            <TabsTrigger value="summary">Sales Summary</TabsTrigger>
-            <TabsTrigger value="products">Product Analysis</TabsTrigger>
-            <TabsTrigger value="tax">Tax Report</TabsTrigger>
-            <TabsTrigger value="comparison">Comparisons</TabsTrigger>
-          </TabsList>
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="reports-modal__tabs app-modal-tabs"
+        >
+          <div className="app-modal-tabs__bar">
+            <TabsList className="app-modal-tabs__list">
+              <TabsTrigger value="summary" className="app-modal-tabs__trigger">
+                Sales Summary
+              </TabsTrigger>
+              <TabsTrigger value="products" className="app-modal-tabs__trigger">
+                Product Analysis
+              </TabsTrigger>
+              <TabsTrigger value="tax" className="app-modal-tabs__trigger">
+                Tax Report
+              </TabsTrigger>
+              <TabsTrigger value="comparison" className="app-modal-tabs__trigger">
+                Comparisons
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <div className="reports-modal__date-bar">
             {activeTab !== 'comparison' && (
@@ -445,7 +462,7 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
 
           {loading && <div className="reports-modal__loading">Loading report data...</div>}
 
-          <TabsContent value="summary" className="reports-modal__content">
+          <TabsContent value="summary" className="reports-modal__content app-modal-tabs__content">
             {summary && (
               <>
                 <div className="reports-modal__meta-bar">
@@ -518,7 +535,7 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
             )}
           </TabsContent>
 
-          <TabsContent value="products" className="reports-modal__content">
+          <TabsContent value="products" className="reports-modal__content app-modal-tabs__content">
             {productReport && (
               <>
                 <div className="reports-modal__cards reports-modal__cards--products">
@@ -619,7 +636,7 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
             )}
           </TabsContent>
 
-          <TabsContent value="tax" className="reports-modal__content">
+          <TabsContent value="tax" className="reports-modal__content app-modal-tabs__content">
             {taxReport && (
               <>
                 {taxReport.tax_rows.length > 0 ? (
@@ -667,7 +684,10 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
             )}
           </TabsContent>
 
-          <TabsContent value="comparison" className="reports-modal__content">
+          <TabsContent
+            value="comparison"
+            className="reports-modal__content app-modal-tabs__content"
+          >
             {comparisonRows.length > 0 && (
               <>
                 <div className="reports-modal__cards reports-modal__cards--products">

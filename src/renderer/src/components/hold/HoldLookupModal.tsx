@@ -1,4 +1,6 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
+import { AppModalHeader } from '../common/AppModalHeader'
+import { HoldIcon } from '../common/modal-icons'
 import type { HeldTransaction } from '../../../../shared/types'
 import './hold-lookup-modal.css'
 
@@ -31,23 +33,28 @@ export function HoldLookupModal({
         aria-label="Transaction Hold Lookup"
         aria-describedby={undefined}
       >
-        {/* Header */}
-        <DialogHeader className="hold-lookup__header">
-          <DialogTitle className="hold-lookup__title">Transaction Hold Lookup</DialogTitle>
-          {heldTransactions.length > 0 && (
-            <>
-              <span className="hold-lookup__count">{heldTransactions.length} on hold</span>
-              <button
-                type="button"
-                className="hold-lookup__clear-all"
-                onClick={onClearAll}
-                data-testid="hold-clear-all-btn"
-              >
-                Clear All
-              </button>
-            </>
-          )}
-        </DialogHeader>
+        <DialogTitle className="dialog__sr-only">Holds</DialogTitle>
+        <AppModalHeader
+          icon={<HoldIcon />}
+          label="POS"
+          title="Transaction Hold Lookup"
+          onClose={onClose}
+          actions={
+            heldTransactions.length > 0 ? (
+              <>
+                <span className="hold-lookup__count">{heldTransactions.length} on hold</span>
+                <button
+                  type="button"
+                  className="hold-lookup__clear-all"
+                  onClick={onClearAll}
+                  data-testid="hold-clear-all-btn"
+                >
+                  Clear All
+                </button>
+              </>
+            ) : undefined
+          }
+        />
 
         {/* Body */}
         <div className="hold-lookup__body">

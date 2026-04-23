@@ -5,6 +5,7 @@ import { getDeviceConfig } from './device-config.repo'
 import { getInventoryDeltaSyncPayload, recordDelta } from './inventory-deltas.repo'
 import { consumeCostLayersForSale, createCostLayer } from './product-cost-layers.repo'
 import type {
+  LocalTransactionHistoryStats,
   SaveRefundInput,
   SaveTransactionInput,
   SavedTransaction,
@@ -300,6 +301,28 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
 /**
  * Get recent transactions, most recent first.
  */
+/**
+ * Returns total count and earliest/latest created_at timestamps for locally-stored
+ * transactions. Used by the History tab in the manager modal to show how far back
+ * reports can reach without triggering a backfill.
+ */
+export function getLocalTransactionHistoryStats(): LocalTransactionHistoryStats {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS count,
+              MIN(created_at) AS earliest,
+              MAX(created_at) AS latest
+         FROM transactions`
+    )
+    .get() as { count: number; earliest: string | null; latest: string | null }
+
+  return {
+    count: row.count,
+    earliest: row.earliest ? normalizeTimestamp(row.earliest) : null,
+    latest: row.latest ? normalizeTimestamp(row.latest) : null
+  }
+}
+
 export function getRecentTransactions(limit = 50): SavedTransaction[] {
   return (
     getDb()

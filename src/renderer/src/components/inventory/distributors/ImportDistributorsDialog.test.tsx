@@ -437,7 +437,7 @@ describe('ImportDistributorsDialog', () => {
         { timeout: 5000 }
       )
 
-      const importButton = screen.getByRole('button', { name: /Import/ })
+      const importButton = screen.getByRole('button', { name: /^Import/ })
       expect(importButton).toBeDisabled()
     })
 
@@ -684,7 +684,7 @@ describe('ImportDistributorsDialog', () => {
       fireEvent.click(checkboxes[0])
       expect(screen.getByText('0 selected')).toBeInTheDocument()
 
-      const importButton = screen.getByRole('button', { name: /Import/ })
+      const importButton = screen.getByRole('button', { name: /^Import/ })
       expect(importButton).toBeDisabled()
     })
   })

@@ -11,6 +11,9 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import { scoped } from './logger'
+
+const log = scoped('supabase')
 import type {
   CatalogDistributor,
   CatalogProduct,
@@ -99,8 +102,8 @@ export function initializeSupabaseService(userDataPath: string): void {
     })
   } else {
     supabaseAdmin = null
-    console.warn(
-      '[supabase] SUPABASE_SERVICE_ROLE_KEY not found. Invite onboarding cannot auto-provision missing merchant rows.'
+    log.warn(
+      'SUPABASE_SERVICE_ROLE_KEY not found. Invite onboarding cannot auto-provision missing merchant rows.'
     )
   }
 }
@@ -311,7 +314,7 @@ export async function provisionFinixMerchant(
   // Use raw fetch so we always get the full response body for debugging
   const accessToken = sessionData.session.access_token
   const fnUrl = `${SUPABASE_URL}/functions/v1/provision-finix-merchant`
-  console.log('[provision-finix] Calling Edge Function:', fnUrl)
+  log.info('provision-finix calling Edge Function', fnUrl)
 
   const rawRes = await fetch(fnUrl, {
     method: 'POST',
@@ -323,15 +326,15 @@ export async function provisionFinixMerchant(
   })
 
   const responseText = await rawRes.text()
-  console.log('[provision-finix] HTTP status:', rawRes.status)
-  console.log('[provision-finix] Response body:', responseText)
+  log.info('provision-finix HTTP status', rawRes.status)
+  log.debug('provision-finix response body', responseText)
 
   if (!rawRes.ok) {
     let message = `Edge Function failed (${rawRes.status})`
     try {
       const parsed = JSON.parse(responseText)
       if (parsed.finix_error) {
-        console.error('[provision-finix] Finix API error:', parsed.finix_error)
+        log.error('provision-finix Finix API error', parsed.finix_error)
       }
       message = parsed.error ?? message
     } catch {

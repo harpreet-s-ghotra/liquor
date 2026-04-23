@@ -1,5 +1,8 @@
 import { autoUpdater } from 'electron-updater'
 import { BrowserWindow } from 'electron'
+import { scoped } from './logger'
+
+const log = scoped('auto-updater')
 
 function getMainWindow(): BrowserWindow | null {
   const windows = BrowserWindow.getAllWindows()
@@ -36,14 +39,14 @@ export function initAutoUpdater(): void {
   })
 
   autoUpdater.on('error', (err) => {
-    console.error('[auto-updater] Error:', err.message)
+    log.error('error', err.message)
     send('updater:error', { message: err.message })
   })
 }
 
 export function checkForUpdates(): void {
   autoUpdater.checkForUpdates().catch((err) => {
-    console.error('[auto-updater] Check failed:', err.message)
+    log.error('check failed', err.message)
   })
 }
 

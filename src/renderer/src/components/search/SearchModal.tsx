@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { cn } from '@renderer/lib/utils'
+import { AppModalHeader } from '@renderer/components/common/AppModalHeader'
+import { SearchIcon } from '@renderer/components/common/modal-icons'
 import type { Product, ItemType, Distributor } from '@renderer/types/pos'
 import './search-modal.css'
 
@@ -25,12 +27,15 @@ export function SearchModal({
   const [hasSearched, setHasSearched] = useState(false)
   const [itemTypes, setItemTypes] = useState<ItemType[]>([])
   const [distributors, setDistributors] = useState<Distributor[]>([])
+  const [sizes, setSizes] = useState<string[]>([])
   const [itemTypeId, setItemTypeId] = useState<number | undefined>(undefined)
   const [distributorNumber, setDistributorNumber] = useState<number | undefined>(undefined)
+  const [size, setSize] = useState<string | undefined>(undefined)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastFiltersRef = useRef({
     itemTypeId: undefined as number | undefined,
-    distributorNumber: undefined as number | undefined
+    distributorNumber: undefined as number | undefined,
+    size: undefined as string | undefined
   })
 
   // Load filter options on mount
@@ -61,6 +66,14 @@ export function SearchModal({
         })
         .catch(() => {})
     }
+    if (typeof api.getDistinctSizes === 'function') {
+      api
+        .getDistinctSizes()
+        .then((data) => {
+          if (active) setSizes(data)
+        })
+        .catch(() => {})
+    }
     return () => {
       active = false
     }
@@ -80,8 +93,13 @@ export function SearchModal({
     setQuery('')
     setItemTypeId(undefined)
     setDistributorNumber(undefined)
+    setSize(undefined)
     /* eslint-enable react-hooks/set-state-in-effect */
-    lastFiltersRef.current = { itemTypeId: undefined, distributorNumber: undefined }
+    lastFiltersRef.current = {
+      itemTypeId: undefined,
+      distributorNumber: undefined,
+      size: undefined
+    }
     const api = window.api
     if (!api?.searchProducts) return
     let active = true
@@ -104,15 +122,19 @@ export function SearchModal({
   }, [isOpen])
 
   const runSearch = useCallback(
-    async (searchQuery: string, filters?: { itemTypeId?: number; distributorNumber?: number }) => {
+    async (
+      searchQuery: string,
+      filters?: { itemTypeId?: number; distributorNumber?: number; size?: string }
+    ) => {
       const trimmed = searchQuery.trim()
-      const f = filters ?? { itemTypeId, distributorNumber }
+      const f = filters ?? { itemTypeId, distributorNumber, size }
       const api = window.api
       if (!api?.searchProducts) return
       try {
         const data = await api.searchProducts(trimmed, {
           departmentId: f.itemTypeId,
-          distributorNumber: f.distributorNumber
+          distributorNumber: f.distributorNumber,
+          size: f.size
         })
         setResults(data)
         setSelectedProduct(null)
@@ -122,7 +144,7 @@ export function SearchModal({
         setHasSearched(true)
       }
     },
-    [itemTypeId, distributorNumber]
+    [itemTypeId, distributorNumber, size]
   )
 
   const handleSubmit = useCallback(
@@ -140,7 +162,8 @@ export function SearchModal({
       if (hasSearched) {
         runSearch(query, {
           itemTypeId: value,
-          distributorNumber: lastFiltersRef.current.distributorNumber
+          distributorNumber: lastFiltersRef.current.distributorNumber,
+          size: lastFiltersRef.current.size
         })
       }
     },
@@ -154,7 +177,23 @@ export function SearchModal({
       if (hasSearched) {
         runSearch(query, {
           itemTypeId: lastFiltersRef.current.itemTypeId,
-          distributorNumber: value
+          distributorNumber: value,
+          size: lastFiltersRef.current.size
+        })
+      }
+    },
+    [hasSearched, query, runSearch]
+  )
+
+  const handleSizeChange = useCallback(
+    (value: string | undefined) => {
+      setSize(value)
+      lastFiltersRef.current.size = value
+      if (hasSearched) {
+        runSearch(query, {
+          itemTypeId: lastFiltersRef.current.itemTypeId,
+          distributorNumber: lastFiltersRef.current.distributorNumber,
+          size: value
         })
       }
     },
@@ -190,13 +229,13 @@ export function SearchModal({
         aria-describedby={undefined}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        {/* Header */}
-        <DialogHeader>
-          <DialogTitle>Product Search</DialogTitle>
-          <Button size="md" variant="danger" onClick={onClose}>
-            Close
-          </Button>
-        </DialogHeader>
+        <DialogTitle className="dialog__sr-only">Search</DialogTitle>
+        <AppModalHeader
+          icon={<SearchIcon />}
+          label="POS"
+          title="Product Search"
+          onClose={onClose}
+        />
 
         {/* Filters */}
         <div className="search-modal__filters">
@@ -228,6 +267,20 @@ export function SearchModal({
             {distributors.map((d) => (
               <option key={d.distributor_number} value={d.distributor_number}>
                 {d.distributor_name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={size ?? ''}
+            onChange={(e) => handleSizeChange(e.target.value ? e.target.value : undefined)}
+            className="search-modal__filter-select"
+            aria-label="Filter by size"
+          >
+            <option value="">All Sizes</option>
+            {sizes.map((s) => (
+              <option key={s} value={s}>
+                {s}
               </option>
             ))}
           </select>

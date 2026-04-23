@@ -116,13 +116,25 @@ export function createPurchaseOrder(input: CreatePurchaseOrderInput): PurchaseOr
 
     for (const item of input.items) {
       const product = db
-        .prepare('SELECT id, sku, name, cost FROM products WHERE id = ?')
+        .prepare('SELECT id, sku, name, cost, distributor_number FROM products WHERE id = ?')
         .get(item.product_id) as
-        | { id: number; sku: string; name: string; cost: number | null }
+        | {
+            id: number
+            sku: string
+            name: string
+            cost: number | null
+            distributor_number: number | null
+          }
         | undefined
       if (!product) throw new Error(`Product ${item.product_id} not found`)
+      if (product.distributor_number !== input.distributor_number) {
+        throw new Error(
+          `Product ${item.product_id} does not belong to distributor ${input.distributor_number}`
+        )
+      }
 
-      const unitCost = product.cost ?? 0
+      const unitCost = item.unit_cost ?? product.cost ?? 0
+      if (unitCost < 0) throw new Error('Unit cost must be greater than or equal to 0')
       const lineTotal = unitCost * item.quantity_ordered
 
       insertItem.run(

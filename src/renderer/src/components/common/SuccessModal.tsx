@@ -3,10 +3,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle
 } from '@renderer/components/ui/dialog'
 import { AppButton } from './AppButton'
+import { AppModalHeader } from './AppModalHeader'
+import { SuccessIcon } from './modal-icons'
 import './success-modal.css'
 
 const AUTO_CLOSE_MS = 5000
@@ -37,24 +38,8 @@ export function SuccessModal({
         aria-label={title}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <DialogHeader className="success-modal__header">
-          <div className="success-modal__icon">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#34d399"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-          </div>
-          <DialogTitle className="success-modal__title">{title}</DialogTitle>
-        </DialogHeader>
+        <DialogTitle className="dialog__sr-only">Success dialog</DialogTitle>
+        <AppModalHeader icon={<SuccessIcon />} label="Notice" title={title} onClose={onDismiss} />
 
         <div className="success-modal__body">
           <DialogDescription className="success-modal__message">{message}</DialogDescription>

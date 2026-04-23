@@ -213,7 +213,7 @@ describe('POSScreen', () => {
 
     fireEvent.click(screen.getByText(/Inventory/i))
 
-    expect(screen.getByText('Inventory Maintenance')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Inventory Management' })).toBeInTheDocument()
   })
 
   it('calls clearTransaction and closes payment on payment complete', async () => {
@@ -265,7 +265,7 @@ describe('POSScreen', () => {
     fireEvent.click(screen.getByText(/Inventory/i))
 
     // Close inventory
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Close/ }))
 
     act(() => {
       vi.advanceTimersByTime(100)
@@ -571,44 +571,46 @@ describe('POSScreen', () => {
     mockUsePosScreen.mockReturnValue(createDefaultMock())
     render(<POSScreen />)
 
-    await act(async () => {
+    act(() => {
       fireEvent.keyDown(window, { key: 'F3' })
     })
 
-    expect(screen.getByRole('dialog', { name: 'Sessions' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Clock Out' })).toBeInTheDocument()
   })
 
   it('opens inventory modal when F2 is pressed', async () => {
     mockUsePosScreen.mockReturnValue(createDefaultMock())
     render(<POSScreen />)
 
-    await act(async () => {
+    act(() => {
       fireEvent.keyDown(window, { key: 'F2' })
     })
 
-    expect(screen.getByText('Inventory Maintenance')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Inventory Management' })).toBeInTheDocument()
   })
 
   it('opens reports modal when F5 is pressed', async () => {
     mockUsePosScreen.mockReturnValue(createDefaultMock())
     render(<POSScreen />)
 
-    await act(async () => {
+    act(() => {
       fireEvent.keyDown(window, { key: 'F5' })
     })
 
-    expect(screen.getByRole('dialog', { name: 'Sales Reports' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Reports' })).toBeInTheDocument()
   })
 
   it('opens sales history modal when F7 is pressed', async () => {
     mockUsePosScreen.mockReturnValue(createDefaultMock())
     render(<POSScreen />)
 
-    await act(async () => {
+    act(() => {
       fireEvent.keyDown(window, { key: 'F7' })
     })
 
-    expect(screen.getByRole('dialog', { name: 'Sales History' })).toBeInTheDocument()
+    expect(
+      screen.getByText('Sales History', { selector: '.app-modal-header__title' })
+    ).toBeInTheDocument()
   })
 
   it('blocks F2/F5/F7 shortcuts for cashier role', async () => {

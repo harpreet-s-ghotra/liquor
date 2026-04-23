@@ -1,4 +1,6 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
+import { AppModalHeader } from '@renderer/components/common/AppModalHeader'
+import { PrinterIcon } from '@renderer/components/common/modal-icons'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import { SuccessModal } from '@renderer/components/common/SuccessModal'
@@ -265,12 +267,13 @@ export function PrinterSettingsModal({
         aria-describedby={undefined}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <DialogHeader className="printer-settings-modal__header">
-          <DialogTitle className="printer-settings-modal__title">Printer Settings</DialogTitle>
-          <button type="button" className="printer-settings-modal__close-btn" onClick={onClose}>
-            Dismiss
-          </button>
-        </DialogHeader>
+        <DialogTitle className="dialog__sr-only">Printer</DialogTitle>
+        <AppModalHeader
+          icon={<PrinterIcon />}
+          label="Settings"
+          title="Printer Settings"
+          onClose={onClose}
+        />
 
         <div className="printer-settings-modal__body">
           <div className="printer-settings-modal__section">

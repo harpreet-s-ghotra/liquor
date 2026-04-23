@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@renderer/components/ui/tabs'
+import { AppModalHeader } from '@renderer/components/common/AppModalHeader'
+import { InventoryIcon } from '@renderer/components/common/modal-icons'
 import { ItemForm, type ItemFormHandle, type ItemFormButtonState } from './items/ItemForm'
 import { ItemTypePanel } from './item-types/ItemTypePanel'
 import { TaxCodePanel } from './tax-codes/TaxCodePanel'
@@ -199,43 +201,24 @@ export function InventoryModal({
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogTitle className="dialog__sr-only">Inventory Management</DialogTitle>
-        {/* Header */}
-        <div className="inventory-modal__header">
-          <div className="inventory-modal__header-icon">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#a3f69c"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-            </svg>
-          </div>
-          <div className="inventory-modal__header-breadcrumb">
-            <span className="inventory-modal__header-label">Inventory Maintenance</span>
-            <span className="inventory-modal__header-separator">/</span>
-            <span className="inventory-modal__header-title">
-              {activeTab === 'items'
-                ? itemBtnState.selectedSku
-                  ? `Edit Record: ${itemBtnState.selectedSku}`
-                  : 'New Item'
-                : activeTab === 'item-types'
-                  ? 'Item Types'
-                  : activeTab === 'tax-codes'
-                    ? 'Tax Codes'
-                    : activeTab === 'distributors'
-                      ? 'Distributors'
-                      : activeTab}
-            </span>
-          </div>
-          <button type="button" onClick={onClose} className="inventory-modal__close-btn">
-            Close
-          </button>
-        </div>
+        <AppModalHeader
+          icon={<InventoryIcon />}
+          label="Inventory"
+          title={
+            activeTab === 'items'
+              ? itemBtnState.selectedSku
+                ? `Edit Record: ${itemBtnState.selectedSku}`
+                : 'New Item'
+              : activeTab === 'item-types'
+                ? 'Item Types'
+                : activeTab === 'tax-codes'
+                  ? 'Tax Codes'
+                  : activeTab === 'distributors'
+                    ? 'Distributors'
+                    : activeTab
+          }
+          onClose={onClose}
+        />
 
         {/* Tabs */}
         <Tabs

@@ -18,7 +18,8 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
-    "dev": "npx @electron/rebuild -f -w better-sqlite3 2>/dev/null; electron-vite dev",
+    "rebuild:electron": "npx @electron/rebuild -f -w better-sqlite3",
+    "dev": "npm run rebuild:electron && electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
@@ -32,7 +33,8 @@
     "test:node:coverage": "npm rebuild better-sqlite3 && node scripts/run-vitest.mjs run --config vitest.config.node.ts --coverage",
     "seed:prices": "npm rebuild better-sqlite3 2>/dev/null; npx tsx scripts/seed-prices.ts",
     "seed:tx": "npm rebuild better-sqlite3 2>/dev/null; npx tsx scripts/seed-transactions.ts",
-    "reset:pin": "npm rebuild better-sqlite3 2>/dev/null; npx tsx scripts/reset-local-pin.ts"
+    "reset:pin": "npm rebuild better-sqlite3 2>/dev/null; npx tsx scripts/reset-local-pin.ts",
+    "admin": "cd tools/catalog-admin && npm run dev"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

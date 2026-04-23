@@ -1,166 +1,156 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReorderDashboard } from './ReorderDashboard'
-import type { LowStockProduct } from '../../../../../shared/types'
+import type { ReorderDistributorRow, ReorderProduct } from '../../../../../shared/types'
 
-const mockProducts: LowStockProduct[] = [
+// Simple in-memory localStorage stub for tests
+function makeLocalStorageMock(): Storage {
+  let store: Record<string, string> = {}
+  return {
+    getItem: (k: string) => store[k] ?? null,
+    setItem: (k: string, v: string) => {
+      store[k] = v
+    },
+    removeItem: (k: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete store[k]
+    },
+    clear: () => {
+      store = {}
+    },
+    get length() {
+      return Object.keys(store).length
+    },
+    key: (i: number) => Object.keys(store)[i] ?? null
+  } as Storage
+}
+
+const mockDistributors: ReorderDistributorRow[] = [
+  { distributor_number: 2, distributor_name: 'Beta Spirits', product_count: 1 },
+  { distributor_number: 1, distributor_name: 'Alpha Wine', product_count: 2 },
+  { distributor_number: null, distributor_name: null, product_count: 1 }
+]
+
+const mockProducts: ReorderProduct[] = [
   {
     id: 1,
-    sku: 'WINE-001',
+    sku: 'ALPHA-001',
     name: 'Cabernet Sauvignon',
     item_type: 'Wine',
-    in_stock: 0,
-    reorder_point: 10,
-    distributor_name: 'North Wines'
+    in_stock: 12,
+    reorder_point: 15,
+    distributor_number: 1,
+    distributor_name: 'Alpha Wine',
+    cost: 10,
+    bottles_per_case: 12,
+    price: 18,
+    velocity_per_day: 1.25,
+    days_of_supply: 9.6,
+    projected_stock: -25.5
   },
   {
     id: 2,
-    sku: 'CHAMPAGNE-001',
-    name: 'Dom Pérignon',
+    sku: 'ALPHA-002',
+    name: 'Sparkling Brut',
     item_type: 'Sparkling',
-    in_stock: 3,
-    reorder_point: 5,
-    distributor_name: 'Premium Imports'
+    in_stock: 25,
+    reorder_point: 12,
+    distributor_number: 1,
+    distributor_name: 'Alpha Wine',
+    cost: 11,
+    bottles_per_case: 12,
+    price: 20,
+    velocity_per_day: 0.5,
+    days_of_supply: 50,
+    projected_stock: 10
   },
   {
     id: 3,
-    sku: 'VODKA-001',
-    name: 'Grey Goose',
+    sku: 'ALPHA-003',
+    name: 'Zero Velocity Item',
     item_type: 'Spirits',
-    in_stock: 7,
-    reorder_point: 8,
-    distributor_name: 'Spirits Co'
-  },
-  {
-    id: 4,
-    sku: 'BEER-001',
-    name: 'IPA 6 Pack',
-    item_type: 'Beer',
-    in_stock: 12,
-    reorder_point: 0,
-    distributor_name: 'Craft Brewers'
+    in_stock: 8,
+    reorder_point: 5,
+    distributor_number: 1,
+    distributor_name: 'Alpha Wine',
+    cost: 8,
+    bottles_per_case: 6,
+    price: 30,
+    velocity_per_day: 0,
+    days_of_supply: null,
+    projected_stock: 8
   }
 ]
 
 describe('ReorderDashboard', () => {
   beforeEach(() => {
+    vi.stubGlobal('localStorage', makeLocalStorageMock())
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
-      getLowStockProducts: vi.fn().mockResolvedValue(mockProducts)
+      getReorderDistributors: vi.fn().mockResolvedValue(mockDistributors),
+      getReorderProducts: vi.fn().mockResolvedValue(mockProducts),
+      searchInventoryProducts: vi.fn().mockResolvedValue([])
     }
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (window as any).api
   })
 
-  it('shows loading state initially', () => {
-    render(<ReorderDashboard />)
-
-    expect(screen.getByText(/loading/i)).toBeInTheDocument()
-  })
-
-  it('loads and displays low stock products on mount', async () => {
+  it('loads reorder distributors and defaults to the first alphabetical choice', async () => {
     render(<ReorderDashboard />)
 
     await waitFor(() => {
       expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
     })
 
-    expect(window.api!.getLowStockProducts).toHaveBeenCalledWith(10)
-  })
-
-  it('displays product table with SKU, name, and stock levels', async () => {
-    render(<ReorderDashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText('WINE-001')).toBeInTheDocument()
+    expect(window.api!.getReorderDistributors).toHaveBeenCalled()
+    expect(window.api!.getReorderProducts).toHaveBeenCalledWith({
+      distributor: 1,
+      unit_threshold: 10,
+      window_days: 30
     })
 
-    expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
-    expect(screen.getByText('0')).toBeInTheDocument() // in_stock for first product
-    expect(screen.getByText('10')).toBeInTheDocument() // reorder_point for first product
+    const distributorSelect = screen.getByLabelText('Distributor') as HTMLSelectElement
+    expect(distributorSelect.value).toBe('1')
   })
 
-  it('displays distributor name for each product', async () => {
-    render(<ReorderDashboard />)
+  it('refetches when distributor changes', async () => {
+    const user = userEvent.setup()
+    vi.mocked(window.api!.getReorderProducts)
+      .mockResolvedValueOnce(mockProducts)
+      .mockResolvedValueOnce([
+        {
+          ...mockProducts[0],
+          id: 10,
+          sku: 'BETA-001',
+          name: 'Beta Product',
+          distributor_number: 2,
+          distributor_name: 'Beta Spirits'
+        }
+      ])
 
-    await waitFor(() => {
-      expect(screen.getByText('North Wines')).toBeInTheDocument()
-    })
-
-    expect(screen.getByText('Premium Imports')).toBeInTheDocument()
-    expect(screen.getByText('Spirits Co')).toBeInTheDocument()
-  })
-
-  it('displays summary cards with zero stock count', async () => {
-    render(<ReorderDashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Out of stock')).toBeInTheDocument()
-    })
-
-    const zeroStockCard = screen.getByText('Out of stock')
-    expect(zeroStockCard).toBeInTheDocument()
-    // Should count 1 product with in_stock <= 0
-    expect(zeroStockCard.parentElement).toHaveTextContent('1')
-  })
-
-  it('displays summary cards with below reorder count', async () => {
-    render(<ReorderDashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Below reorder point')).toBeInTheDocument()
-    })
-
-    const belowReorderCard = screen.getByText('Below reorder point')
-    expect(belowReorderCard).toBeInTheDocument()
-    // Should count products where in_stock > 0 and in_stock <= reorder_point
-    // CHAMPAGNE-001 (3 <= 5) and VODKA-001 (7 <= 8) = 2
-    expect(belowReorderCard.parentElement).toHaveTextContent('2')
-  })
-
-  it('displays summary card with total low stock count', async () => {
-    render(<ReorderDashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Total low stock')).toBeInTheDocument()
-    })
-
-    const totalCard = screen.getByText('Total low stock')
-    expect(totalCard).toBeInTheDocument()
-    // Should be all 4 products
-    expect(totalCard.parentElement).toHaveTextContent('4')
-  })
-
-  it('includes threshold control dropdown with preset options', async () => {
     render(<ReorderDashboard />)
 
     await waitFor(() => {
       expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
     })
 
-    const selectElement = screen.getByRole('combobox')
-    expect(selectElement).toBeInTheDocument()
-
-    // Check that preset options are available
-    const options = screen.getAllByRole('option')
-    expect(options.length).toBeGreaterThanOrEqual(5) // [5, 10, 20, 50, 100]
-  })
-
-  it('defaults to threshold of 10 units', async () => {
-    render(<ReorderDashboard />)
+    await user.selectOptions(screen.getByLabelText('Distributor'), '2')
 
     await waitFor(() => {
-      expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
+      expect(window.api!.getReorderProducts).toHaveBeenLastCalledWith({
+        distributor: 2,
+        unit_threshold: 10,
+        window_days: 30
+      })
     })
-
-    expect(window.api!.getLowStockProducts).toHaveBeenCalledWith(10)
   })
 
-  it('reloads products when threshold is changed', async () => {
+  it('supports the unassigned bucket', async () => {
     const user = userEvent.setup()
     render(<ReorderDashboard />)
 
@@ -168,20 +158,18 @@ describe('ReorderDashboard', () => {
       expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
     })
 
-    vi.mocked(window.api!.getLowStockProducts).mockResolvedValueOnce([
-      mockProducts[0],
-      mockProducts[1]
-    ])
-
-    const selectElement = screen.getByRole('combobox') as HTMLSelectElement
-    await user.selectOptions(selectElement, '5')
+    await user.selectOptions(screen.getByLabelText('Distributor'), 'unassigned')
 
     await waitFor(() => {
-      expect(window.api!.getLowStockProducts).toHaveBeenCalledWith(5)
+      expect(window.api!.getReorderProducts).toHaveBeenLastCalledWith({
+        distributor: 'unassigned',
+        unit_threshold: 10,
+        window_days: 30
+      })
     })
   })
 
-  it('updates summary counts when threshold changes', async () => {
+  it('refetches when unit threshold changes', async () => {
     const user = userEvent.setup()
     render(<ReorderDashboard />)
 
@@ -189,172 +177,100 @@ describe('ReorderDashboard', () => {
       expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
     })
 
-    const fewerProducts = [mockProducts[0]]
-    vi.mocked(window.api!.getLowStockProducts).mockResolvedValueOnce(fewerProducts)
-
-    const selectElement = screen.getByRole('combobox') as HTMLSelectElement
-    await user.selectOptions(selectElement, '50')
+    await user.selectOptions(screen.getByLabelText('Unit Threshold'), '20')
 
     await waitFor(() => {
-      expect(window.api!.getLowStockProducts).toHaveBeenCalledWith(50)
+      expect(window.api!.getReorderProducts).toHaveBeenLastCalledWith({
+        distributor: 1,
+        unit_threshold: 20,
+        window_days: 30
+      })
     })
-
-    const totalCard = screen.getByText('Total low stock')
-    // Should now show only 1 product instead of 4
-    expect(totalCard.parentElement).toHaveTextContent('1')
   })
 
-  it('rows are highlighted for zero stock items', async () => {
+  it('refetches when time window changes', async () => {
+    const user = userEvent.setup()
     render(<ReorderDashboard />)
 
     await waitFor(() => {
-      expect(screen.getByText('WINE-001')).toBeInTheDocument()
+      expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
     })
 
-    const wineRow = screen.getByText('WINE-001').closest('tr')
-    expect(wineRow).toHaveClass(/zero/)
+    await user.selectOptions(screen.getByLabelText('Time Window'), '90')
+
+    await waitFor(() => {
+      expect(window.api!.getReorderProducts).toHaveBeenLastCalledWith({
+        distributor: 1,
+        unit_threshold: 10,
+        window_days: 90
+      })
+    })
   })
 
-  it('rows are highlighted for below reorder point items', async () => {
+  it('renders column headers and summary cards', async () => {
     render(<ReorderDashboard />)
 
     await waitFor(() => {
-      expect(screen.getByText('CHAMPAGNE-001')).toBeInTheDocument()
+      expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
     })
 
-    const champagneRow = screen.getByText('CHAMPAGNE-001').closest('tr')
-    expect(champagneRow).toHaveClass(/below-reorder/)
+    // Column headers
+    expect(screen.getByText('Days Supply')).toBeInTheDocument()
+    expect(screen.getByText('Est. at 30d')).toBeInTheDocument()
+
+    // Projected value visible in collapsed row
+    expect(screen.getByText('-25.5')).toBeInTheDocument()
+    // Days of supply visible
+    expect(screen.getByText('9.6')).toBeInTheDocument()
+
+    // Summary cards use window-days in label
+    expect(screen.getByText('Will run out in 30d')).toBeInTheDocument()
+    expect(screen.getByText('Below reorder point in 30d')).toBeInTheDocument()
+    expect(screen.getByText('Total flagged')).toBeInTheDocument()
   })
 
-  it('rows are normally styled for at-threshold items', async () => {
+  it('assigns row classes at each threshold boundary', async () => {
     render(<ReorderDashboard />)
 
     await waitFor(() => {
-      expect(screen.getByText('BEER-001')).toBeInTheDocument()
+      expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
     })
 
-    const beerRow = screen.getByText('BEER-001').closest('tr')
-    expect(beerRow).toHaveClass(/at-threshold/)
-  })
-
-  it('handles empty product list gracefully', async () => {
-    vi.mocked(window.api!.getLowStockProducts).mockResolvedValueOnce([])
-
-    render(<ReorderDashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Total low stock')).toBeInTheDocument()
-    })
-
-    const totalCard = screen.getByText('Total low stock')
-    expect(totalCard.parentElement).toHaveTextContent('0')
-  })
-
-  it('handles API error when loading products', async () => {
-    vi.mocked(window.api!.getLowStockProducts).mockRejectedValueOnce(
-      new Error('Failed to load low-stock products')
+    expect(screen.getByText('Cabernet Sauvignon').closest('.reorder-dashboard__row')).toHaveClass(
+      'reorder-dashboard__row--out'
     )
-
-    render(<ReorderDashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/failed to load/i)).toBeInTheDocument()
-    })
-  })
-
-  it('displays error state when API call fails', async () => {
-    vi.mocked(window.api!.getLowStockProducts).mockRejectedValueOnce(
-      new Error('Database connection failed')
+    expect(screen.getByText('Sparkling Brut').closest('.reorder-dashboard__row')).toHaveClass(
+      'reorder-dashboard__row--below-reorder'
     )
-
-    render(<ReorderDashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/database connection failed/i)).toBeInTheDocument()
-    })
+    expect(screen.getByText('Zero Velocity Item').closest('.reorder-dashboard__row')).toHaveClass(
+      'reorder-dashboard__row--below-threshold'
+    )
   })
 
-  it('allows retrying after error via threshold change', async () => {
+  it('passes all products to onCreateOrder when none are selected', async () => {
     const user = userEvent.setup()
-    vi.mocked(window.api!.getLowStockProducts).mockRejectedValueOnce(new Error('Connection error'))
-
-    render(<ReorderDashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/connection error/i)).toBeInTheDocument()
-    })
-
-    // Reset mock to succeed
-    vi.mocked(window.api!.getLowStockProducts).mockResolvedValueOnce(mockProducts)
-
-    const selectElement = screen.getByRole('combobox') as HTMLSelectElement
-    await user.selectOptions(selectElement, '20')
-
-    await waitFor(() => {
-      expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
-    })
-  })
-
-  it('displays item_type for each product', async () => {
-    render(<ReorderDashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Wine')).toBeInTheDocument()
-    })
-
-    expect(screen.getByText('Sparkling')).toBeInTheDocument()
-    expect(screen.getByText('Spirits')).toBeInTheDocument()
-    expect(screen.getByText('Beer')).toBeInTheDocument()
-  })
-
-  it('shows label for stock threshold control', async () => {
-    render(<ReorderDashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/threshold/i)).toBeInTheDocument()
-    })
-
-    expect(screen.getByText(/stock threshold/i)).toBeInTheDocument()
-  })
-
-  it('shows "Create Order" button when onCreateOrder prop is provided and products exist', async () => {
     const onCreateOrder = vi.fn()
     render(<ReorderDashboard onCreateOrder={onCreateOrder} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /create order/i })).toBeInTheDocument()
     })
 
-    const createOrderButton = screen.getByRole('button', { name: /create order/i })
-    expect(createOrderButton).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /create order/i }))
+    expect(onCreateOrder).toHaveBeenCalledWith(mockProducts, 1, 10)
   })
 
-  it('does not show "Create Order" button when onCreateOrder prop is not provided', async () => {
+  it('shows empty state instead of hanging when no reorderable distributors exist', async () => {
+    window.api!.getReorderDistributors = vi.fn().mockResolvedValue([])
+
     render(<ReorderDashboard />)
 
     await waitFor(() => {
-      expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
+      expect(screen.getByText(/no reorderable distributors found/i)).toBeInTheDocument()
     })
-
-    const createOrderButton = screen.queryByRole('button', { name: /create order/i })
-    expect(createOrderButton).not.toBeInTheDocument()
   })
 
-  it('does not show "Create Order" button when no products exist', async () => {
-    const onCreateOrder = vi.fn()
-    vi.mocked(window.api!.getLowStockProducts).mockResolvedValueOnce([])
-
-    render(<ReorderDashboard onCreateOrder={onCreateOrder} />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Total low stock')).toBeInTheDocument()
-    })
-
-    const createOrderButton = screen.queryByRole('button', { name: /create order/i })
-    expect(createOrderButton).not.toBeInTheDocument()
-  })
-
-  it('calls onCreateOrder with products when "Create Order" button is clicked', async () => {
+  it('disables create order for the unassigned bucket', async () => {
     const user = userEvent.setup()
     const onCreateOrder = vi.fn()
     render(<ReorderDashboard onCreateOrder={onCreateOrder} />)
@@ -363,29 +279,51 @@ describe('ReorderDashboard', () => {
       expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
     })
 
-    const createOrderButton = screen.getByRole('button', { name: /create order/i })
-    await user.click(createOrderButton)
+    await user.selectOptions(screen.getByLabelText('Distributor'), 'unassigned')
 
-    expect(onCreateOrder).toHaveBeenCalledWith(mockProducts)
+    await waitFor(() => {
+      expect(window.api!.getReorderProducts).toHaveBeenLastCalledWith({
+        distributor: 'unassigned',
+        unit_threshold: 10,
+        window_days: 30
+      })
+    })
+
+    expect(screen.getByRole('button', { name: /create order/i })).toBeDisabled()
   })
 
-  it('passes all low stock products to onCreateOrder', async () => {
+  it('velocity is shown in expanded body, not in collapsed row', async () => {
     const user = userEvent.setup()
-    const onCreateOrder = vi.fn()
-
-    const filteredProducts = mockProducts.slice(0, 2) // Only 2 products
-    vi.mocked(window.api!.getLowStockProducts).mockResolvedValueOnce(filteredProducts)
-
-    render(<ReorderDashboard onCreateOrder={onCreateOrder} />)
+    render(<ReorderDashboard />)
 
     await waitFor(() => {
       expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
     })
 
-    const createOrderButton = screen.getByRole('button', { name: /create order/i })
-    await user.click(createOrderButton)
+    // Velocity not visible in collapsed state
+    expect(screen.queryByText('1.25/day')).not.toBeInTheDocument()
 
-    expect(onCreateOrder).toHaveBeenCalledWith(filteredProducts)
-    expect(onCreateOrder).toHaveBeenCalledTimes(1)
+    // Expand the first row
+    await user.click(screen.getByText('Cabernet Sauvignon'))
+
+    await waitFor(() => {
+      expect(screen.getByText('1.25')).toBeInTheDocument()
+    })
+  })
+
+  it('shows zero-velocity fallback in expanded body', async () => {
+    const user = userEvent.setup()
+    render(<ReorderDashboard />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Zero Velocity Item')).toBeInTheDocument()
+    })
+
+    // Expand the zero-velocity row
+    await user.click(screen.getByText('Zero Velocity Item'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/No sales recorded in the last 365 days/i)).toBeInTheDocument()
+    })
   })
 })

@@ -49,7 +49,6 @@ describe('App', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (window as any).api
     mockApi.getProducts.mockResolvedValue([])
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     useAuthStore.setState({
       appState: 'loading' as AppState,
@@ -66,9 +65,6 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('Tax')).toBeInTheDocument()
     })
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[loadHeldTransactions] window.api.getHeldTransactions is not available'
-    )
   })
 
   it('shows loading state initially', () => {

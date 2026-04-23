@@ -52,7 +52,7 @@
 - [x] `cashier-sync.ts` — upload (upsert by merchant_id+pin_hash) + applyRemoteCashierChange (LWW); includes pin_hash for cross-register PIN validation
 - [x] `department-sync.ts` — upload (upsert by merchant_id+name) + applyRemoteDepartmentChange (LWW)
 - [x] `settings-sync.ts` — upload/apply for merchant business settings (`store_name`, `receipt_header`, `receipt_footer`, `theme`, `extras_json`)
-- [x] `transaction-backfill.ts` — initial 7-day historical transaction restore for refund lookup on new installs
+- [x] `transaction-backfill.ts` — 365-day historical transaction pull on new installs or device swap; runs in the background and exposes status via `history:backfill-status-changed` + manual trigger via `history:trigger-backfill` (IPC). Backfills beyond the 365-day safe window still work but emit a warning log line; the `Data History` tab in the manager modal asks the operator to confirm larger pulls before dispatching them.
 - [x] FIFO COGS primitives — `transaction_items.cost_at_sale`, `cost_basis_source`, and local `product_cost_layers`
 - [x] Enqueue hooks in: `item-types.repo.ts`, `tax-codes.repo.ts`, `cashiers.repo.ts`, `distributors.repo.ts` (create/update/delete, delete enqueued before row removal)
 - [x] Sync worker: dispatch cases for `item_type`, `department`, `settings`, `tax_code`, `cashier`, `distributor` + Realtime subscriptions
@@ -515,7 +515,6 @@ CREATE TABLE merchant_special_pricing (
   product_sku TEXT NOT NULL,
   quantity INTEGER NOT NULL,
   price NUMERIC NOT NULL,
-  duration_days INTEGER NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 

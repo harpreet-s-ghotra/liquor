@@ -169,7 +169,6 @@ CREATE TABLE IF NOT EXISTS public.merchant_special_pricing (
   product_sku TEXT NOT NULL,
   quantity INTEGER NOT NULL,
   price NUMERIC NOT NULL,
-  duration_days INTEGER NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 )
 SQL

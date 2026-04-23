@@ -10,6 +10,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { scoped } from '../logger'
 import { getDb } from '../../database/connection'
 import { getDeviceConfig } from '../../database/device-config.repo'
 import { applyRemoteProductChange, uploadProduct } from './product-sync'
@@ -24,6 +25,7 @@ import type { ProductSyncPayload } from './types'
 import type { InitialSyncStatus, InitialSyncEntity } from '../../../shared/types'
 
 const BATCH_SIZE = 500
+const log = scoped('initial-sync')
 
 export type SyncEntity = InitialSyncEntity
 
@@ -115,9 +117,7 @@ function getLocalProductSyncPayload(id: number): ProductSyncPayload {
     .map((r) => String((r as { alt_sku: string }).alt_sku))
 
   const special_pricing = db
-    .prepare(
-      'SELECT quantity, price, duration_days FROM special_pricing WHERE product_id = ? ORDER BY quantity'
-    )
+    .prepare('SELECT quantity, price FROM special_pricing WHERE product_id = ? ORDER BY quantity')
     .all(id) as ProductSyncPayload['special_pricing']
 
   return { product, alt_skus, special_pricing }
@@ -232,7 +232,7 @@ export async function reconcileProducts(
 export async function runInitialSync(supabase: SupabaseClient, merchantId: string): Promise<void> {
   const device = getDeviceConfig()
   if (!device) {
-    console.warn('[initial-sync] No device config found — skipping initial sync')
+    log.warn('No device config found — skipping initial sync')
     return
   }
 
@@ -257,16 +257,16 @@ export async function runInitialSync(supabase: SupabaseClient, merchantId: strin
       updateStatus({ entityProgress: { done: res.applied + res.uploaded, total: null } })
       if (res.errors.length > 0) {
         for (const e of res.errors) {
-          console.error(`[initial-sync][${entity}] ${e}`)
+          log.error(`[${entity}] ${e}`)
           allErrors.push({ entity, message: e })
         }
       }
-      console.log(
+      log.info(
         `[initial-sync][${entity}] applied=${res.applied} uploaded=${res.uploaded} errors=${res.errors.length}`
       )
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error(`[initial-sync][${entity}] Fatal: ${msg}`)
+      log.error(`[${entity}] Fatal: ${msg}`)
       allErrors.push({ entity, message: msg })
     }
     completed.push(entity)
@@ -289,21 +289,29 @@ export async function runInitialSync(supabase: SupabaseClient, merchantId: strin
     })
     if (result.errors.length > 0) {
       for (const e of result.errors) {
-        console.error(`[initial-sync][products] ${e}`)
+        log.error(`[products] ${e}`)
         allErrors.push({ entity: 'products', message: e })
       }
     }
-    console.log(
+    log.info(
       `[initial-sync][products] applied=${result.products_applied} uploaded=${result.products_uploaded} errors=${result.errors.length}`
     )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`[initial-sync][products] Fatal: ${msg}`)
+    log.error(`[products] Fatal: ${msg}`)
     allErrors.push({ entity: 'products', message: msg })
   }
   completed.push('products')
 
-  await run('transactions', () => backfillRecentTransactions(supabase, merchantId))
+  // Transaction backfill runs in the background so the user can enter the app while
+  // up to 365 days of history is being pulled. Errors land in the logs and in the
+  // backfill status service; they do not block startup.
+  completed.push('transactions')
+  void backfillRecentTransactions(supabase, merchantId).catch((err) => {
+    log.error(
+      `background transaction backfill failed: ${err instanceof Error ? err.message : String(err)}`
+    )
+  })
 
   updateStatus({
     state: allErrors.length > 0 ? 'failed' : 'done',
@@ -312,5 +320,5 @@ export async function runInitialSync(supabase: SupabaseClient, merchantId: strin
     errors: allErrors
   })
 
-  console.log(`[initial-sync] Complete. entities=${completed.length} errors=${allErrors.length}`)
+  log.info(`complete entities=${completed.length} errors=${allErrors.length}`)
 }

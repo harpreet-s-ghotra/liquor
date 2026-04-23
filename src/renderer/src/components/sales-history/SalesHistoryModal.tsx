@@ -1,4 +1,6 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
+import { AppModalHeader } from '@renderer/components/common/AppModalHeader'
+import { SalesHistoryIcon } from '@renderer/components/common/modal-icons'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { formatCurrency } from '@renderer/utils/currency'
 import { cn } from '@renderer/lib/utils'
@@ -56,6 +58,16 @@ function formatDateTime(iso: string): string {
 
 const PAGE_SIZE = 25
 
+function trackSalesHistoryEvent(event: {
+  type: 'error' | 'performance' | 'behavior' | 'system'
+  name: string
+  payload?: Record<string, unknown>
+  sampleRate?: number
+}): void {
+  if (!window.api?.trackEvent) return
+  void window.api.trackEvent(event)
+}
+
 export function SalesHistoryModal({
   isOpen,
   onClose,
@@ -78,6 +90,7 @@ export function SalesHistoryModal({
   const loadTransactions = useCallback(async () => {
     if (!window.api?.listTransactions) return
     setLoading(true)
+    const startedAt = performance.now()
     try {
       const range = getDateRange(datePreset)
       const filter: TransactionListFilter = {
@@ -92,12 +105,56 @@ export function SalesHistoryModal({
       const result = await window.api.listTransactions(filter)
       setTransactions(result.transactions)
       setTotalCount(result.total_count)
+      trackSalesHistoryEvent({
+        type: 'performance',
+        name: 'sales_history_list_loaded',
+        payload: {
+          page,
+          page_size: PAGE_SIZE,
+          row_count: result.transactions.length,
+          total_count: result.total_count,
+          duration_ms: Math.round((performance.now() - startedAt) * 1000) / 1000,
+          date_preset: datePreset,
+          status_filter: statusFilter || 'all',
+          payment_filter: paymentFilter || 'all',
+          has_search: Boolean(searchText)
+        },
+        sampleRate: 1
+      })
     } catch (err) {
+      trackSalesHistoryEvent({
+        type: 'error',
+        name: 'sales_history_list_failed',
+        payload: {
+          page,
+          date_preset: datePreset,
+          status_filter: statusFilter || 'all',
+          payment_filter: paymentFilter || 'all',
+          has_search: Boolean(searchText),
+          message: err instanceof Error ? err.message : String(err)
+        },
+        sampleRate: 1
+      })
       console.error('Failed to load transactions:', err)
     } finally {
       setLoading(false)
     }
   }, [datePreset, statusFilter, paymentFilter, searchText, page])
+
+  useEffect(() => {
+    if (!isOpen) return
+    trackSalesHistoryEvent({
+      type: 'behavior',
+      name: 'sales_history_opened',
+      payload: {
+        page,
+        date_preset: datePreset,
+        status_filter: statusFilter || 'all',
+        payment_filter: paymentFilter || 'all'
+      },
+      sampleRate: 1
+    })
+  }, [isOpen, page, datePreset, statusFilter, paymentFilter])
 
   useEffect(() => {
     if (isOpen) {
@@ -184,6 +241,46 @@ export function SalesHistoryModal({
   const startIdx = page * PAGE_SIZE + 1
   const endIdx = Math.min((page + 1) * PAGE_SIZE, totalCount)
 
+  const goToPreviousPage = useCallback(() => {
+    setPage((current) => {
+      const next = Math.max(0, current - 1)
+      if (next !== current) {
+        trackSalesHistoryEvent({
+          type: 'behavior',
+          name: 'sales_history_page_changed',
+          payload: {
+            action: 'prev',
+            from_page: current,
+            to_page: next,
+            total_count: totalCount
+          },
+          sampleRate: 1
+        })
+      }
+      return next
+    })
+  }, [totalCount])
+
+  const goToNextPage = useCallback(() => {
+    setPage((current) => {
+      const next = current + 1
+      if (next !== current) {
+        trackSalesHistoryEvent({
+          type: 'behavior',
+          name: 'sales_history_page_changed',
+          payload: {
+            action: 'next',
+            from_page: current,
+            to_page: next,
+            total_count: totalCount
+          },
+          sampleRate: 1
+        })
+      }
+      return next
+    })
+  }, [totalCount])
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -191,13 +288,18 @@ export function SalesHistoryModal({
         aria-label="Sales History"
         aria-describedby={undefined}
       >
-        {/* Header */}
-        <DialogHeader className="sales-history__header">
-          <DialogTitle className="sales-history__title">Sales History</DialogTitle>
-          <span className="sales-history__count">
-            {totalCount} transaction{totalCount !== 1 ? 's' : ''}
-          </span>
-        </DialogHeader>
+        <DialogTitle className="dialog__sr-only">Sales History dialog</DialogTitle>
+        <AppModalHeader
+          icon={<SalesHistoryIcon />}
+          label="Sales"
+          title="Sales History"
+          onClose={onClose}
+          actions={
+            <span className="sales-history__count">
+              {totalCount} transaction{totalCount !== 1 ? 's' : ''}
+            </span>
+          }
+        />
 
         {/* Filters */}
         <div className="sales-history__filters">
@@ -312,7 +414,7 @@ export function SalesHistoryModal({
             <AppButton
               variant="neutral"
               size="sm"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              onClick={goToPreviousPage}
               disabled={page === 0 || totalCount === 0}
             >
               Prev
@@ -320,7 +422,7 @@ export function SalesHistoryModal({
             <AppButton
               variant="neutral"
               size="sm"
-              onClick={() => setPage((p) => p + 1)}
+              onClick={goToNextPage}
               disabled={page + 1 >= totalPages || totalCount === 0}
             >
               Next

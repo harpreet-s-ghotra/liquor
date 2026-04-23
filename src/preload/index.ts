@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+// Side-effect import: initializes the __electronLog bridge so that
+// electron-log/renderer in the renderer process can forward to the main file
+// transport. The module's default export is the init function, not a logger —
+// do not attempt to call log.info/error here.
+import 'electron-log/preload'
 import type {
   Product,
   ActiveSpecialPricingRule,
@@ -51,6 +56,8 @@ import type {
   ImportResult,
   SyncStatus,
   InitialSyncStatus,
+  TransactionBackfillStatus,
+  LocalTransactionHistoryStats,
   DeviceConfig,
   ReportDateRange,
   SalesSummaryReport,
@@ -64,15 +71,101 @@ import type {
   BusinessInfoInput,
   ProvisionMerchantResult,
   Register,
-  LowStockProduct,
   MerchantStatus,
+  ReorderDistributorRow,
+  ReorderProduct,
+  ReorderQuery,
   PurchaseOrder,
   PurchaseOrderItem,
   PurchaseOrderDetail,
   CreatePurchaseOrderInput,
   UpdatePurchaseOrderInput,
-  ReceivePurchaseOrderItemInput
+  ReceivePurchaseOrderItemInput,
+  TelemetryEventInput
 } from '../shared/types'
+
+const PERF_SAMPLE_RATE = 0.1
+const rawInvoke = ipcRenderer.invoke.bind(ipcRenderer)
+const TELEMETRY_DEBUG_CONSOLE = import.meta.env.DEV
+
+function logTelemetryDebug(event: {
+  type: 'error' | 'performance' | 'behavior' | 'system'
+  name: string
+  payload?: Record<string, unknown>
+}): void {
+  if (!TELEMETRY_DEBUG_CONSOLE) return
+  console.debug('[telemetry]', event.type, event.name, event.payload ?? {})
+}
+
+function fireAndForgetTelemetry(payload: {
+  type: 'error' | 'performance' | 'behavior' | 'system'
+  name: string
+  payload?: Record<string, unknown>
+  sampleRate?: number
+}): void {
+  logTelemetryDebug(payload)
+  void rawInvoke('telemetry:track', payload).catch(() => {
+    // Never break renderer flow on telemetry failures.
+  })
+}
+
+async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
+  if (channel === 'telemetry:track') {
+    const eventArg = args[0]
+    if (
+      eventArg &&
+      typeof eventArg === 'object' &&
+      'type' in eventArg &&
+      'name' in eventArg &&
+      typeof (eventArg as { type: unknown }).type === 'string' &&
+      typeof (eventArg as { name: unknown }).name === 'string'
+    ) {
+      logTelemetryDebug(
+        eventArg as {
+          type: 'error' | 'performance' | 'behavior' | 'system'
+          name: string
+          payload?: Record<string, unknown>
+        }
+      )
+    }
+    return rawInvoke(channel, ...args) as Promise<T>
+  }
+
+  const startedAt = performance.now()
+  try {
+    const result = (await rawInvoke(channel, ...args)) as T
+    const durationMs = Math.round((performance.now() - startedAt) * 1000) / 1000
+    if (Math.random() < PERF_SAMPLE_RATE) {
+      fireAndForgetTelemetry({
+        type: 'performance',
+        name: 'ipc_call',
+        payload: {
+          channel,
+          duration_ms: durationMs,
+          success: true
+        },
+        sampleRate: 1
+      })
+    }
+    return result
+  } catch (error) {
+    const durationMs = Math.round((performance.now() - startedAt) * 1000) / 1000
+    const message = error instanceof Error ? error.message : String(error)
+    fireAndForgetTelemetry({
+      type: 'error',
+      name: 'ipc_call_failed',
+      payload: {
+        channel,
+        duration_ms: durationMs,
+        message
+      },
+      sampleRate: 1
+    })
+    throw error
+  }
+}
+
+;(ipcRenderer as typeof ipcRenderer & { invoke: typeof invoke }).invoke = invoke
 
 // Custom APIs for renderer
 const api = {
@@ -269,6 +362,23 @@ const api = {
   onInitialSyncStatusChanged: (callback: (status: InitialSyncStatus) => void) =>
     ipcRenderer.on('sync:initial-status-changed', (_event, status) => callback(status)),
 
+  // Transaction history / backfill
+  getLocalHistoryStats: (): Promise<LocalTransactionHistoryStats> =>
+    ipcRenderer.invoke('history:get-stats'),
+  getBackfillStatus: (): Promise<TransactionBackfillStatus> =>
+    ipcRenderer.invoke('history:get-backfill-status'),
+  triggerBackfill: (days: number): Promise<{ started: boolean; days: number }> =>
+    ipcRenderer.invoke('history:trigger-backfill', days),
+  onBackfillStatusChanged: (callback: (status: TransactionBackfillStatus) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, status: TransactionBackfillStatus): void => {
+      callback(status)
+    }
+    ipcRenderer.on('history:backfill-status-changed', listener)
+    return (): void => {
+      ipcRenderer.removeListener('history:backfill-status-changed', listener)
+    }
+  },
+
   // Reports
   getReportSalesSummary: (range: ReportDateRange): Promise<SalesSummaryReport> =>
     ipcRenderer.invoke('reports:sales-summary', range),
@@ -294,14 +404,31 @@ const api = {
     ipcRenderer.invoke('reports:export', request),
 
   // Auto-updater
-  onUpdateAvailable: (callback: (info: { version: string; releaseDate: string }) => void) =>
-    ipcRenderer.on('updater:update-available', (_event, info) => callback(info)),
-  onUpdateNotAvailable: (callback: () => void) =>
-    ipcRenderer.on('updater:update-not-available', () => callback()),
-  onUpdateDownloaded: (callback: (info: { version: string }) => void) =>
-    ipcRenderer.on('updater:update-downloaded', (_event, info) => callback(info)),
-  onUpdateError: (callback: (err: { message: string }) => void) =>
-    ipcRenderer.on('updater:error', (_event, err) => callback(err)),
+  onUpdateAvailable: (callback: (info: { version: string; releaseDate: string }) => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      info: { version: string; releaseDate: string }
+    ): void => callback(info)
+    ipcRenderer.on('updater:update-available', handler)
+    return () => ipcRenderer.removeListener('updater:update-available', handler)
+  },
+  onUpdateNotAvailable: (callback: () => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('updater:update-not-available', handler)
+    return () => ipcRenderer.removeListener('updater:update-not-available', handler)
+  },
+  onUpdateDownloaded: (callback: (info: { version: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, info: { version: string }): void =>
+      callback(info)
+    ipcRenderer.on('updater:update-downloaded', handler)
+    return () => ipcRenderer.removeListener('updater:update-downloaded', handler)
+  },
+  onUpdateError: (callback: (err: { message: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, err: { message: string }): void =>
+      callback(err)
+    ipcRenderer.on('updater:error', handler)
+    return () => ipcRenderer.removeListener('updater:error', handler)
+  },
   checkForUpdates: (): Promise<void> => ipcRenderer.invoke('updater:check'),
   installUpdate: (): Promise<void> => ipcRenderer.invoke('updater:install'),
 
@@ -311,9 +438,13 @@ const api = {
     ipcRenderer.invoke('registers:rename', id, newName),
   deleteRegister: (id: string): Promise<void> => ipcRenderer.invoke('registers:delete', id),
 
-  // Manager — Low Stock
-  getLowStockProducts: (threshold: number): Promise<LowStockProduct[]> =>
-    ipcRenderer.invoke('inventory:low-stock', threshold),
+  // Manager — Reorder
+  getReorderProducts: (query: ReorderQuery): Promise<ReorderProduct[]> =>
+    ipcRenderer.invoke('inventory:reorder-products', query),
+  getReorderDistributors: (): Promise<ReorderDistributorRow[]> =>
+    ipcRenderer.invoke('inventory:reorder-distributors'),
+  setProductDiscontinued: (id: number, discontinued: boolean): Promise<void> =>
+    ipcRenderer.invoke('inventory:set-discontinued', id, discontinued),
   getUnpricedProducts: (): Promise<InventoryProduct[]> =>
     ipcRenderer.invoke('inventory:unpriced-products'),
   findProductBySku: (sku: string): Promise<Product | null> =>
@@ -349,7 +480,9 @@ const api = {
 
   // Zoom
   getZoomFactor: (): Promise<number> => ipcRenderer.invoke('zoom:get'),
-  setZoomFactor: (factor: number): Promise<void> => ipcRenderer.invoke('zoom:set', factor)
+  setZoomFactor: (factor: number): Promise<void> => ipcRenderer.invoke('zoom:set', factor),
+
+  trackEvent: (event: TelemetryEventInput): Promise<void> => invoke('telemetry:track', event)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -1,25 +1,53 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { formatCurrency } from '@renderer/utils/currency'
+import { useDebounce } from '@renderer/hooks/useDebounce'
 import type {
+  Distributor,
+  Product,
   PurchaseOrder,
   PurchaseOrderDetail,
-  Distributor,
-  LowStockProduct
+  ReorderProduct
 } from '../../../../../shared/types'
 import './purchase-order-panel.css'
 
 type View = 'list' | 'create' | 'detail'
 
+type CreateItemRow = {
+  product_id: number
+  sku: string
+  name: string
+  size: string | null
+  unit_cost: number
+  quantity_cases: number
+  bottles_per_case: number
+}
+
+function normalizePositiveInt(value: unknown, fallback: number): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+  return Math.floor(parsed)
+}
+
+function normalizeNonNegativeNumber(value: unknown): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0) return 0
+  return parsed
+}
+
 type PurchaseOrderPanelProps = {
-  prefillItems: LowStockProduct[] | null
+  prefillItems: ReorderProduct[] | null
+  prefillDistributor: number | null
+  prefillUnitThreshold?: number
   onPrefillConsumed: () => void
 }
 
 export function PurchaseOrderPanel({
   prefillItems,
+  prefillDistributor,
+  prefillUnitThreshold = 10,
   onPrefillConsumed
 }: PurchaseOrderPanelProps): React.JSX.Element {
   const api = typeof window !== 'undefined' ? window.api : undefined
@@ -31,27 +59,20 @@ export function PurchaseOrderPanel({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  // Detail view state
   const [activeDetail, setActiveDetail] = useState<PurchaseOrderDetail | null>(null)
 
-  // Create view state
   const [distributors, setDistributors] = useState<Distributor[]>([])
   const [selectedDistributor, setSelectedDistributor] = useState<number | null>(null)
   const [createNotes, setCreateNotes] = useState('')
-  const [createItems, setCreateItems] = useState<
-    Array<{
-      product_id: number
-      sku: string
-      name: string
-      cost: number
-      quantity_ordered: number
-    }>
-  >([])
+  const [createItems, setCreateItems] = useState<CreateItemRow[]>([])
 
-  // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<PurchaseOrder | null>(null)
 
-  // ── Load orders ──
+  const [itemSearchQuery, setItemSearchQuery] = useState('')
+  const [itemSearchResults, setItemSearchResults] = useState<Product[]>([])
+  const [itemSearchOpen, setItemSearchOpen] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const debouncedSearch = useDebounce(itemSearchQuery, 300)
 
   const loadOrders = useCallback(async () => {
     if (!api) return
@@ -71,37 +92,46 @@ export function PurchaseOrderPanel({
     void loadOrders()
   }, [loadOrders])
 
-  // ── Handle prefill from ReorderDashboard ──
-
   useEffect(() => {
     if (!prefillItems || prefillItems.length === 0 || !api) return
 
-    // Load distributors, then set up create form
     void (async () => {
       try {
         const dists = await api.getDistributors()
         setDistributors(dists)
 
-        // Group items by distributor — use the first distributor found, or none
-        const items = prefillItems.map((p) => ({
-          product_id: p.id,
-          sku: p.sku,
-          name: p.name,
-          cost: 0, // Will be fetched when creating
-          quantity_ordered: Math.max(1, (p.reorder_point || 10) - p.in_stock)
-        }))
+        const items: CreateItemRow[] = prefillItems.map((item) => {
+          const bottlesPerCase = normalizePositiveInt(item.bottles_per_case, 12)
+          const unitCost = normalizeNonNegativeNumber(item.cost)
+          const targetUnits = Math.max(item.reorder_point || 0, prefillUnitThreshold)
+          const unitsToOrder = Math.max(1, Math.ceil(targetUnits - item.projected_stock))
+          return {
+            product_id: item.id,
+            sku: item.sku,
+            name: item.name,
+            size: null,
+            unit_cost: unitCost,
+            quantity_cases: Math.max(1, Math.ceil(unitsToOrder / bottlesPerCase)),
+            bottles_per_case: bottlesPerCase
+          }
+        })
+
+        const firstItemDistributor = prefillItems.find(
+          (item) => item.distributor_number != null
+        )?.distributor_number
+
         setCreateItems(items)
         setCreateNotes('')
-        setSelectedDistributor(null)
+        setSelectedDistributor(prefillDistributor ?? firstItemDistributor ?? null)
         setView('create')
+        setError(null)
       } catch {
-        // ignore
+        // ignore prefill load failures
       }
     })()
-    onPrefillConsumed()
-  }, [prefillItems, api, onPrefillConsumed])
 
-  // ── View order detail ──
+    onPrefillConsumed()
+  }, [prefillItems, prefillDistributor, prefillUnitThreshold, api, onPrefillConsumed])
 
   const openDetail = useCallback(
     async (poId: number) => {
@@ -121,8 +151,6 @@ export function PurchaseOrderPanel({
     [api]
   )
 
-  // ── Create order ──
-
   const startCreate = useCallback(async () => {
     if (!api) return
     try {
@@ -132,43 +160,106 @@ export function PurchaseOrderPanel({
       setCreateNotes('')
       setCreateItems([])
       setView('create')
+      setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load distributors')
     }
   }, [api])
 
-  const handleAddBlankItem = useCallback(() => {
-    setCreateItems((prev) => [
-      ...prev,
-      { product_id: 0, sku: '', name: 'New item', cost: 0, quantity_ordered: 1 }
-    ])
+  const handleSelectSearchResult = useCallback((product: Product) => {
+    setCreateItems((prev) => {
+      const already = prev.find((row) => row.product_id === product.id)
+      if (already) return prev
+      return [
+        ...prev,
+        {
+          product_id: product.id,
+          sku: product.sku,
+          name: product.name,
+          size: product.size ?? null,
+          unit_cost: 0,
+          quantity_cases: 1,
+          bottles_per_case: normalizePositiveInt(product.bottles_per_case, 12)
+        }
+      ]
+    })
+    setItemSearchQuery('')
+    setItemSearchResults([])
+    setItemSearchOpen(false)
   }, [])
 
-  const handleCreateItemQtyChange = useCallback((index: number, qty: number) => {
+  useEffect(() => {
+    if (!api || !debouncedSearch.trim() || !selectedDistributor) {
+      setItemSearchResults([])
+      setItemSearchOpen(false)
+      return
+    }
+    void (async () => {
+      try {
+        const results = await api.searchProducts(debouncedSearch, {
+          distributorNumber: selectedDistributor
+        })
+        setItemSearchResults(results.slice(0, 20))
+        setItemSearchOpen(results.length > 0)
+      } catch {
+        // ignore search errors
+      }
+    })()
+  }, [api, debouncedSearch, selectedDistributor])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent): void => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setItemSearchOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleCreateItemCasesChange = useCallback((index: number, value: number) => {
     setCreateItems((prev) =>
-      prev.map((it, i) => (i === index ? { ...it, quantity_ordered: qty } : it))
+      prev.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, quantity_cases: Math.max(1, value) } : item
+      )
+    )
+  }, [])
+
+  const handleCreateItemCostChange = useCallback((index: number, value: number) => {
+    setCreateItems((prev) =>
+      prev.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, unit_cost: Math.max(0, value) } : item
+      )
     )
   }, [])
 
   const handleRemoveCreateItem = useCallback((index: number) => {
-    setCreateItems((prev) => prev.filter((_, i) => i !== index))
+    setCreateItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
   }, [])
 
   const submitCreate = useCallback(async () => {
     if (!api || !selectedDistributor) return
-    const validItems = createItems.filter((it) => it.product_id > 0 && it.quantity_ordered > 0)
+
+    const validItems = createItems
+      .filter((item) => item.product_id > 0 && item.quantity_cases > 0)
+      .map((item) => ({
+        product_id: item.product_id,
+        quantity_ordered:
+          normalizePositiveInt(item.quantity_cases, 1) *
+          normalizePositiveInt(item.bottles_per_case, 12),
+        unit_cost: normalizeNonNegativeNumber(item.unit_cost)
+      }))
+
     if (validItems.length === 0) {
       setError('Add at least one item with a valid product')
       return
     }
+
     try {
       setError(null)
       const detail = await api.createPurchaseOrder({
         distributor_number: selectedDistributor,
-        items: validItems.map((it) => ({
-          product_id: it.product_id,
-          quantity_ordered: it.quantity_ordered
-        })),
+        items: validItems,
         notes: createNotes || undefined
       })
       setActiveDetail(detail)
@@ -179,8 +270,6 @@ export function PurchaseOrderPanel({
       setError(err instanceof Error ? err.message : 'Failed to create purchase order')
     }
   }, [api, selectedDistributor, createItems, createNotes, loadOrders])
-
-  // ── Status transitions ──
 
   const handleSubmitOrder = useCallback(async () => {
     if (!api || !activeDetail) return
@@ -208,8 +297,6 @@ export function PurchaseOrderPanel({
     }
   }, [api, activeDetail, loadOrders, openDetail])
 
-  // ── Receive items ──
-
   const handleReceiveItem = useCallback(
     async (itemId: number, qtyReceived: number) => {
       if (!api || !activeDetail) return
@@ -224,8 +311,6 @@ export function PurchaseOrderPanel({
     },
     [api, activeDetail, openDetail, loadOrders]
   )
-
-  // ── Delete ──
 
   const confirmDelete = useCallback(async () => {
     if (!api || !deleteTarget) return
@@ -244,8 +329,6 @@ export function PurchaseOrderPanel({
     }
   }, [api, deleteTarget, view, loadOrders])
 
-  // ── Back to list ──
-
   const goBack = useCallback(() => {
     setView('list')
     setActiveDetail(null)
@@ -253,12 +336,9 @@ export function PurchaseOrderPanel({
     setSuccess(null)
   }, [])
 
-  // ── Filter ──
-
   const filteredOrders =
-    filterStatus === 'all' ? orders : orders.filter((o) => o.status === filterStatus)
-
-  // ── Render: List View ──
+    filterStatus === 'all' ? orders : orders.filter((order) => order.status === filterStatus)
+  const distributorLocked = prefillDistributor != null && createItems.length > 0
 
   if (view === 'list') {
     return (
@@ -270,7 +350,7 @@ export function PurchaseOrderPanel({
             <select
               className="po-panel__filter-select"
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(event) => setFilterStatus(event.target.value)}
             >
               <option value="all">All Statuses</option>
               <option value="draft">Draft</option>
@@ -284,8 +364,8 @@ export function PurchaseOrderPanel({
           </AppButton>
         </div>
 
-        {error && <p className="po-panel__msg--error">{error}</p>}
-        {success && <p className="po-panel__msg--success">{success}</p>}
+        {error ? <p className="po-panel__msg--error">{error}</p> : null}
+        {success ? <p className="po-panel__msg--success">{success}</p> : null}
 
         <div className="po-panel__list-wrap">
           {loading ? (
@@ -306,35 +386,35 @@ export function PurchaseOrderPanel({
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.map((po) => (
+                {filteredOrders.map((order) => (
                   <tr
-                    key={po.id}
+                    key={order.id}
                     className="po-panel__row--clickable"
-                    onClick={() => void openDetail(po.id)}
+                    onClick={() => void openDetail(order.id)}
                   >
-                    <td style={{ fontFamily: 'monospace' }}>{po.po_number}</td>
-                    <td>{po.distributor_name}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{order.po_number}</td>
+                    <td>{order.distributor_name}</td>
                     <td>
-                      <span className={cn('po-panel__badge', `po-panel__badge--${po.status}`)}>
-                        {po.status}
+                      <span className={cn('po-panel__badge', `po-panel__badge--${order.status}`)}>
+                        {order.status}
                       </span>
                     </td>
-                    <td>{po.item_count}</td>
-                    <td>{formatCurrency(po.total)}</td>
-                    <td>{new Date(po.created_at).toLocaleDateString()}</td>
+                    <td>{order.item_count}</td>
+                    <td>{formatCurrency(order.total)}</td>
+                    <td>{new Date(order.created_at).toLocaleDateString()}</td>
                     <td>
-                      {(po.status === 'draft' || po.status === 'cancelled') && (
+                      {order.status === 'draft' || order.status === 'cancelled' ? (
                         <AppButton
                           size="sm"
                           variant="danger"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setDeleteTarget(po)
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setDeleteTarget(order)
                           }}
                         >
                           Delete
                         </AppButton>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -356,10 +436,13 @@ export function PurchaseOrderPanel({
     )
   }
 
-  // ── Render: Create View ──
-
   if (view === 'create') {
-    const createTotal = createItems.reduce((sum, it) => sum + it.cost * it.quantity_ordered, 0)
+    const createTotal = createItems.reduce((sum, item) => {
+      const unitCost = normalizeNonNegativeNumber(item.unit_cost)
+      const cases = normalizePositiveInt(item.quantity_cases, 1)
+      const bottlesPerCase = normalizePositiveInt(item.bottles_per_case, 12)
+      return sum + unitCost * cases * bottlesPerCase
+    }, 0)
 
     return (
       <div className="po-panel__create">
@@ -370,7 +453,7 @@ export function PurchaseOrderPanel({
           <span className="po-panel__header-title">New Purchase Order</span>
         </div>
 
-        {error && <p className="po-panel__msg--error">{error}</p>}
+        {error ? <p className="po-panel__msg--error">{error}</p> : null}
 
         <div className="po-panel__create-form">
           <div className="po-panel__create-row">
@@ -379,17 +462,23 @@ export function PurchaseOrderPanel({
               <select
                 className="po-panel__create-select"
                 value={selectedDistributor ?? ''}
-                onChange={(e) => setSelectedDistributor(Number(e.target.value) || null)}
+                onChange={(event) => setSelectedDistributor(Number(event.target.value) || null)}
+                disabled={distributorLocked}
               >
                 <option value="">Select distributor...</option>
                 {distributors
-                  .filter((d) => d.is_active)
-                  .map((d) => (
-                    <option key={d.distributor_number} value={d.distributor_number}>
-                      {d.distributor_name}
+                  .filter((dist) => dist.is_active)
+                  .map((dist) => (
+                    <option key={dist.distributor_number} value={dist.distributor_number}>
+                      {dist.distributor_name}
                     </option>
                   ))}
               </select>
+              {distributorLocked ? (
+                <span className="po-panel__create-field-note">
+                  Distributor is locked to match the reorder selection.
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -398,7 +487,7 @@ export function PurchaseOrderPanel({
             <textarea
               className="po-panel__create-textarea"
               value={createNotes}
-              onChange={(e) => setCreateNotes(e.target.value)}
+              onChange={(event) => setCreateNotes(event.target.value)}
               placeholder="Add notes..."
             />
           </div>
@@ -406,40 +495,115 @@ export function PurchaseOrderPanel({
 
         <span className="po-panel__create-items-title">Items ({createItems.length})</span>
 
+        <div className="po-panel__create-item-search" ref={searchRef}>
+          <input
+            type="text"
+            className="po-panel__create-item-search-input"
+            placeholder={
+              selectedDistributor
+                ? 'Search products for this distributor...'
+                : 'Select a distributor first'
+            }
+            disabled={!selectedDistributor}
+            value={itemSearchQuery}
+            aria-label="Search products to add"
+            onChange={(event) => {
+              setItemSearchQuery(event.target.value)
+              if (!event.target.value.trim()) {
+                setItemSearchOpen(false)
+                setItemSearchResults([])
+              }
+            }}
+            onFocus={() => {
+              if (itemSearchResults.length > 0) setItemSearchOpen(true)
+            }}
+          />
+          {itemSearchOpen && itemSearchResults.length > 0 ? (
+            <ul className="po-panel__create-item-search-dropdown" role="listbox">
+              {itemSearchResults.map((product) => (
+                <li
+                  key={product.id}
+                  className="po-panel__create-item-search-option"
+                  role="option"
+                  aria-selected={false}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    handleSelectSearchResult(product)
+                  }}
+                >
+                  <span className="po-panel__create-item-search-name">
+                    {product.name}
+                    {product.size ? (
+                      <span className="po-panel__create-item-search-size"> {product.size}</span>
+                    ) : null}
+                  </span>
+                  <span className="po-panel__create-item-search-meta">
+                    {product.sku} &middot; {formatCurrency(product.price)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+
+        <div className="po-panel__create-items-header" aria-hidden>
+          <span>SKU</span>
+          <span>Product</span>
+          <span>Size</span>
+          <span>Unit Cost</span>
+          <span>Cases</span>
+          <span>Items</span>
+          <span>Line Total</span>
+          <span />
+        </div>
+
         <div className="po-panel__create-items-wrap">
-          {createItems.map((item, idx) => (
-            <div key={idx} className="po-panel__create-item-row">
-              <span className="po-panel__create-item-sku">{item.sku || '--'}</span>
-              <span className="po-panel__create-item-name">{item.name}</span>
-              <span className="po-panel__create-item-cost">{formatCurrency(item.cost)}</span>
-              <input
-                type="number"
-                className="po-panel__create-item-qty"
-                min={1}
-                value={item.quantity_ordered}
-                onChange={(e) =>
-                  handleCreateItemQtyChange(idx, Math.max(1, Number(e.target.value)))
-                }
-              />
-              <span className="po-panel__create-item-total">
-                {formatCurrency(item.cost * item.quantity_ordered)}
-              </span>
-              <AppButton size="sm" variant="danger" onClick={() => handleRemoveCreateItem(idx)}>
-                X
-              </AppButton>
-            </div>
-          ))}
-          {createItems.length === 0 && (
+          {createItems.map((item, index) => {
+            const unitCount = item.quantity_cases * Math.max(1, item.bottles_per_case)
+            return (
+              <div key={`${item.product_id}-${index}`} className="po-panel__create-item-row">
+                <span className="po-panel__create-item-sku">{item.sku || '--'}</span>
+                <span className="po-panel__create-item-name">{item.name}</span>
+                <span className="po-panel__create-item-size">{item.size || '--'}</span>
+                <input
+                  type="number"
+                  className="po-panel__create-item-cost-input"
+                  min={0}
+                  step="0.01"
+                  value={item.unit_cost}
+                  aria-label={`Unit cost for ${item.name}`}
+                  onChange={(event) =>
+                    handleCreateItemCostChange(index, Number(event.target.value) || 0)
+                  }
+                />
+                <input
+                  type="number"
+                  className="po-panel__create-item-cases"
+                  min={1}
+                  value={item.quantity_cases}
+                  aria-label={`Cases for ${item.name}`}
+                  onChange={(event) =>
+                    handleCreateItemCasesChange(index, Number(event.target.value) || 1)
+                  }
+                />
+                <span className="po-panel__create-item-units">{unitCount}</span>
+                <span className="po-panel__create-item-total">
+                  {formatCurrency(item.unit_cost * unitCount)}
+                </span>
+                <AppButton size="sm" variant="danger" onClick={() => handleRemoveCreateItem(index)}>
+                  X
+                </AppButton>
+              </div>
+            )
+          })}
+          {createItems.length === 0 ? (
             <p className="po-panel__empty">
               No items added. Items will be populated from product data.
             </p>
-          )}
+          ) : null}
         </div>
 
         <div className="po-panel__create-summary">
-          <AppButton size="sm" variant="neutral" onClick={handleAddBlankItem}>
-            + Add Item
-          </AppButton>
           <span className="po-panel__create-total">Total: {formatCurrency(createTotal)}</span>
         </div>
 
@@ -460,8 +624,6 @@ export function PurchaseOrderPanel({
     )
   }
 
-  // ── Render: Detail View ──
-
   if (!activeDetail) return <div className="po-panel__empty">Order not found.</div>
 
   return (
@@ -472,18 +634,15 @@ export function PurchaseOrderPanel({
         </AppButton>
         <div className="po-panel__detail-info">
           <span className="po-panel__detail-po-number">{activeDetail.po_number}</span>
-          <span className="po-panel__detail-distributor">
-            {' '}
-            &mdash; {activeDetail.distributor_name}
-          </span>
+          <span className="po-panel__detail-distributor"> - {activeDetail.distributor_name}</span>
         </div>
         <span className={cn('po-panel__badge', `po-panel__badge--${activeDetail.status}`)}>
           {activeDetail.status}
         </span>
       </div>
 
-      {error && <p className="po-panel__msg--error">{error}</p>}
-      {success && <p className="po-panel__msg--success">{success}</p>}
+      {error ? <p className="po-panel__msg--error">{error}</p> : null}
+      {success ? <p className="po-panel__msg--success">{success}</p> : null}
 
       <div className="po-panel__detail-meta">
         <div className="po-panel__detail-meta-item">
@@ -500,14 +659,14 @@ export function PurchaseOrderPanel({
           <span className="po-panel__detail-meta-label">Total</span>
           <span className="po-panel__detail-meta-value">{formatCurrency(activeDetail.total)}</span>
         </div>
-        {activeDetail.received_at && (
+        {activeDetail.received_at ? (
           <div className="po-panel__detail-meta-item">
             <span className="po-panel__detail-meta-label">Received</span>
             <span className="po-panel__detail-meta-value">
               {new Date(activeDetail.received_at).toLocaleDateString()}
             </span>
           </div>
-        )}
+        ) : null}
       </div>
 
       {activeDetail.notes ? (
@@ -528,7 +687,7 @@ export function PurchaseOrderPanel({
                 <th>Received</th>
               ) : null}
               <th>Line Total</th>
-              {activeDetail.status === 'draft' && <th />}
+              {activeDetail.status === 'draft' ? <th /> : null}
             </tr>
           </thead>
           <tbody>
@@ -546,17 +705,19 @@ export function PurchaseOrderPanel({
                       min={0}
                       max={item.quantity_ordered}
                       defaultValue={item.quantity_received}
-                      onBlur={(e) => {
-                        const val = Math.min(
+                      onBlur={(event) => {
+                        const value = Math.min(
                           item.quantity_ordered,
-                          Math.max(0, Number(e.target.value))
+                          Math.max(0, Number(event.target.value))
                         )
-                        if (val !== item.quantity_received) {
-                          void handleReceiveItem(item.id, val)
+                        if (value !== item.quantity_received) {
+                          void handleReceiveItem(item.id, value)
                         }
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          ;(event.target as HTMLInputElement).blur()
+                        }
                       }}
                     />
                     <span
@@ -575,7 +736,7 @@ export function PurchaseOrderPanel({
                   </td>
                 ) : null}
                 <td>{formatCurrency(item.line_total)}</td>
-                {activeDetail.status === 'draft' && (
+                {activeDetail.status === 'draft' ? (
                   <td>
                     <AppButton
                       size="sm"
@@ -591,7 +752,7 @@ export function PurchaseOrderPanel({
                       Remove
                     </AppButton>
                   </td>
-                )}
+                ) : null}
               </tr>
             ))}
           </tbody>
@@ -603,7 +764,7 @@ export function PurchaseOrderPanel({
           Back to List
         </AppButton>
 
-        {activeDetail.status === 'draft' && (
+        {activeDetail.status === 'draft' ? (
           <>
             <AppButton variant="success" onClick={handleSubmitOrder}>
               Submit Order
@@ -612,13 +773,13 @@ export function PurchaseOrderPanel({
               Delete
             </AppButton>
           </>
-        )}
+        ) : null}
 
-        {activeDetail.status === 'submitted' && (
+        {activeDetail.status === 'submitted' ? (
           <AppButton variant="warning" onClick={handleCancelOrder}>
             Cancel Order
           </AppButton>
-        )}
+        ) : null}
 
         <span className="po-panel__detail-total">Total: {formatCurrency(activeDetail.total)}</span>
       </div>

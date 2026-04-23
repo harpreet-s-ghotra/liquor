@@ -66,7 +66,8 @@ describe('InventoryModal', () => {
     render(<InventoryModal isOpen onClose={vi.fn()} />)
 
     expect(screen.getByRole('dialog', { name: 'Inventory Management' })).toBeInTheDocument()
-    expect(screen.getByText('Inventory Maintenance')).toBeInTheDocument()
+    // AppModalHeader renders "Inventory" as the breadcrumb label
+    expect(screen.getByText('Inventory', { selector: '.app-modal-header__label' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Items' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Item Types' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Tax Codes' })).toBeInTheDocument()
@@ -116,7 +117,7 @@ describe('InventoryModal', () => {
     const onClose = vi.fn()
     render(<InventoryModal isOpen onClose={onClose} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Close' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Close/ }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

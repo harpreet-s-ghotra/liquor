@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
+import { scoped } from './logger'
 import {
   getPendingItems,
   markInFlight,
@@ -39,12 +40,14 @@ import type {
 
 // ── Configuration ──
 
-const DRAIN_INTERVAL_MS = 5_000
+const DRAIN_INTERVAL_MS = 1_000
 const RETRY_INTERVAL_MS = 60_000
 const BACKOFF_BASE_MS = 1_000
-const MAX_BATCH_SIZE = 20
+const MAX_BATCH_SIZE = 100
 
 // ── State ──
+
+const log = scoped('sync-worker')
 
 let merchantId: string | null = null
 let deviceId: string | null = null
@@ -130,7 +133,7 @@ export function getLastSyncedAt(): string | null {
 function drainIfOnline(): void {
   if (!isOnline() || draining || !running) return
   drainQueue().catch((err) => {
-    console.error('[sync-worker] drain error:', err)
+    log.error('drain error', err instanceof Error ? err.message : err)
   })
 }
 
@@ -138,9 +141,15 @@ async function drainQueue(): Promise<void> {
   if (!supabase || !merchantId || !deviceId) return
   draining = true
 
+  const startedAt = Date.now()
+  let processed = 0
+  let failed = 0
+
   try {
     const items = getPendingItems(MAX_BATCH_SIZE)
     if (items.length === 0) return
+
+    log.info(`drain start pending_in_batch=${items.length}`)
 
     const ids = items.map((i) => i.id)
     markInFlight(ids)
@@ -149,10 +158,15 @@ async function drainQueue(): Promise<void> {
       try {
         await processItem(item.id, item.entity_type, item.payload)
         markDone([item.id])
+        processed++
         lastSyncedAt = new Date().toISOString()
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error'
         markFailed(item.id, message)
+        failed++
+        log.warn(
+          `item failed entity_type=${item.entity_type} entity_id=${item.entity_id} attempts=${item.attempts + 1} error=${message}`
+        )
 
         // Exponential backoff: if item has been retried, slow down
         if (item.attempts > 0) {
@@ -163,6 +177,11 @@ async function drainQueue(): Promise<void> {
     }
   } finally {
     draining = false
+    if (processed > 0 || failed > 0) {
+      log.info(
+        `drain end processed=${processed} failed=${failed} duration_ms=${Date.now() - startedAt}`
+      )
+    }
   }
 }
 
@@ -217,7 +236,7 @@ async function processItem(_id: number, entityType: string, payloadJson: string)
       break
     }
     default:
-      console.warn(`[sync-worker] unknown entity type: ${entityType}`)
+      log.warn(`unknown entity type: ${entityType}`)
   }
 }
 
@@ -238,7 +257,7 @@ function subscribeToRealtime(): void {
       },
       (payload) => {
         handleRemoteTransaction(payload.new).catch((err) => {
-          console.error('[sync-worker] remote transaction error:', err)
+          log.error('remote transaction error:', err instanceof Error ? err.message : err)
         })
       }
     )
@@ -253,7 +272,7 @@ function subscribeToRealtime(): void {
       (payload) => {
         if (!payload.new) return
         handleRemoteProduct(payload.new).catch((err) => {
-          console.error('[sync-worker] remote product error:', err)
+          log.error('remote product error:', err instanceof Error ? err.message : err)
         })
       }
     )
@@ -268,7 +287,7 @@ function subscribeToRealtime(): void {
       (payload) => {
         if (!payload.new) return
         applyRemoteDepartmentChange(supabase!, merchantId!, payload.new).catch((err) => {
-          console.error('[sync-worker] remote department error:', err)
+          log.error('remote department error:', err instanceof Error ? err.message : err)
         })
       }
     )
@@ -283,7 +302,7 @@ function subscribeToRealtime(): void {
       (payload) => {
         if (!payload.new) return
         applyRemoteSettingsChange(supabase!, merchantId!, payload.new).catch((err) => {
-          console.error('[sync-worker] remote settings error:', err)
+          log.error('remote settings error:', err instanceof Error ? err.message : err)
         })
       }
     )
@@ -298,7 +317,7 @@ function subscribeToRealtime(): void {
       (payload) => {
         if (!payload.new) return
         applyRemoteItemTypeChange(supabase!, merchantId!, payload.new).catch((err) => {
-          console.error('[sync-worker] remote item type error:', err)
+          log.error('remote item type error:', err instanceof Error ? err.message : err)
         })
       }
     )
@@ -313,7 +332,7 @@ function subscribeToRealtime(): void {
       (payload) => {
         if (!payload.new) return
         applyRemoteTaxCodeChange(supabase!, merchantId!, payload.new).catch((err) => {
-          console.error('[sync-worker] remote tax code error:', err)
+          log.error('remote tax code error:', err instanceof Error ? err.message : err)
         })
       }
     )
@@ -328,7 +347,7 @@ function subscribeToRealtime(): void {
       (payload) => {
         if (!payload.new) return
         applyRemoteDistributorChange(supabase!, merchantId!, payload.new).catch((err) => {
-          console.error('[sync-worker] remote distributor error:', err)
+          log.error('remote distributor error:', err instanceof Error ? err.message : err)
         })
       }
     )
@@ -343,7 +362,7 @@ function subscribeToRealtime(): void {
       (payload) => {
         if (!payload.new) return
         applyRemoteCashierChange(supabase!, merchantId!, payload.new).catch((err) => {
-          console.error('[sync-worker] remote cashier error:', err)
+          log.error('remote cashier error:', err instanceof Error ? err.message : err)
         })
       }
     )

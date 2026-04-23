@@ -31,7 +31,9 @@ export {
   deleteInventoryItem,
   getActiveSpecialPricing,
   applyTaxToAllProducts,
-  getLowStockProducts,
+  getReorderProducts,
+  getDistributorsWithReorderable,
+  setProductDiscontinued,
   getUnpricedInventoryProducts,
   findProductBySku,
   toggleFavorite,
@@ -68,7 +70,8 @@ export {
   getTransactionByNumber,
   saveRefundTransaction,
   listTransactions,
-  backfillTransactionDeviceId
+  backfillTransactionDeviceId,
+  getLocalTransactionHistoryStats
 } from './transactions.repo'
 
 // Held transactions

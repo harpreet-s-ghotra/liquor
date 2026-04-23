@@ -96,9 +96,7 @@ const attachRefundMock = async (page: Page): Promise<void> => {
         }
       ],
       has_refund: false,
-      payments: [
-        { method: 'cash', amount: 36.16 }
-      ]
+      payments: [{ method: 'cash', amount: 36.16 }]
     }
 
     const pastCardTransaction = {
@@ -129,9 +127,7 @@ const attachRefundMock = async (page: Page): Promise<void> => {
         }
       ],
       has_refund: false,
-      payments: [
-        { method: 'credit', amount: 21.59, card_last_four: '4242', card_type: 'visa' }
-      ]
+      payments: [{ method: 'credit', amount: 21.59, card_last_four: '4242', card_type: 'visa' }]
     }
 
     let refundSaved = false

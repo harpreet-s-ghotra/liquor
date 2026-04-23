@@ -210,7 +210,8 @@ describe('ItemForm', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Add Rule' }))
     fireEvent.change(screen.getByLabelText('Rule 1 Quantity'), { target: { value: '2' } })
     fireEvent.change(screen.getByLabelText('Rule 1 Price'), { target: { value: '1099' } })
-    fireEvent.change(screen.getByLabelText('Rule 1 Duration'), { target: { value: '20' } })
+
+    expect(screen.queryByLabelText('Rule 1 Duration')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
 
@@ -221,7 +222,7 @@ describe('ItemForm', () => {
       expect.objectContaining({
         cost: 8.5,
         retail_price: 12.75,
-        special_pricing: [{ quantity: 2, price: 10.99, duration_days: 20 }]
+        special_pricing: [{ quantity: 2, price: 10.99 }]
       })
     )
     expect(await screen.findByText('Item saved')).toBeInTheDocument()
@@ -774,5 +775,80 @@ describe('ItemForm', () => {
     // Manual price edit clears it
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1500' } })
     expect(screen.queryByText('auto')).not.toBeInTheDocument()
+  })
+
+  describe('resizable split', () => {
+    const HANDLE_SELECTOR = '[data-testid="item-form-resize-handle"]'
+
+    beforeEach(() => {
+      window.localStorage.clear()
+    })
+
+    afterEach(() => {
+      window.localStorage.clear()
+    })
+
+    const getSection = (): HTMLElement =>
+      document.querySelector('.item-form__section') as HTMLElement
+
+    it('renders a resize handle between general info and inner tabs', () => {
+      render(<ItemForm />)
+      const handle = document.querySelector(HANDLE_SELECTOR) as HTMLElement
+      expect(handle).not.toBeNull()
+      expect(handle).toHaveAttribute('role', 'separator')
+      expect(handle).toHaveAttribute('aria-orientation', 'horizontal')
+    })
+
+    it('uses default height on first render when no override is stored', () => {
+      render(<ItemForm />)
+      const section = getSection()
+      expect(section.style.height).toBe('260px')
+    })
+
+    it('restores persisted height from localStorage', () => {
+      window.localStorage.setItem('inventory-form-top-height', '340')
+      render(<ItemForm />)
+      const section = getSection()
+      expect(section.style.height).toBe('340px')
+    })
+
+    it('falls back to default when stored value is below minimum', () => {
+      window.localStorage.setItem('inventory-form-top-height', '5')
+      render(<ItemForm />)
+      const section = getSection()
+      expect(section.style.height).toBe('260px')
+    })
+
+    it('increases the top height on ArrowDown and persists it', () => {
+      render(<ItemForm />)
+      const handle = document.querySelector(HANDLE_SELECTOR) as HTMLElement
+      handle.focus()
+      fireEvent.keyDown(handle, { key: 'ArrowDown' })
+      const section = getSection()
+      expect(section.style.height).toBe('280px')
+      expect(window.localStorage.getItem('inventory-form-top-height')).toBe('280')
+    })
+
+    it('decreases the top height on ArrowUp and clamps at minimum', () => {
+      window.localStorage.setItem('inventory-form-top-height', '90')
+      render(<ItemForm />)
+      const handle = document.querySelector(HANDLE_SELECTOR) as HTMLElement
+      handle.focus()
+      fireEvent.keyDown(handle, { key: 'ArrowUp' })
+      fireEvent.keyDown(handle, { key: 'ArrowUp' })
+      const section = getSection()
+      expect(section.style.height).toBe('80px')
+      expect(window.localStorage.getItem('inventory-form-top-height')).toBe('80')
+    })
+
+    it('resets to the default on handle double-click', () => {
+      window.localStorage.setItem('inventory-form-top-height', '400')
+      render(<ItemForm />)
+      const handle = document.querySelector(HANDLE_SELECTOR) as HTMLElement
+      fireEvent.doubleClick(handle)
+      const section = getSection()
+      expect(section.style.height).toBe('260px')
+      expect(window.localStorage.getItem('inventory-form-top-height')).toBeNull()
+    })
   })
 })

@@ -38,7 +38,8 @@ function createProduct(cost = 10, inStock = 0): number {
     alcohol_pct: null,
     vintage: '',
     ttb_id: '',
-    display_name: ''
+    display_name: '',
+    is_discontinued: false
   })
 
   return product.item_number

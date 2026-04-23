@@ -6,6 +6,8 @@ import {
   DialogTitle
 } from '@renderer/components/ui/dialog'
 import { AppButton } from '@renderer/components/common/AppButton'
+import { AppModalHeader } from '@renderer/components/common/AppModalHeader'
+import { ImportIcon } from '@renderer/components/common/modal-icons'
 import { useDebounce } from '@renderer/hooks/useDebounce'
 import { stripIpcPrefix } from '@renderer/utils/ipc-error'
 import type { CatalogDistributor } from '@renderer/types/pos'
@@ -147,12 +149,16 @@ function ImportDistributorsContent({
 
   return (
     <>
-      <div className="import-distributors-dialog__header">
-        <DialogTitle className="import-distributors-dialog__title">Import Distributors</DialogTitle>
-        <DialogDescription className="import-distributors-dialog__description">
-          Select distributors to import their products into your inventory.
-        </DialogDescription>
-      </div>
+      <DialogTitle className="dialog__sr-only">Import Distributors dialog</DialogTitle>
+      <AppModalHeader
+        icon={<ImportIcon />}
+        label="Catalog"
+        title="Import Distributors"
+        onClose={onClose}
+      />
+      <DialogDescription className="import-distributors-dialog__description">
+        Select distributors to import their products into your inventory.
+      </DialogDescription>
 
       <div className="import-distributors-dialog__search-row">
         <input

@@ -3,9 +3,9 @@
 **Spec file:** `tests/e2e/manager-modal.spec.ts`
 **Suite:** `Manager Modal (F6)`
 
-Tests manager modal open/close behavior, tab navigation, and key admin workflows.
+Tests manager modal open/close behavior, manager-tab navigation, and distributor-scoped reorder views.
 
-**Mock data:** 2 cashiers, 2 registers, merchant info, and 2 low-stock products
+**Mock data:** 2 cashiers, 2 registers, merchant info, and 2 low-stock products split across 2 distributors
 
 ---
 
@@ -31,12 +31,12 @@ Tests manager modal open/close behavior, tab navigation, and key admin workflows
 
 ## 3. Navigates through all manager tabs
 
-| #   | Step                             | Assertion                    |
-| --- | -------------------------------- | ---------------------------- |
-| 1   | Open manager F6, click Registers | Front Counter is visible     |
-| 2   | Click Merchant Info              | Test Liquor Store is visible |
-| 3   | Click Reorder Dashboard          | Craft IPA 6-Pack is visible  |
-| 4   | --                               | Premium Vodka 1L is visible  |
+| #   | Step                             | Assertion                               |
+| --- | -------------------------------- | --------------------------------------- |
+| 1   | Open manager F6, click Registers | Front Counter is visible                |
+| 2   | Click Merchant Info              | Test Liquor Store is visible            |
+| 3   | Click Reorder Dashboard          | Distributor select defaults to value 10 |
+| 4   | --                               | Craft IPA 6-Pack is visible             |
 
 ---
 
@@ -59,16 +59,18 @@ Tests manager modal open/close behavior, tab navigation, and key admin workflows
 
 ---
 
-## 6. Displays reorder dashboard with low stock products
+## 6. Displays reorder dashboard with distributor-scoped products
 
-| #   | Step                                     | Assertion                   |
-| --- | ---------------------------------------- | --------------------------- |
-| 1   | Open manager F6, click Reorder Dashboard | Craft IPA 6-Pack is visible |
-| 2   | --                                       | Premium Vodka 1L is visible |
-| 3   | --                                       | Stock level 5 is visible    |
-| 4   | --                                       | Stock level 2 is visible    |
-| 5   | --                                       | North Breweries is visible  |
-| 6   | --                                       | Premium Imports is visible  |
+| #   | Step                                     | Assertion                                     |
+| --- | ---------------------------------------- | --------------------------------------------- |
+| 1   | Open manager F6, click Reorder Dashboard | Distributor select defaults to value 10       |
+| 2   | --                                       | Checked distributor option is North Breweries |
+| 3   | --                                       | Craft IPA 6-Pack row is visible               |
+| 4   | --                                       | Craft IPA first cell shows 5                  |
+| 5   | Switch distributor to 20                 | Checked distributor option is Premium Imports |
+| 6   | --                                       | Craft IPA 6-Pack row disappears               |
+| 7   | --                                       | Premium Vodka 1L row is visible               |
+| 8   | --                                       | Premium Vodka first cell shows 2              |
 
 ---
 

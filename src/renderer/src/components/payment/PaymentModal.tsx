@@ -3,6 +3,8 @@ import type { PaymentEntry, PaymentMethod, PaymentResult, PaymentStatus } from '
 import type { FinixCardInput } from '../../../../shared/types'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
+import { AppModalHeader } from '../common/AppModalHeader'
+import { PaymentIcon } from '../common/modal-icons'
 import './payment-modal.css'
 
 /** Preset test cards for sandbox testing (Finix sandbox accepts these). */
@@ -241,6 +243,19 @@ export function PaymentModal({
     [remaining, total, status, onStatusChange]
   )
 
+  // Close on ESC — only when not mid-card-processing to avoid cancelling an in-flight charge.
+  useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return
+      if (status === 'processing-card') return
+      e.preventDefault()
+      handleCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isOpen, status, handleCancel])
+
   // Auto-trigger payment when modal opens with an initialMethod
   const autoTriggeredRef = useRef(false)
   useEffect(() => {
@@ -280,19 +295,14 @@ export function PaymentModal({
   return (
     <div className="payment-modal__overlay" data-testid="payment-modal">
       <div className="payment-modal__dialog" role="dialog" aria-modal="true" aria-label="Payment">
-        {/* Header */}
-        <div className="payment-modal__header">
-          <h3 className="payment-modal__title">{isRefund ? 'Process Refund' : 'Payment'}</h3>
-          <Button
-            variant="danger"
-            size="sm"
-            className="payment-modal__cancel-btn"
-            onClick={handleCancel}
-            disabled={status === 'processing-card'}
-          >
-            Cancel
-          </Button>
-        </div>
+        <AppModalHeader
+          icon={<PaymentIcon />}
+          label="POS"
+          title={isRefund ? 'Process Refund' : 'Payment'}
+          onClose={handleCancel}
+          closeLabel="Cancel"
+          closeDisabled={status === 'processing-card'}
+        />
 
         {/* Transaction total */}
         <div

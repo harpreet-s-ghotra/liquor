@@ -101,6 +101,38 @@ We reject traditional drop shadows in favor of **Tonal Layering**.
 
 ## 6. Components
 
+### Modal Header (AppModalHeader)
+
+Every dialog in the app shares the same toolbar strip via `AppModalHeader` from `src/renderer/src/components/common/AppModalHeader.tsx`.
+
+- Strip: `#2d3133` (matches the F-key bar), full-bleed top edge, padding `1rem 1.5rem`
+- Icon tile: 36px square, `#1a3a5c` background, rounded 8px, 18px blue stroke icon (`#60a5fa`) from `modal-icons.tsx`
+- Breadcrumb: uppercase label (tracked 2px, `#94a3b8`) + slash separator + mixed-case title (`#e8ecf0`)
+- Close button: pill on right (`rgba(255,255,255,0.08)` + `rgba(255,255,255,0.12)` border), label defaults to `Close`, `aria-label` is `${label} ${title}` so tests can target it unambiguously
+- ESC closes every modal — Radix Dialog handles this by default; modals that use a non-Radix overlay (`PaymentModal`) wire their own `keydown` listener
+- Optional `actions` slot renders between breadcrumb and Close for per-modal extras (e.g. `Clear All` on the Hold Lookup)
+- Layout contract: the header is always the first child of `DialogContent`. A `:has()` rule in `app-modal-header.css` removes `dialog__content` padding and clips corners automatically so the strip hugs the modal edges.
+
+Icons are monochrome SVGs (18px, stroke `#60a5fa`, width 2.5, round caps). Every modal picks its own icon from `modal-icons.tsx` — do not reuse the Manager icon for another surface.
+
+### Modal Tabs (AppModalTabs)
+
+Modals that host tabbed content share the Manager pattern via the `.app-modal-tabs*` class set in `app-modal-header.css`:
+
+- `.app-modal-tabs` — flex column on the Radix `Tabs` root
+- `.app-modal-tabs__bar` — dark `#2d3133` strip wrapping the `TabsList`
+- `.app-modal-tabs__list` — full-width horizontal list with subtle bottom border
+- `.app-modal-tabs__trigger` — uppercase, 3px transparent bottom border; active state uses the `#60a5fa` underline (no button-look background or shadow)
+- `.app-modal-tabs__content` — scrolling body with `1rem 1.5rem` gutter
+
+Specificity is reinforced with descendant selectors (`.app-modal-tabs .tabs__list`) so the shared rules beat the base `ui/tabs.css` styles regardless of bundle import order. When adopting, add `app-modal-tabs` to the `<Tabs>` className and wrap `<TabsList>` in a `<div className="app-modal-tabs__bar">`.
+
+### Modal Body Guidelines
+
+- `DialogContent` for a modal hosting `AppModalHeader` must set `padding: 0; overflow: hidden`. The toolbar strip owns the top edge; the body owns everything below it.
+- Prefer `.app-modal__body` (flex: 1, `1rem 1.5rem` gutter, auto scroll) for a single-column scrolling body. Pair with `--grid` modifier when the body is a grid.
+- For modals with a filter / date bar between the header and the body, use `.app-modal__sub-bar` so every modal's sub-toolbar has the same `bg-surface` strip, border, and gutter.
+
 ### Header Bar
 
 Pure utility bar -- no product title.

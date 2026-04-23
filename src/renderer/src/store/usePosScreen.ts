@@ -15,6 +15,9 @@ import {
   buildSpecialPricingMap,
   type SpecialPricingMap
 } from '../utils/pricing-engine'
+import { scoped } from '../lib/logger'
+
+const log = scoped('pos-screen')
 
 const FAVORITES_CATEGORY = 'Favorites'
 const ALL_CATEGORY = 'All'
@@ -381,7 +384,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
 
     const api = typeof window !== 'undefined' ? window.api : undefined
     if (!api?.saveHeldTransaction) {
-      console.error('[holdTransaction] window.api.saveHeldTransaction is not available')
+      log.error('[holdTransaction] window.api.saveHeldTransaction is not available')
       return
     }
 
@@ -416,7 +419,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
       get().clearTransaction()
       await get().loadHeldTransactions()
     } catch (err) {
-      console.error('[holdTransaction] Failed:', err)
+      log.error('[holdTransaction] Failed:', err)
     }
   },
 
@@ -456,54 +459,52 @@ export const usePosStore = create<PosStore>((set, get) => ({
       const api = typeof window !== 'undefined' ? window.api : undefined
       api
         ?.deleteHeldTransaction(held.id)
-        .catch((err) => console.error('[recallHeldTransaction] Failed to delete held record:', err))
+        .catch((err) => log.error('[recallHeldTransaction] Failed to delete held record:', err))
       await get().loadHeldTransactions()
     } catch (err) {
-      console.error('[recallHeldTransaction] Failed:', err)
+      log.error('[recallHeldTransaction] Failed:', err)
     }
   },
 
   deleteOneHeldTransaction: async (held: HeldTransaction) => {
     const api = typeof window !== 'undefined' ? window.api : undefined
     if (!api?.deleteHeldTransaction) {
-      console.error('[deleteOneHeldTransaction] window.api.deleteHeldTransaction is not available')
+      log.error('[deleteOneHeldTransaction] window.api.deleteHeldTransaction is not available')
       return
     }
     try {
       await api.deleteHeldTransaction(held.id)
       await get().loadHeldTransactions()
     } catch (err) {
-      console.error('[deleteOneHeldTransaction] Failed:', err)
+      log.error('[deleteOneHeldTransaction] Failed:', err)
     }
   },
 
   clearAllHeldTransactions: async () => {
     const api = typeof window !== 'undefined' ? window.api : undefined
     if (!api?.clearAllHeldTransactions) {
-      console.error(
-        '[clearAllHeldTransactions] window.api.clearAllHeldTransactions is not available'
-      )
+      log.error('[clearAllHeldTransactions] window.api.clearAllHeldTransactions is not available')
       return
     }
     try {
       await api.clearAllHeldTransactions()
       set({ heldTransactions: [] })
     } catch (err) {
-      console.error('[clearAllHeldTransactions] Failed:', err)
+      log.error('[clearAllHeldTransactions] Failed:', err)
     }
   },
 
   loadHeldTransactions: async () => {
     const api = typeof window !== 'undefined' ? window.api : undefined
     if (!api?.getHeldTransactions) {
-      console.error('[loadHeldTransactions] window.api.getHeldTransactions is not available')
+      log.error('[loadHeldTransactions] window.api.getHeldTransactions is not available')
       return
     }
     try {
       const items = await api.getHeldTransactions()
       set({ heldTransactions: items })
     } catch (err) {
-      console.error('[loadHeldTransactions] Failed:', err)
+      log.error('[loadHeldTransactions] Failed:', err)
     }
   },
 
@@ -544,7 +545,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
       })
       return true
     } catch (err) {
-      console.error('[recallTransaction] Failed:', err)
+      log.error('[recallTransaction] Failed:', err)
       return false
     }
   },

@@ -143,7 +143,6 @@ export type ProductSyncPayload = {
   special_pricing: Array<{
     quantity: number
     price: number
-    duration_days: number
   }>
 }
 

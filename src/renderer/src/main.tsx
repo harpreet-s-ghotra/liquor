@@ -1,4 +1,5 @@
 import './assets/main.css'
+import './lib/logger'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

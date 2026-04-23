@@ -8,8 +8,8 @@
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   background: var(--bg-panel);
   padding: 0;
-  width: min(1152px, 100%);
-  height: min(96vh, 920px);
+  width: min(1400px, 98vw);
+  height: min(96vh, 940px);
   overflow: hidden;
 }
 

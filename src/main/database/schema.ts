@@ -292,7 +292,6 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       product_id INTEGER NOT NULL,
       quantity INTEGER NOT NULL,
       price REAL NOT NULL,
-      duration_days INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
@@ -550,9 +549,19 @@ export function applySchema(database: InstanceType<typeof Database>): void {
 
   // Reorder dashboard
   ensureColumn('products', 'reorder_point', 'reorder_point INTEGER DEFAULT 0')
+  ensureColumn('products', 'is_discontinued', 'is_discontinued INTEGER DEFAULT 0')
 
   // Special pricing column migrations
   ensureColumn('special_pricing', 'pricing_type', "pricing_type TEXT DEFAULT 'group'")
+
+  // Drop legacy duration_days column from special_pricing (feature removed).
+  if (columnExists(database, 'special_pricing', 'duration_days')) {
+    try {
+      database.exec('ALTER TABLE special_pricing DROP COLUMN duration_days')
+    } catch {
+      // Older SQLite builds cannot drop columns; leave dormant.
+    }
+  }
 
   // Item type column migrations
   ensureColumn('item_types', 'description', 'description TEXT')

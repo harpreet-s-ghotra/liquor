@@ -14,6 +14,7 @@ export type Product = {
   bottles_per_case?: number | null
   case_discount_price?: number | null
   is_favorite?: number
+  is_discontinued?: boolean
 }
 
 export type InventoryProduct = {
@@ -47,6 +48,7 @@ export type InventoryProduct = {
   ttb_id: string | null
   display_name: string | null
   is_favorite?: number
+  is_discontinued?: number
 }
 
 export type NyslaDiscount = {
@@ -233,7 +235,6 @@ export type TransactionListResult = {
 export type SpecialPricingRule = {
   quantity: number
   price: number
-  duration_days: number
 }
 
 /** An active special pricing rule returned for POS cart evaluation */
@@ -283,6 +284,7 @@ export type SaveInventoryItemInput = {
   ttb_id: string
   display_name: string
   is_favorite?: number
+  is_discontinued: boolean
 }
 
 export type InventoryTaxCode = {
@@ -559,6 +561,7 @@ export type UpdateCashierInput = {
 export type SearchProductFilters = {
   departmentId?: number
   distributorNumber?: number
+  size?: string
 }
 
 /** Input for a manual card entry charge (Phase A — no hardware) */
@@ -777,11 +780,39 @@ export type InitialSyncStatus = {
   errors: Array<{ entity: string; message: string }>
 }
 
+/** Status of the transaction backfill worker. */
+export type TransactionBackfillStatus = {
+  state: 'idle' | 'running' | 'done' | 'failed'
+  days: number
+  applied: number
+  skipped: number
+  errors: number
+  startedAt: string | null
+  finishedAt: string | null
+  lastError: string | null
+}
+
+/** Local SQLite transaction-history coverage. */
+export type LocalTransactionHistoryStats = {
+  count: number
+  earliest: string | null
+  latest: string | null
+}
+
 /** Queue statistics for monitoring */
 export type SyncQueueStats = {
   pending: number
   in_flight: number
   failed: number
+}
+
+export type TelemetryEventType = 'error' | 'performance' | 'behavior' | 'system'
+
+export type TelemetryEventInput = {
+  type: TelemetryEventType
+  name: string
+  payload?: Record<string, unknown>
+  sampleRate?: number
 }
 
 // ── Sales Reports ──
@@ -961,6 +992,37 @@ export type LowStockProduct = {
   distributor_name: string | null
 }
 
+export type DistributorFilter = number | 'unassigned'
+
+export type ReorderQuery = {
+  distributor: DistributorFilter
+  unit_threshold: number
+  window_days: number
+}
+
+export type ReorderProduct = {
+  id: number
+  sku: string
+  name: string
+  item_type: string | null
+  in_stock: number
+  reorder_point: number
+  distributor_number: number | null
+  distributor_name: string | null
+  cost: number
+  bottles_per_case: number
+  price: number
+  velocity_per_day: number
+  days_of_supply: number | null
+  projected_stock: number
+}
+
+export type ReorderDistributorRow = {
+  distributor_number: number | null
+  distributor_name: string | null
+  product_count: number
+}
+
 /** Finix merchant status (read-only) */
 export type MerchantStatus = {
   merchant_id: string
@@ -1012,6 +1074,7 @@ export type CreatePurchaseOrderInput = {
   items: Array<{
     product_id: number
     quantity_ordered: number
+    unit_cost?: number
   }>
   notes?: string
 }
