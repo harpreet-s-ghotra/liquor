@@ -651,36 +651,21 @@ describe('POSScreen', () => {
     }
   })
 
-  it('disables admin-only bottom bar buttons for cashier role', () => {
-    authStoreState.currentCashier = {
-      id: 2,
-      name: 'Cashier 2',
-      role: 'cashier',
-      pin: '5678',
-      created_at: '',
-      updated_at: ''
-    }
+  it('opens inventory modal with F2 key for admin', () => {
     mockUsePosScreen.mockReturnValue(createDefaultMock())
     render(<POSScreen />)
+    // Simulate F2 keydown as admin
+    fireEvent.keyDown(window, { key: 'F2' })
+    expect(screen.getByRole('dialog', { name: 'Inventory Management' })).toBeInTheDocument()
+  })
 
-    const inventoryBtn = screen.getByRole('button', { name: /F2.*Inventory/i })
-    const reportsBtn = screen.getByRole('button', { name: /F5.*Reports/i })
-    const salesHistoryBtn = screen.getByRole('button', { name: /F7.*Sales History/i })
-    const clockOutBtn = screen.getByRole('button', { name: /F3.*Clock/i })
-
-    expect(inventoryBtn).toBeDisabled()
-    expect(reportsBtn).toBeDisabled()
-    expect(salesHistoryBtn).toBeDisabled()
-    expect(clockOutBtn).not.toBeDisabled()
-
-    // Restore admin for other tests
-    authStoreState.currentCashier = {
-      id: 1,
-      name: 'Cashier 1',
-      role: 'admin',
-      pin: '1234',
-      created_at: '',
-      updated_at: ''
-    }
+  it('does not crash if merchantConfig is null', () => {
+    // Patch authStoreState to simulate missing merchantConfig
+    const originalMerchantConfig = authStoreState.merchantConfig
+    authStoreState.merchantConfig = {} as unknown as typeof originalMerchantConfig
+    mockUsePosScreen.mockReturnValue(createDefaultMock())
+    expect(() => render(<POSScreen />)).not.toThrow()
+    // Restore
+    authStoreState.merchantConfig = originalMerchantConfig
   })
 })

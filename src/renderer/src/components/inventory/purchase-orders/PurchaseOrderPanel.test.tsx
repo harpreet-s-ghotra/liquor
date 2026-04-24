@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
 import { PurchaseOrderPanel } from './PurchaseOrderPanel'
@@ -86,6 +86,7 @@ const mockOrderDetail: PurchaseOrderDetail = {
       sku: 'SKU001',
       product_name: 'Product A',
       unit_cost: 10,
+      bottles_per_case: 12,
       quantity_ordered: 5,
       quantity_received: 0,
       line_total: 50
@@ -97,9 +98,46 @@ const mockOrderDetail: PurchaseOrderDetail = {
       sku: 'SKU002',
       product_name: 'Product B',
       unit_cost: 20,
+      bottles_per_case: 6,
       quantity_ordered: 2,
       quantity_received: 0,
       line_total: 40
+    }
+  ]
+}
+
+const mockSubmittedDetail: PurchaseOrderDetail = {
+  ...mockOrders[1],
+  items: [
+    {
+      id: 3,
+      po_id: 2,
+      product_id: 3,
+      sku: 'SKU003',
+      product_name: 'Product C',
+      unit_cost: 8,
+      bottles_per_case: 12,
+      quantity_ordered: 12,
+      quantity_received: 6,
+      line_total: 96
+    }
+  ]
+}
+
+const mockReceivedDetail: PurchaseOrderDetail = {
+  ...mockOrders[2],
+  items: [
+    {
+      id: 4,
+      po_id: 3,
+      product_id: 4,
+      sku: 'SKU004',
+      product_name: 'Product D',
+      unit_cost: 5,
+      bottles_per_case: 6,
+      quantity_ordered: 12,
+      quantity_received: 12,
+      line_total: 60
     }
   ]
 }
@@ -125,7 +163,19 @@ describe('PurchaseOrderPanel', () => {
       getPurchaseOrderDetail: vi.fn().mockResolvedValue(mockOrderDetail),
       createPurchaseOrder: vi.fn().mockResolvedValue(mockOrderDetail),
       updatePurchaseOrder: vi.fn().mockResolvedValue(mockOrders[1]),
+      updatePurchaseOrderItems: vi.fn().mockResolvedValue(mockSubmittedDetail),
       receivePurchaseOrderItem: vi.fn().mockResolvedValue(mockOrderDetail.items[0]),
+      markPurchaseOrderReceived: vi.fn().mockResolvedValue({
+        ...mockSubmittedDetail,
+        status: 'received',
+        received_at: '2026-04-17T15:00:00Z',
+        items: [
+          {
+            ...mockSubmittedDetail.items[0],
+            quantity_received: 12
+          }
+        ]
+      }),
       deletePurchaseOrder: vi.fn().mockResolvedValue(undefined),
       removePurchaseOrderItem: vi.fn().mockResolvedValue(undefined),
       getDistributors: vi.fn().mockResolvedValue(mockDistributors),
@@ -182,6 +232,38 @@ describe('PurchaseOrderPanel', () => {
     )
 
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
+  })
+
+  it('supports keyboard selection in the create search', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <PurchaseOrderPanel
+        prefillItems={null}
+        prefillDistributor={null}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('PO-2026-04-0001')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /new order/i }))
+    await user.selectOptions(screen.getByLabelText(/distributor/i), '1')
+    await user.type(screen.getByRole('combobox', { name: 'Search products to add' }), 'char')
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalled()
+    })
+
+    const searchInput = screen.getByRole('combobox', { name: 'Search products to add' })
+    fireEvent.keyDown(searchInput, { key: 'ArrowDown' })
+    fireEvent.keyDown(searchInput, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Chardonnay Reserve')).toBeInTheDocument()
+    })
   })
 
   it('filters by status', async () => {
@@ -709,5 +791,277 @@ describe('PurchaseOrderPanel', () => {
     })
 
     vi.useRealTimers()
+  })
+
+  it('syncs case cost changes back to the unit cost in create mode', async () => {
+    const prefillItems: ReorderProduct[] = [
+      {
+        id: 1,
+        sku: 'SKU001',
+        name: 'Low Stock Item',
+        item_type: 'Wine',
+        in_stock: 2,
+        reorder_point: 10,
+        distributor_number: 1,
+        distributor_name: 'Test Distributor',
+        cost: 9,
+        bottles_per_case: 12,
+        price: 12,
+        velocity_per_day: 0,
+        days_of_supply: null,
+        projected_stock: 2
+      }
+    ]
+
+    render(
+      <PurchaseOrderPanel
+        prefillItems={prefillItems}
+        prefillDistributor={1}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    const caseCostInput = await screen.findByLabelText('Case cost for Low Stock Item')
+    fireEvent.change(caseCostInput, { target: { value: '120' } })
+
+    expect(screen.getByLabelText('Unit cost for Low Stock Item')).toHaveValue(10)
+  })
+
+  it('shows mark fully received for submitted orders and confirms before calling the API', async () => {
+    window.api!.getPurchaseOrderDetail = vi.fn().mockResolvedValue(mockSubmittedDetail)
+
+    render(
+      <PurchaseOrderPanel
+        prefillItems={null}
+        prefillDistributor={null}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    const submittedRow = await screen.findByText('PO-2026-04-0002')
+    await userEvent.click(submittedRow.closest('tr')!)
+
+    const markReceivedButton = await screen.findByRole('button', { name: /mark fully received/i })
+    await userEvent.click(markReceivedButton)
+    await userEvent.click(await screen.findByRole('button', { name: /mark received/i }))
+
+    await waitFor(() => {
+      expect(window.api!.markPurchaseOrderReceived).toHaveBeenCalledWith(2)
+    })
+  })
+
+  it('toggles full-case receiving for submitted orders', async () => {
+    window.api!.getPurchaseOrderDetail = vi.fn().mockResolvedValue(mockSubmittedDetail)
+
+    render(
+      <PurchaseOrderPanel
+        prefillItems={null}
+        prefillDistributor={null}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    const submittedRow = await screen.findByText('PO-2026-04-0002')
+    await userEvent.click(submittedRow.closest('tr')!)
+
+    expect(await screen.findByText('Receive Full Case Order')).toBeInTheDocument()
+
+    const receiveFullCheckbox = await screen.findByLabelText(
+      'Receive full case order for Product C'
+    )
+    await userEvent.click(receiveFullCheckbox)
+
+    await waitFor(() => {
+      expect(window.api!.receivePurchaseOrderItem).toHaveBeenCalledWith({
+        id: 3,
+        quantity_received: 12
+      })
+    })
+  })
+
+  it('converts case input to units and commits on blur for submitted orders', async () => {
+    window.api!.getPurchaseOrderDetail = vi.fn().mockResolvedValue(mockSubmittedDetail)
+
+    render(
+      <PurchaseOrderPanel
+        prefillItems={null}
+        prefillDistributor={null}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    const submittedRow = await screen.findByText('PO-2026-04-0002')
+    await userEvent.click(submittedRow.closest('tr')!)
+
+    const casesInput = await screen.findByLabelText('Cases received for Product C')
+    fireEvent.change(casesInput, { target: { value: '0.25' } })
+    fireEvent.blur(casesInput)
+
+    await waitFor(() => {
+      expect(window.api!.receivePurchaseOrderItem).toHaveBeenCalledWith({
+        id: 3,
+        quantity_received: 3
+      })
+    })
+  })
+
+  it('submits draft orders from the detail view', async () => {
+    render(
+      <PurchaseOrderPanel
+        prefillItems={null}
+        prefillDistributor={null}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    const draftRow = await screen.findByText('PO-2026-04-0001')
+    await userEvent.click(draftRow.closest('tr')!)
+    await userEvent.click(await screen.findByRole('button', { name: /submit order/i }))
+
+    await waitFor(() => {
+      expect(window.api!.updatePurchaseOrder).toHaveBeenCalledWith({
+        id: 1,
+        status: 'submitted'
+      })
+    })
+  })
+
+  it('cancels submitted orders from the detail view', async () => {
+    window.api!.getPurchaseOrderDetail = vi.fn().mockResolvedValue(mockSubmittedDetail)
+
+    render(
+      <PurchaseOrderPanel
+        prefillItems={null}
+        prefillDistributor={null}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    const submittedRow = await screen.findByText('PO-2026-04-0002')
+    await userEvent.click(submittedRow.closest('tr')!)
+    await userEvent.click(await screen.findByRole('button', { name: /cancel order/i }))
+
+    await waitFor(() => {
+      expect(window.api!.updatePurchaseOrder).toHaveBeenCalledWith({
+        id: 2,
+        status: 'cancelled'
+      })
+    })
+  })
+
+  it('deletes draft orders after confirmation', async () => {
+    render(
+      <PurchaseOrderPanel
+        prefillItems={null}
+        prefillDistributor={null}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    const draftRow = await screen.findByText('PO-2026-04-0001')
+    await userEvent.click(draftRow.closest('tr')!)
+    await userEvent.click(await screen.findByRole('button', { name: /^delete$/i }))
+
+    const deleteButtons = await screen.findAllByRole('button', { name: /^delete$/i })
+    await userEvent.click(deleteButtons[deleteButtons.length - 1])
+
+    await waitFor(() => {
+      expect(window.api!.deletePurchaseOrder).toHaveBeenCalledWith(1)
+    })
+  })
+
+  it('exits edit mode without saving when no detail changes were made', async () => {
+    window.api!.getPurchaseOrderDetail = vi.fn().mockResolvedValue(mockReceivedDetail)
+
+    render(
+      <PurchaseOrderPanel
+        prefillItems={null}
+        prefillDistributor={null}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    const receivedRow = await screen.findByText('PO-2026-04-0003')
+    await userEvent.click(receivedRow.closest('tr')!)
+    await userEvent.click(await screen.findByRole('button', { name: /^edit$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => {
+      expect(window.api!.updatePurchaseOrderItems).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument()
+    })
+  })
+
+  it('sends only changed lines when saving edits on a received order', async () => {
+    window.api!.getPurchaseOrderDetail = vi.fn().mockResolvedValue(mockReceivedDetail)
+    window.api!.updatePurchaseOrderItems = vi.fn().mockResolvedValue({
+      ...mockReceivedDetail,
+      items: [
+        {
+          ...mockReceivedDetail.items[0],
+          unit_cost: 6,
+          line_total: 72
+        }
+      ]
+    })
+
+    render(
+      <PurchaseOrderPanel
+        prefillItems={null}
+        prefillDistributor={null}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    const receivedRow = await screen.findByText('PO-2026-04-0003')
+    await userEvent.click(receivedRow.closest('tr')!)
+    await userEvent.click(await screen.findByRole('button', { name: /^edit$/i }))
+
+    const unitCostInput = await screen.findByLabelText('Unit cost for Product D')
+    await userEvent.clear(unitCostInput)
+    await userEvent.type(unitCostInput, '6')
+    await userEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => {
+      expect(window.api!.updatePurchaseOrderItems).toHaveBeenCalledWith({
+        po_id: 3,
+        lines: [{ id: 4, unit_cost: 6 }]
+      })
+    })
+  })
+
+  it('requires confirmation before saving a received-quantity reduction', async () => {
+    window.api!.getPurchaseOrderDetail = vi.fn().mockResolvedValue(mockSubmittedDetail)
+
+    render(
+      <PurchaseOrderPanel
+        prefillItems={null}
+        prefillDistributor={null}
+        onPrefillConsumed={() => {}}
+      />
+    )
+
+    const submittedRow = await screen.findByText('PO-2026-04-0002')
+    await userEvent.click(submittedRow.closest('tr')!)
+    await userEvent.click(await screen.findByRole('button', { name: /^edit$/i }))
+
+    const receivedInput = await screen.findByLabelText('Quantity received for Product C')
+    await userEvent.clear(receivedInput)
+    await userEvent.type(receivedInput, '4')
+    await userEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(
+      await screen.findByText('This will reduce on-hand stock by 2 units. Continue?')
+    ).toBeInTheDocument()
+    expect(window.api!.updatePurchaseOrderItems).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => {
+      expect(window.api!.updatePurchaseOrderItems).toHaveBeenCalledWith({
+        po_id: 2,
+        lines: [{ id: 3, quantity_received: 4 }]
+      })
+    })
   })
 })

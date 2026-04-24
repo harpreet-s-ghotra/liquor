@@ -34,7 +34,10 @@ import {
   normalizeCurrencyForInput,
   parseCurrencyDigitsToDollars
 } from '@renderer/utils/currency'
+import { useDebounce } from '@renderer/hooks/useDebounce'
+import { useSearchDropdown } from '@renderer/hooks/useSearchDropdown'
 import { cn } from '@renderer/lib/utils'
+import { CANONICAL_SIZE_SUGGESTIONS, normalizeSize } from '../../../../../shared/utils/size'
 import './item-form.css'
 
 const TOP_HEIGHT_STORAGE_KEY = 'inventory-form-top-height'
@@ -136,6 +139,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   const [itemTypeOptions, setItemTypeOptions] = useState<ItemType[]>([])
   const [taxCodeOptions, setTaxCodeOptions] = useState<InventoryTaxCode[]>([])
   const [distributorOptions, setDistributorOptions] = useState<Distributor[]>([])
+  const [sizesInUse, setSizesInUse] = useState<string[]>([])
   const [selectedItem, setSelectedItem] = useState<InventoryProductDetail | null>(null)
   const [formState, setFormState] = useState<InventoryFormState>(emptyFormState)
   const [additionalSkuInput, setAdditionalSkuInput] = useState('')
@@ -144,10 +148,16 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   // Tracks whether the current retail_price was auto-calculated from cost + item type margin
   const [priceAutoCalc, setPriceAutoCalc] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [skuExists, setSkuExists] = useState<{ exists: boolean; source: 'local' | 'cloud' } | null>(
+    null
+  )
+  const [pullingSku, setPullingSku] = useState(false)
   const [activeTab, setActiveTab] = useState('case-settings')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [sizeDropdownOpen, setSizeDropdownOpen] = useState(false)
   const tabScrollRef = useRef<HTMLDivElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const sizeInputRef = useRef<HTMLInputElement | null>(null)
   const topHeightRef = useRef<number>(0)
   const [topHeight, setTopHeight] = useState<number>(() => {
     if (typeof window === 'undefined') return DEFAULT_TOP_HEIGHT
@@ -233,6 +243,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     typeof api?.saveInventoryItem === 'function' &&
     typeof api?.getInventoryTaxCodes === 'function' &&
     typeof api?.getDistributors === 'function'
+  const debouncedSku = useDebounce(formState.sku.trim(), 400)
 
   const normalizedTaxRateOptions = useMemo(
     () => new Set(taxCodeOptions.map((option) => Number(option.rate.toFixed(6)))),
@@ -251,13 +262,25 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   useEffect(() => {
     if (!hasBackendApi || typeof api?.getItemTypes !== 'function') return
     let active = true
+    const loadSizesPromise =
+      typeof api?.listSizesInUse === 'function'
+        ? api.listSizesInUse()
+        : typeof api?.getDistinctSizes === 'function'
+          ? api.getDistinctSizes()
+          : Promise.resolve<string[]>([])
 
-    void Promise.all([api.getItemTypes(), api.getInventoryTaxCodes(), api.getDistributors()])
-      .then(([itemTypes, taxCodes, distributors]) => {
+    void Promise.all([
+      api.getItemTypes(),
+      api.getInventoryTaxCodes(),
+      api.getDistributors(),
+      loadSizesPromise
+    ])
+      .then(([itemTypes, taxCodes, distributors, sizes]) => {
         if (!active) return
         setItemTypeOptions(itemTypes)
         setTaxCodeOptions(taxCodes)
         setDistributorOptions(distributors)
+        setSizesInUse(sizes)
       })
       .catch(() => {
         if (!active) return
@@ -330,6 +353,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     setShowValidation(false)
     setSuccessMessage('')
     setSaveError('')
+    setSkuExists(null)
     setActiveTab('case-settings')
     setPriceAutoCalc(false)
   }
@@ -348,6 +372,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     setShowValidation(false)
     setSuccessMessage('')
     setSaveError('')
+    setSkuExists(null)
     setPriceAutoCalc(false)
   }
 
@@ -397,6 +422,12 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       errors.sku = 'SKU must contain only letters, numbers, and hyphens'
     } else if (formState.sku.trim().length > SKU_MAX_LENGTH) {
       errors.sku = `SKU must be ${SKU_MAX_LENGTH} characters or less`
+    } else if (
+      skuExists?.exists &&
+      (!selectedItem ||
+        selectedItem.sku.trim().toUpperCase() !== formState.sku.trim().toUpperCase())
+    ) {
+      errors.sku = 'SKU already exists in your catalog'
     }
 
     if (!formState.item_name.trim()) {
@@ -435,10 +466,111 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     }
 
     return errors
-  }, [formState, isAllowedTaxRate, itemTypeOptions, taxCodeOptions.length])
+  }, [formState, isAllowedTaxRate, itemTypeOptions, selectedItem, skuExists, taxCodeOptions.length])
+
+  useEffect(() => {
+    if (
+      !api?.checkSkuExists ||
+      !debouncedSku ||
+      !SKU_PATTERN.test(debouncedSku) ||
+      debouncedSku.length > SKU_MAX_LENGTH ||
+      (selectedItem && selectedItem.sku.trim().toUpperCase() === debouncedSku.toUpperCase())
+    ) {
+      setSkuExists(null)
+      return
+    }
+
+    let active = true
+    void api
+      .checkSkuExists(debouncedSku)
+      .then((result) => {
+        if (!active) return
+        setSkuExists(result.exists ? result : null)
+      })
+      .catch(() => {
+        if (!active) return
+        setSkuExists(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [api, debouncedSku, selectedItem])
+
+  const handlePullSkuFromCloud = async (): Promise<void> => {
+    if (!api?.pullProductBySku || !formState.sku.trim()) return
+    setPullingSku(true)
+    setSaveError('')
+    try {
+      const detail = await api.pullProductBySku(formState.sku.trim())
+      if (!detail) {
+        setSaveError('Unable to pull product from cloud.')
+        return
+      }
+      applyDetailToForm(detail)
+      setSkuExists(null)
+      setSuccessMessage('Item loaded from cloud')
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Unable to pull product from cloud.')
+    } finally {
+      setPullingSku(false)
+    }
+  }
 
   const hasFieldErrors = Object.keys(fieldErrors).length > 0
   const isFormEmpty = !formState.sku.trim() && !formState.item_name.trim()
+  const normalizedCurrentSize = useMemo(() => normalizeSize(formState.size), [formState.size])
+  const sizeSuggestions = useMemo(() => {
+    const seen = new Set<string>()
+    const merged: string[] = []
+    const append = (value: string | null | undefined): void => {
+      const normalized = normalizeSize(value)
+      if (!normalized || seen.has(normalized)) return
+      seen.add(normalized)
+      merged.push(normalized)
+    }
+
+    if (
+      normalizedCurrentSize &&
+      !CANONICAL_SIZE_SUGGESTIONS.includes(normalizedCurrentSize as never)
+    ) {
+      append(normalizedCurrentSize)
+    }
+
+    sizesInUse.forEach(append)
+    CANONICAL_SIZE_SUGGESTIONS.forEach(append)
+
+    return merged
+  }, [normalizedCurrentSize, sizesInUse])
+  const filteredSizeSuggestions = useMemo(() => {
+    const query = formState.size.trim().toUpperCase()
+    if (!query) return sizeSuggestions
+    return sizeSuggestions.filter((size) => size.toUpperCase().includes(query))
+  }, [formState.size, sizeSuggestions])
+  const sizeDropdown = useSearchDropdown<string>({
+    results: filteredSizeSuggestions,
+    isOpen: sizeDropdownOpen,
+    onSelect: (value) => {
+      setFormState((current) => ({ ...current, size: value }))
+      setSizeDropdownOpen(false)
+    },
+    onOpenChange: setSizeDropdownOpen
+  })
+  const sizeInputProps = sizeDropdown.getInputProps()
+
+  const handleSizeBlur = useCallback((): void => {
+    setSizeDropdownOpen(false)
+    setFormState((current) => {
+      const normalized = normalizeSize(current.size) ?? ''
+      return normalized === current.size ? current : { ...current, size: normalized }
+    })
+  }, [])
+
+  const handleClearSize = useCallback((): void => {
+    setFormState((current) => ({ ...current, size: '' }))
+    setSizeDropdownOpen(false)
+    sizeInputRef.current?.focus()
+  }, [])
 
   const parsePayload = (): SaveInventoryItemInput | null => {
     const cost = parseCurrencyDigitsToDollars(formState.cost)
@@ -495,7 +627,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         const discountAmount = parseCurrencyDigitsToDollars(formState.case_discount_price)
         return Math.max(0, Math.round((fullCasePrice - discountAmount) * 100) / 100)
       })(),
-      size: formState.size.trim(),
+      size: normalizeSize(formState.size),
       case_cost: formState.case_cost ? parseCurrencyDigitsToDollars(formState.case_cost) : null,
       nysla_discounts: formState.nysla_discounts.trim() || null,
       brand_name: formState.brand_name.trim(),
@@ -733,11 +865,12 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             <InventoryInput
               type="text"
               aria-label="SKU"
-              hasError={showValidation && !!fieldErrors.sku}
+              hasError={!!fieldErrors.sku && (showValidation || skuExists?.exists === true)}
               className="item-form__sku-input"
               value={formState.sku}
               onChange={(e) => {
                 const value = e.target.value.replace(/[^A-Za-z0-9-]/g, '').toUpperCase()
+                setSkuExists(null)
                 setFormState((c) => ({
                   ...c,
                   sku: value
@@ -746,27 +879,78 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               placeholder="e.g. WINE-001"
               maxLength={SKU_MAX_LENGTH}
             />
-            {showValidation && fieldErrors.sku && <p className={errCls}>{fieldErrors.sku}</p>}
+            {((showValidation && fieldErrors.sku) || skuExists?.exists) && fieldErrors.sku ? (
+              <p className={errCls}>{fieldErrors.sku}</p>
+            ) : null}
+            {skuExists?.exists && skuExists.source === 'cloud' ? (
+              <Button size="sm" variant="outline" onClick={() => void handlePullSkuFromCloud()}>
+                {pullingSku ? 'Pulling...' : 'Pull from cloud'}
+              </Button>
+            ) : null}
           </div>
 
           {/* Size */}
           <div>
             <label className={labelCls}>Size</label>
-            <InventorySelect
-              aria-label="Size"
-              value={formState.size}
-              onChange={(e) => {
-                const value = e.target.value
-                setFormState((c) => ({ ...c, size: value }))
-              }}
-            >
-              <option value="">None</option>
-              {['50ML', '187ML', '200ML', '500ML', '750ML', '1L', '1.5L', '2L', '4L'].map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </InventorySelect>
+            <div className="item-form__size-field">
+              <div className="item-form__size-input-wrap">
+                <InventoryInput
+                  ref={sizeInputRef}
+                  type="text"
+                  aria-label="Size"
+                  value={formState.size}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setFormState((current) => ({ ...current, size: value }))
+                    setSizeDropdownOpen(true)
+                  }}
+                  onFocus={() => {
+                    if (filteredSizeSuggestions.length > 0) setSizeDropdownOpen(true)
+                  }}
+                  onBlur={handleSizeBlur}
+                  onKeyDown={sizeDropdown.handleKeyDown}
+                  maxLength={32}
+                  className="item-form__size-input"
+                  role={sizeInputProps.role}
+                  aria-expanded={sizeInputProps['aria-expanded']}
+                  aria-controls={sizeInputProps['aria-controls']}
+                  aria-autocomplete={sizeInputProps['aria-autocomplete']}
+                  aria-activedescendant={sizeInputProps['aria-activedescendant']}
+                />
+                {formState.size ? (
+                  <button
+                    type="button"
+                    className="item-form__size-clear"
+                    aria-label="Clear Size"
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                      handleClearSize()
+                    }}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+              {sizeDropdownOpen && filteredSizeSuggestions.length > 0 ? (
+                <ul id={sizeDropdown.listboxId} role="listbox" className="item-form__size-listbox">
+                  {filteredSizeSuggestions.map((size, index) => {
+                    const optionProps = sizeDropdown.getOptionProps(index)
+                    return (
+                      <li
+                        key={size}
+                        {...optionProps}
+                        className={cn(
+                          'item-form__size-option',
+                          optionProps['aria-selected'] && 'item-form__size-option--highlighted'
+                        )}
+                      >
+                        {size}
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : null}
+            </div>
           </div>
 
           {/* ── Row 2: Brand (×2) | Item (×2) ── */}

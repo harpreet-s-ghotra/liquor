@@ -21,6 +21,7 @@ export { initializeDatabase } from './schema'
 // Products & inventory
 export {
   getProducts,
+  hasAnyActiveProduct,
   searchProducts,
   getInventoryProducts,
   getInventoryItemTypes,
@@ -112,6 +113,8 @@ export {
   getPurchaseOrderDetail,
   createPurchaseOrder,
   updatePurchaseOrder,
+  updatePurchaseOrderItems,
+  markPurchaseOrderFullyReceived,
   receivePurchaseOrderItem,
   addPurchaseOrderItem,
   removePurchaseOrderItem,

@@ -11,27 +11,31 @@
 
 ## Feature Specs
 
-| Doc                                                                      | Status   | Covers                                                                           |
-| ------------------------------------------------------------------------ | -------- | -------------------------------------------------------------------------------- |
-| [Features Overview](features/features-overview.md)                       | Current  | Customer-facing feature summary (for website use)                                |
-| [Inventory V1](features/inventory-v1.md)                                 | Complete | Inventory CRUD, search, form fields, data contracts                              |
-| [Inventory V2](features/inventory-v2.md)                                 | Complete | Inventory modal redesign, new fields, footer action bar                          |
-| [Pricing Engine](features/pricing-engine.md)                             | Complete | Special pricing, mix-and-match, pricing engine architecture                      |
-| [Product Search](features/product-search.md)                             | Complete | Search modal, filters, product lookup flow                                       |
-| [Returns and Refunds](features/returns-and-refunds.md)                   | Complete | Return workflow, refund scenarios, inventory impact                              |
-| [Clock In/Clock Out](features/clock-in-clock-out.md)                     | Complete | Register sessions, end-of-day report, cash reconciliation                        |
-| [Supabase Onboarding](features/supabase-onboarding.md)                   | Complete | Supabase auth, PIN setup, distributor catalog import                             |
-| [Cloud Sync](features/cloud-sync.md)                                     | Complete | Multi-register transaction & inventory sync via Supabase Realtime                |
-| [Central Catalog Admin](features/central-catalog-admin.md)               | Planned  | Local-only merchant-to-catalog curation dashboard and access model               |
-| [Finix Integration](features/finix-integration.md)                       | Complete | Finix payment processing, manual card charges, refunds                           |
-| [NYSLA Schema Alignment](features/nysla-schema-alignment.md)             | Complete | Inventory fields aligned with NYSLA Price Postings for future import             |
-| [Sales Reports](features/sales-reports.md)                               | Complete | Sales summary, product/category analysis, tax report, comparisons                |
-| [Auto-Update](features/auto-update.md)                                   | Complete | Automatic app updates via electron-updater and GitHub Releases                   |
-| [Edge Functions](features/edge-functions.md)                             | Complete | Supabase Edge Functions, Finix secrets, sandbox-to-live migration                |
-| [Manager Modal](features/manager-modal.md)                               | Complete | Cashiers, Registers, Merchant Info, Reorder Dashboard (F6)                       |
-| [Reorder Dashboard V2](features/reorder-dashboard-v2.md)                 | Complete | Distributor-scoped reorder projections and discontinued filtering                |
-| [Inventory Modal Improvements](features/inventory-modal-improvements.md) | Complete | Resizable split between General Info and tabs; removed special-pricing duration  |
-| [Monitoring & Observability](features/monitoring-observability.md)       | Active   | Lightweight telemetry for errors, IPC performance, startup timings, and behavior |
+| Doc                                                                                  | Status   | Covers                                                                                      |
+| ------------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------- |
+| [Features Overview](features/features-overview.md)                                   | Current  | Customer-facing feature summary (for website use)                                           |
+| [Inventory V1](features/inventory-v1.md)                                             | Complete | Inventory CRUD, search, form fields, data contracts                                         |
+| [Inventory V2](features/inventory-v2.md)                                             | Complete | Inventory modal redesign, new fields, footer action bar                                     |
+| [Pricing Engine](features/pricing-engine.md)                                         | Complete | Special pricing, mix-and-match, pricing engine architecture                                 |
+| [Product Search](features/product-search.md)                                         | Complete | Search modal, filters, product lookup flow                                                  |
+| [Returns and Refunds](features/returns-and-refunds.md)                               | Complete | Return workflow, refund scenarios, inventory impact                                         |
+| [Clock In/Clock Out](features/clock-in-clock-out.md)                                 | Complete | Register sessions, end-of-day report, cash reconciliation                                   |
+| [Supabase Onboarding](features/supabase-onboarding.md)                               | Complete | Supabase auth, PIN setup, distributor catalog import                                        |
+| [Cloud Sync](features/cloud-sync.md)                                                 | Complete | Multi-register transaction & inventory sync via Supabase Realtime                           |
+| [Central Catalog Admin](features/central-catalog-admin.md)                           | Planned  | Local-only merchant-to-catalog curation dashboard and access model                          |
+| [Finix Integration](features/finix-integration.md)                                   | Complete | Finix payment processing, manual card charges, refunds                                      |
+| [NYSLA Schema Alignment](features/nysla-schema-alignment.md)                         | Complete | Inventory fields aligned with NYSLA Price Postings for future import                        |
+| [Sales Reports](features/sales-reports.md)                                           | Complete | Sales summary, product/category analysis, tax report, comparisons                           |
+| [Auto-Update](features/auto-update.md)                                               | Complete | Automatic app updates via electron-updater and GitHub Releases                              |
+| [Edge Functions](features/edge-functions.md)                                         | Complete | Supabase Edge Functions, Finix secrets, sandbox-to-live migration                           |
+| [Manager Modal](features/manager-modal.md)                                           | Complete | Cashiers, Registers, Merchant Info, Data History (F6)                                       |
+| [Reorder Dashboard V2](features/reorder-dashboard-v2.md)                             | Complete | Distributor-scoped reorder projections and discontinued filtering                           |
+| [Inventory Modal Improvements](features/inventory-modal-improvements.md)             | Complete | Resizable split between General Info and tabs; removed special-pricing duration             |
+| [Move Reorder + POs into Inventory](features/inventory-modal-reorder-po-move.md)     | Complete | Relocate Reorder Dashboard and Purchase Orders tabs from Manager (F6) to Inventory (F2)     |
+| [Purchase Order Receive + Edit](features/purchase-order-receive-and-edit.md)         | Complete | Explicit mark-received flow, post-submit edits, case-aware receiving, and price interlock   |
+| [Keyboard-Navigable Search Dropdown](features/keyboard-navigable-search-dropdown.md) | Complete | Shared keyboard-driven typeahead dropdown for inventory, reorder, and purchase-order search |
+| [Inventory Size Field Fix](features/inventory-size-field-fix.md)                     | Complete | Free-form size entry, shared normalization, size backfill, and non-canonical display fix    |
+| [Monitoring & Observability](features/monitoring-observability.md)                   | Active   | Lightweight telemetry for errors, IPC performance, startup timings, and behavior            |
 
 ## AI Navigation
 

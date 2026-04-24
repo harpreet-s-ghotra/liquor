@@ -1,12 +1,14 @@
 import { create } from 'zustand'
 import type { MerchantConfig, Cashier } from '../types/pos'
 import { stripIpcPrefix } from '../utils/ipc-error'
+import { useAlertStore } from './useAlertStore'
 
 // ── State shape ──
 
 export type AppState =
   | 'loading'
   | 'auth'
+  | 'signing-out'
   | 'set-password'
   | 'syncing-initial'
   | 'pin-setup'
@@ -50,41 +52,33 @@ type AuthStore = AuthStoreState & AuthStoreActions
 // ── Helpers ──
 
 /**
- * Determine which post-auth state to transition to based on local data.
- * When no cashiers exist, routes to syncing-initial to wait for initial sync.
- * After sync completes, resolvePostSyncState() picks the real destination.
+ * Shared resolver — differs only in which state to pick when no cashiers exist.
+ * Use 'syncing-initial' before sync has had a chance to run; 'pin-setup' after.
  */
-async function resolvePostAuthState(resetPinMode = false): Promise<AppState> {
+async function resolveAppState(
+  noCashiersState: 'syncing-initial' | 'pin-setup',
+  resetPinMode = false
+): Promise<AppState> {
   const config = await window.api!.getMerchantConfig()
   if (!config?.merchant_id) return 'business-setup'
 
   const cashiers = await window.api!.getCashiers()
-  if (cashiers.length === 0) return 'syncing-initial'
+  if (cashiers.length === 0) return noCashiersState
 
-  // If user came from "Forgot PIN?", skip the login screen and go to pin-reset
   if (resetPinMode) return 'pin-reset'
 
-  const products = await window.api!.getProducts()
-  if (products.length === 0) return 'distributor-onboarding'
+  const hasProducts = await window.api!.hasAnyProduct()
+  if (!hasProducts) return 'distributor-onboarding'
 
   return 'login'
 }
 
-/**
- * Called after initial sync completes (or is skipped). Picks the appropriate
- * next state now that sync has run — cashiers may have been restored.
- */
+async function resolvePostAuthState(resetPinMode = false): Promise<AppState> {
+  return resolveAppState('syncing-initial', resetPinMode)
+}
+
 async function resolvePostSyncState(): Promise<AppState> {
-  const config = await window.api!.getMerchantConfig()
-  if (!config?.merchant_id) return 'business-setup'
-
-  const cashiers = await window.api!.getCashiers()
-  if (cashiers.length === 0) return 'pin-setup'
-
-  const products = await window.api!.getProducts()
-  if (products.length === 0) return 'distributor-onboarding'
-
-  return 'login'
+  return resolveAppState('pin-setup')
 }
 
 export const useAuthStore = create<AuthStore>()((set, get) => ({
@@ -142,14 +136,8 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
    */
   handleInviteLink: async (accessToken: string, refreshToken: string) => {
     try {
-      const { email } = await window.api!.authSetSession(accessToken, refreshToken)
+      await window.api!.authSetSession(accessToken, refreshToken)
       set({ appState: 'set-password', error: null, merchantConfig: null })
-      // Store email in error field temporarily so SetPasswordScreen can show it
-      // (avoids adding a new state field just for this)
-      set({ error: null })
-      // Expose email via a dedicated field would be cleaner, but we keep state minimal
-      // The screen can call authCheckSession if it needs the email
-      void email
     } catch (err) {
       set({
         appState: 'auth',
@@ -178,19 +166,32 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
    * Sign out from Supabase and return to the auth screen.
    */
   signOut: async () => {
+    const previousState = get().appState
     try {
-      await window.api!.authLogout()
+      set({ appState: 'signing-out', error: null })
+      const result = await window.api!.authFullSignOut()
       set({
         appState: 'auth',
         merchantConfig: null,
         currentCashier: null,
+        currentSessionId: null,
         loginAttempts: 0,
         lockoutUntil: null,
         error: null,
         resetPinMode: false
       })
+      if (result.remaining > 0) {
+        useAlertStore
+          .getState()
+          .showWarning(
+            `${result.remaining} sync item(s) remain queued for this account. They will resume next sign-in.`
+          )
+      }
     } catch (err) {
-      set({ error: err instanceof Error ? stripIpcPrefix(err.message) : 'Sign out failed' })
+      set({
+        appState: previousState,
+        error: err instanceof Error ? stripIpcPrefix(err.message) : 'Sign out failed'
+      })
     }
   },
 
@@ -201,6 +202,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
         appState: 'auth',
         merchantConfig: null,
         currentCashier: null,
+        currentSessionId: null,
         loginAttempts: 0,
         lockoutUntil: null,
         error: null,
@@ -225,8 +227,8 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
         set({ appState: 'business-setup' })
         return
       }
-      const products = await window.api!.getProducts()
-      set({ appState: products.length === 0 ? 'distributor-onboarding' : 'login' })
+      const hasProducts = await window.api!.hasAnyProduct()
+      set({ appState: hasProducts ? 'login' : 'distributor-onboarding' })
     } catch {
       set({ appState: 'business-setup' })
     }
@@ -238,8 +240,8 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
    */
   completeBusinessSetup: async () => {
     try {
-      const products = await window.api!.getProducts()
-      set({ appState: products.length === 0 ? 'distributor-onboarding' : 'login' })
+      const hasProducts = await window.api!.hasAnyProduct()
+      set({ appState: hasProducts ? 'login' : 'distributor-onboarding' })
     } catch {
       set({ appState: 'distributor-onboarding' })
     }

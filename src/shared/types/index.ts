@@ -274,7 +274,7 @@ export type SaveInventoryItemInput = {
   bottles_per_case: number
   case_discount_price: number | null
   item_type: string
-  size: string
+  size: string | null
   case_cost: number | null
   nysla_discounts: string | null
   brand_name: string
@@ -455,6 +455,7 @@ export type ImportResult = {
 
 export type MerchantConfig = {
   id: number
+  merchant_account_id?: string
   finix_api_username: string
   finix_api_password: string
   merchant_id: string
@@ -469,6 +470,7 @@ export type MerchantConfig = {
 }
 
 export type SaveMerchantConfigInput = {
+  merchant_account_id?: string
   finix_api_username: string
   finix_api_password: string
   merchant_id: string
@@ -770,12 +772,22 @@ export type InitialSyncEntity =
   | 'departments'
   | 'cashiers'
   | 'products'
-  | 'transactions'
+
+export type InitialSyncEntityProgress = {
+  processed: number
+  total: number
+}
+
+export type InitialSyncProgressEvent = {
+  entity: InitialSyncEntity
+  processed: number
+  total: number
+}
 
 export type InitialSyncStatus = {
   state: 'idle' | 'running' | 'done' | 'failed'
   currentEntity: InitialSyncEntity | null
-  entityProgress: { done: number; total: number | null }
+  progress: Partial<Record<InitialSyncEntity, InitialSyncEntityProgress>>
   completed: InitialSyncEntity[]
   errors: Array<{ entity: string; message: string }>
 }
@@ -1017,10 +1029,20 @@ export type ReorderProduct = {
   projected_stock: number
 }
 
+export type ReorderProductsResult = {
+  rows: ReorderProduct[]
+  velocityOffline: boolean
+}
+
 export type ReorderDistributorRow = {
   distributor_number: number | null
   distributor_name: string | null
   product_count: number
+}
+
+export type SkuExistenceResult = {
+  exists: boolean
+  source: 'local' | 'cloud'
 }
 
 /** Finix merchant status (read-only) */
@@ -1058,6 +1080,7 @@ export type PurchaseOrderItem = {
   sku: string
   product_name: string
   unit_cost: number
+  bottles_per_case: number
   quantity_ordered: number
   quantity_received: number
   line_total: number
@@ -1084,6 +1107,20 @@ export type UpdatePurchaseOrderInput = {
   id: number
   status?: PurchaseOrderStatus
   notes?: string
+}
+
+export type UpdatePurchaseOrderItemsInput = {
+  po_id: number
+  lines: Array<{
+    id: number
+    unit_cost?: number
+    quantity_ordered?: number
+    quantity_received?: number
+  }>
+}
+
+export type MarkPurchaseOrderReceivedInput = {
+  id: number
 }
 
 /** Input for receiving items on a purchase order line */

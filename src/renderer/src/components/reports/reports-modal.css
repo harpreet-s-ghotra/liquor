@@ -44,6 +44,59 @@
   padding: 12px 1.5rem;
 }
 
+.reports-modal__history-panel {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-panel);
+  padding: 12px 1.5rem;
+}
+
+.reports-modal__history-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.reports-modal__history-title {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.reports-modal__history-meta,
+.reports-modal__history-notice {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.reports-modal__history-notice {
+  color: var(--accent-blue);
+}
+
+.reports-modal__history-error {
+  color: var(--semantic-danger-text);
+  font-size: var(--text-sm);
+}
+
+.reports-modal__history-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  align-items: center;
+}
+
+.reports-modal__history-label {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.reports-modal__history-input {
+  width: 5rem;
+}
+
 .reports-modal__export-btns {
   display: flex;
   flex-shrink: 0;

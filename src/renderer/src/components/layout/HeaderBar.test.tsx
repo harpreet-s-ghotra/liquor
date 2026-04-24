@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { HeaderBar } from './HeaderBar'
 import { useThemeStore } from '@renderer/store/useThemeStore'
 
@@ -86,5 +86,25 @@ describe('HeaderBar', () => {
 
     fireEvent.mouseDown(document.body)
     expect(screen.queryByTestId('settings-dropdown')).not.toBeInTheDocument()
+  })
+
+  it('renders active account pill and fires sign-out from the account menu', () => {
+    const onSignOutAccount = vi.fn()
+
+    render(
+      <HeaderBar
+        merchantName="Downtown Liquor"
+        registerName="Register 2"
+        canSignOutAccount={true}
+        onSignOutAccount={onSignOutAccount}
+      />
+    )
+
+    expect(screen.getByTestId('account-pill')).toHaveTextContent('Downtown Liquor · Register 2')
+
+    fireEvent.click(screen.getByTestId('account-pill'))
+    fireEvent.click(screen.getByText('Sign Out of Account'))
+
+    expect(onSignOutAccount).toHaveBeenCalled()
   })
 })

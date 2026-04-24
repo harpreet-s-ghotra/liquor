@@ -1,8 +1,10 @@
 import {
   CircleHelp,
+  LogOut,
   Printer,
   RefreshCw,
   Settings,
+  Store,
   Sun,
   Moon,
   User,
@@ -30,6 +32,10 @@ function factorToPercent(f: number): number {
 type HeaderBarProps = {
   cashierName?: string
   cashierRole?: CashierRole
+  merchantName?: string
+  registerName?: string
+  canSignOutAccount?: boolean
+  onSignOutAccount?: () => void
   onPrinterSettings?: () => void
   onCheckForUpdates?: () => void
 }
@@ -37,11 +43,17 @@ type HeaderBarProps = {
 export function HeaderBar({
   cashierName,
   cashierRole,
+  merchantName,
+  registerName,
+  canSignOutAccount = false,
+  onSignOutAccount,
   onPrinterSettings,
   onCheckForUpdates
 }: HeaderBarProps): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const accountRef = useRef<HTMLDivElement>(null)
   const theme = useThemeStore((s) => s.theme)
   const toggleTheme = useThemeStore((s) => s.toggleTheme)
 
@@ -69,15 +81,25 @@ export function HeaderBar({
   }
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen && !accountMenuOpen) return
     const handleClickOutside = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (menuRef.current && !menuRef.current.contains(target)) {
         setMenuOpen(false)
+      }
+      if (accountRef.current && !accountRef.current.contains(target)) {
+        setAccountMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [menuOpen])
+  }, [accountMenuOpen, menuOpen])
+
+  const accountLabel = merchantName
+    ? registerName
+      ? `${merchantName} · ${registerName}`
+      : merchantName
+    : null
 
   return (
     <header className="header-bar" data-testid="header-bar">
@@ -89,6 +111,53 @@ export function HeaderBar({
         <button type="button" className="header-bar__icon-btn" aria-label="Help">
           <CircleHelp size={20} />
         </button>
+
+        {accountLabel ? (
+          <div className="header-bar__account-wrapper" ref={accountRef}>
+            <button
+              type="button"
+              className="header-bar__account-pill"
+              aria-label="Active account"
+              onClick={() => setAccountMenuOpen((open) => !open)}
+              data-testid="account-pill"
+            >
+              <Store size={16} />
+              <span className="header-bar__account-pill-text">{accountLabel}</span>
+            </button>
+
+            {accountMenuOpen ? (
+              <div
+                className="header-bar__dropdown header-bar__dropdown--account"
+                data-testid="account-menu"
+              >
+                <button
+                  type="button"
+                  className="header-bar__dropdown-item"
+                  onClick={() => {
+                    onSignOutAccount?.()
+                    setAccountMenuOpen(false)
+                  }}
+                  disabled={!canSignOutAccount}
+                >
+                  <LogOut size={16} />
+                  Sign Out of Account
+                </button>
+                <button
+                  type="button"
+                  className="header-bar__dropdown-item"
+                  onClick={() => {
+                    onSignOutAccount?.()
+                    setAccountMenuOpen(false)
+                  }}
+                  disabled={!canSignOutAccount}
+                >
+                  <LogOut size={16} />
+                  Switch Account
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="header-bar__settings-wrapper" ref={menuRef}>
           <button

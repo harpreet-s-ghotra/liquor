@@ -13,6 +13,7 @@ import {
   getInventoryProducts,
   getInventoryTaxCodes,
   getProducts,
+  hasAnyActiveProduct,
   searchProducts,
   initializeDatabase,
   saveInventoryItem,
@@ -79,8 +80,10 @@ import {
 import type {
   CreatePurchaseOrderInput,
   UpdatePurchaseOrderInput,
+  UpdatePurchaseOrderItemsInput,
   ReceivePurchaseOrderItemInput
 } from '../shared/types'
+import { normalizeSize } from '../shared/utils/size'
 
 function formatStartupError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
@@ -98,6 +101,37 @@ function formatStartupError(error: unknown): string {
   ].join('\n')
 }
 
+function startMerchantSyncSession(merchantAccountId: string): void {
+  // Fire-and-forget: sync setup must not block auth IPC.
+  // Renderer polls sync:get-initial-status for progress.
+  void (async () => {
+    try {
+      const client = getSupabaseClient()
+      const deviceId = await registerDevice(client, merchantAccountId)
+
+      // If a newer session started while we were waiting on registerDevice,
+      // bail so we don't overwrite the newer worker.
+      if (getActiveMerchantAccountId() !== merchantAccountId) {
+        log.warn(`sync session for ${merchantAccountId} aborted — merchant switched`)
+        return
+      }
+
+      stopSyncWorker()
+      startSyncWorker(client, merchantAccountId, deviceId)
+      backfillTransactionDeviceId(deviceId)
+
+      await runInitialSync(client, merchantAccountId)
+    } catch (err) {
+      log.error(`start sync session failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  })()
+}
+
+async function stopMerchantSession(): Promise<void> {
+  stopSyncWorker()
+  closeActiveMerchantDb()
+}
+
 process.on('unhandledRejection', (reason) => {
   log.error('Unhandled promise rejection:', formatStartupError(reason))
 })
@@ -110,6 +144,8 @@ import {
   getPurchaseOrderDetail,
   createPurchaseOrder,
   updatePurchaseOrder,
+  updatePurchaseOrderItems,
+  markPurchaseOrderFullyReceived,
   receivePurchaseOrderItem,
   addPurchaseOrderItem,
   removePurchaseOrderItem,
@@ -135,7 +171,7 @@ import {
   getCatalogProductsByDistributors,
   provisionFinixMerchant
 } from './services/supabase'
-import { getDb } from './database/connection'
+import { closeActiveMerchantDb, getActiveMerchantAccountId, getDb } from './database/connection'
 import {
   openCashDrawer,
   getCashDrawerConfig,
@@ -161,18 +197,25 @@ import { initializeTelemetry, trackTelemetryEvent, shutdownTelemetry } from './s
 import { registerDevice } from './services/device-registration'
 import { listRegisters, renameRegister, deleteRegister } from './services/register-management'
 import { getSupabaseClient, getMerchantCloudId } from './services/supabase'
-import { getLastSyncedAt, startSyncWorker, stopSyncWorker } from './services/sync-worker'
+import {
+  drainSyncQueue,
+  getLastSyncedAt,
+  startSyncWorker,
+  stopSyncWorker
+} from './services/sync-worker'
 import {
   runInitialSync,
   getInitialSyncStatus,
   setInitialSyncStatusCallback
 } from './services/sync/initial-sync'
+import { fetchVelocityBySku } from './services/sync/velocity-sync'
 import {
   backfillTransactions,
   getBackfillStatus,
   onBackfillStatusChange,
   MAX_SAFE_BACKFILL_DAYS
 } from './services/sync/transaction-backfill'
+import { pullSingleProductBySku } from './services/sync/product-sync'
 import { getDeviceConfig } from './database/device-config.repo'
 import { getQueueStats } from './database/sync-queue.repo'
 import { initAutoUpdater, checkForUpdates, installUpdate } from './services/auto-updater'
@@ -309,6 +352,14 @@ app
         return getProducts()
       } catch (err) {
         throw new Error(err instanceof Error ? err.message : 'Failed to list products')
+      }
+    })
+
+    handle('products:has-any', async () => {
+      try {
+        return hasAnyActiveProduct()
+      } catch (err) {
+        throw new Error(err instanceof Error ? err.message : 'Failed to check product presence')
       }
     })
 
@@ -597,7 +648,11 @@ app
     // Supabase Auth
     handle('auth:login', async (_, email: string, password: string) => {
       try {
-        return await supabaseSignIn(email, password)
+        const result = await supabaseSignIn(email, password)
+        if (result.merchant.merchant_account_id) {
+          startMerchantSyncSession(result.merchant.merchant_account_id)
+        }
+        return result
       } catch (err) {
         throw new Error(err instanceof Error ? err.message : 'Sign in failed')
       }
@@ -606,15 +661,30 @@ app
     handle('auth:logout', async () => {
       try {
         await supabaseSignOut()
-        clearMerchantConfig()
+        await stopMerchantSession()
       } catch (err) {
         throw new Error(err instanceof Error ? err.message : 'Sign out failed')
       }
     })
 
+    handle('auth:full-sign-out', async () => {
+      try {
+        const drainResult = await drainSyncQueue(10_000)
+        await stopMerchantSession()
+        await supabaseSignOut()
+        return drainResult
+      } catch (err) {
+        throw new Error(err instanceof Error ? err.message : 'Full sign out failed')
+      }
+    })
+
     handle('auth:check-session', async () => {
       try {
-        return await supabaseCheckSession()
+        const result = await supabaseCheckSession()
+        if (result?.merchant.merchant_account_id) {
+          startMerchantSyncSession(result.merchant.merchant_account_id)
+        }
+        return result
       } catch {
         return null
       }
@@ -687,10 +757,11 @@ app
             const name = product.prod_name?.trim()
             if (!name || name === '(unnamed)') continue
 
-            const size =
+            const size = normalizeSize(
               product.item_size && product.unit_of_measure
                 ? `${product.item_size}${product.unit_of_measure}`
-                : (product.item_size ?? null)
+                : product.item_size
+            )
 
             // Composite dedup: skip if (distributor, name, size) already exists
             const duplicate = existsCheck.get(localDistributorNumber, name, size, size)
@@ -1292,29 +1363,6 @@ app
       if (win) win.webContents.send('history:backfill-status-changed', status)
     })
 
-    // Start sync worker after a short delay to let auth settle
-    setTimeout(async () => {
-      try {
-        const merchantCloudId = await getMerchantCloudId()
-        if (!merchantCloudId) return // Not authenticated or no merchant record
-
-        const client = getSupabaseClient()
-        const deviceId = await registerDevice(client, merchantCloudId)
-        startSyncWorker(client, merchantCloudId, deviceId)
-
-        // Backfill device_id on transactions written before device registration
-        backfillTransactionDeviceId(deviceId)
-
-        // Run initial reconciliation for all entities after the worker is started
-        // so the queue is already draining while we pull remote rows.
-        runInitialSync(client, merchantCloudId).catch((err) => {
-          console.error('[sync] Initial sync error:', err)
-        })
-      } catch (err) {
-        console.error('[sync] Failed to start sync worker:', err)
-      }
-    }, 3000)
-
     app.on('activate', function () {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
@@ -1417,7 +1465,11 @@ handle('auth:set-session', async (_, accessToken: string, refreshToken: string) 
 // IPC: renderer submits the new password after invite
 handle('auth:set-password', async (_, password: string) => {
   try {
-    return await supabaseSetPassword(password)
+    const result = await supabaseSetPassword(password)
+    if (result.merchant.merchant_account_id) {
+      startMerchantSyncSession(result.merchant.merchant_account_id)
+    }
+    return result
   } catch (err) {
     throw new Error(err instanceof Error ? err.message : 'Failed to set password')
   }
@@ -1470,7 +1522,16 @@ handle('registers:delete', async (_, id: string) => {
 // Reorder dashboard
 handle('inventory:reorder-products', async (_, query) => {
   try {
-    return getReorderProducts(query)
+    const supabase = getSupabaseClient()
+    const merchantCloudId = await getMerchantCloudId()
+    const velocityBySku = merchantCloudId
+      ? await fetchVelocityBySku(supabase, merchantCloudId, query.window_days)
+      : null
+
+    return {
+      rows: getReorderProducts(query, velocityBySku ?? undefined),
+      velocityOffline: velocityBySku == null
+    }
   } catch (err) {
     throw new Error(err instanceof Error ? err.message : 'Failed to get reorder products')
   }
@@ -1510,6 +1571,64 @@ handle('inventory:find-by-sku', async (_, sku: string) => {
   }
 })
 
+handle('inventory:check-sku-exists', async (_, sku: string) => {
+  try {
+    const normalizedSku = sku.trim().toLowerCase()
+    if (!normalizedSku) return { exists: false, source: 'local' as const }
+
+    const localRow = getDb()
+      .prepare('SELECT id FROM products WHERE lower(sku) = ? LIMIT 1')
+      .get(normalizedSku) as { id: number } | undefined
+
+    if (localRow) {
+      return { exists: true, source: 'local' as const }
+    }
+
+    const merchantCloudId = await getMerchantCloudId()
+    if (!merchantCloudId) {
+      return { exists: false, source: 'cloud' as const }
+    }
+
+    const supabase = getSupabaseClient()
+    const { data, error } = await supabase
+      .from('merchant_products')
+      .select('id')
+      .eq('merchant_id', merchantCloudId)
+      .eq('sku', sku.trim())
+      .limit(1)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return { exists: (data ?? []).length > 0, source: 'cloud' as const }
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to check SKU existence')
+  }
+})
+
+handle('inventory:pull-product-by-sku', async (_, sku: string) => {
+  try {
+    const normalizedSku = sku.trim()
+    if (!normalizedSku) return null
+
+    const merchantCloudId = await getMerchantCloudId()
+    if (!merchantCloudId) return null
+
+    const supabase = getSupabaseClient()
+    const pulled = await pullSingleProductBySku(supabase, merchantCloudId, normalizedSku)
+    if (!pulled) return null
+
+    const localRow = getDb()
+      .prepare('SELECT id FROM products WHERE lower(sku) = lower(?) LIMIT 1')
+      .get(normalizedSku) as { id: number } | undefined
+
+    return localRow ? getInventoryProductDetail(localRow.id) : null
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to pull product by SKU')
+  }
+})
+
 // Toggle is_favorite flag on a product
 handle('inventory:toggle-favorite', async (_, productId: number) => {
   try {
@@ -1525,6 +1644,14 @@ handle('inventory:distinct-sizes', async () => {
     return getDistinctSizes()
   } catch (err) {
     throw new Error(err instanceof Error ? err.message : 'Failed to get sizes')
+  }
+})
+
+handle('inventory:list-sizes-in-use', async () => {
+  try {
+    return getDistinctSizes()
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to list sizes in use')
   }
 })
 
@@ -1574,6 +1701,22 @@ handle('purchase-orders:update', async (_, input: UpdatePurchaseOrderInput) => {
     return updatePurchaseOrder(input)
   } catch (err) {
     throw new Error(err instanceof Error ? err.message : 'Failed to update purchase order')
+  }
+})
+
+handle('purchase-orders:update-items', async (_, input: UpdatePurchaseOrderItemsInput) => {
+  try {
+    return updatePurchaseOrderItems(input)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to update purchase order items')
+  }
+})
+
+handle('purchase-orders:mark-received', async (_, poId: number) => {
+  try {
+    return markPurchaseOrderFullyReceived(poId)
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Failed to mark purchase order received')
   }
 })
 

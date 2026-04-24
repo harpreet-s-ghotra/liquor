@@ -7,11 +7,24 @@ import { ItemForm, type ItemFormHandle, type ItemFormButtonState } from './items
 import { ItemTypePanel } from './item-types/ItemTypePanel'
 import { TaxCodePanel } from './tax-codes/TaxCodePanel'
 import { DistributorPanel } from './distributors/DistributorPanel'
+import { ReorderDashboard } from './reorder/ReorderDashboard'
+import { PurchaseOrderPanel } from './purchase-orders/PurchaseOrderPanel'
 import { FooterActionBar } from './FooterActionBar'
 import { useDebounce } from '@renderer/hooks/useDebounce'
-import type { InventoryProduct } from '@renderer/types/pos'
+import type { InventoryProduct, ReorderProduct } from '@renderer/types/pos'
 import { type InventoryTab, INVENTORY_TABS } from './tabs'
 import './inventory-modal.css'
+
+const LAST_TAB_KEY = 'inventory-modal-last-tab'
+
+function readLastTab(): InventoryTab {
+  try {
+    const saved = localStorage.getItem(LAST_TAB_KEY)
+    return INVENTORY_TABS.includes(saved as InventoryTab) ? (saved as InventoryTab) : 'items'
+  } catch {
+    return 'items'
+  }
+}
 
 type InventoryModalProps = {
   isOpen: boolean
@@ -26,7 +39,7 @@ export function InventoryModal({
   openItemNumber,
   onRecallTransaction
 }: InventoryModalProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<InventoryTab>('items')
+  const [activeTab, setActiveTab] = useState<InventoryTab>(readLastTab)
   const itemFormRef = useRef<ItemFormHandle>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [itemBtnState, setItemBtnState] = useState<ItemFormButtonState>({
@@ -47,20 +60,50 @@ export function InventoryModal({
   const [noResultsSku, setNoResultsSku] = useState<string | null>(null)
   const [inventoryFilter, setInventoryFilter] = useState<'all' | 'needs-pricing'>('all')
   const [unpricedCount, setUnpricedCount] = useState(0)
+  const [prefillItems, setPrefillItems] = useState<ReorderProduct[] | null>(null)
+  const [prefillDistributor, setPrefillDistributor] = useState<number | null>(null)
+  const [prefillUnitThreshold, setPrefillUnitThreshold] = useState(10)
   const searchWrapperRef = useRef<HTMLDivElement>(null)
   const debouncedSearch = useDebounce(searchTerm, 300)
 
-  // Reset to Items tab and focus the search input every time the modal opens
+  const handleTabChange = useCallback((tab: InventoryTab): void => {
+    setActiveTab(tab)
+    setSearchTerm('')
+    setNoResultsSku(null)
+    try {
+      localStorage.setItem(LAST_TAB_KEY, tab)
+    } catch {
+      // ignore storage errors
+    }
+  }, [])
+
+  const handleCreateOrder = useCallback(
+    (items: ReorderProduct[], distributor: number | 'unassigned' | null, unitThreshold: number) => {
+      setPrefillItems(items)
+      setPrefillDistributor(typeof distributor === 'number' ? distributor : null)
+      setPrefillUnitThreshold(unitThreshold)
+      handleTabChange('purchase-orders')
+    },
+    [handleTabChange]
+  )
+
+  const handlePrefillConsumed = useCallback((): void => {
+    setPrefillItems(null)
+    setPrefillDistributor(null)
+    setPrefillUnitThreshold(10)
+  }, [])
+
   useEffect(() => {
     if (isOpen) {
       requestAnimationFrame(() => {
-        setActiveTab('items')
+        const nextTab = openItemNumber != null ? 'items' : readLastTab()
+        setActiveTab(nextTab)
         setSearchTerm('')
         setNoResultsSku(null)
         setInventoryFilter('all')
         if (openItemNumber != null) {
           void itemFormRef.current?.selectItem({ item_number: openItemNumber } as InventoryProduct)
-        } else {
+        } else if (nextTab === 'items') {
           searchInputRef.current?.focus()
         }
       })
@@ -215,7 +258,11 @@ export function InventoryModal({
                   ? 'Tax Codes'
                   : activeTab === 'distributors'
                     ? 'Distributors'
-                    : activeTab
+                    : activeTab === 'reorder'
+                      ? 'Reorder Dashboard'
+                      : activeTab === 'purchase-orders'
+                        ? 'Purchase Orders'
+                        : activeTab
           }
           onClose={onClose}
         />
@@ -223,11 +270,7 @@ export function InventoryModal({
         {/* Tabs */}
         <Tabs
           value={activeTab}
-          onValueChange={(tab) => {
-            setActiveTab(tab as InventoryTab)
-            setSearchTerm('')
-            setNoResultsSku(null)
-          }}
+          onValueChange={(tab) => handleTabChange(tab as InventoryTab)}
           className="inventory-modal__tabs"
         >
           {/* Outer tab bar */}
@@ -238,7 +281,9 @@ export function InventoryModal({
                   { value: INVENTORY_TABS[0], label: 'Items' },
                   { value: INVENTORY_TABS[1], label: 'Item Types' },
                   { value: INVENTORY_TABS[2], label: 'Tax Codes' },
-                  { value: INVENTORY_TABS[3], label: 'Distributors' }
+                  { value: INVENTORY_TABS[3], label: 'Distributors' },
+                  { value: INVENTORY_TABS[4], label: 'Reorder' },
+                  { value: INVENTORY_TABS[5], label: 'Purchase Orders' }
                 ] as const
               ).map(({ value, label }) => (
                 <TabsTrigger key={value} value={value} className="inventory-modal__tab-trigger">
@@ -302,17 +347,38 @@ export function InventoryModal({
           >
             <DistributorPanel searchFilter={searchTerm} />
           </TabsContent>
+          <TabsContent
+            value="reorder"
+            className="inventory-modal__tab-content inventory-modal__tab-content--panel"
+          >
+            <ReorderDashboard onCreateOrder={handleCreateOrder} />
+          </TabsContent>
+          <TabsContent
+            value="purchase-orders"
+            className="inventory-modal__tab-content inventory-modal__tab-content--panel"
+          >
+            <PurchaseOrderPanel
+              prefillItems={prefillItems}
+              prefillDistributor={prefillDistributor}
+              prefillUnitThreshold={prefillUnitThreshold}
+              onPrefillConsumed={handlePrefillConsumed}
+            />
+          </TabsContent>
         </Tabs>
 
-        {/* Footer */}
         <FooterActionBar
           activeTab={activeTab}
+          showSearch={activeTab !== 'reorder' && activeTab !== 'purchase-orders'}
           searchTerm={searchTerm}
           onSearchTermChange={handleSearchTermChange}
           onSearch={() => void handleSearch()}
           searchResults={searchResults}
           showSearchDropdown={showSearchDropdown}
           onSelectSearchResult={selectSearchResult}
+          onOpenDropdown={() => {
+            setShowSearchDropdown(searchResults.length > 0)
+            setNoResultsSku(null)
+          }}
           onCloseDropdown={() => {
             setShowSearchDropdown(false)
             setNoResultsSku(null)

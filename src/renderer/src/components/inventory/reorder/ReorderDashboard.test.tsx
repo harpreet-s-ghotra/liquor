@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReorderDashboard } from './ReorderDashboard'
@@ -89,7 +89,7 @@ describe('ReorderDashboard', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
       getReorderDistributors: vi.fn().mockResolvedValue(mockDistributors),
-      getReorderProducts: vi.fn().mockResolvedValue(mockProducts),
+      getReorderProducts: vi.fn().mockResolvedValue({ rows: mockProducts, velocityOffline: false }),
       searchInventoryProducts: vi.fn().mockResolvedValue([])
     }
   })
@@ -121,17 +121,20 @@ describe('ReorderDashboard', () => {
   it('refetches when distributor changes', async () => {
     const user = userEvent.setup()
     vi.mocked(window.api!.getReorderProducts)
-      .mockResolvedValueOnce(mockProducts)
-      .mockResolvedValueOnce([
-        {
-          ...mockProducts[0],
-          id: 10,
-          sku: 'BETA-001',
-          name: 'Beta Product',
-          distributor_number: 2,
-          distributor_name: 'Beta Spirits'
-        }
-      ])
+      .mockResolvedValueOnce({ rows: mockProducts, velocityOffline: false })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...mockProducts[0],
+            id: 10,
+            sku: 'BETA-001',
+            name: 'Beta Product',
+            distributor_number: 2,
+            distributor_name: 'Beta Spirits'
+          }
+        ],
+        velocityOffline: false
+      })
 
     render(<ReorderDashboard />)
 
@@ -260,6 +263,63 @@ describe('ReorderDashboard', () => {
     expect(onCreateOrder).toHaveBeenCalledWith(mockProducts, 1, 10)
   })
 
+  it('supports keyboard selection from search results', async () => {
+    const user = userEvent.setup()
+    window.api!.searchInventoryProducts = vi.fn().mockResolvedValue([
+      {
+        item_number: 99,
+        sku: 'ADD-001',
+        item_name: 'Added From Search',
+        item_type: 'Wine',
+        category_id: null,
+        category_name: null,
+        cost: 5,
+        retail_price: 10,
+        in_stock: 8,
+        tax_1: 0,
+        tax_2: 0,
+        distributor_number: 1,
+        distributor_name: 'Alpha Wine',
+        bottles_per_case: 12,
+        case_discount_price: null,
+        barcode: null,
+        description: null,
+        special_pricing_enabled: 0,
+        special_price: null,
+        is_active: 1,
+        size: '750ML',
+        case_cost: null,
+        nysla_discounts: null,
+        brand_name: null,
+        proof: null,
+        alcohol_pct: null,
+        vintage: null,
+        ttb_id: null,
+        display_name: null
+      }
+    ])
+
+    render(<ReorderDashboard />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
+    })
+
+    const input = screen.getByRole('combobox', { name: 'Search reorder items' })
+    await user.type(input, 'add')
+
+    await waitFor(() => {
+      expect(window.api!.searchInventoryProducts).toHaveBeenCalled()
+    })
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Added From Search')).toBeInTheDocument()
+    })
+  })
+
   it('shows empty state instead of hanging when no reorderable distributors exist', async () => {
     window.api!.getReorderDistributors = vi.fn().mockResolvedValue([])
 
@@ -324,6 +384,19 @@ describe('ReorderDashboard', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/No sales recorded in the last 365 days/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows the offline velocity hint when the cloud aggregate is unavailable', async () => {
+    vi.mocked(window.api!.getReorderProducts).mockResolvedValueOnce({
+      rows: mockProducts,
+      velocityOffline: true
+    })
+
+    render(<ReorderDashboard />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Velocity offline — using cached data.')).toBeInTheDocument()
     })
   })
 })

@@ -12,7 +12,11 @@ function toTimestamp(value: string | null | undefined): number {
   return Number.isNaN(timestamp) ? 0 : timestamp
 }
 
-function resolveDistributorNumber(distributorNumber: number | null): number | null {
+async function resolveDistributorNumber(
+  supabase: SupabaseClient,
+  merchantId: string,
+  distributorNumber: number | null
+): Promise<number | null> {
   if (distributorNumber == null) return null
 
   const db = getDb()
@@ -20,7 +24,40 @@ function resolveDistributorNumber(distributorNumber: number | null): number | nu
     .prepare('SELECT distributor_number FROM distributors WHERE distributor_number = ? LIMIT 1')
     .get(distributorNumber) as { distributor_number: number } | undefined
 
-  return row ? distributorNumber : null
+  if (row) return distributorNumber
+
+  // Just-in-time pull: the referenced distributor hasn't been reconciled
+  // locally yet. Fetch the single row from cloud so the product FK resolves.
+  const { data, error } = await supabase
+    .from('merchant_distributors')
+    .select('*')
+    .eq('merchant_id', merchantId)
+    .eq('distributor_number', distributorNumber)
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) return null
+
+  db.prepare(
+    `INSERT OR IGNORE INTO distributors
+       (distributor_number, distributor_name, license_id, serial_number,
+        premises_name, premises_address, is_active,
+        cloud_id, synced_at, last_modified_by_device, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)`
+  ).run(
+    Number(data.distributor_number),
+    String(data.distributor_name),
+    (data.license_id as string | null) ?? null,
+    (data.serial_number as string | null) ?? null,
+    (data.premises_name as string | null) ?? null,
+    (data.premises_address as string | null) ?? null,
+    Number(data.is_active ?? 1),
+    String(data.id),
+    (data.device_id as string | null) ?? null,
+    String(data.updated_at)
+  )
+
+  return distributorNumber
 }
 
 async function syncRelatedRows(
@@ -171,7 +208,9 @@ export async function applyRemoteProductChange(
     throw new Error(`Failed to fetch remote special pricing: ${pricingError.message}`)
   }
 
-  const distributorNumber = resolveDistributorNumber(
+  const distributorNumber = await resolveDistributorNumber(
+    supabase,
+    merchantId,
     (row.distributor_number as number | null) ?? null
   )
 
@@ -350,4 +389,27 @@ export async function applyRemoteProductChange(
   })
 
   tx()
+}
+
+export async function pullSingleProductBySku(
+  supabase: SupabaseClient,
+  merchantId: string,
+  sku: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('merchant_products')
+    .select('*')
+    .eq('merchant_id', merchantId)
+    .eq('sku', sku)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return false
+    }
+    throw new Error(`Failed to fetch product by SKU: ${error.message}`)
+  }
+
+  await applyRemoteProductChange(supabase, merchantId, data as RemoteMerchantProductRow)
+  return true
 }

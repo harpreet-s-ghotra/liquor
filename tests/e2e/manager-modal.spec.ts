@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test'
 
 /**
  * Manager Modal E2E tests
- * Tests the F6 key Manager modal workflow: cashier management, register config, merchant info, reorder
+ * Tests the F6 key Manager modal workflow: cashier management, register config, merchant info, data history
  */
 
 const attachManagerModalMock = async (page: Page): Promise<void> => {
@@ -148,64 +148,23 @@ const attachManagerModalMock = async (page: Page): Promise<void> => {
         merchant_id: 'MU-test-merchant-id',
         processing_enabled: true
       }),
-      getReorderDistributors: async () => [
-        {
-          distributor_number: 10,
-          distributor_name: 'North Breweries',
-          product_count: 1
-        },
-        {
-          distributor_number: 20,
-          distributor_name: 'Premium Imports',
-          product_count: 1
-        }
-      ],
-      getReorderProducts: async (query: {
-        distributor: number | 'unassigned'
-        unit_threshold: number
-        window_days: number
-      }) => {
-        if (query.distributor === 10) {
-          return [
-            {
-              id: 2,
-              sku: 'BEER-001',
-              name: 'Craft IPA 6-Pack',
-              item_type: 'Beer',
-              in_stock: 5,
-              reorder_point: 10,
-              distributor_number: 10,
-              distributor_name: 'North Breweries',
-              price: 13.49,
-              velocity_per_day: 0.25,
-              days_of_supply: 20,
-              projected_stock: -2.5
-            }
-          ]
-        }
-
-        if (query.distributor === 20) {
-          return [
-            {
-              id: 3,
-              sku: 'SPIRIT-001',
-              name: 'Premium Vodka 1L',
-              item_type: 'Spirits',
-              in_stock: 2,
-              reorder_point: 8,
-              distributor_number: 20,
-              distributor_name: 'Premium Imports',
-              price: 32.99,
-              velocity_per_day: 0.1,
-              days_of_supply: 20,
-              projected_stock: -1
-            }
-          ]
-        }
-
-        return []
-      },
-      setProductDiscontinued: async () => {},
+      getLocalHistoryStats: async () => ({
+        count: 120,
+        earliest: '2025-01-01T00:00:00.000Z',
+        latest: '2025-01-15T00:00:00.000Z'
+      }),
+      getBackfillStatus: async () => ({
+        state: 'done',
+        days: 365,
+        applied: 120,
+        skipped: 0,
+        errors: 0,
+        startedAt: '2025-01-15T00:00:00.000Z',
+        finishedAt: '2025-01-15T00:05:00.000Z',
+        lastError: null
+      }),
+      triggerBackfill: async () => ({ started: true, days: 365 }),
+      onBackfillStatusChanged: () => () => {},
 
       // Payment APIs (for normal transactions)
       finixChargeCard: async (input: { total: number; card_number?: string }) => {
@@ -258,7 +217,7 @@ test.describe('Manager Modal (F6)', () => {
 
     // Manager modal should be visible
     await expect(page.getByRole('dialog')).toBeVisible()
-    await expect(page.locator('.manager-modal__header-label')).toHaveText('Manager')
+    await expect(page.locator('.app-modal-header__label')).toHaveText('Manager')
   })
 
   test('displays cashiers tab by default', async ({ page }) => {
@@ -288,12 +247,19 @@ test.describe('Manager Modal (F6)', () => {
 
     // Test Merchant Info tab
     await page.getByRole('tab', { name: 'Merchant Info' }).click()
-    await expect(page.getByText('Test Liquor Store')).toBeVisible()
+    const storeNameCard = page
+      .locator('.merchant-info__card')
+      .filter({ has: page.getByText('Store Name') })
+    await expect(storeNameCard.locator('.merchant-info__card-value')).toHaveText(
+      'Test Liquor Store'
+    )
 
-    // Test Reorder Dashboard tab
-    await page.getByRole('tab', { name: 'Reorder Dashboard' }).click()
-    await expect(page.locator('#reorder-distributor-select')).toHaveValue('10')
-    await expect(page.getByText('Craft IPA 6-Pack')).toBeVisible()
+    // Test Data History tab
+    await page.getByRole('tab', { name: 'Data History' }).click()
+    await expect(page.getByRole('tab', { name: 'Data History' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
   })
 
   test('creates a new cashier in manager modal', async ({ page }) => {
@@ -342,38 +308,18 @@ test.describe('Manager Modal (F6)', () => {
     await expect(page.getByRole('tab', { name: 'Registers' })).toBeVisible()
   })
 
-  test('displays reorder dashboard with distributor-scoped products', async ({ page }) => {
+  test('displays data history stats', async ({ page }) => {
     await attachManagerModalMock(page)
     await gotoAndLogin(page)
 
     await page.keyboard.press('F6')
-    await page.getByRole('tab', { name: 'Reorder Dashboard' }).click()
+    await page.getByRole('tab', { name: 'Data History' }).click()
 
-    await expect(page.locator('#reorder-distributor-select')).toHaveValue('10')
-    await expect(page.locator('#reorder-distributor-select option:checked')).toHaveText(
-      'North Breweries'
-    )
-
-    const beerRow = page.locator('.reorder-dashboard__row', {
-      has: page.getByText('Craft IPA 6-Pack')
-    })
-    await expect(beerRow).toBeVisible()
-    await expect(beerRow.locator('.reorder-dashboard__cell').first()).toHaveText('5')
-
-    await page.locator('#reorder-distributor-select').selectOption('20')
-    await expect(page.locator('#reorder-distributor-select option:checked')).toHaveText(
-      'Premium Imports'
-    )
-
-    await expect(
-      page.locator('.reorder-dashboard__row', { has: page.getByText('Craft IPA 6-Pack') })
-    ).toHaveCount(0)
-
-    const vodkaRow = page.locator('.reorder-dashboard__row', {
-      has: page.getByText('Premium Vodka 1L')
-    })
-    await expect(vodkaRow).toBeVisible()
-    await expect(vodkaRow.locator('.reorder-dashboard__cell').first()).toHaveText('2')
+    const localTransactionsCard = page
+      .locator('.data-history__card')
+      .filter({ has: page.getByText('Local transactions') })
+    await expect(localTransactionsCard.locator('.data-history__card-value')).toHaveText('120')
+    await expect(page.getByText('Last pull complete')).toBeVisible()
   })
 
   test('displays merchant info with payment processor status', async ({ page }) => {
@@ -384,8 +330,19 @@ test.describe('Manager Modal (F6)', () => {
     await page.getByRole('tab', { name: 'Merchant Info' }).click()
 
     // Should display merchant details
-    await expect(page.getByText('Test Liquor Store')).toBeVisible()
-    await expect(page.getByText('MU-test-merchant-id')).toBeVisible()
+    const storeNameCard = page
+      .locator('.merchant-info__card')
+      .filter({ has: page.getByText('Store Name') })
+    const merchantIdCard = page
+      .locator('.merchant-info__card')
+      .filter({ has: page.getByText('Finix Merchant ID') })
+
+    await expect(storeNameCard.locator('.merchant-info__card-value')).toHaveText(
+      'Test Liquor Store'
+    )
+    await expect(merchantIdCard.locator('.merchant-info__card-value')).toHaveText(
+      'MU-test-merchant-id'
+    )
 
     // Should indicate payment processing is enabled
     await expect(page.locator('.merchant-info__badge--enabled')).toBeVisible()

@@ -151,7 +151,7 @@ export type CloudInventoryDeltaPayload = {
   merchant_id: string
   product_sku: string
   delta: number
-  reason: 'sale' | 'refund' | 'manual_adjustment' | 'receiving'
+  reason: 'sale' | 'refund' | 'manual_adjustment' | 'receiving' | 'receiving_correction'
   reference_id: string | null
   device_id: string
   created_at: string
@@ -163,7 +163,7 @@ export type InventoryDeltaSyncPayload = {
     product_id: number
     product_sku: string
     delta: number
-    reason: 'sale' | 'refund' | 'manual_adjustment' | 'receiving'
+    reason: 'sale' | 'refund' | 'manual_adjustment' | 'receiving' | 'receiving_correction'
     reference_id: string | null
     created_at: string
   }

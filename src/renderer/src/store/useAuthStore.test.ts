@@ -8,8 +8,10 @@ const mockApi = {
   authCheckSession: vi.fn(),
   authLogin: vi.fn(),
   authLogout: vi.fn(),
+  authFullSignOut: vi.fn(),
   getCashiers: vi.fn(),
   getProducts: vi.fn(),
+  hasAnyProduct: vi.fn(),
   getMerchantConfig: vi.fn(),
   validatePin: vi.fn(),
   createCashier: vi.fn(),
@@ -75,7 +77,7 @@ describe('useAuthStore', () => {
     it('sets appState to syncing-initial when session exists but no cashiers', async () => {
       mockApi.authCheckSession.mockResolvedValue(authResult)
       mockApi.getCashiers.mockResolvedValue([])
-      mockApi.getProducts.mockResolvedValue([])
+      mockApi.hasAnyProduct.mockResolvedValue(false)
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -108,7 +110,7 @@ describe('useAuthStore', () => {
       mockApi.getCashiers.mockResolvedValue([
         { id: 1, name: 'Alice', role: 'admin', is_active: 1, created_at: '2026-01-01' }
       ])
-      mockApi.getProducts.mockResolvedValue([])
+      mockApi.hasAnyProduct.mockResolvedValue(false)
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -124,9 +126,7 @@ describe('useAuthStore', () => {
       mockApi.getCashiers.mockResolvedValue([
         { id: 1, name: 'Alice', role: 'admin', is_active: 1, created_at: '2026-01-01' }
       ])
-      mockApi.getProducts.mockResolvedValue([
-        { id: 1, sku: 'SKU-1', name: 'Wine', category: 'Wine', price: 10, quantity: 5, tax_rate: 0 }
-      ])
+      mockApi.hasAnyProduct.mockResolvedValue(true)
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -155,7 +155,7 @@ describe('useAuthStore', () => {
     it('logs in and transitions to syncing-initial when no cashiers exist', async () => {
       mockApi.authLogin.mockResolvedValue(authResult)
       mockApi.getCashiers.mockResolvedValue([])
-      mockApi.getProducts.mockResolvedValue([])
+      mockApi.hasAnyProduct.mockResolvedValue(false)
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -174,9 +174,7 @@ describe('useAuthStore', () => {
       mockApi.getCashiers.mockResolvedValue([
         { id: 1, name: 'Alice', role: 'admin', is_active: 1, created_at: '2026-01-01' }
       ])
-      mockApi.getProducts.mockResolvedValue([
-        { id: 1, sku: 'SKU-1', name: 'Wine', category: 'Wine', price: 10, quantity: 5, tax_rate: 0 }
-      ])
+      mockApi.hasAnyProduct.mockResolvedValue(true)
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -207,7 +205,7 @@ describe('useAuthStore', () => {
         appState: 'login' as AppState,
         merchantConfig
       })
-      mockApi.authLogout.mockResolvedValue(undefined)
+      mockApi.authFullSignOut.mockResolvedValue({ drained: 3, remaining: 0 })
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -215,6 +213,7 @@ describe('useAuthStore', () => {
         await result.current.signOut()
       })
 
+      expect(mockApi.authFullSignOut).toHaveBeenCalled()
       expect(result.current.appState).toBe('auth')
       expect(result.current.merchantConfig).toBeNull()
     })
@@ -236,7 +235,7 @@ describe('useAuthStore', () => {
 
     it('transitions to distributor-onboarding when no products exist', async () => {
       useAuthStore.setState({ appState: 'pin-setup' as AppState })
-      mockApi.getProducts.mockResolvedValue([])
+      mockApi.hasAnyProduct.mockResolvedValue(false)
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -249,9 +248,7 @@ describe('useAuthStore', () => {
 
     it('transitions to login when products exist', async () => {
       useAuthStore.setState({ appState: 'pin-setup' as AppState })
-      mockApi.getProducts.mockResolvedValue([
-        { id: 1, sku: 'SKU-1', name: 'Wine', category: 'Wine', price: 10, quantity: 5, tax_rate: 0 }
-      ])
+      mockApi.hasAnyProduct.mockResolvedValue(true)
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -266,7 +263,7 @@ describe('useAuthStore', () => {
   describe('completeBusinessSetup', () => {
     it('transitions to distributor-onboarding when no products exist', async () => {
       useAuthStore.setState({ appState: 'business-setup' as AppState })
-      mockApi.getProducts.mockResolvedValue([])
+      mockApi.hasAnyProduct.mockResolvedValue(false)
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -279,9 +276,7 @@ describe('useAuthStore', () => {
 
     it('transitions to login when products exist', async () => {
       useAuthStore.setState({ appState: 'business-setup' as AppState })
-      mockApi.getProducts.mockResolvedValue([
-        { id: 1, sku: 'SKU-1', name: 'Wine', category: 'Wine', price: 10, quantity: 5, tax_rate: 0 }
-      ])
+      mockApi.hasAnyProduct.mockResolvedValue(true)
 
       const { result } = renderHook(() => useAuthStore())
 
@@ -294,7 +289,7 @@ describe('useAuthStore', () => {
 
     it('falls back to distributor-onboarding on error', async () => {
       useAuthStore.setState({ appState: 'business-setup' as AppState })
-      mockApi.getProducts.mockRejectedValue(new Error('fail'))
+      mockApi.hasAnyProduct.mockRejectedValue(new Error('fail'))
 
       const { result } = renderHook(() => useAuthStore())
 

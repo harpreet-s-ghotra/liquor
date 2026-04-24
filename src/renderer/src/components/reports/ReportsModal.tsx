@@ -4,6 +4,7 @@ import { ReportsIcon } from '@renderer/components/common/modal-icons'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@renderer/components/ui/toggle-group'
 import { AppButton } from '@renderer/components/common/AppButton'
+import { ValidatedInput } from '@renderer/components/common/ValidatedInput'
 import { formatCurrency, formatInteger } from '@renderer/utils/currency'
 import { ReportDateRangePicker } from './ReportDateRangePicker'
 import { computeRange } from './report-date-utils'
@@ -24,9 +25,13 @@ import type {
   CategorySalesReport,
   TaxReport,
   DeviceConfig,
-  MerchantConfig
+  MerchantConfig,
+  LocalTransactionHistoryStats,
+  TransactionBackfillStatus
 } from '../../../../shared/types'
 import './reports-modal.css'
+
+const MAX_BACKFILL_DAYS = 365
 
 type ReportsModalProps = {
   isOpen: boolean
@@ -39,6 +44,23 @@ type YearComparisonRow = {
   label: string
   lastYearSales: number
   thisYearSales: number | null
+}
+
+function formatHistoryDate(value: string | null): string {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function formatHistoryRelative(value: string | null): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const days = Math.round((Date.now() - date.getTime()) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return '1 day ago'
+  return `${days} days ago`
 }
 
 function toDateOnly(value: string): Date {
@@ -162,11 +184,17 @@ function buildYearComparisonRows(
 }
 
 export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.Element {
+  const api = typeof window !== 'undefined' ? window.api : undefined
   const [activeTab, setActiveTab] = useState('summary')
   const [range, setRange] = useState<ReportDateRange>(() => computeRange('this-month'))
   const [loading, setLoading] = useState(false)
   const [deviceConfig, setDeviceConfig] = useState<DeviceConfig | null>(null)
   const [merchantConfig, setMerchantConfig] = useState<MerchantConfig | null>(null)
+  const [historyStats, setHistoryStats] = useState<LocalTransactionHistoryStats | null>(null)
+  const [historyStatus, setHistoryStatus] = useState<TransactionBackfillStatus | null>(null)
+  const [historyDaysInput, setHistoryDaysInput] = useState('30')
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historyNotice, setHistoryNotice] = useState<string | null>(null)
   const [comparisonGranularity, setComparisonGranularity] = useState<ComparisonGranularity>('month')
   const [comparisonRows, setComparisonRows] = useState<YearComparisonRow[]>([])
 
@@ -190,16 +218,55 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
     [registerScoped, deviceConfig]
   )
 
+  const loadHistoryMeta = useCallback(async () => {
+    if (!api?.getLocalHistoryStats || !api.getBackfillStatus) return
+    const [stats, backfill] = await Promise.all([
+      api.getLocalHistoryStats(),
+      api.getBackfillStatus()
+    ])
+    setHistoryStats(stats)
+    setHistoryStatus(backfill)
+  }, [api])
+
   useEffect(() => {
     if (isOpen && (!deviceConfig || !merchantConfig)) {
-      void Promise.all([window.api?.getDeviceConfig?.(), window.api?.getMerchantConfig?.()]).then(
-        ([cfg, merchant]) => {
-          if (cfg) setDeviceConfig(cfg)
-          if (merchant) setMerchantConfig(merchant)
-        }
-      )
+      void Promise.all([
+        api?.getDeviceConfig?.() ?? Promise.resolve(null),
+        api?.getMerchantConfig?.() ?? Promise.resolve(null)
+      ]).then(([cfg, merchant]) => {
+        if (cfg) setDeviceConfig(cfg)
+        if (merchant) setMerchantConfig(merchant)
+      })
     }
-  }, [isOpen, deviceConfig, merchantConfig])
+  }, [api, isOpen, deviceConfig, merchantConfig])
+
+  useEffect(() => {
+    if (!isOpen) return
+    void loadHistoryMeta().catch((err) => {
+      setHistoryError(err instanceof Error ? err.message : 'Failed to load sales history status')
+    })
+  }, [isOpen, loadHistoryMeta])
+
+  useEffect(() => {
+    if (!isOpen || !api?.onBackfillStatusChanged) return
+    const dispose = api.onBackfillStatusChanged((status) => {
+      setHistoryStatus(status)
+      if (status.state === 'done') {
+        setHistoryNotice(`Sales history pull complete for the last ${status.days} days.`)
+        setHistoryError(null)
+        void api
+          .getLocalHistoryStats?.()
+          .then((stats) => {
+            if (stats) setHistoryStats(stats)
+          })
+          .catch(() => {})
+      }
+      if (status.state === 'failed') {
+        setHistoryError(status.lastError ?? 'Sales history pull failed')
+      }
+    })
+    return dispose
+  }, [api, isOpen])
 
   const loadTabData = useCallback(
     async (tab: string, dateRange: ReportDateRange) => {
@@ -306,6 +373,31 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
     [exportReportType, getScopedRange, merchantConfig, range]
   )
 
+  const handlePullSalesHistory = useCallback(async () => {
+    if (!api?.triggerBackfill) return
+    const days = Number(historyDaysInput)
+
+    if (!Number.isFinite(days) || days <= 0) {
+      setHistoryError('Enter a positive number of days')
+      return
+    }
+
+    if (days > MAX_BACKFILL_DAYS) {
+      setHistoryError(`Sales history pull is limited to ${MAX_BACKFILL_DAYS} days per request`)
+      return
+    }
+
+    try {
+      setHistoryError(null)
+      setHistoryNotice(null)
+      await api.triggerBackfill(days)
+      setHistoryNotice(`Started pulling sales history for the last ${days} days.`)
+      await loadHistoryMeta()
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : 'Failed to start sales history pull')
+    }
+  }, [api, historyDaysInput, loadHistoryMeta])
+
   const distributorCount = new Set(
     productReport?.items
       .map((item) => item.distributor_name?.trim())
@@ -325,6 +417,15 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
     0
   )
   const comparisonLastYearTotal = comparisonRows.reduce((sum, row) => sum + row.lastYearSales, 0)
+  const historyRunning = historyStatus?.state === 'running'
+  const historyStatusText =
+    historyStatus?.state === 'running'
+      ? `Pulling last ${historyStatus.days} days: ${formatInteger(historyStatus.applied)} applied, ${formatInteger(historyStatus.skipped)} already local`
+      : historyStatus?.state === 'done'
+        ? `Last pull complete${historyStatus.finishedAt ? ` ${formatHistoryRelative(historyStatus.finishedAt)}` : ''}: ${formatInteger(historyStatus.applied)} applied`
+        : historyStatus?.state === 'failed'
+          ? (historyStatus.lastError ?? 'Last pull failed')
+          : 'Sales history no longer downloads automatically at sign-in.'
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -458,6 +559,47 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="reports-modal__history-panel" data-testid="reports-history-panel">
+            <div className="reports-modal__history-copy">
+              <span className="reports-modal__history-title">Pull sales history from cloud</span>
+              <span className="reports-modal__history-meta">
+                {historyStats
+                  ? `${formatInteger(historyStats.count)} local transactions • earliest ${formatHistoryDate(historyStats.earliest)}`
+                  : 'Loading local sales history coverage...'}
+              </span>
+              <span className="reports-modal__history-meta">{historyStatusText}</span>
+              {historyNotice ? (
+                <span className="reports-modal__history-notice">{historyNotice}</span>
+              ) : null}
+              {historyError ? (
+                <span className="reports-modal__history-error">{historyError}</span>
+              ) : null}
+            </div>
+
+            <div className="reports-modal__history-actions">
+              <label className="reports-modal__history-label" htmlFor="reports-history-days">
+                Days
+              </label>
+              <ValidatedInput
+                id="reports-history-days"
+                fieldType="integer"
+                value={historyDaysInput}
+                onChange={setHistoryDaysInput}
+                className="reports-modal__history-input"
+                disabled={historyRunning}
+                aria-label="Days of sales history to pull"
+              />
+              <AppButton
+                variant="neutral"
+                size="sm"
+                onClick={() => void handlePullSalesHistory()}
+                disabled={historyRunning || !api?.triggerBackfill}
+              >
+                {historyRunning ? 'Pulling...' : 'Pull Sales History'}
+              </AppButton>
+            </div>
           </div>
 
           {loading && <div className="reports-modal__loading">Loading report data...</div>}

@@ -102,6 +102,7 @@ Filters are applied _in combination_ with the search text. Changing a filter re-
 - Empty state: "No items found. Try a different search." (shown when search returns 0 results)
 - Initial state: on open, auto-runs an empty search and shows all active products (no empty-form prompt)
 - Max results: display up to 100 rows (truncate if more)
+- The results pane keeps its reserved height even when there are 0 matches; the bottom search input and Go button never stretch to fill the empty space.
 
 ### Search Bar (Bottom)
 

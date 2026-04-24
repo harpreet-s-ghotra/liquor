@@ -27,10 +27,10 @@ npm run dev
 
 ## Prerequisites
 
-| Requirement | Details |
-|---|---|
-| Node.js ≥ 20 | Same as the main app |
-| Supabase service-role key | From project settings — keep it local |
+| Requirement                 | Details                                         |
+| --------------------------- | ----------------------------------------------- |
+| Node.js ≥ 20                | Same as the main app                            |
+| Supabase service-role key   | From project settings — keep it local           |
 | Super-user Supabase account | `app_metadata.is_super_user = true` must be set |
 
 ### Setting super-user access
@@ -73,21 +73,21 @@ npx supabase db execute --remote --sql "
 
 ## Diff Statuses
 
-| Status | Meaning |
-|---|---|
-| `differs` | Merchant value and catalog value are different |
+| Status             | Meaning                                                           |
+| ------------------ | ----------------------------------------------------------------- |
+| `differs`          | Merchant value and catalog value are different                    |
 | `no_catalog_match` | No `catalog_products` row matches the merchant product's `ttb_id` |
 
 ---
 
 ## Curated Fields
 
-| Field | Catalog source column | Curated column |
-|---|---|---|
-| SKU | (none — catalog has no native SKU) | `catalog_products.curated_sku` |
-| Barcode | (none — catalog has no barcode) | `catalog_products.curated_barcode` |
-| Size | `catalog_products.item_size` | `catalog_products.curated_size` |
-| Cost | (none — `bot_price` is NYSLA posted pricing, not merchant cost) | `catalog_products.curated_cost` |
+| Field   | Catalog source column                                           | Curated column                     |
+| ------- | --------------------------------------------------------------- | ---------------------------------- |
+| SKU     | (none — catalog has no native SKU)                              | `catalog_products.curated_sku`     |
+| Barcode | (none — catalog has no barcode)                                 | `catalog_products.curated_barcode` |
+| Size    | `catalog_products.item_size`                                    | `catalog_products.curated_size`    |
+| Cost    | (none — `bot_price` is NYSLA posted pricing, not merchant cost) | `catalog_products.curated_cost`    |
 
 Rows where the catalog has never had a comparable value are treated as catalog-enrichment candidates, not live diffs. The review table only shows true mismatches against an existing catalog baseline or curated override.
 
@@ -105,15 +105,15 @@ Every promote or clear action increments `catalog_revision.revision_id` via the 
 
 Every field-level change (promote or clear) writes a row to `catalog_curation_log`:
 
-| Column | Value |
-|---|---|
-| `catalog_product_id` | catalog product being updated |
-| `field` | sku / barcode / size / cost |
-| `old_value` | prior effective value |
-| `new_value` | new value (NULL on clear) |
+| Column               | Value                              |
+| -------------------- | ---------------------------------- |
+| `catalog_product_id` | catalog product being updated      |
+| `field`              | sku / barcode / size / cost        |
+| `old_value`          | prior effective value              |
+| `new_value`          | new value (NULL on clear)          |
 | `source_merchant_id` | which merchant's data was promoted |
-| `updated_by` | operator email |
-| `updated_at` | timestamp |
+| `updated_by`         | operator email                     |
+| `updated_at`         | timestamp                          |
 
 ---
 

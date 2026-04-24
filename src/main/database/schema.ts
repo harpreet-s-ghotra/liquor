@@ -1,8 +1,15 @@
 import Database from 'better-sqlite3'
-import { mkdirSync } from 'fs'
-import { join } from 'path'
-import { ensureColumn, setDatabase } from './connection'
+import { ensureColumn, configureDatabaseRoot, registerDatabaseInitializer } from './connection'
 import { seedData } from './seed'
+import { scoped } from '../services/logger'
+import { normalizeSize } from '../../shared/utils/size'
+
+const log = scoped('schema')
+
+registerDatabaseInitializer((database) => {
+  applySchema(database)
+  seedData(database)
+})
 
 /**
  * Check whether a table exists in the database.
@@ -24,6 +31,13 @@ function columnExists(
 ): boolean {
   const cols = database.pragma(`table_info(${table})`) as Array<{ name: string }>
   return cols.some((c) => c.name === column)
+}
+
+function getTableSql(database: InstanceType<typeof Database>, table: string): string | null {
+  const row = database
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?")
+    .get(table) as { sql: string } | undefined
+  return row?.sql ?? null
 }
 
 /**
@@ -132,6 +146,14 @@ function migratePaymentApiKeyToFinix(database: InstanceType<typeof Database>): v
   database.exec(`ALTER TABLE merchant_config DROP COLUMN payment_processing_api_key`)
 }
 
+function migrateMerchantAccountId(database: InstanceType<typeof Database>): void {
+  if (!tableExists(database, 'merchant_config')) return
+  if (columnExists(database, 'merchant_config', 'merchant_account_id')) return
+  database.exec(
+    `ALTER TABLE merchant_config ADD COLUMN merchant_account_id TEXT NOT NULL DEFAULT ''`
+  )
+}
+
 /**
  * One-time migration: move old transaction gateway references to Finix fields.
  */
@@ -190,6 +212,78 @@ function migrateDeptIdToItemType(database: InstanceType<typeof Database>): void 
   `)
 }
 
+function migrateInventoryDeltaReasons(database: InstanceType<typeof Database>): void {
+  const sql = getTableSql(database, 'inventory_deltas')
+  if (!sql || sql.includes('receiving_correction')) return
+
+  database.exec(`
+    ALTER TABLE inventory_deltas RENAME TO inventory_deltas_old;
+
+    CREATE TABLE inventory_deltas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL,
+      product_sku TEXT NOT NULL,
+      delta INTEGER NOT NULL,
+      reason TEXT NOT NULL CHECK (reason IN ('sale', 'refund', 'manual_adjustment', 'receiving', 'receiving_correction')),
+      reference_id TEXT,
+      device_id TEXT,
+      synced_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    );
+
+    INSERT INTO inventory_deltas (
+      id,
+      product_id,
+      product_sku,
+      delta,
+      reason,
+      reference_id,
+      device_id,
+      synced_at,
+      created_at
+    )
+    SELECT
+      id,
+      product_id,
+      product_sku,
+      delta,
+      reason,
+      reference_id,
+      device_id,
+      synced_at,
+      created_at
+    FROM inventory_deltas_old;
+
+    DROP TABLE inventory_deltas_old;
+  `)
+}
+
+function backfillProductSizes(database: InstanceType<typeof Database>): void {
+  if (!tableExists(database, 'products') || !columnExists(database, 'products', 'size')) return
+
+  const rows = database
+    .prepare(`SELECT id, size FROM products WHERE size IS NOT NULL`)
+    .all() as Array<{ id: number; size: string | null }>
+
+  if (rows.length === 0) return
+
+  const updateSize = database.prepare(`UPDATE products SET size = ? WHERE id = ?`)
+  let updated = 0
+
+  const tx = database.transaction(() => {
+    for (const row of rows) {
+      const normalized = normalizeSize(row.size)
+      if (normalized === row.size) continue
+      updateSize.run(normalized, row.id)
+      updated += 1
+    }
+  })
+
+  tx()
+  log.info(`size backfill: ${updated} rows updated`)
+}
+
 /**
  * Strip diacritics (é→e, ñ→n) and collapse hyphens/punctuation to spaces.
  * Used as a custom SQLite function so LIKE queries match loosely.
@@ -216,6 +310,8 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   migrateTransactionGatewayColumns(database)
   migrateDepartmentsToItemTypes(database)
   migrateDeptIdToItemType(database)
+  migrateInventoryDeltaReasons(database)
+  migrateMerchantAccountId(database)
 
   // ── Tables ──
 
@@ -380,6 +476,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
 
     CREATE TABLE IF NOT EXISTS merchant_config (
       id INTEGER PRIMARY KEY CHECK (id = 1),
+      merchant_account_id TEXT NOT NULL DEFAULT '',
       finix_api_username TEXT NOT NULL DEFAULT '',
       finix_api_password TEXT NOT NULL DEFAULT '',
       merchant_id TEXT NOT NULL,
@@ -453,7 +550,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       product_id INTEGER NOT NULL,
       product_sku TEXT NOT NULL,
       delta INTEGER NOT NULL,
-      reason TEXT NOT NULL CHECK (reason IN ('sale', 'refund', 'manual_adjustment', 'receiving')),
+      reason TEXT NOT NULL CHECK (reason IN ('sale', 'refund', 'manual_adjustment', 'receiving', 'receiving_correction')),
       reference_id TEXT,
       device_id TEXT,
       synced_at DATETIME,
@@ -484,6 +581,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       sku TEXT NOT NULL,
       product_name TEXT NOT NULL,
       unit_cost REAL NOT NULL,
+      bottles_per_case INTEGER NOT NULL DEFAULT 1,
       quantity_ordered INTEGER NOT NULL CHECK (quantity_ordered > 0),
       quantity_received INTEGER DEFAULT 0 CHECK (quantity_received >= 0),
       line_total REAL NOT NULL,
@@ -506,6 +604,26 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('transactions', 'device_id', 'device_id TEXT')
   ensureColumn('transactions', 'synced_at', 'synced_at DATETIME')
   ensureColumn('transactions', 'backfilled', 'backfilled INTEGER NOT NULL DEFAULT 0')
+  ensureColumn(
+    'purchase_order_items',
+    'bottles_per_case',
+    'bottles_per_case INTEGER NOT NULL DEFAULT 1'
+  )
+  database.exec(`
+    UPDATE purchase_order_items
+    SET bottles_per_case = COALESCE(
+      (
+        SELECT CASE
+          WHEN COALESCE(products.bottles_per_case, 0) > 0 THEN products.bottles_per_case
+          ELSE 1
+        END
+        FROM products
+        WHERE products.id = purchase_order_items.product_id
+      ),
+      1
+    )
+    WHERE COALESCE(bottles_per_case, 1) = 1
+  `)
   ensureColumn('transaction_items', 'cost_at_sale', 'cost_at_sale REAL')
   ensureColumn(
     'transaction_items',
@@ -542,6 +660,8 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('products', 'nysla_discounts', 'nysla_discounts TEXT')
   ensureColumn('products', 'brand_name', 'brand_name TEXT')
   ensureColumn('products', 'proof', 'proof REAL')
+
+  backfillProductSizes(database)
   ensureColumn('products', 'alcohol_pct', 'alcohol_pct REAL')
   ensureColumn('products', 'vintage', 'vintage TEXT')
   ensureColumn('products', 'ttb_id', 'ttb_id TEXT')
@@ -705,18 +825,5 @@ export function applySchema(database: InstanceType<typeof Database>): void {
  * data when the tables are empty.
  */
 export function initializeDatabase(userDataPath: string): void {
-  const dataDir = join(userDataPath, 'data')
-  mkdirSync(dataDir, { recursive: true })
-
-  const dbPath = join(dataDir, 'liquor-pos.db')
-  const database = new Database(dbPath)
-
-  // Publish the instance so every repository can access it via getDb()
-  setDatabase(database)
-
-  applySchema(database)
-
-  // ── Seed initial data ──
-
-  seedData(database)
+  configureDatabaseRoot(userDataPath)
 }

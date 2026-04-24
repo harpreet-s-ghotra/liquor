@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { getDb, setDatabase } from './connection'
+import { getDeltasByProduct } from './inventory-deltas.repo'
 import { listOpenCostLayers } from './product-cost-layers.repo'
 import { applySchema } from './schema'
 import {
@@ -8,6 +9,8 @@ import {
   createPurchaseOrder,
   getPurchaseOrderDetail,
   updatePurchaseOrder,
+  updatePurchaseOrderItems,
+  markPurchaseOrderFullyReceived,
   receivePurchaseOrderItem,
   addPurchaseOrderItem,
   removePurchaseOrderItem,
@@ -473,7 +476,7 @@ describe('receivePurchaseOrderItem', () => {
     expect(result!.received_at).not.toBeNull()
   })
 
-  it('throws if qty > quantity_ordered', () => {
+  it('allows qty greater than quantity_ordered for over-receipt handling', () => {
     seedTestData()
 
     const po = createPurchaseOrder({
@@ -483,12 +486,12 @@ describe('receivePurchaseOrderItem', () => {
 
     updatePurchaseOrder({ id: po.id, status: 'submitted' })
 
-    expect(() =>
-      receivePurchaseOrderItem({
-        id: po.items[0].id,
-        quantity_received: 10
-      })
-    ).toThrow('Received quantity must be between 0 and quantity ordered')
+    const result = receivePurchaseOrderItem({
+      id: po.items[0].id,
+      quantity_received: 10
+    })
+
+    expect(result.quantity_received).toBe(10)
   })
 
   it('throws if qty is negative', () => {
@@ -506,7 +509,7 @@ describe('receivePurchaseOrderItem', () => {
         id: po.items[0].id,
         quantity_received: -1
       })
-    ).toThrow('Received quantity must be between 0 and quantity ordered')
+    ).toThrow('Received quantity must be greater than or equal to 0')
   })
 
   it('allows zero quantity received', () => {
@@ -544,6 +547,199 @@ describe('receivePurchaseOrderItem', () => {
         quantity_received: 2
       })
     ).toThrow('Received quantity cannot be reduced once recorded')
+  })
+})
+
+describe('updatePurchaseOrderItems', () => {
+  beforeEach(() => createTestDb())
+
+  it('stores bottles_per_case on created PO items', () => {
+    seedTestData()
+    const db = getDb()
+
+    db.prepare('UPDATE products SET bottles_per_case = 12 WHERE id = 1').run()
+
+    const po = createPurchaseOrder({
+      distributor_number: 1,
+      items: [{ product_id: 1, quantity_ordered: 12 }]
+    })
+
+    expect(po.items[0].bottles_per_case).toBe(12)
+  })
+
+  it('increases received qty and records a receiving correction delta', () => {
+    seedTestData()
+
+    const po = createPurchaseOrder({
+      distributor_number: 1,
+      items: [{ product_id: 1, quantity_ordered: 5 }]
+    })
+
+    updatePurchaseOrder({ id: po.id, status: 'submitted' })
+
+    const result = updatePurchaseOrderItems({
+      po_id: po.id,
+      lines: [{ id: po.items[0].id, quantity_received: 4 }]
+    })
+
+    expect(result.items[0].quantity_received).toBe(4)
+
+    const stock = getDb().prepare('SELECT in_stock FROM products WHERE id = 1').get() as {
+      in_stock: number
+    }
+    expect(stock.in_stock).toBe(4)
+
+    const deltas = getDeltasByProduct(1)
+    expect(deltas[0].reason).toBe('receiving_correction')
+    expect(deltas[0].delta).toBe(4)
+  })
+
+  it('decreases received qty, reduces stock, but keeps status at received', () => {
+    seedTestData()
+
+    const po = createPurchaseOrder({
+      distributor_number: 1,
+      items: [{ product_id: 1, quantity_ordered: 5 }]
+    })
+
+    updatePurchaseOrder({ id: po.id, status: 'submitted' })
+    receivePurchaseOrderItem({ id: po.items[0].id, quantity_received: 5 })
+
+    const result = updatePurchaseOrderItems({
+      po_id: po.id,
+      lines: [{ id: po.items[0].id, quantity_received: 2 }]
+    })
+
+    // Once fully received, the PO's header status is locked — later edits to
+    // received quantities still adjust stock but do not downgrade status.
+    expect(result.status).toBe('received')
+    expect(result.items[0].quantity_received).toBe(2)
+
+    const stock = getDb().prepare('SELECT in_stock FROM products WHERE id = 1').get() as {
+      in_stock: number
+    }
+    expect(stock.in_stock).toBe(2)
+  })
+
+  it('promotes status to received when every line meets ordered quantity', () => {
+    seedTestData()
+
+    const po = createPurchaseOrder({
+      distributor_number: 1,
+      items: [
+        { product_id: 1, quantity_ordered: 5 },
+        { product_id: 2, quantity_ordered: 3 }
+      ]
+    })
+
+    updatePurchaseOrder({ id: po.id, status: 'submitted' })
+
+    const result = updatePurchaseOrderItems({
+      po_id: po.id,
+      lines: [
+        { id: po.items[0].id, quantity_received: 5 },
+        { id: po.items[1].id, quantity_received: 3 }
+      ]
+    })
+
+    expect(result.status).toBe('received')
+    expect(result.received_at).not.toBeNull()
+  })
+
+  it('updates matching cost layers when unit cost changes on received lines', () => {
+    seedTestData()
+
+    const po = createPurchaseOrder({
+      distributor_number: 1,
+      items: [{ product_id: 1, quantity_ordered: 5 }]
+    })
+
+    updatePurchaseOrder({ id: po.id, status: 'submitted' })
+    receivePurchaseOrderItem({ id: po.items[0].id, quantity_received: 5 })
+
+    updatePurchaseOrderItems({
+      po_id: po.id,
+      lines: [{ id: po.items[0].id, unit_cost: 7.5 }]
+    })
+
+    const layers = listOpenCostLayers(1)
+    expect(layers[0].cost_per_unit).toBe(7.5)
+  })
+
+  it('rejects negative received quantities', () => {
+    seedTestData()
+
+    const po = createPurchaseOrder({
+      distributor_number: 1,
+      items: [{ product_id: 1, quantity_ordered: 5 }]
+    })
+
+    updatePurchaseOrder({ id: po.id, status: 'submitted' })
+
+    expect(() =>
+      updatePurchaseOrderItems({
+        po_id: po.id,
+        lines: [{ id: po.items[0].id, quantity_received: -1 }]
+      })
+    ).toThrow('Quantity received must be greater than or equal to 0')
+  })
+
+  it('rejects edits on cancelled orders', () => {
+    seedTestData()
+
+    const po = createPurchaseOrder({
+      distributor_number: 1,
+      items: [{ product_id: 1, quantity_ordered: 5 }]
+    })
+
+    updatePurchaseOrder({ id: po.id, status: 'cancelled' })
+
+    expect(() =>
+      updatePurchaseOrderItems({
+        po_id: po.id,
+        lines: [{ id: po.items[0].id, quantity_received: 1 }]
+      })
+    ).toThrow('Cannot edit a cancelled purchase order')
+  })
+})
+
+describe('markPurchaseOrderFullyReceived', () => {
+  beforeEach(() => createTestDb())
+
+  it('fills all outstanding lines and flips status to received', () => {
+    seedTestData()
+
+    const po = createPurchaseOrder({
+      distributor_number: 1,
+      items: [
+        { product_id: 1, quantity_ordered: 5 },
+        { product_id: 2, quantity_ordered: 3 }
+      ]
+    })
+
+    updatePurchaseOrder({ id: po.id, status: 'submitted' })
+
+    const result = markPurchaseOrderFullyReceived(po.id)
+
+    expect(result.status).toBe('received')
+    expect(result.items[0].quantity_received).toBe(5)
+    expect(result.items[1].quantity_received).toBe(3)
+  })
+
+  it('is idempotent for already received orders', () => {
+    seedTestData()
+
+    const po = createPurchaseOrder({
+      distributor_number: 1,
+      items: [{ product_id: 1, quantity_ordered: 5 }]
+    })
+
+    updatePurchaseOrder({ id: po.id, status: 'submitted' })
+    receivePurchaseOrderItem({ id: po.items[0].id, quantity_received: 5 })
+
+    const result = markPurchaseOrderFullyReceived(po.id)
+    expect(result.status).toBe('received')
+    expect(result.items[0].quantity_received).toBe(5)
   })
 })
 

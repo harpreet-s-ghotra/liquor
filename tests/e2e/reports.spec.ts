@@ -88,9 +88,53 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
       tax_rows: [{ tax_code_name: '8%', tax_rate: 8, taxable_sales: 500, tax_collected: 40 }]
     }
 
+    let localHistoryStats = {
+      count: 120,
+      earliest: '2024-01-15T00:00:00.000Z',
+      latest: '2024-06-11T00:00:00.000Z'
+    }
+
+    let backfillStatus = {
+      state: 'idle',
+      days: 0,
+      applied: 0,
+      skipped: 0,
+      errors: 0,
+      startedAt: null,
+      finishedAt: null,
+      lastError: null
+    }
+
+    const backfillListeners = new Set<(status: typeof backfillStatus) => void>()
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
       getMerchantConfig: async () => merchantConfig,
+      getLocalHistoryStats: async () => localHistoryStats,
+      getBackfillStatus: async () => backfillStatus,
+      triggerBackfill: async (days: number) => {
+        backfillStatus = {
+          state: 'done',
+          days,
+          applied: 42,
+          skipped: 5,
+          errors: 0,
+          startedAt: '2025-01-01T00:00:00.000Z',
+          finishedAt: new Date().toISOString(),
+          lastError: null
+        }
+        localHistoryStats = {
+          count: 162,
+          earliest: '2023-05-01T00:00:00.000Z',
+          latest: '2024-06-11T00:00:00.000Z'
+        }
+        backfillListeners.forEach((listener) => listener(backfillStatus))
+        return { started: true, days }
+      },
+      onBackfillStatusChanged: (callback: (status: typeof backfillStatus) => void) => {
+        backfillListeners.add(callback)
+        return () => backfillListeners.delete(callback)
+      },
       authCheckSession: async () => ({
         user: { id: 'user-1', email: 'test@example.com' },
         merchant: merchantConfig
@@ -230,5 +274,17 @@ test.describe('Sales Reports', () => {
     await expect(page.getByLabel('Export')).toBeVisible()
     await expect(page.locator('button:has-text("Download PDF")')).toBeVisible()
     await expect(page.locator('button:has-text("Download CSV")')).toBeVisible()
+  })
+
+  test('starts a manual sales history pull from the reports modal', async ({ page }) => {
+    await page.locator('.bottom-bar__key-btn:has-text("Reports")').click()
+    await expect(page.locator('text=Sales Reports')).toBeVisible()
+    await expect(page.getByTestId('reports-history-panel')).toBeVisible()
+
+    await page.getByLabel('Days of sales history to pull').fill('45')
+    await page.getByRole('button', { name: 'Pull Sales History' }).click()
+
+    await expect(page.locator('text=Last pull complete')).toBeVisible()
+    await expect(page.locator('text=162 local transactions')).toBeVisible()
   })
 })

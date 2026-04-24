@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AppButton } from '@renderer/components/common/AppButton'
 import { InventorySelect } from '@renderer/components/common/InventoryInput'
 import { useDebounce } from '@renderer/hooks/useDebounce'
+import { useSearchDropdown } from '@renderer/hooks/useSearchDropdown'
 import { cn } from '@renderer/lib/utils'
 import { formatCurrency } from '@renderer/utils/currency'
 import type {
@@ -96,6 +97,7 @@ export function ReorderDashboard({ onCreateOrder }: ReorderDashboardProps): Reac
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [velocityOffline, setVelocityOffline] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<InventoryProduct[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -147,17 +149,19 @@ export function ReorderDashboard({ onCreateOrder }: ReorderDashboardProps): Reac
       try {
         setLoading(true)
         setError(null)
-        const rows = await api.getReorderProducts({
+        const result = await api.getReorderProducts({
           distributor,
           unit_threshold: unitThreshold,
           window_days: windowDays
         })
         if (!active) return
-        setProducts(rows)
+        setProducts(result.rows)
+        setVelocityOffline(result.velocityOffline)
         setLastLoadedDistributor(distributor)
       } catch (err) {
         if (!active) return
         setProducts([])
+        setVelocityOffline(true)
         setError(err instanceof Error ? err.message : 'Failed to load reorder products')
       } finally {
         if (active) setLoading(false)
@@ -322,6 +326,13 @@ export function ReorderDashboard({ onCreateOrder }: ReorderDashboardProps): Reac
   }, [onCreateOrder, allProducts, selectedIds, distributor, unitThreshold])
 
   const manuallyAddedIds = useMemo(() => new Set(manuallyAdded.map((p) => p.id)), [manuallyAdded])
+  const searchDropdown = useSearchDropdown({
+    results: searchResults,
+    isOpen: searchOpen,
+    onSelect: handleAddFromSearch,
+    onOpenChange: setSearchOpen
+  })
+  const searchInputProps = searchDropdown.getInputProps()
 
   return (
     <div className="reorder-dashboard">
@@ -431,6 +442,10 @@ export function ReorderDashboard({ onCreateOrder }: ReorderDashboardProps): Reac
           <span className="reorder-dashboard__summary-label">Total flagged</span>
         </div>
       </div>
+
+      {velocityOffline ? (
+        <p className="reorder-dashboard__empty">Velocity offline — using cached data.</p>
+      ) : null}
 
       {/* Accordion list */}
       <div className="reorder-dashboard__list-wrap">
@@ -602,31 +617,50 @@ export function ReorderDashboard({ onCreateOrder }: ReorderDashboardProps): Reac
             setSearchQuery(e.target.value)
             if (e.target.value.trim().length >= 2) setSearchOpen(true)
           }}
+          onKeyDown={searchDropdown.handleKeyDown}
           onFocus={() => {
             if (searchResults.length > 0) setSearchOpen(true)
           }}
+          role={searchInputProps.role}
+          aria-expanded={searchInputProps['aria-expanded']}
+          aria-controls={searchInputProps['aria-controls']}
+          aria-autocomplete={searchInputProps['aria-autocomplete']}
+          aria-activedescendant={searchInputProps['aria-activedescendant']}
+          aria-label="Search reorder items"
         />
         {searchOpen && (searchLoading || searchResults.length > 0) ? (
-          <div className="reorder-dashboard__search-results">
+          <div
+            id={searchDropdown.listboxId}
+            role="listbox"
+            className="reorder-dashboard__search-results"
+          >
             {searchLoading ? (
               <div className="reorder-dashboard__search-loading">Searching...</div>
             ) : (
-              searchResults.map((result) => (
-                <button
-                  key={result.item_number}
-                  type="button"
-                  className="reorder-dashboard__search-result"
-                  onClick={() => handleAddFromSearch(result)}
-                >
-                  <span className="reorder-dashboard__search-result-name" title={result.item_name}>
-                    {result.item_name}
-                  </span>
-                  <span className="reorder-dashboard__search-result-meta">
-                    {result.sku} &middot; {result.item_type ?? 'No category'} &middot;{' '}
-                    {result.in_stock} in stock
-                  </span>
-                </button>
-              ))
+              searchResults.map((result, index) => {
+                const optionProps = searchDropdown.getOptionProps(index)
+                return (
+                  <div
+                    key={result.item_number}
+                    {...optionProps}
+                    className={cn(
+                      'reorder-dashboard__search-result',
+                      optionProps['aria-selected'] && 'search-dropdown__option--highlighted'
+                    )}
+                  >
+                    <span
+                      className="reorder-dashboard__search-result-name"
+                      title={result.item_name}
+                    >
+                      {result.item_name}
+                    </span>
+                    <span className="reorder-dashboard__search-result-meta">
+                      {result.sku} &middot; {result.item_type ?? 'No category'} &middot;{' '}
+                      {result.in_stock} in stock
+                    </span>
+                  </div>
+                )
+              })
             )}
           </div>
         ) : null}

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 const attachPosApiMock = async (page: Page): Promise<void> => {
   await page.addInitScript(() => {
@@ -156,6 +156,8 @@ test.describe('Printer Settings Modal', () => {
     await loginWithPin(page)
   })
 
+  const getPrinterDialog = (page: Page): Locator => page.getByRole('dialog', { name: 'Printer' })
+
   test('opens printer settings modal from header settings button', async ({ page }) => {
     // Click settings gear icon
     await page.getByTestId('settings-button').click()
@@ -165,7 +167,8 @@ test.describe('Printer Settings Modal', () => {
     await page.getByTestId('printer-settings-btn').click()
 
     // Modal should be visible with title
-    await expect(page.getByRole('heading', { name: 'Printer Settings' })).toBeVisible()
+    await expect(getPrinterDialog(page)).toBeVisible()
+    await expect(page.getByText('Printer Settings')).toBeVisible()
     await expect(page.getByText('Receipt Printer')).toBeVisible()
   })
 
@@ -174,7 +177,8 @@ test.describe('Printer Settings Modal', () => {
     await page.getByTestId('printer-settings-btn').click()
 
     // Wait for modal to open
-    await expect(page.getByRole('heading', { name: 'Printer Settings' })).toBeVisible()
+    await expect(getPrinterDialog(page)).toBeVisible()
+    await expect(page.getByText('Printer Settings')).toBeVisible()
 
     // Select printer dropdown should show available options
     const printerSelect = page.locator('.printer-settings-modal__select').first()
@@ -304,7 +308,7 @@ test.describe('Printer Settings Modal', () => {
     await page.locator('button:has-text("Save Settings")').click()
 
     // Success modal should appear
-    await expect(page.getByRole('heading', { name: 'Printer Settings Saved' })).toBeVisible()
+    await expect(page.getByText('Printer Settings Saved')).toBeVisible()
     await expect(
       page.getByText('Receipt printer and layout settings were saved successfully.')
     ).toBeVisible()
@@ -400,12 +404,13 @@ test.describe('Printer Settings Modal', () => {
     await page.getByTestId('printer-settings-btn').click()
 
     // Modal should be visible
-    await expect(page.getByRole('heading', { name: 'Printer Settings' })).toBeVisible()
+    await expect(getPrinterDialog(page)).toBeVisible()
+    await expect(page.getByText('Printer Settings')).toBeVisible()
 
-    // Click Dismiss button
-    await page.locator('button:has-text("Dismiss")').click()
+    // Click Close button in the shared modal header
+    await page.getByRole('button', { name: 'Close Printer Settings' }).click()
 
     // Modal should be closed
-    await expect(page.getByRole('heading', { name: 'Printer Settings' })).not.toBeVisible()
+    await expect(getPrinterDialog(page)).not.toBeVisible()
   })
 })

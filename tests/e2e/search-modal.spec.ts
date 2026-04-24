@@ -208,7 +208,8 @@ test.describe('Search Modal', () => {
 
   test('search results show size and distributor columns', async ({ page }) => {
     await page.getByRole('button', { name: 'Search' }).click()
-    await expect(page.getByRole('dialog', { name: 'Product Search' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Search' })).toBeVisible()
+    await expect(page.getByText('Product Search')).toBeVisible()
 
     // Search for a broad term
     await page.getByPlaceholder('Search items...').fill('wine')
@@ -265,5 +266,37 @@ test.describe('Search Modal', () => {
     // Only Premium Vodka (from ABC Distributors) should appear
     await expect(page.getByTestId('search-result-3')).toBeVisible()
     await expect(page.getByTestId('search-result-1')).toHaveCount(0)
+  })
+
+  test('keeps the results area and search form size stable when no products match', async ({
+    page
+  }) => {
+    await page.getByRole('button', { name: 'Search' }).click()
+
+    const resultsBody = page.getByTestId('search-results')
+    const searchForm = page.locator('.search-modal__search-form')
+
+    await expect(resultsBody).toBeVisible()
+
+    const initialResultsBox = await resultsBody.boundingBox()
+    const initialSearchFormBox = await searchForm.boundingBox()
+
+    await page.getByPlaceholder('Search items...').fill('does-not-exist-xyz')
+    await page.getByRole('button', { name: 'Go' }).click()
+
+    await expect(page.getByText('No items found. Try a different search.')).toBeVisible()
+
+    const emptyResultsBox = await resultsBody.boundingBox()
+    const emptySearchFormBox = await searchForm.boundingBox()
+
+    expect(initialResultsBox).not.toBeNull()
+    expect(initialSearchFormBox).not.toBeNull()
+    expect(emptyResultsBox).not.toBeNull()
+    expect(emptySearchFormBox).not.toBeNull()
+
+    expect(emptyResultsBox?.height ?? 0).toBeGreaterThan(80)
+    expect(
+      Math.abs((emptySearchFormBox?.height ?? 0) - (initialSearchFormBox?.height ?? 0))
+    ).toBeLessThanOrEqual(2)
   })
 })

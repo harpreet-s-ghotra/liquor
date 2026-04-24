@@ -111,13 +111,14 @@ const attachReorderDashboardMock = async (page: Page): Promise<void> => {
         distributor: number | 'unassigned'
         unit_threshold: number
         window_days: number
-      }) => {
-        return reorderProducts.filter(
+      }) => ({
+        rows: reorderProducts.filter(
           (item) =>
             item.distributor_number === query.distributor &&
             item.projected_stock < query.unit_threshold
-        )
-      },
+        ),
+        velocityOffline: false
+      }),
       setProductDiscontinued: async () => {},
 
       listRegisters: async () => [],
@@ -192,8 +193,8 @@ test.describe('Reorder -> Purchase Order Flow', () => {
     await page.goto('/')
     await loginWithPin(page)
 
-    await page.keyboard.press('F6')
-    await page.getByRole('tab', { name: 'Reorder Dashboard' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
+    await page.getByRole('tab', { name: 'Reorder' }).click()
     await page.locator('.reorder-dashboard').waitFor({ state: 'visible' })
 
     await page.getByRole('button', { name: 'Create Order' }).click()
@@ -211,8 +212,8 @@ test.describe('Reorder -> Purchase Order Flow', () => {
     await page.goto('/')
     await loginWithPin(page)
 
-    await page.keyboard.press('F6')
-    await page.getByRole('tab', { name: 'Reorder Dashboard' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
+    await page.getByRole('tab', { name: 'Reorder' }).click()
     await page.locator('.reorder-dashboard').waitFor({ state: 'visible' })
     await page.getByRole('button', { name: 'Create Order' }).click()
 
@@ -228,8 +229,8 @@ test.describe('Reorder -> Purchase Order Flow', () => {
     await page.goto('/')
     await loginWithPin(page)
 
-    await page.keyboard.press('F6')
-    await page.getByRole('tab', { name: 'Reorder Dashboard' }).click()
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
+    await page.getByRole('tab', { name: 'Reorder' }).click()
     await page.locator('.reorder-dashboard').waitFor({ state: 'visible' })
     await page.getByRole('button', { name: 'Create Order' }).click()
 

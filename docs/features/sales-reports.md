@@ -18,6 +18,7 @@ The following reporting/export upgrades are now implemented in code:
   - Status
 - Added first-class category export selection in the export controls (`category-sales`).
 - Replaced one-line preset period buttons with a dropdown-based period selector in the reports modal.
+- Reports now include a built-in "Pull sales history from cloud" panel that uses the existing history backfill APIs, so operators can request historical data without reintroducing automatic login-time pulls.
 - Upgraded PDF output to professional tabular formatting with:
   - Report title and period metadata
   - Structured column/row tables
@@ -203,8 +204,9 @@ Each tab calls window.api.reports:* IPC channels
     - _depends on step 8_
 
 14. **E2E tests** -- `tests/e2e/reports.spec.ts`
-    - Open reports modal, switch tabs, verify chart renders, download export
-    - _depends on steps 8-10_
+
+- Open reports modal, switch tabs, verify chart renders, download export, and start a manual sales-history pull
+- _depends on steps 8-10_
 
 #### Phase 4: Documentation & Quality Gate (_depends on Phase 2-3_)
 

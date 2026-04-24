@@ -9,6 +9,7 @@ type BottomShortcutBarProps = {
   onSalesHistoryClick: () => void
   onReportsClick: () => void
   onManagerClick: () => void
+  onSignOutClick: () => void
 }
 
 const ADMIN_ONLY_ACTIONS = new Set(['inventory', 'reports', 'sales-history', 'manager'])
@@ -43,7 +44,8 @@ export function BottomShortcutBar({
   onClockOutClick,
   onSalesHistoryClick,
   onReportsClick,
-  onManagerClick
+  onManagerClick,
+  onSignOutClick
 }: BottomShortcutBarProps): React.JSX.Element {
   const logout = useAuthStore((s) => s.logout)
   const datetime = useCurrentTime()
@@ -90,6 +92,16 @@ export function BottomShortcutBar({
           <div className="bottom-bar__date">{datePart}</div>
           <div className="bottom-bar__time">{timePart}</div>
         </div>
+        {isAdmin ? (
+          <button
+            type="button"
+            className="bottom-bar__sign-out"
+            onClick={onSignOutClick}
+            data-testid="sign-out-account-button"
+          >
+            SIGN OUT
+          </button>
+        ) : null}
         <button
           type="button"
           className="bottom-bar__exit"

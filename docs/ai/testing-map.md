@@ -31,6 +31,7 @@ Coverage threshold: **>= 80%** (statements, branches, functions, lines).
 | `cashiers.repo.test.ts`            | Cashier CRUD + `enqueueCashierSync` hook coverage                                                 |
 | `reports.repo.test.ts`             | Sales summary, product/category/tax/comparison/cashier/hourly reports                             |
 | `purchase-orders.repo.test.ts`     | Purchase order CRUD, status transitions, unit-cost overrides, receiving cost layers, auto-receive |
+| `schema.test.ts`                   | Schema backfills including size normalization idempotency                                         |
 
 Pattern: `createTestDb()` with in-memory SQLite, `foreign_keys = ON`.
 
@@ -41,6 +42,8 @@ Pattern: `createTestDb()` with in-memory SQLite, `foreign_keys = ON`.
 | `cash-drawer.test.ts`           | Receipt-printer persistence, legacy USB fallback, printer enumeration    |
 | `merchant-provisioning.test.ts` | Invite-time provisioning, auto-repair for invited users, name derivation |
 | `telemetry.test.ts`             | JSONL telemetry flush and sensitive payload redaction                    |
+| `sync/initial-sync.test.ts`     | Initial sync completion without automatic transaction backfill           |
+| `sync/velocity-sync.test.ts`    | Cloud reorder-velocity RPC mapping and offline fallback                  |
 
 ### Sync Services — `src/main/services/sync/`
 
@@ -60,14 +63,16 @@ Pattern: Mock Supabase client via `vi.fn()` chains, `createTestDb()` for apply-s
 | Pages                            | `pages/{POSScreen,LoginScreen,ActivationScreen,BusinessSetupScreen}.test.tsx`                                                       |
 | Stores                           | `store/{useAuthStore,usePosScreen,useThemeStore}.test.ts(x)`                                                                        |
 | Utils                            | `utils/{currency,pricing-engine}.test.ts`                                                                                           |
+| Shared hooks                     | `hooks/useSearchDropdown.test.tsx`                                                                                                  |
 | Components/action                | `action/ActionPanel.test.tsx`                                                                                                       |
 | Components/ticket                | `ticket/TicketPanel.test.tsx`                                                                                                       |
 | Components/payment               | `payment/PaymentModal.test.tsx`                                                                                                     |
 | Components/search                | `search/SearchModal.test.tsx`                                                                                                       |
 | Components/hold                  | `hold/HoldLookupModal.test.tsx`                                                                                                     |
 | Components/clock-out             | `clock-out/{ClockOutModal,ClockOutReport}.test.tsx`                                                                                 |
-| Components/layout                | `layout/HeaderBar.test.tsx`                                                                                                         |
-| Components/common                | `common/{AppButton,ValidatedInput,FormField,TabBar,ConfirmDialog,ErrorModal}.test.tsx`                                              |
+| Components/layout                | `layout/{HeaderBar,BottomShortcutBar}.test.tsx`                                                                                     |
+| Components/common                | `common/{AppButton,ValidatedInput,FormField,TabBar,ConfirmDialog,ErrorModal,SearchDropdown}.test.tsx`                               |
+| Components/common                | `common/SyncProgressModal.test.tsx`                                                                                                 |
 | Components/inventory             | `inventory/{InventoryModal,FooterActionBar}.test.tsx`                                                                               |
 | Components/printer               | `printer/PrinterSettingsModal.test.tsx`                                                                                             |
 | Components/reports               | `reports/{ReportsModal,ReportDateRangePicker}.test.tsx`                                                                             |
@@ -81,27 +86,34 @@ Pattern: Mock Supabase client via `vi.fn()` chains, `createTestDb()` for apply-s
 
 Pattern: Mock `window.api` in `beforeEach`, use `vi.mocked()`, Zustand `setState` for stores.
 
+### Shared Utilities — `src/shared/`
+
+| Test file            | Tests                                   |
+| -------------------- | --------------------------------------- |
+| `utils/size.test.ts` | Size normalization and canonical casing |
+
 ## E2E Test Locations — `tests/e2e/`
 
-| Spec file                              | Covers                                                                      |
-| -------------------------------------- | --------------------------------------------------------------------------- |
-| `startup.spec.ts`                      | App launch, activation, cashier login                                       |
-| `finix-payments.spec.ts`               | Finix credit/debit flow, decline, split pay                                 |
-| `transactions.spec.ts`                 | Checkout, payments, refunds, history                                        |
-| `inventory.spec.ts`                    | Inventory item CRUD, SKUs, special pricing                                  |
-| `inventory-management.spec.ts`         | Departments, Tax Codes, Distributors CRUD                                   |
-| `inventory-resize-and-pricing.spec.ts` | Inventory resize handle persistence, special-pricing table without duration |
-| `hold-transactions.spec.ts`            | Hold and recall transactions                                                |
-| `search-modal.spec.ts`                 | Search filters, item type/distributor                                       |
-| `search-open-in-inventory.spec.ts`     | Search → open in inventory                                                  |
-| `clock-out.spec.ts`                    | Clock out flow, PIN, report, print                                          |
-| `auth-error-handling.spec.ts`          | PIN validation errors, retries, and keypad behavior                         |
-| `promotions.spec.ts`                   | Special pricing and discount behavior in cart and checkout                  |
-| `manager-modal.spec.ts`                | Manager modal tabs, close behavior, and admin views                         |
-| `reports.spec.ts`                      | Sales reports modal, tabs, export buttons                                   |
-| `printer-settings.spec.ts`             | Printer config, receipt settings, test print                                |
-| `refunds.spec.ts`                      | Sales history recall, return workflow                                       |
-| `reorder-dashboard.spec.ts`            | Reorder projections, distributor filters, discontinued exclusion            |
+| Spec file                              | Covers                                                                       |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| `startup.spec.ts`                      | App launch, activation, cashier login                                        |
+| `finix-payments.spec.ts`               | Finix credit/debit flow, decline, split pay                                  |
+| `transactions.spec.ts`                 | Checkout, payments, refunds, history                                         |
+| `inventory.spec.ts`                    | Inventory item CRUD, SKUs, special pricing, footer search keyboard selection |
+| `inventory-management.spec.ts`         | Departments, Tax Codes, Distributors CRUD                                    |
+| `inventory-resize-and-pricing.spec.ts` | Inventory resize handle persistence, special-pricing table without duration  |
+| `hold-transactions.spec.ts`            | Hold and recall transactions                                                 |
+| `search-modal.spec.ts`                 | Search filters, item type/distributor                                        |
+| `search-open-in-inventory.spec.ts`     | Search → open in inventory, including non-canonical size display             |
+| `clock-out.spec.ts`                    | Clock out flow, PIN, report, print                                           |
+| `auth-error-handling.spec.ts`          | PIN validation errors, retries, and keypad behavior                          |
+| `promotions.spec.ts`                   | Special pricing and discount behavior in cart and checkout                   |
+| `manager-modal.spec.ts`                | Manager modal tabs, close behavior, and admin views                          |
+| `reports.spec.ts`                      | Sales reports modal, tabs, export buttons, manual sales-history pull         |
+| `printer-settings.spec.ts`             | Printer config, receipt settings, test print                                 |
+| `refunds.spec.ts`                      | Sales history recall, return workflow                                        |
+| `reorder-dashboard.spec.ts`            | Reorder projections, distributor filters, discontinued exclusion             |
+| `purchase-orders.spec.ts`              | Mark fully received, submitted/received PO edits, and create price interlock |
 
 Pattern: `page.addInitScript()` to inject mock `window.api`, including `consumePendingDeepLink()` for current app bootstrap. `loginWithPin` helper for auth bypass.
 

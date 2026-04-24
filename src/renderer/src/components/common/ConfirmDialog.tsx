@@ -38,12 +38,7 @@ export function ConfirmDialog({
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogTitle className="dialog__sr-only">Prompt</DialogTitle>
-        <AppModalHeader
-          icon={<ConfirmIcon />}
-          label="Prompt"
-          title={title}
-          onClose={onCancel}
-        />
+        <AppModalHeader icon={<ConfirmIcon />} label="Prompt" title={title} onClose={onCancel} />
 
         <div className="confirm-dialog__body">
           <DialogDescription className="confirm-dialog__message">{message}</DialogDescription>

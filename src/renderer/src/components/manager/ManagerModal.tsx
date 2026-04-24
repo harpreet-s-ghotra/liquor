@@ -6,28 +6,16 @@ import { ManagerIcon } from '@renderer/components/common/modal-icons'
 import { CashierPanel } from './cashiers/CashierPanel'
 import { RegisterPanel } from './registers/RegisterPanel'
 import { MerchantInfoPanel } from './merchant/MerchantInfoPanel'
-import { ReorderDashboard } from './reorder/ReorderDashboard'
-import { PurchaseOrderPanel } from './purchase-orders/PurchaseOrderPanel'
 import { DataHistoryPanel } from './history/DataHistoryPanel'
-import type { ReorderProduct } from '@renderer/types/pos'
 import './manager-modal.css'
 
-const MANAGER_TABS = [
-  'cashiers',
-  'registers',
-  'merchant-info',
-  'reorder',
-  'purchase-orders',
-  'data-history'
-] as const
+const MANAGER_TABS = ['cashiers', 'registers', 'merchant-info', 'data-history'] as const
 type ManagerTab = (typeof MANAGER_TABS)[number]
 
 const TAB_LABELS: Record<ManagerTab, string> = {
   cashiers: 'Cashiers',
   registers: 'Registers',
   'merchant-info': 'Merchant Info',
-  reorder: 'Reorder Dashboard',
-  'purchase-orders': 'Purchase Orders',
   'data-history': 'Data History'
 }
 
@@ -49,9 +37,6 @@ function readLastTab(): ManagerTab {
 
 export function ManagerModal({ isOpen, onClose }: ManagerModalProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<ManagerTab>(readLastTab)
-  const [prefillItems, setPrefillItems] = useState<ReorderProduct[] | null>(null)
-  const [prefillDistributor, setPrefillDistributor] = useState<number | null>(null)
-  const [prefillUnitThreshold, setPrefillUnitThreshold] = useState(10)
 
   const handleTabChange = useCallback((tab: ManagerTab): void => {
     setActiveTab(tab)
@@ -60,22 +45,6 @@ export function ManagerModal({ isOpen, onClose }: ManagerModalProps): React.JSX.
     } catch {
       // ignore storage errors
     }
-  }, [])
-
-  const handleCreateOrder = useCallback(
-    (items: ReorderProduct[], distributor: number | 'unassigned' | null, unitThreshold: number) => {
-      setPrefillItems(items)
-      setPrefillDistributor(typeof distributor === 'number' ? distributor : null)
-      setPrefillUnitThreshold(unitThreshold)
-      handleTabChange('purchase-orders')
-    },
-    [handleTabChange]
-  )
-
-  const handlePrefillConsumed = useCallback(() => {
-    setPrefillItems(null)
-    setPrefillDistributor(null)
-    setPrefillUnitThreshold(10)
   }, [])
 
   return (
@@ -124,17 +93,6 @@ export function ManagerModal({ isOpen, onClose }: ManagerModalProps): React.JSX.
           </TabsContent>
           <TabsContent value="merchant-info" className="manager-modal__tab-content">
             <MerchantInfoPanel />
-          </TabsContent>
-          <TabsContent value="reorder" className="manager-modal__tab-content">
-            <ReorderDashboard onCreateOrder={handleCreateOrder} />
-          </TabsContent>
-          <TabsContent value="purchase-orders" className="manager-modal__tab-content">
-            <PurchaseOrderPanel
-              prefillItems={prefillItems}
-              prefillDistributor={prefillDistributor}
-              prefillUnitThreshold={prefillUnitThreshold}
-              onPrefillConsumed={handlePrefillConsumed}
-            />
           </TabsContent>
           <TabsContent value="data-history" className="manager-modal__tab-content">
             <DataHistoryPanel />

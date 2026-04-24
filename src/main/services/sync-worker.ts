@@ -9,6 +9,7 @@ import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
 import { scoped } from './logger'
 import {
   getPendingItems,
+  getQueueStats,
   markInFlight,
   markDone,
   markFailed,
@@ -128,6 +129,32 @@ export function getLastSyncedAt(): string | null {
   return lastSyncedAt
 }
 
+export async function drainSyncQueue(
+  timeoutMs: number
+): Promise<{ drained: number; remaining: number }> {
+  const initialTotal = getQueueDepth()
+  const startedAt = Date.now()
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (getActiveQueueCount() === 0) {
+      break
+    }
+
+    if (running && isOnline() && !draining) {
+      await drainQueue()
+      continue
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+
+  const remaining = getQueueDepth()
+  return {
+    drained: Math.max(0, initialTotal - remaining),
+    remaining
+  }
+}
+
 // ── Queue Drain ──
 
 function drainIfOnline(): void {
@@ -183,6 +210,16 @@ async function drainQueue(): Promise<void> {
       )
     }
   }
+}
+
+function getActiveQueueCount(): number {
+  const stats = getQueueStats()
+  return stats.pending + stats.in_flight
+}
+
+function getQueueDepth(): number {
+  const stats = getQueueStats()
+  return stats.pending + stats.in_flight + stats.failed
 }
 
 async function processItem(_id: number, entityType: string, payloadJson: string): Promise<void> {

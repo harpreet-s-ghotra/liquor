@@ -19,7 +19,7 @@ function catalogProduct(overrides: Partial<CatalogProductFull>): CatalogProductF
     curated_updated_at: null,
     curated_updated_by: null,
     curation_source_merchant_id: null,
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -35,7 +35,7 @@ function merchantProduct(overrides: Partial<MerchantProductRow>): MerchantProduc
     ttb_id: 'abc123',
     distributor_number: 9,
     canonical_distributor_id: 100,
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -44,13 +44,10 @@ describe('catalog-admin diff matching', () => {
     const catalog = buildCatalogMap([
       catalogProduct({ id: 1, distributor_id: 100, item_size: '375', curated_size: '375' }),
       catalogProduct({ id: 2, distributor_id: 100, item_size: '750' }),
-      catalogProduct({ id: 3, distributor_id: 200, item_size: '750', curated_cost: 19 }),
+      catalogProduct({ id: 3, distributor_id: 200, item_size: '750', curated_cost: 19 })
     ])
 
-    const rows = computeDiffRows(
-      [merchantProduct({ size: '750ML', cost: 12 })],
-      catalog,
-    )
+    const rows = computeDiffRows([merchantProduct({ size: '750ML', cost: 12 })], catalog)
 
     // Picks catalog id=2 (distributor 100, size 750). Cost 12 matches bot_price 12.
     // Only sku surfaces as an enrichment row (no native sku baseline).
@@ -68,10 +65,10 @@ describe('catalog-admin diff matching', () => {
         merchantProduct({
           sku: 'abc123',
           ttb_id: 'abc123',
-          cost: 20,
-        }),
+          cost: 20
+        })
       ],
-      catalog,
+      catalog
     )
 
     expect(rows).toHaveLength(1)
@@ -86,7 +83,7 @@ describe('catalog-admin diff matching', () => {
 
     const rows = computeDiffRows(
       [merchantProduct({ sku: 'abc123', ttb_id: 'abc123', cost: 12 })],
-      catalog,
+      catalog
     )
 
     expect(rows.filter((r) => r.field === 'cost')).toEqual([])
@@ -97,12 +94,12 @@ describe('catalog-admin diff matching', () => {
     const catalog = buildCatalogMap([
       catalogProduct({ id: 1, bot_price: 16 }),
       catalogProduct({ id: 2, bot_price: 16.67 }),
-      catalogProduct({ id: 3, bot_price: 17 }),
+      catalogProduct({ id: 3, bot_price: 17 })
     ])
 
     const rows = computeDiffRows(
       [merchantProduct({ sku: 'abc123', ttb_id: 'abc123', cost: 16.67 })],
-      catalog,
+      catalog
     )
 
     expect(rows.filter((r) => r.field === 'cost')).toEqual([])
@@ -111,12 +108,12 @@ describe('catalog-admin diff matching', () => {
   it('flags merchant cost when no catalog candidate matches any bot_price', () => {
     const catalog = buildCatalogMap([
       catalogProduct({ id: 1, bot_price: 16 }),
-      catalogProduct({ id: 2, bot_price: 17 }),
+      catalogProduct({ id: 2, bot_price: 17 })
     ])
 
     const rows = computeDiffRows(
       [merchantProduct({ sku: 'abc123', ttb_id: 'abc123', cost: 99 })],
-      catalog,
+      catalog
     )
 
     const costRows = rows.filter((r) => r.field === 'cost')
@@ -127,10 +124,7 @@ describe('catalog-admin diff matching', () => {
   it('shows a no-match row when no catalog ttb_id exists after normalization', () => {
     const catalog = buildCatalogMap([])
 
-    const rows = computeDiffRows(
-      [merchantProduct({ ttb_id: ' 999999 ' })],
-      catalog,
-    )
+    const rows = computeDiffRows([merchantProduct({ ttb_id: ' 999999 ' })], catalog)
 
     expect(rows).toHaveLength(1)
     expect(rows[0]?.status).toBe('no_catalog_match')

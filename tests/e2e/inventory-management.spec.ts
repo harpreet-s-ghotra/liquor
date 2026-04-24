@@ -434,7 +434,7 @@ test.describe('Inventory Management – Full Workflow', () => {
     await expect(page.getByText('Item saved')).toBeVisible()
 
     /* ── Step 6: Close inventory modal ── */
-    await clickEl(page.getByRole('button', { name: 'Close' }))
+    await page.getByRole('button', { name: /close edit record:/i }).click()
     await expect(dialog).not.toBeVisible()
 
     /* ── Step 7: Verify item appears on POS screen ── */

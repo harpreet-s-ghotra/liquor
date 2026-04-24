@@ -45,6 +45,7 @@ function makeProps(overrides?: Partial<FooterActionBarProps>): FooterActionBarPr
     searchResults: [],
     showSearchDropdown: false,
     onSelectSearchResult: vi.fn(),
+    onOpenDropdown: vi.fn(),
     onCloseDropdown: vi.fn(),
     searchWrapperRef: createRef(),
     searchInputRef: createRef(),
@@ -87,6 +88,23 @@ describe('FooterActionBar', () => {
     render(<FooterActionBar {...makeProps({ onCloseDropdown })} />)
     fireEvent.keyDown(screen.getByLabelText('Search Inventory'), { key: 'Escape' })
     expect(onCloseDropdown).toHaveBeenCalled()
+  })
+
+  it('calls onOpenDropdown when ArrowDown is pressed with results', () => {
+    const onOpenDropdown = vi.fn()
+    render(
+      <FooterActionBar
+        {...makeProps({
+          searchTerm: 'wine',
+          showSearchDropdown: false,
+          searchResults: [sampleProduct],
+          onOpenDropdown
+        })}
+      />
+    )
+
+    fireEvent.keyDown(screen.getByLabelText('Search Inventory'), { key: 'ArrowDown' })
+    expect(onOpenDropdown).toHaveBeenCalled()
   })
 
   it('calls onSearchTermChange on input', () => {
@@ -137,6 +155,26 @@ describe('FooterActionBar', () => {
       />
     )
     fireEvent.mouseDown(screen.getByText('Red Wine'))
+    expect(onSelectSearchResult).toHaveBeenCalledWith(sampleProduct)
+  })
+
+  it('selects the highlighted result with keyboard', () => {
+    const onSelectSearchResult = vi.fn()
+    render(
+      <FooterActionBar
+        {...makeProps({
+          searchTerm: 'wine',
+          showSearchDropdown: true,
+          searchResults: [sampleProduct],
+          onSelectSearchResult
+        })}
+      />
+    )
+
+    const input = screen.getByLabelText('Search Inventory')
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
     expect(onSelectSearchResult).toHaveBeenCalledWith(sampleProduct)
   })
 

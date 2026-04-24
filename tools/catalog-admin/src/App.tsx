@@ -15,7 +15,7 @@ export default function App(): React.JSX.Element {
 
     async function checkSession(): Promise<void> {
       const {
-        data: { session },
+        data: { session }
       } = await supabaseAuth.auth.getSession()
 
       if (!mounted) return
@@ -40,7 +40,7 @@ export default function App(): React.JSX.Element {
     checkSession()
 
     const {
-      data: { subscription },
+      data: { subscription }
     } = supabaseAuth.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return
 

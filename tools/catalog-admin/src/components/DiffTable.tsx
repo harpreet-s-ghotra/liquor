@@ -10,20 +10,20 @@ const FILTER_OPTIONS: { key: FilterMode; label: string }[] = [
   { key: 'barcode', label: 'Barcode' },
   { key: 'size', label: 'Size' },
   { key: 'cost', label: 'Cost' },
-  { key: 'no_match', label: 'No catalog match' },
+  { key: 'no_match', label: 'No catalog match' }
 ]
 
 const FIELD_LABELS: Record<CuratedField, string> = {
   sku: 'SKU',
   barcode: 'Barcode',
   size: 'Size',
-  cost: 'Cost',
+  cost: 'Cost'
 }
 
 const STATUS_LABELS: Record<string, string> = {
   differs: 'Differs',
   merchant_has_value_catalog_missing: 'Missing in catalog',
-  no_catalog_match: 'No catalog match',
+  no_catalog_match: 'No catalog match'
 }
 
 type Props = {
@@ -47,7 +47,7 @@ export default function DiffTable({
   onPageChange,
   selectedMerchantId,
   operatorEmail,
-  onMutated,
+  onMutated
 }: Props): React.JSX.Element {
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -75,7 +75,7 @@ export default function DiffTable({
         row.effective_catalog_value,
         row.merchant_value,
         selectedMerchantId,
-        operatorEmail,
+        operatorEmail
       )
       onMutated()
     } catch (err) {
@@ -89,7 +89,7 @@ export default function DiffTable({
     if (!row.catalog_product_id || !row.curated_value) return
     if (
       !window.confirm(
-        `Clear the curated ${FIELD_LABELS[row.field]} override for "${row.product_name}"?\n\nThis will revert the catalog to the original NYSLA value.`,
+        `Clear the curated ${FIELD_LABELS[row.field]} override for "${row.product_name}"?\n\nThis will revert the catalog to the original NYSLA value.`
       )
     ) {
       return
@@ -97,12 +97,7 @@ export default function DiffTable({
     setPendingKey(row.key)
     setActionError(null)
     try {
-      await clearCuratedField(
-        row.catalog_product_id,
-        row.field,
-        row.curated_value,
-        operatorEmail,
-      )
+      await clearCuratedField(row.catalog_product_id, row.field, row.curated_value, operatorEmail)
       onMutated()
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err))
@@ -121,7 +116,7 @@ export default function DiffTable({
         r.field === field &&
         r.status === 'merchant_has_value_catalog_missing' &&
         r.catalog_product_id != null &&
-        r.merchant_value != null,
+        r.merchant_value != null
     )
 
     if (eligibleRows.length === 0) {
@@ -131,7 +126,7 @@ export default function DiffTable({
 
     if (
       !window.confirm(
-        `Promote ${eligibleRows.length} merchant ${FIELD_LABELS[field]} values to catalog (where catalog is currently empty)?`,
+        `Promote ${eligibleRows.length} merchant ${FIELD_LABELS[field]} values to catalog (where catalog is currently empty)?`
       )
     ) {
       return
@@ -146,16 +141,16 @@ export default function DiffTable({
         eligibleRows.map((r) => ({
           catalog_product_id: r.catalog_product_id!,
           merchant_value: r.merchant_value!,
-          merchant_product_id: r.merchant_product_id,
+          merchant_product_id: r.merchant_product_id
         })),
         field,
         selectedMerchantId,
-        operatorEmail,
+        operatorEmail
       )
       setBulkResult(
         errors.length === 0
           ? `Promoted ${promoted} rows.`
-          : `Promoted ${promoted} rows. ${errors.length} errors: ${errors.slice(0, 3).join('; ')}`,
+          : `Promoted ${promoted} rows. ${errors.length} errors: ${errors.slice(0, 3).join('; ')}`
       )
       onMutated()
     } catch (err) {

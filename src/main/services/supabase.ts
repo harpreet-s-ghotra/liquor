@@ -23,6 +23,11 @@ import type {
   ProvisionMerchantResult
 } from '../../shared/types'
 import { saveMerchantConfig, getMerchantConfig } from '../database'
+import {
+  closeActiveMerchantDb,
+  getActiveMerchantAccountId,
+  setActiveMerchantDb
+} from '../database/connection'
 import { verifyMerchant } from './finix'
 import { provisionMerchantForUser } from './merchant-provisioning'
 
@@ -207,9 +212,8 @@ export async function supabaseCheckSession(): Promise<AuthResult | null> {
   if (!data.session) return null
 
   const user = data.session.user
-  // Check if we already have the merchant config locally
-  let localConfig = getMerchantConfig()
-  if (!localConfig) {
+  let localConfig = getActiveMerchantAccountId() ? getMerchantConfig() : null
+  if (!localConfig || !localConfig.merchant_account_id) {
     localConfig = await ensureMerchantAndSave(user.id, user.email!)
   }
 
@@ -241,60 +245,74 @@ async function ensureMerchantAndSave(userId: string, email: string): Promise<Mer
 async function fetchAndSaveMerchant(userId: string): Promise<MerchantConfig> {
   const client = getClient()
 
-  // Call the Edge Function to get Finix credentials + merchant ID from Vault
-  const { data: fnData, error: fnError } = await client.functions.invoke('get-finix-config')
+  const { data: merchantRow, error: merchantRowError } = await client
+    .from('merchants')
+    .select('id, finix_merchant_id, merchant_name')
+    .eq('user_id', userId)
+    .single()
 
-  if (fnError || !fnData) {
-    // Edge Function not reachable — fall back to querying the DB directly
-    const { data, error } = await client
-      .from('merchants')
-      .select('finix_merchant_id, merchant_name')
-      .eq('user_id', userId)
-      .single()
+  if (merchantRowError || !merchantRow) {
+    throw new Error(
+      'Merchant account has not been provisioned for this invite yet. Please contact support to resend the invite.'
+    )
+  }
 
-    if (error || !data) {
-      throw new Error(
-        'Merchant account has not been provisioned for this invite yet. Please contact support to resend the invite.'
-      )
+  const merchantAccountId = merchantRow.id as string
+  const finixMerchantId = (merchantRow.finix_merchant_id as string | null) ?? ''
+  const fallbackMerchantName = merchantRow.merchant_name as string
+
+  setActiveMerchantDb(merchantAccountId, finixMerchantId)
+
+  // Any unhandled throw between here and saveMerchantConfig must roll back
+  // the DB activation — otherwise we leave an unconfigured DB active.
+  try {
+    // Call the Edge Function to get Finix credentials + merchant ID from Vault
+    const { data: fnData, error: fnError } = await client.functions.invoke('get-finix-config')
+
+    if (fnError || !fnData) {
+      // finix_merchant_id may be null if Finix provisioning hasn't been completed yet.
+      // That's fine — the merchant can still log in and set up the app; payments will
+      // be blocked at charge time rather than here.
+      saveMerchantConfig({
+        merchant_account_id: merchantAccountId,
+        finix_api_username: '',
+        finix_api_password: '',
+        merchant_id: finixMerchantId,
+        merchant_name: fallbackMerchantName
+      })
+
+      return getMerchantConfig()!
     }
 
-    // finix_merchant_id may be null if Finix provisioning hasn't been completed yet.
-    // That's fine — the merchant can still log in and set up the app; payments will
-    // be blocked at charge time rather than here.
+    const { finix_merchant_id, api_username, api_password, merchant_name } = fnData as {
+      finix_merchant_id: string
+      api_username: string
+      api_password: string
+      merchant_name: string
+    }
+
+    // Optionally verify merchant is still active in Finix (non-blocking)
+    let resolvedMerchantName = merchant_name
+    try {
+      const merchantInfo = await verifyMerchant(api_username, api_password, finix_merchant_id)
+      if (merchantInfo.merchant_name) resolvedMerchantName = merchantInfo.merchant_name
+    } catch {
+      // Finix unreachable or not yet configured — proceed with Supabase data
+    }
+
     saveMerchantConfig({
-      finix_api_username: '',
-      finix_api_password: '',
-      merchant_id: data.finix_merchant_id ?? '',
-      merchant_name: data.merchant_name
+      merchant_account_id: merchantAccountId,
+      finix_api_username: api_username,
+      finix_api_password: api_password,
+      merchant_id: finix_merchant_id ?? finixMerchantId,
+      merchant_name: resolvedMerchantName
     })
 
     return getMerchantConfig()!
+  } catch (err) {
+    closeActiveMerchantDb()
+    throw err
   }
-
-  const { finix_merchant_id, api_username, api_password, merchant_name } = fnData as {
-    finix_merchant_id: string
-    api_username: string
-    api_password: string
-    merchant_name: string
-  }
-
-  // Optionally verify merchant is still active in Finix (non-blocking)
-  let resolvedMerchantName = merchant_name
-  try {
-    const merchantInfo = await verifyMerchant(api_username, api_password, finix_merchant_id)
-    if (merchantInfo.merchant_name) resolvedMerchantName = merchantInfo.merchant_name
-  } catch {
-    // Finix unreachable or not yet configured — proceed with Supabase data
-  }
-
-  saveMerchantConfig({
-    finix_api_username: api_username,
-    finix_api_password: api_password,
-    merchant_id: finix_merchant_id,
-    merchant_name: resolvedMerchantName
-  })
-
-  return getMerchantConfig()!
 }
 
 // ── Finix Merchant Provisioning ──

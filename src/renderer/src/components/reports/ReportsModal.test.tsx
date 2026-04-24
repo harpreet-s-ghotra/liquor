@@ -2,7 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ReportsModal } from './ReportsModal'
-import type { SalesSummaryReport, ProductSalesReport, TaxReport } from '../../../../shared/types'
+import type {
+  SalesSummaryReport,
+  ProductSalesReport,
+  TaxReport,
+  LocalTransactionHistoryStats,
+  TransactionBackfillStatus
+} from '../../../../shared/types'
 
 // Mock react-chartjs-2 to avoid canvas/DOM issues in jsdom
 vi.mock('react-chartjs-2', () => ({
@@ -66,9 +72,17 @@ const mockTaxReport: TaxReport = {
   tax_rows: [{ tax_code_name: '8%', tax_rate: 8, taxable_sales: 500, tax_collected: 40 }]
 }
 
+let mockHistoryStats: LocalTransactionHistoryStats
+let mockBackfillStatus: TransactionBackfillStatus
+let backfillListener: ((status: TransactionBackfillStatus) => void) | null = null
+
 const mockApi = {
   getDeviceConfig: vi.fn(),
   getMerchantConfig: vi.fn(),
+  getLocalHistoryStats: vi.fn(),
+  getBackfillStatus: vi.fn(),
+  triggerBackfill: vi.fn(),
+  onBackfillStatusChanged: vi.fn(),
   getReportSalesSummary: vi.fn(),
   getReportProductSales: vi.fn(),
   getReportCategorySales: vi.fn(),
@@ -83,12 +97,52 @@ describe('ReportsModal', () => {
   beforeEach(() => {
     Object.values(mockApi).forEach((fn) => fn.mockReset())
     ;(window as unknown as { api: typeof mockApi }).api = mockApi
+    mockHistoryStats = {
+      count: 120,
+      earliest: '2024-01-15T00:00:00.000Z',
+      latest: '2024-06-11T00:00:00.000Z'
+    }
+    mockBackfillStatus = {
+      state: 'idle',
+      days: 0,
+      applied: 0,
+      skipped: 0,
+      errors: 0,
+      startedAt: null,
+      finishedAt: null,
+      lastError: null
+    }
     mockApi.getReportSalesSummary.mockResolvedValue(mockSummary)
     mockApi.getDeviceConfig.mockResolvedValue({ device_id: 'register-a' })
     mockApi.getMerchantConfig.mockResolvedValue({
       merchant_id: 'MU123',
       merchant_name: 'High Spirits LLC',
       store_name: 'High Spirits - Main'
+    })
+    mockApi.getLocalHistoryStats.mockImplementation(async () => mockHistoryStats)
+    mockApi.getBackfillStatus.mockImplementation(async () => mockBackfillStatus)
+    mockApi.onBackfillStatusChanged.mockImplementation((callback) => {
+      backfillListener = callback
+      return vi.fn()
+    })
+    mockApi.triggerBackfill.mockImplementation(async (days: number) => {
+      mockBackfillStatus = {
+        state: 'done',
+        days,
+        applied: 42,
+        skipped: 5,
+        errors: 0,
+        startedAt: '2024-06-12T10:00:00.000Z',
+        finishedAt: new Date().toISOString(),
+        lastError: null
+      }
+      mockHistoryStats = {
+        count: 162,
+        earliest: '2023-05-01T00:00:00.000Z',
+        latest: '2024-06-11T00:00:00.000Z'
+      }
+      backfillListener?.(mockBackfillStatus)
+      return { started: true, days }
     })
     mockApi.getReportProductSales.mockResolvedValue(mockProductReport)
     mockApi.getReportCategorySales.mockResolvedValue({ categories: [] })
@@ -358,5 +412,25 @@ describe('ReportsModal', () => {
       expect(consoleSpy).toHaveBeenCalled()
     })
     consoleSpy.mockRestore()
+  })
+
+  it('starts a manual sales history pull from the reports panel', async () => {
+    const user = userEvent.setup()
+    render(<ReportsModal isOpen={true} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('reports-history-panel')).toBeInTheDocument()
+    })
+
+    const daysInput = screen.getByLabelText('Days of sales history to pull')
+    await user.clear(daysInput)
+    await user.type(daysInput, '45')
+    await user.click(screen.getByRole('button', { name: 'Pull Sales History' }))
+
+    await waitFor(() => {
+      expect(mockApi.triggerBackfill).toHaveBeenCalledWith(45)
+    })
+    expect(screen.getByText(/Last pull complete/)).toBeInTheDocument()
+    expect(screen.getByText(/162 local transactions/)).toBeInTheDocument()
   })
 })

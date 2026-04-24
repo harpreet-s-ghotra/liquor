@@ -22,7 +22,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import '../styles/auth.css'
 import './pos-screen.css'
 import type { PaymentMethod, PaymentResult } from '@renderer/types/pos'
-import type { Product } from '../../../shared/types'
+import type { DeviceConfig, Product } from '../../../shared/types'
 
 export function POSScreen(): React.JSX.Element {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false)
@@ -38,6 +38,7 @@ export function POSScreen(): React.JSX.Element {
   const [isReportsOpen, setIsReportsOpen] = useState(false)
   const [isManagerOpen, setIsManagerOpen] = useState(false)
   const [alwaysPrint, setAlwaysPrint] = useState(false)
+  const [deviceConfig, setDeviceConfig] = useState<DeviceConfig | null>(null)
   const [searchKey, setSearchKey] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
   const [skuError, setSkuError] = useState('')
@@ -48,6 +49,7 @@ export function POSScreen(): React.JSX.Element {
   const currentCashier = useAuthStore((s) => s.currentCashier)
   const isAdmin = currentCashier?.role === 'admin'
   const merchantConfig = useAuthStore((s) => s.merchantConfig)
+  const signOut = useAuthStore((s) => s.signOut)
   const logout = useAuthStore((s) => s.logout)
   const showError = useAlertStore((s) => s.showError)
   const showInfo = useAlertStore((s) => s.showInfo)
@@ -170,6 +172,12 @@ export function POSScreen(): React.JSX.Element {
       if (cfg) setAlwaysPrint(cfg.alwaysPrint ?? false)
     })
   }, [])
+
+  useEffect(() => {
+    void window.api?.getDeviceConfig?.()?.then((cfg) => {
+      setDeviceConfig(cfg ?? null)
+    })
+  }, [merchantConfig?.merchant_account_id])
 
   const focusSearch = useCallback(() => {
     setTimeout(() => searchRef.current?.focus(), 0)
@@ -520,6 +528,10 @@ export function POSScreen(): React.JSX.Element {
       <HeaderBar
         cashierName={currentCashier?.name}
         cashierRole={currentCashier?.role}
+        merchantName={merchantConfig?.merchant_name}
+        registerName={deviceConfig?.device_name}
+        canSignOutAccount={isAdmin}
+        onSignOutAccount={() => void signOut()}
         onPrinterSettings={() => setIsPrinterSettingsOpen(true)}
         onCheckForUpdates={() => window.api?.checkForUpdates()}
       />
@@ -603,6 +615,7 @@ export function POSScreen(): React.JSX.Element {
         onSalesHistoryClick={() => setIsSalesHistoryOpen(true)}
         onReportsClick={() => setIsReportsOpen(true)}
         onManagerClick={() => setIsManagerOpen(true)}
+        onSignOutClick={() => void signOut()}
       />
 
       <PrinterSettingsModal

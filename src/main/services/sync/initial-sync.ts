@@ -11,7 +11,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scoped } from '../logger'
-import { getDb } from '../../database/connection'
+import { getActiveMerchantAccountId, getDb } from '../../database/connection'
 import { getDeviceConfig } from '../../database/device-config.repo'
 import { applyRemoteProductChange, uploadProduct } from './product-sync'
 import { reconcileCashiers } from './cashier-sync'
@@ -20,7 +20,6 @@ import { reconcileDistributors } from './distributor-sync'
 import { reconcileItemTypes } from './item-type-sync'
 import { reconcileDepartments } from './department-sync'
 import { reconcileSettings } from './settings-sync'
-import { backfillRecentTransactions } from './transaction-backfill'
 import type { ProductSyncPayload } from './types'
 import type { InitialSyncStatus, InitialSyncEntity } from '../../../shared/types'
 
@@ -39,7 +38,7 @@ export type InitialSyncResult = {
 let _syncStatus: InitialSyncStatus = {
   state: 'idle',
   currentEntity: null,
-  entityProgress: { done: 0, total: null },
+  progress: {},
   completed: [],
   errors: []
 }
@@ -58,6 +57,23 @@ export function getInitialSyncStatus(): InitialSyncStatus {
 function updateStatus(patch: Partial<InitialSyncStatus>): void {
   _syncStatus = { ..._syncStatus, ...patch }
   _onStatusChanged?.(_syncStatus)
+}
+
+function updateEntityProgress(
+  entity: InitialSyncEntity,
+  processed: number,
+  total: number | null | undefined
+): void {
+  if (!Number.isFinite(total ?? NaN) || total == null) {
+    return
+  }
+
+  updateStatus({
+    progress: {
+      ..._syncStatus.progress,
+      [entity]: { processed, total }
+    }
+  })
 }
 
 // ── Helpers ──
@@ -133,9 +149,19 @@ function getLocalProductSyncPayload(id: number): ProductSyncPayload {
 export async function reconcileProducts(
   supabase: SupabaseClient,
   merchantId: string,
-  deviceId: string
+  deviceId: string,
+  onProgress?: (processed: number, total: number) => void
 ): Promise<InitialSyncResult> {
   const result: InitialSyncResult = { products_applied: 0, products_uploaded: 0, errors: [] }
+
+  const { count: totalPricedProducts } = await supabase
+    .from('merchant_products')
+    .select('*', { count: 'exact', head: true })
+    .eq('merchant_id', merchantId)
+    .gt('retail_price', 0)
+
+  const remoteTotal = totalPricedProducts ?? 0
+  onProgress?.(0, remoteTotal)
 
   // ── Step 1: Pull remote rows in pages and apply via LWW ──
   let lastUpdatedAt: string | null = null
@@ -143,10 +169,15 @@ export async function reconcileProducts(
   let hasMore = true
 
   while (hasMore) {
+    if (getActiveMerchantAccountId() !== merchantId) {
+      log.warn(`reconcileProducts aborted — merchant switched (was ${merchantId})`)
+      break
+    }
     let query = supabase
       .from('merchant_products')
       .select('*')
       .eq('merchant_id', merchantId)
+      .gt('retail_price', 0)
       .order('updated_at', { ascending: true })
       .order('id', { ascending: true })
       .limit(BATCH_SIZE)
@@ -189,6 +220,7 @@ export async function reconcileProducts(
 
         await applyRemoteProductChange(supabase, merchantId, row)
         result.products_applied++
+        onProgress?.(result.products_applied, remoteTotal)
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         result.errors.push(`Apply failed for SKU ${row.sku}: ${msg}`)
@@ -227,7 +259,7 @@ export async function reconcileProducts(
  * Errors are logged but do not throw so a single bad row never blocks startup.
  *
  * Order matters — dependencies must be reconciled before products:
- *   settings → tax_codes → distributors → item_types → departments → cashiers → products → transactions
+ *   settings → tax_codes → distributors → item_types → departments → cashiers → products
  */
 export async function runInitialSync(supabase: SupabaseClient, merchantId: string): Promise<void> {
   const device = getDeviceConfig()
@@ -239,7 +271,7 @@ export async function runInitialSync(supabase: SupabaseClient, merchantId: strin
   updateStatus({
     state: 'running',
     currentEntity: null,
-    entityProgress: { done: 0, total: null },
+    progress: {},
     completed: [],
     errors: []
   })
@@ -247,14 +279,18 @@ export async function runInitialSync(supabase: SupabaseClient, merchantId: strin
   const allErrors: Array<{ entity: string; message: string }> = []
   const completed: SyncEntity[] = []
 
+  // Bail early if the active merchant changed (user signed out + into a
+  // different account while we were running). Prevents cross-merchant writes.
+  const stillActive = (): boolean => getActiveMerchantAccountId() === merchantId
+
   const run = async (
     entity: SyncEntity,
     fn: () => Promise<{ applied: number; uploaded: number; errors: string[] }>
-  ): Promise<void> => {
-    updateStatus({ currentEntity: entity, entityProgress: { done: 0, total: null } })
+  ): Promise<boolean> => {
+    if (!stillActive()) return false
+    updateStatus({ currentEntity: entity })
     try {
       const res = await fn()
-      updateStatus({ entityProgress: { done: res.applied + res.uploaded, total: null } })
       if (res.errors.length > 0) {
         for (const e of res.errors) {
           log.error(`[${entity}] ${e}`)
@@ -271,22 +307,42 @@ export async function runInitialSync(supabase: SupabaseClient, merchantId: strin
     }
     completed.push(entity)
     updateStatus({ completed: [...completed], errors: allErrors })
+    return true
   }
 
-  await run('settings', () => reconcileSettings(supabase, merchantId, device.device_id))
-  await run('tax_codes', () => reconcileTaxCodes(supabase, merchantId, device.device_id))
-  await run('distributors', () => reconcileDistributors(supabase, merchantId, device.device_id))
-  await run('item_types', () => reconcileItemTypes(supabase, merchantId, device.device_id))
-  await run('departments', () => reconcileDepartments(supabase, merchantId, device.device_id))
-  await run('cashiers', () => reconcileCashiers(supabase, merchantId, device.device_id))
+  // Independent stages run in parallel; products waits until all succeed
+  // because it depends on distributors, tax_codes, item_types, departments.
+  const independent: Array<
+    [SyncEntity, () => Promise<{ applied: number; uploaded: number; errors: string[] }>]
+  > = [
+    ['settings', () => reconcileSettings(supabase, merchantId, device.device_id)],
+    ['tax_codes', () => reconcileTaxCodes(supabase, merchantId, device.device_id)],
+    ['distributors', () => reconcileDistributors(supabase, merchantId, device.device_id)],
+    ['item_types', () => reconcileItemTypes(supabase, merchantId, device.device_id)],
+    ['departments', () => reconcileDepartments(supabase, merchantId, device.device_id)],
+    ['cashiers', () => reconcileCashiers(supabase, merchantId, device.device_id)]
+  ]
+
+  await Promise.all(independent.map(([entity, fn]) => run(entity, fn)))
+
+  if (!stillActive()) {
+    log.warn(`initial-sync aborted — merchant switched (was ${merchantId})`)
+    updateStatus({ state: 'idle', currentEntity: null, completed, errors: allErrors })
+    return
+  }
 
   // Products — uses dedicated result type to track applied/uploaded separately
-  updateStatus({ currentEntity: 'products', entityProgress: { done: 0, total: null } })
+  updateStatus({ currentEntity: 'products' })
   try {
-    const result = await reconcileProducts(supabase, merchantId, device.device_id)
-    updateStatus({
-      entityProgress: { done: result.products_applied + result.products_uploaded, total: null }
-    })
+    const result = await reconcileProducts(
+      supabase,
+      merchantId,
+      device.device_id,
+      (processed, total) => {
+        if (!stillActive()) return
+        updateEntityProgress('products', processed, total)
+      }
+    )
     if (result.errors.length > 0) {
       for (const e of result.errors) {
         log.error(`[products] ${e}`)
@@ -302,16 +358,6 @@ export async function runInitialSync(supabase: SupabaseClient, merchantId: strin
     allErrors.push({ entity: 'products', message: msg })
   }
   completed.push('products')
-
-  // Transaction backfill runs in the background so the user can enter the app while
-  // up to 365 days of history is being pulled. Errors land in the logs and in the
-  // backfill status service; they do not block startup.
-  completed.push('transactions')
-  void backfillRecentTransactions(supabase, merchantId).catch((err) => {
-    log.error(
-      `background transaction backfill failed: ${err instanceof Error ? err.message : String(err)}`
-    )
-  })
 
   updateStatus({
     state: allErrors.length > 0 ? 'failed' : 'done',

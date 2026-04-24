@@ -3,9 +3,9 @@
 **Spec file:** `tests/e2e/search-modal.spec.ts`
 **Suite:** `Search Modal`
 
-Tests the standalone product search modal, including result metadata columns and item type or distributor filters.
+Tests the standalone product search modal, including result metadata columns, item type or distributor filters, and empty-state layout stability.
 
-**Mock data:** 3 products with size and distributor metadata, 3 item types, 2 distributors, in-memory `searchProducts` filtering
+**Mock data:** 3 products with size and distributor metadata, 3 item types, 2 distributors, and in-memory `searchProducts` filtering
 
 ---
 
@@ -50,3 +50,15 @@ Tests the standalone product search modal, including result metadata columns and
 | 2   | Select "ABC Distributors" in the distributor filter | --                                  |
 | 3   | Type "premium" in the search input and click Go     | Search result row 3 is visible      |
 | 4   | --                                                  | Search result row 1 is not rendered |
+
+---
+
+## 5. Keeps the results area and search form size stable when no products match
+
+| #   | Step                                                       | Assertion                                               |
+| --- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| 1   | Log in and click the Search button                         | Product Search dialog opens                             |
+| 2   | --                                                         | Search results area is visible                          |
+| 3   | Type "does-not-exist-xyz" in the search input and click Go | Empty-state message is visible                          |
+| 4   | --                                                         | Results area height stays larger than 80px              |
+| 5   | --                                                         | Search form height stays within 2px of its initial size |

@@ -1,7 +1,12 @@
 import { getDb } from './connection'
 import type { InventoryDeltaSyncPayload } from '../services/sync/types'
 
-export type InventoryDeltaReason = 'sale' | 'refund' | 'manual_adjustment' | 'receiving'
+export type InventoryDeltaReason =
+  | 'sale'
+  | 'refund'
+  | 'manual_adjustment'
+  | 'receiving'
+  | 'receiving_correction'
 
 export type RecordInventoryDeltaInput = {
   product_id: number

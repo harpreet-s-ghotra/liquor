@@ -3,9 +3,9 @@
 **Spec file:** `tests/e2e/reports.spec.ts`
 **Suite:** `Sales Reports`
 
-Tests opening the reports modal, switching report tabs, and visibility of summary/export controls.
+Tests opening the reports modal, switching report tabs, visibility of summary/export controls, and manual sales-history pulls.
 
-**Mock data:** summary metrics, one product-analysis row, one tax row, and comparison payloads
+**Mock data:** summary metrics, one product-analysis row, one tax row, comparison payloads, and local sales-history stats with a manual backfill status
 
 ---
 
@@ -71,3 +71,15 @@ Tests opening the reports modal, switching report tabs, and visibility of summar
 | 1   | Open Reports modal | Sales Reports title is visible |
 | 2   | --                 | Download PDF button is visible |
 | 3   | --                 | Download CSV button is visible |
+
+---
+
+## 7. Starts a manual sales history pull from the reports modal
+
+| #   | Step                                         | Assertion                              |
+| --- | -------------------------------------------- | -------------------------------------- |
+| 1   | Open Reports modal                           | Sales Reports title is visible         |
+| 2   | --                                           | Sales history panel is visible         |
+| 3   | Fill Days of sales history to pull with `45` | Days of sales history input is updated |
+| 4   | Click Pull Sales History                     | Last pull complete is visible          |
+| 5   | --                                           | `162 local transactions` is visible    |

@@ -11,8 +11,7 @@ const ENTITY_LABELS: Record<InitialSyncEntity, string> = {
   item_types: 'Item Types',
   departments: 'Departments',
   cashiers: 'Cashiers',
-  products: 'Products',
-  transactions: 'Recent Transactions'
+  products: 'Products'
 }
 
 const ENTITY_ORDER: InitialSyncEntity[] = [
@@ -22,8 +21,7 @@ const ENTITY_ORDER: InitialSyncEntity[] = [
   'item_types',
   'departments',
   'cashiers',
-  'products',
-  'transactions'
+  'products'
 ]
 
 type EntityRowState = 'pending' | 'active' | 'done' | 'failed'
@@ -81,6 +79,11 @@ export function SyncProgressModal({ onComplete, onContinueOffline }: Props): Rea
           {ENTITY_ORDER.map((entity) => {
             const rowState = getRowState(entity)
             const error = status.errors.find((e) => e.entity === entity)
+            const progress = status.progress[entity]
+            const progressPercent =
+              progress && progress.total > 0
+                ? Math.min(100, Math.round((progress.processed / progress.total) * 100))
+                : 0
 
             return (
               <div
@@ -97,11 +100,17 @@ export function SyncProgressModal({ onComplete, onContinueOffline }: Props): Rea
                   <span className="sync-progress-modal__row-label">{ENTITY_LABELS[entity]}</span>
                   {rowState === 'active' && (
                     <span className="sync-progress-modal__row-progress">
-                      Syncing
-                      {status.entityProgress.done > 0
-                        ? ` — ${status.entityProgress.done} processed`
-                        : '...'}
+                      {progress
+                        ? `${progress.processed} / ${progress.total} · ${progressPercent}%`
+                        : 'Syncing...'}
                     </span>
+                  )}
+                  {rowState === 'active' && progress && (
+                    <progress
+                      className="sync-progress-modal__progress"
+                      value={progress.processed}
+                      max={progress.total}
+                    />
                   )}
                   {rowState === 'done' && (
                     <span className="sync-progress-modal__row-ok">Complete</span>

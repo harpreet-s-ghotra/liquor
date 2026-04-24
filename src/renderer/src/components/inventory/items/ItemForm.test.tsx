@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import React, { useRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -53,7 +53,8 @@ const baseDetail = {
       payment_method: 'credit',
       finix_authorization_id: 'AU-stax-uuid-123',
       card_last_four: '1111',
-      card_type: 'visa'
+      card_type: 'visa',
+      status: 'completed'
     }
   ]
 }
@@ -98,6 +99,9 @@ describe('ItemForm', () => {
       searchInventoryProducts: vi.fn(async () => [baseInventoryItem]),
       getInventoryProductDetail: vi.fn(async () => baseDetail),
       saveInventoryItem: vi.fn(async () => baseDetail),
+      checkSkuExists: vi.fn(async () => ({ exists: false, source: 'local' })),
+      pullProductBySku: vi.fn(async () => baseDetail),
+      listSizesInUse: vi.fn(async () => ['233ML', '1.75L']),
       getItemTypes: vi.fn(async () => [
         { id: 1, name: 'Wine', description: null, default_profit_margin: 35, default_tax_rate: 8 },
         {
@@ -130,6 +134,7 @@ describe('ItemForm', () => {
 
   afterEach(() => {
     consoleErrorSpy.mockRestore()
+    vi.useRealTimers()
   })
 
   it('renders core form fields', () => {
@@ -226,6 +231,46 @@ describe('ItemForm', () => {
       })
     )
     expect(await screen.findByText('Item saved')).toBeInTheDocument()
+  })
+
+  it('shows inline SKU existence warning after debounce for cloud-only items', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (window as any).api
+    api.checkSkuExists.mockResolvedValue({ exists: true, source: 'cloud' })
+
+    render(<ItemForm />)
+
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-CLOUD' } })
+    await waitFor(() => {
+      expect(api.checkSkuExists).toHaveBeenCalledWith('SKU-CLOUD')
+    })
+
+    expect(screen.getByText('SKU already exists in your catalog')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pull from cloud' })).toBeInTheDocument()
+  })
+
+  it('pulls a cloud-only SKU into the form', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (window as any).api
+    api.checkSkuExists.mockResolvedValue({ exists: true, source: 'cloud' })
+
+    render(<ItemForm />)
+
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-CLOUD' } })
+    await waitFor(() => {
+      expect(api.checkSkuExists).toHaveBeenCalledWith('SKU-CLOUD')
+    })
+
+    expect(screen.getByRole('button', { name: 'Pull from cloud' })).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Pull from cloud' }))
+      await Promise.resolve()
+    })
+
+    expect(api.pullProductBySku).toHaveBeenCalledWith('SKU-CLOUD')
+    expect(screen.getByDisplayValue('Inventory Item')).toBeInTheDocument()
+    expect(screen.getByText('Item loaded from cloud')).toBeInTheDocument()
   })
 
   it('includes new metadata fields in save payload', async () => {
@@ -339,6 +384,91 @@ describe('ItemForm', () => {
     expect(screen.getByDisplayValue('13.5')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2015')).toBeInTheDocument()
     expect(screen.getByDisplayValue('TTB-12345-ABC')).toBeInTheDocument()
+  })
+
+  it('shows non-canonical stored size values instead of blanking them', async () => {
+    window.api!.getInventoryProductDetail = vi.fn(async () => ({
+      ...baseDetail,
+      size: '233ML'
+    }))
+
+    render(<ItemFormWithButtons />)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Size')).toHaveValue('233ML')
+    })
+  })
+
+  it('normalizes size on blur and save', async () => {
+    const api = window.api!
+
+    render(<ItemFormWithButtons />)
+
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SIZE-001' } })
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Sized Item' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
+    fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
+    setTaxRate('0.13')
+
+    const sizeInput = screen.getByLabelText('Size')
+    fireEvent.change(sizeInput, { target: { value: '42oz' } })
+    fireEvent.blur(sizeInput)
+
+    expect(sizeInput).toHaveValue('42OZ')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
+
+    await waitFor(() => {
+      expect(api.saveInventoryItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          size: '42OZ'
+        })
+      )
+    })
+  })
+
+  it('shows size suggestions and supports keyboard selection', async () => {
+    render(<ItemForm />)
+
+    const sizeInput = screen.getByLabelText('Size')
+    fireEvent.focus(sizeInput)
+
+    expect(await screen.findByRole('option', { name: '233ML' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '750ML' })).toBeInTheDocument()
+
+    fireEvent.keyDown(sizeInput, { key: 'ArrowDown' })
+    fireEvent.keyDown(sizeInput, { key: 'Enter' })
+
+    expect(sizeInput).toHaveValue('233ML')
+  })
+
+  it('clears size and saves null', async () => {
+    const api = window.api!
+
+    render(<ItemFormWithButtons />)
+
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SIZE-002' } })
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Clear Size Item' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
+    fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
+    setTaxRate('0.13')
+    fireEvent.change(screen.getByLabelText('Size'), { target: { value: '750ML' } })
+
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'Clear Size' }))
+    expect(screen.getByLabelText('Size')).toHaveValue('')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Item' }))
+
+    await waitFor(() => {
+      expect(api.saveInventoryItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          size: null
+        })
+      )
+    })
   })
 
   it('falls back to legacy tax fields when tax_rates is missing', async () => {

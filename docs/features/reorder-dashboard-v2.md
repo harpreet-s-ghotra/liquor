@@ -4,6 +4,12 @@
 
 The Reorder Dashboard now uses distributor-scoped projected stock instead of a global low-stock threshold. It excludes catalog imports that still have `price = 0`, allows merchants to mark products as discontinued, and projects stock depletion from the last 365 days of completed sales.
 
+## Access
+
+- Surface: Inventory modal (F2)
+- Tab: `Reorder`
+- Paired workflow: `Create Order` hands off directly to the Inventory modal's `Purchase Orders` tab
+
 ## Rules
 
 - Reorder suggestions only include products where `is_active = 1`
@@ -79,7 +85,7 @@ type ReorderProduct = {
   - yellow when `projected_stock < unit_threshold`
 - The table includes velocity, days of supply, and projected stock columns
 - `days_of_supply` renders `--` when velocity is zero
-- When Create Order is clicked, the Purchase Orders tab opens with the distributor preselected
+- When Create Order is clicked, the Inventory modal switches to the Purchase Orders tab with the distributor preselected
 - Create Order is disabled for the `Unassigned` bucket so products without a distributor cannot be turned into a mixed PO
 - Prefilled PO line costs use product `cost` and remain editable before submit
 - PO create mode orders by cases; item units are derived from `quantity_cases * bottles_per_case`
@@ -96,7 +102,7 @@ type ReorderProduct = {
 
 - Backend repo tests cover distributor filtering, projected stock math, zero-velocity fallback, stale transaction exclusion, and discontinued behavior
 - Renderer tests cover default distributor selection, refetch behavior, row-class boundaries, and create-order forwarding
-- Playwright coverage lives in `tests/e2e/reorder-dashboard.spec.ts`
+- Playwright coverage lives in `tests/e2e/reorder-dashboard.spec.ts` and opens the flow via Inventory (F2)
 
 ## Verification
 

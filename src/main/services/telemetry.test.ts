@@ -32,9 +32,9 @@ describe('telemetry service', () => {
     })
 
     // wait a bit for any automatic flush to finish
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 100))
     await flushTelemetry()
-    
+
     const file = join(tempPath, 'telemetry', 'events.jsonl')
     const content = await readFile(file, 'utf8')
     expect(content).toContain('"name":"test_event"')
@@ -57,7 +57,7 @@ describe('telemetry service', () => {
     })
 
     // wait a bit for any automatic flush to finish
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 100))
     await flushTelemetry()
 
     const file = join(tempPath, 'telemetry', 'events.jsonl')

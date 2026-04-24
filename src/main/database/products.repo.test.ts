@@ -9,6 +9,7 @@ import {
   deleteInventoryItem,
   findProductBySku,
   getActiveSpecialPricing,
+  getDistinctSizes,
   getDistributorsWithReorderable,
   getInventoryItemTypes,
   getInventoryProductDetail,
@@ -315,6 +316,19 @@ describe('getInventoryProductDetail', () => {
     expect(detail!.sales_history).toEqual([])
     expect(detail!.additional_skus).toEqual([])
     expect(detail!.special_pricing).toEqual([])
+  })
+})
+
+describe('getDistinctSizes', () => {
+  beforeEach(() => createTestDb())
+
+  it('returns distinct sizes ordered by frequency then alphabetically', () => {
+    saveInventoryItem({ ...base, sku: 'SIZE-1', item_name: 'Size One', size: '750ML' })
+    saveInventoryItem({ ...base, sku: 'SIZE-2', item_name: 'Size Two', size: '1.75L' })
+    saveInventoryItem({ ...base, sku: 'SIZE-3', item_name: 'Size Three', size: '750ML' })
+    saveInventoryItem({ ...base, sku: 'SIZE-4', item_name: 'Size Four', size: '' })
+
+    expect(getDistinctSizes()).toEqual(['750ML', '1.75L'])
   })
 })
 
@@ -871,10 +885,36 @@ describe('getReorderProducts', () => {
 
     insertTransaction(item.item_number, 365)
 
-    const results = getReorderProducts(reorderQuery())
+    const results = getReorderProducts(reorderQuery(), new Map([['EDGE-002', 1]]))
     expect(results).toHaveLength(1)
     expect(results[0].velocity_per_day).toBe(1)
     expect(results[0].projected_stock).toBe(9)
+  })
+
+  it('uses injected cloud velocity when provided', () => {
+    getDb()
+      .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
+      .run(1, 'Test Distributor')
+
+    saveInventoryItem({
+      ...base,
+      sku: 'MAP-001',
+      item_name: 'Velocity From Cloud',
+      in_stock: 20,
+      distributor_number: 1
+    })
+
+    const results = getReorderProducts(reorderQuery(), new Map([['MAP-001', 0.5]]))
+
+    expect(results).toHaveLength(1)
+    expect(results[0]).toEqual(
+      expect.objectContaining({
+        sku: 'MAP-001',
+        velocity_per_day: 0.5,
+        projected_stock: 5,
+        days_of_supply: 40
+      })
+    )
   })
 
   it('uses zero sales fallback for velocity and projected stock', () => {

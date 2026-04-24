@@ -1,4 +1,10 @@
-import type { CatalogProductFull, MerchantProductRow, DiffRow, CuratedField, DiffStatus } from '../types'
+import type {
+  CatalogProductFull,
+  MerchantProductRow,
+  DiffRow,
+  CuratedField,
+  DiffStatus
+} from '../types'
 
 const CURATED_FIELDS: CuratedField[] = ['sku', 'barcode', 'size', 'cost']
 
@@ -22,7 +28,10 @@ function normalizeStr(val: string | null | undefined): string | null {
 // Allows comparing catalog '750' with merchant '750ML', '1.5' with '1.5LT', etc.
 function normalizeSizeValue(val: string | null): number | null {
   if (val == null) return null
-  const numeric = val.trim().replace(/[a-zA-Z]+$/, '').trim()
+  const numeric = val
+    .trim()
+    .replace(/[a-zA-Z]+$/, '')
+    .trim()
   const n = parseFloat(numeric)
   return isNaN(n) ? null : n
 }
@@ -48,7 +57,7 @@ function sizesMatch(a: string | null, b: string | null): boolean {
  */
 function bestCatalogMatch(
   candidates: CatalogProductFull[],
-  mp: MerchantProductRow,
+  mp: MerchantProductRow
 ): CatalogProductFull | null {
   if (candidates.length === 0) return null
   if (candidates.length === 1) return candidates[0]
@@ -131,7 +140,7 @@ function computeStatus(
   original: string | null,
   curated: string | null,
   merchant: string | null,
-  field: CuratedField,
+  field: CuratedField
 ): DiffStatus {
   const effective = curated ?? original
 
@@ -159,7 +168,7 @@ function computeStatus(
 
 /** Build a map from ttb_id → all matching catalog entries (one-to-many). */
 export function buildCatalogMap(
-  catalogProducts: CatalogProductFull[],
+  catalogProducts: CatalogProductFull[]
 ): Map<string, CatalogProductFull[]> {
   const map = new Map<string, CatalogProductFull[]>()
   for (const cp of catalogProducts) {
@@ -177,7 +186,7 @@ export function buildCatalogMap(
 
 export function computeDiffRows(
   merchantProducts: MerchantProductRow[],
-  catalogByTtbId: Map<string, CatalogProductFull[]>,
+  catalogByTtbId: Map<string, CatalogProductFull[]>
 ): DiffRow[] {
   const rows: DiffRow[] = []
 
@@ -198,7 +207,7 @@ export function computeDiffRows(
         curated_value: null,
         effective_catalog_value: null,
         merchant_value: mp.ttb_id,
-        status: 'no_catalog_match',
+        status: 'no_catalog_match'
       })
       continue
     }
@@ -217,7 +226,7 @@ export function computeDiffRows(
         curated_value: null,
         effective_catalog_value: null,
         merchant_value: mp.ttb_id,
-        status: 'no_catalog_match',
+        status: 'no_catalog_match'
       })
       continue
     }
@@ -255,7 +264,7 @@ export function computeDiffRows(
           curated_value: curated,
           effective_catalog_value: effective,
           merchant_value: merchant,
-          status,
+          status
         })
       }
     }

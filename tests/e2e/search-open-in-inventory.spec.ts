@@ -31,6 +31,7 @@ const attachApiMock = async (page: Page): Promise<void> => {
         distributor_name: null,
         bottles_per_case: 12,
         case_discount_price: null,
+        size: '355ML',
         barcode: null,
         description: null,
         special_pricing_enabled: 0,
@@ -108,6 +109,7 @@ const attachApiMock = async (page: Page): Promise<void> => {
       getInventoryTaxCodes: async () => [],
       getTaxCodes: async () => [],
       getDistributors: async () => [],
+      listSizesInUse: async () => ['355ML', '750ML'],
       getActiveSpecialPricing: async () => [],
       saveInventoryItem: async () => inventoryItems[0],
       deleteInventoryItem: async () => {},
@@ -133,7 +135,8 @@ test.describe('Search modal — Open in Inventory', () => {
 
     // Open the search modal via the Search button
     await page.getByRole('button', { name: 'Search' }).click()
-    await expect(page.getByRole('dialog', { name: 'Product Search' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Search' })).toBeVisible()
+    await expect(page.getByText('Product Search')).toBeVisible()
 
     // Search for an item
     await page.getByPlaceholder('Search items...').fill('Cabernet')
@@ -147,7 +150,7 @@ test.describe('Search modal — Open in Inventory', () => {
     await page.getByRole('button', { name: 'Open in Inventory' }).click()
 
     // The search modal should close and the inventory modal should open
-    await expect(page.getByRole('dialog', { name: 'Product Search' })).not.toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Search' })).not.toBeVisible()
     await expect(page.getByRole('dialog', { name: 'Inventory Management' })).toBeVisible()
 
     // The item's SKU and name should be loaded in the form
@@ -155,6 +158,7 @@ test.describe('Search modal — Open in Inventory', () => {
     await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue(
       'Cabernet Sauvignon 750ml'
     )
+    await expect(page.getByRole('combobox', { name: 'Size', exact: true })).toHaveValue('355ML')
 
     // The header breadcrumb should reflect the selected item
     await expect(page.getByText('Edit Record: WINE-001')).toBeVisible()

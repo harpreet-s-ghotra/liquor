@@ -67,19 +67,22 @@ import type {
   Register,
   MerchantStatus,
   ReorderDistributorRow,
-  ReorderProduct,
+  ReorderProductsResult,
   ReorderQuery,
+  SkuExistenceResult,
   PurchaseOrder,
   PurchaseOrderItem,
   PurchaseOrderDetail,
   CreatePurchaseOrderInput,
   UpdatePurchaseOrderInput,
+  UpdatePurchaseOrderItemsInput,
   ReceivePurchaseOrderItemInput,
   TelemetryEventInput
 } from '../shared/types'
 
 type AppApi = {
   getProducts: () => Promise<Product[]>
+  hasAnyProduct: () => Promise<boolean>
   searchProducts: (query: string, filters?: SearchProductFilters) => Promise<Product[]>
   getActiveSpecialPricing: () => Promise<ActiveSpecialPricingRule[]>
   getInventoryProducts: () => Promise<InventoryProduct[]>
@@ -90,6 +93,7 @@ type AppApi = {
   getInventoryDepartments: () => Promise<string[]>
   getInventoryItemTypes: () => Promise<string[]>
   getInventoryTaxCodes: () => Promise<InventoryTaxCode[]>
+  listSizesInUse: () => Promise<string[]>
   getItemTypes: () => Promise<ItemType[]>
   createItemType: (input: CreateItemTypeInput) => Promise<ItemType>
   updateItemType: (input: UpdateItemTypeInput) => Promise<ItemType>
@@ -115,6 +119,7 @@ type AppApi = {
   // Supabase Auth
   authLogin: (email: string, password: string) => Promise<AuthResult>
   authLogout: () => Promise<void>
+  authFullSignOut: () => Promise<{ drained: number; remaining: number }>
   authCheckSession: () => Promise<AuthResult | null>
   authSetSession: (accessToken: string, refreshToken: string) => Promise<{ email: string }>
   authSetPassword: (password: string) => Promise<AuthResult>
@@ -238,11 +243,13 @@ type AppApi = {
   deleteRegister: (id: string) => Promise<void>
 
   // Manager — Reorder
-  getReorderProducts: (query: ReorderQuery) => Promise<ReorderProduct[]>
+  getReorderProducts: (query: ReorderQuery) => Promise<ReorderProductsResult>
   getReorderDistributors: () => Promise<ReorderDistributorRow[]>
   setProductDiscontinued: (id: number, discontinued: boolean) => Promise<void>
   getUnpricedProducts: () => Promise<InventoryProduct[]>
   findProductBySku: (sku: string) => Promise<Product | null>
+  checkSkuExists: (sku: string) => Promise<SkuExistenceResult>
+  pullProductBySku: (sku: string) => Promise<InventoryProductDetail | null>
   toggleFavorite: (productId: number) => Promise<void>
   getDistinctSizes: () => Promise<string[]>
 
@@ -254,6 +261,8 @@ type AppApi = {
   getPurchaseOrderDetail: (poId: number) => Promise<PurchaseOrderDetail | null>
   createPurchaseOrder: (input: CreatePurchaseOrderInput) => Promise<PurchaseOrderDetail>
   updatePurchaseOrder: (input: UpdatePurchaseOrderInput) => Promise<PurchaseOrder>
+  updatePurchaseOrderItems: (input: UpdatePurchaseOrderItemsInput) => Promise<PurchaseOrderDetail>
+  markPurchaseOrderReceived: (poId: number) => Promise<PurchaseOrderDetail>
   receivePurchaseOrderItem: (input: ReceivePurchaseOrderItemInput) => Promise<PurchaseOrderItem>
   addPurchaseOrderItem: (
     poId: number,

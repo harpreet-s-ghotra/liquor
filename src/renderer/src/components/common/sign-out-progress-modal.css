@@ -1,0 +1,33 @@
+.sign-out-progress-modal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 10, 18, 0.82);
+  padding: 1.5rem;
+  min-height: 100vh;
+}
+
+.sign-out-progress-modal__card {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  background: var(--bg-panel);
+  padding: 1.5rem;
+  width: min(28rem, 100%);
+}
+
+.sign-out-progress-modal__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.sign-out-progress-modal__body,
+.sign-out-progress-modal__note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}

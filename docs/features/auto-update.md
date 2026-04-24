@@ -6,6 +6,12 @@ The app has no auto-update mechanism. When a new version is released, merchants 
 
 **Key constraint:** The source repo is private. `electron-updater` can't fetch releases from it without a token. Releases are published to the **public** repo `harpreet-s-ghotra/checkoutmain-releases`, so the updater must be configured to check there.
 
+## Packaging Scope
+
+Production builds should only ship the compiled Electron app from `out/` plus the runtime `package.json` metadata and production dependencies resolved by `electron-builder`.
+
+Do not ship workspace-only folders such as `data/`, `docs/`, `tests/`, `coverage/`, `playwright-report/`, `test-results/`, `tools/`, `scripts/`, `schemas/`, `supabase/`, or source files from `src/`. Broad include rules noticeably increase Windows installer size.
+
 ---
 
 ## Steps

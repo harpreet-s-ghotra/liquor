@@ -57,7 +57,7 @@ Channels follow `entity:action` pattern:
 - `departments:list`, `departments:create`, `departments:update`, `departments:delete`
 - `tax-codes:*`, `distributors:*`, `sales-reps:*`, `cashiers:*` — same CRUD pattern
 - `merchant:get-config`, `merchant:verify-finix`, `merchant:deactivate`
-- `auth:login`, `auth:logout`, `auth:check-session`
+- `auth:login`, `auth:logout`, `auth:full-sign-out`, `auth:check-session`
 - `catalog:distributors`, `catalog:import`
 - `transactions:save`, `transactions:recent`, `transactions:get-by-number`, `transactions:save-refund`, `transactions:list`
 - `held-transactions:save`, `held-transactions:list`, `held-transactions:delete`, `held-transactions:clear-all`
@@ -68,17 +68,22 @@ Channels follow `entity:action` pattern:
 - `finix:verify-merchant`, `finix:charge:card`, `finix:refund:transfer`, `finix:devices:list`, `finix:devices:create`, `finix:charge:terminal`, `finix:provision-merchant`
 - `finix:merchant-status` — read-only Finix merchant verification (Manager modal)
 - `registers:list`, `registers:rename`, `registers:delete` — Supabase multi-register management
-- `inventory:reorder-products` — projected reorder products for the selected distributor, threshold, and time window
+- `inventory:reorder-products` — projected reorder products for the Inventory modal's Reorder tab
 - `inventory:reorder-distributors` — distributors with at least one reorderable product plus the unassigned bucket
+- `inventory:check-sku-exists`, `inventory:pull-product-by-sku` — inventory SKU collision check against local/cloud catalog plus single-row cloud pull for zero-price products
 - `inventory:set-discontinued` — toggles `products.is_discontinued` without deleting the product
-- `purchase-orders:list`, `purchase-orders:detail`, `purchase-orders:create`, `purchase-orders:update`, `purchase-orders:receive-item`, `purchase-orders:add-item`, `purchase-orders:remove-item`, `purchase-orders:delete` — purchase order CRUD
+- `inventory:list-sizes-in-use` — distinct normalized product sizes for ItemForm suggestions
+- `purchase-orders:list`, `purchase-orders:detail`, `purchase-orders:create`, `purchase-orders:update`, `purchase-orders:receive-item`, `purchase-orders:update-items`, `purchase-orders:mark-received`, `purchase-orders:add-item`, `purchase-orders:remove-item`, `purchase-orders:delete` — purchase order CRUD, corrections, and receive shortcuts for the Inventory modal's Purchase Orders tab
 - `telemetry:track` — lightweight event ingestion from renderer/preload into main telemetry buffer
 
 Reorder + purchase-order payload notes:
 
 - `ReorderProduct` rows now include `cost` and `bottles_per_case` so create-order handoff can prefill editable unit costs and case-based quantities.
 - `purchase-orders:create` input supports optional per-line `unit_cost` overrides from the purchase-order create form.
+- `PurchaseOrderItem` rows now include `bottles_per_case`, and `purchase-orders:update-items` accepts line-level `unit_cost`, `quantity_ordered`, and `quantity_received` diffs for submitted/received PO corrections.
+- `purchase-orders:mark-received` fills every outstanding line to its ordered quantity and returns a refreshed `PurchaseOrderDetail`.
 - `reports:sales-summary`, `reports:product-sales`, `reports:category-sales`, `reports:tax-summary`, `reports:comparison`, `reports:cashier-sales`, `reports:hourly-sales`, `reports:export`
+- `history:get-stats`, `history:get-backfill-status`, `history:trigger-backfill`, `history:backfill-status-changed` (event)
 
 Report payload notes:
 
@@ -92,11 +97,12 @@ Report payload notes:
 ## Auth State Machine
 
 ```
-loading → auth → set-password → syncing-initial → pin-setup → business-setup → distributor-onboarding → login → pos
+loading → auth → signing-out → set-password → syncing-initial → pin-setup → business-setup → distributor-onboarding → login → pos
 ```
 
 - `loading`: App initializing
 - `auth`: No valid Supabase session → `AuthScreen`
+- `signing-out`: Account sync drain in progress before Supabase sign-out completes
 - `set-password`: Invite link accepted, user sets password → `SetPasswordScreen`
 - `syncing-initial`: Initial multi-entity cloud restore in progress → `SyncProgressModal`
 - `pin-setup`: Session valid, no cashiers in SQLite → `PinSetupScreen`
@@ -125,8 +131,9 @@ Sync code lives entirely in `src/main/` (main process only). Never imported by r
 | ------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | `src/main/services/sync-worker.ts`               | Background drain loop + Realtime subscriptions for all entity types                |
 | `src/main/services/sync/types.ts`                | All cloud payload types (`*SyncPayload`, `Cloud*Payload`)                          |
-| `src/main/services/sync/initial-sync.ts`         | One-time product reconciliation on startup (cursor-based pagination, LWW)          |
+| `src/main/services/sync/initial-sync.ts`         | One-time merchant-scoped reconciliation on login/session restore (no history pull) |
 | `src/main/services/sync/product-sync.ts`         | `uploadProduct`, `applyRemoteProductChange`                                        |
+| `src/main/services/sync/velocity-sync.ts`        | Cloud SKU velocity aggregate fetch for reorder projections                         |
 | `src/main/services/sync/inventory-delta-sync.ts` | `uploadInventoryDelta` (append-only cloud deltas)                                  |
 | `src/main/services/sync/transaction-sync.ts`     | `uploadTransaction`, `applyRemoteTransaction`                                      |
 | `src/main/services/sync/item-type-sync.ts`       | `uploadItemType`, `applyRemoteItemTypeChange` (name renames propagate to products) |
@@ -135,7 +142,7 @@ Sync code lives entirely in `src/main/` (main process only). Never imported by r
 | `src/main/services/sync/distributor-sync.ts`     | `uploadDistributor`, `applyRemoteDistributorChange`                                |
 | `src/main/services/sync/cashier-sync.ts`         | `uploadCashier`, `applyRemoteCashierChange` (includes pin_hash, main-process only) |
 | `src/main/services/sync/settings-sync.ts`        | `uploadSettings`, `applyRemoteSettingsChange`, `reconcileSettings`                 |
-| `src/main/services/sync/transaction-backfill.ts` | 7-day historical transaction backfill on first-login restore                       |
+| `src/main/services/sync/transaction-backfill.ts` | Manual transaction-history backfill (operator-triggered, safe window 365 days)     |
 | `src/main/database/product-cost-layers.repo.ts`  | FIFO cost layer creation/consumption for accurate COGS                             |
 | `src/main/database/sync-queue.repo.ts`           | Local sync queue CRUD                                                              |
 | `src/main/database/device-config.repo.ts`        | Device UUID + fingerprint storage                                                  |

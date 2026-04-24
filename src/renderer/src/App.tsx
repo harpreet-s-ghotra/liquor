@@ -8,6 +8,7 @@ import { BusinessSetupScreen } from './pages/BusinessSetupScreen'
 import { DistributorOnboardingScreen } from './pages/DistributorOnboardingScreen'
 import { LoginScreen } from './pages/LoginScreen'
 import { SyncProgressModal } from './components/common/SyncProgressModal'
+import { SignOutProgressModal } from './components/common/SignOutProgressModal'
 import { useAuthStore } from './store/useAuthStore'
 import { useThemeStore } from './store/useThemeStore'
 import { scoped } from './lib/logger'
@@ -25,6 +26,7 @@ function useIsDevBrowser(): boolean {
 
 function App(): React.JSX.Element {
   const appState = useAuthStore((s) => s.appState)
+  const merchantConfig = useAuthStore((s) => s.merchantConfig)
   const initialize = useAuthStore((s) => s.initialize)
   const handleInviteLink = useAuthStore((s) => s.handleInviteLink)
   const completeSyncAndContinue = useAuthStore((s) => s.completeSyncAndContinue)
@@ -149,6 +151,8 @@ function App(): React.JSX.Element {
       return <AuthScreen />
     case 'set-password':
       return <SetPasswordScreen />
+    case 'signing-out':
+      return <SignOutProgressModal merchantName={merchantConfig?.merchant_name ?? null} />
     case 'syncing-initial':
       return (
         <SyncProgressModal

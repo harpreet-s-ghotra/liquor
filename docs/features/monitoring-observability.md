@@ -113,12 +113,12 @@ Logger is initialized at startup from `src/main/services/logger.ts`. The rendere
 
 ### Levels
 
-| Level | Use |
-|-------|-----|
-| `error` | Uncaught exceptions, IPC failures, sync item failures, renderer crashes |
-| `warn`  | Recoverable failures, retry attempts, degraded paths (e.g. offline) |
+| Level   | Use                                                                        |
+| ------- | -------------------------------------------------------------------------- |
+| `error` | Uncaught exceptions, IPC failures, sync item failures, renderer crashes    |
+| `warn`  | Recoverable failures, retry attempts, degraded paths (e.g. offline)        |
 | `info`  | Startup markers, sync drain start/end, deep-link events, state transitions |
-| `debug` | IPC timing per call, per-item sync processing. Off in production. |
+| `debug` | IPC timing per call, per-item sync processing. Off in production.          |
 
 ### Rotation
 

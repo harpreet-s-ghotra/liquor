@@ -1,4 +1,5 @@
 import type { RefObject } from 'react'
+import { SearchDropdown } from '@renderer/components/common/SearchDropdown'
 import type { InventoryProduct } from '@renderer/types/pos'
 import { formatCurrency } from '@renderer/utils/currency'
 import { AppButton } from '@renderer/components/common/AppButton'
@@ -9,11 +10,14 @@ const SEARCH_PLACEHOLDER: Record<InventoryTab, string> = {
   items: 'Scan or enter SKU / name...',
   'item-types': 'Filter item types...',
   'tax-codes': 'Filter tax codes...',
-  distributors: 'Filter distributors...'
+  distributors: 'Filter distributors...',
+  reorder: 'Search reorder items...',
+  'purchase-orders': 'Search purchase orders...'
 }
 
 export type FooterActionBarProps = {
   activeTab: InventoryTab
+  showSearch?: boolean
   // Search
   searchTerm: string
   onSearchTermChange: (term: string) => void
@@ -21,6 +25,7 @@ export type FooterActionBarProps = {
   searchResults: InventoryProduct[]
   showSearchDropdown: boolean
   onSelectSearchResult: (item: InventoryProduct) => void
+  onOpenDropdown?: () => void
   onCloseDropdown: () => void
   searchWrapperRef: RefObject<HTMLDivElement | null>
   searchInputRef: RefObject<HTMLInputElement | null>
@@ -37,12 +42,14 @@ export type FooterActionBarProps = {
 
 export function FooterActionBar({
   activeTab,
+  showSearch = true,
   searchTerm,
   onSearchTermChange,
   onSearch,
   searchResults,
   showSearchDropdown,
   onSelectSearchResult,
+  onOpenDropdown,
   onCloseDropdown,
   searchWrapperRef,
   searchInputRef,
@@ -57,75 +64,61 @@ export function FooterActionBar({
 }: FooterActionBarProps): React.JSX.Element {
   return (
     <div className="footer-action-bar">
-      {/* Left: Search */}
-      <div ref={searchWrapperRef} className="footer-action-bar__search">
-        {/* <span className="footer-action-bar__search-label">Item Lookup</span> */}
-        <div className="footer-action-bar__search-wrap">
-          <input
-            ref={searchInputRef}
-            type="text"
-            aria-label="Search Inventory"
-            value={searchTerm}
-            onChange={(e) => onSearchTermChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onSearch()
-              if (e.key === 'Escape') onCloseDropdown()
-            }}
-            placeholder={SEARCH_PLACEHOLDER[activeTab] ?? 'Search...'}
-            className="footer-action-bar__search-input"
-            name="Search Inventory"
-          />
+      {showSearch && (
+        <div ref={searchWrapperRef} className="footer-action-bar__search">
+          <div className="footer-action-bar__search-wrap">
+            <SearchDropdown
+              ariaLabel="Search Inventory"
+              inputRef={searchInputRef}
+              value={searchTerm}
+              onValueChange={onSearchTermChange}
+              results={activeTab === 'items' ? searchResults : []}
+              isOpen={activeTab === 'items' && showSearchDropdown && searchTerm.trim().length > 0}
+              onOpenChange={(open) => {
+                if (open) onOpenDropdown?.()
+                else onCloseDropdown()
+              }}
+              onSelect={onSelectSearchResult}
+              onSubmit={onSearch}
+              listboxLabel="Search results"
+              getOptionKey={(item) => item.item_number}
+              renderOption={(item) => (
+                <>
+                  <span className="footer-action-bar__dropdown-item-name">{item.item_name}</span>
+                  <span className="footer-action-bar__dropdown-item-meta">
+                    {item.sku} · {formatCurrency(item.retail_price)}
+                  </span>
+                </>
+              )}
+              placeholder={SEARCH_PLACEHOLDER[activeTab] ?? 'Search...'}
+              listboxPlacement="top"
+              inputClassName="footer-action-bar__search-input"
+              listboxClassName="footer-action-bar__dropdown"
+              optionClassName="footer-action-bar__dropdown-item"
+            />
 
-          {/* Autocomplete dropdown — Items tab only */}
-          {activeTab === 'items' &&
-            showSearchDropdown &&
-            searchResults.length > 0 &&
-            searchTerm.trim() && (
-              <ul
-                role="listbox"
-                aria-label="Search results"
-                className="footer-action-bar__dropdown"
-              >
-                {searchResults.map((item) => (
-                  <li
-                    key={item.item_number}
-                    role="option"
-                    aria-selected={false}
-                    className="footer-action-bar__dropdown-item"
-                    onMouseDown={() => onSelectSearchResult(item)}
-                  >
-                    <span className="footer-action-bar__dropdown-item-name">{item.item_name}</span>
-                    <span className="footer-action-bar__dropdown-item-meta">
-                      {item.sku} · {formatCurrency(item.retail_price)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            {activeTab === 'items' && noResultsSku && (
+              <div className="footer-action-bar__no-results">
+                <span className="footer-action-bar__no-results-text">
+                  No item found for{' '}
+                  <span className="footer-action-bar__no-results-sku">{noResultsSku}</span>
+                </span>
+                <AppButton
+                  size="sm"
+                  variant="success"
+                  onMouseDown={() => onAddNewWithSku(noResultsSku)}
+                >
+                  + Add New Item
+                </AppButton>
+              </div>
             )}
-
-          {/* No-results prompt — Items tab only */}
-          {activeTab === 'items' && noResultsSku && (
-            <div className="footer-action-bar__no-results">
-              <span className="footer-action-bar__no-results-text">
-                No item found for{' '}
-                <span className="footer-action-bar__no-results-sku">{noResultsSku}</span>
-              </span>
-              <AppButton
-                size="sm"
-                variant="success"
-                onMouseDown={() => onAddNewWithSku(noResultsSku)}
-              >
-                + Add New Item
-              </AppButton>
-            </div>
-          )}
+          </div>
+          <AppButton size="sm" variant="default" onClick={onSearch}>
+            Search
+          </AppButton>
         </div>
-        <AppButton size="sm" variant="default" onClick={onSearch}>
-          Search
-        </AppButton>
-      </div>
+      )}
 
-      {/* Spacer */}
       <div className="footer-action-bar__spacer" />
 
       {/* Right: Action buttons — only on Items tab */}

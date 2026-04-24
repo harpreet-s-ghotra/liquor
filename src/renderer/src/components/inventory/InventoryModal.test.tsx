@@ -8,6 +8,8 @@ describe('InventoryModal', () => {
   let api: Record<string, ReturnType<typeof vi.fn>>
 
   beforeEach(() => {
+    window.localStorage.clear()
+
     // Provide minimal API stubs so child panels don't crash on mount
     api = {
       searchInventoryProducts: vi.fn(async () => []),
@@ -15,6 +17,7 @@ describe('InventoryModal', () => {
       saveInventoryItem: vi.fn(async () => ({})),
       getInventoryItemTypes: vi.fn(async () => []),
       getItemTypes: vi.fn(async () => []),
+      getUnpricedProducts: vi.fn(async () => []),
       createItemType: vi.fn(async () => ({ id: 1, name: 'Type' })),
       updateItemType: vi.fn(async () => ({ id: 1, name: 'Type' })),
       deleteItemType: vi.fn(async () => undefined),
@@ -22,7 +25,17 @@ describe('InventoryModal', () => {
       createTaxCode: vi.fn(async () => ({ id: 1, code: 'TX', rate: 0.05 })),
       updateTaxCode: vi.fn(async () => ({ id: 1, code: 'TX', rate: 0.05 })),
       deleteTaxCode: vi.fn(async () => undefined),
-      getDistributors: vi.fn(async () => []),
+      getDistributors: vi.fn(async () => [
+        {
+          distributor_number: 1,
+          distributor_name: 'North Wines',
+          license_id: null,
+          serial_number: null,
+          premises_name: null,
+          premises_address: null,
+          is_active: 1
+        }
+      ]),
       createDistributor: vi.fn(async () => ({
         distributor_number: 1,
         distributor_name: 'D',
@@ -51,7 +64,55 @@ describe('InventoryModal', () => {
         email: null,
         is_active: 1
       })),
-      deleteSalesRep: vi.fn(async () => undefined)
+      deleteSalesRep: vi.fn(async () => undefined),
+      getReorderDistributors: vi.fn(async () => [
+        {
+          distributor_number: 1,
+          distributor_name: 'North Wines',
+          product_count: 1
+        }
+      ]),
+      getReorderProducts: vi.fn(async () => ({
+        rows: [
+          {
+            id: 1,
+            sku: 'WINE-001',
+            name: 'Cabernet',
+            item_type: 'Wine',
+            in_stock: 2,
+            reorder_point: 10,
+            distributor_number: 1,
+            distributor_name: 'North Wines',
+            cost: 8,
+            bottles_per_case: 12,
+            price: 15,
+            velocity_per_day: 0.2,
+            days_of_supply: 10,
+            projected_stock: -4
+          }
+        ],
+        velocityOffline: false
+      })),
+      getPurchaseOrders: vi.fn(async () => []),
+      getPurchaseOrderDetail: vi.fn(async () => null),
+      createPurchaseOrder: vi.fn(async () => ({
+        id: 1,
+        po_number: 'PO-2026-04-0001',
+        distributor_number: 1,
+        distributor_name: 'North Wines',
+        status: 'draft',
+        notes: null,
+        subtotal: 0,
+        total: 0,
+        item_count: 1,
+        received_at: null,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        items: []
+      })),
+      updatePurchaseOrder: vi.fn(async () => ({})),
+      receivePurchaseOrderItem: vi.fn(async () => ({})),
+      deletePurchaseOrder: vi.fn(async () => undefined)
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = api
@@ -67,11 +128,15 @@ describe('InventoryModal', () => {
 
     expect(screen.getByRole('dialog', { name: 'Inventory Management' })).toBeInTheDocument()
     // AppModalHeader renders "Inventory" as the breadcrumb label
-    expect(screen.getByText('Inventory', { selector: '.app-modal-header__label' })).toBeInTheDocument()
+    expect(
+      screen.getByText('Inventory', { selector: '.app-modal-header__label' })
+    ).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Items' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Item Types' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Tax Codes' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Distributors' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Reorder' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Purchase Orders' })).toBeInTheDocument()
   })
 
   it('defaults to Items tab showing the item form', async () => {
@@ -113,6 +178,26 @@ describe('InventoryModal', () => {
     expect(await screen.findByRole('tabpanel', { name: 'Distributors' })).toBeInTheDocument()
   })
 
+  it('switches to Reorder panel when tab is clicked', async () => {
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    const tab = screen.getByRole('tab', { name: 'Reorder' })
+    await userEvent.click(tab)
+
+    expect(tab).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('Cabernet')).toBeInTheDocument()
+  })
+
+  it('switches to Purchase Orders panel when tab is clicked', async () => {
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    const tab = screen.getByRole('tab', { name: 'Purchase Orders' })
+    await userEvent.click(tab)
+
+    expect(tab).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('No purchase orders found.')).toBeInTheDocument()
+  })
+
   it('calls close handler when Close is clicked', async () => {
     const onClose = vi.fn()
     render(<InventoryModal isOpen onClose={onClose} />)
@@ -146,6 +231,39 @@ describe('InventoryModal', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Distributors' }))
     const breadcrumbs = screen.getAllByText('Distributors')
     expect(breadcrumbs.length).toBeGreaterThanOrEqual(2) // tab + breadcrumb
+  })
+
+  it('shows reorder and purchase order breadcrumbs on the procurement tabs', async () => {
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Reorder' }))
+    expect(
+      screen.getByText('Reorder Dashboard', { selector: '.app-modal-header__title' })
+    ).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Purchase Orders' }))
+    expect(
+      screen.getByText('Purchase Orders', { selector: '.app-modal-header__title' })
+    ).toBeInTheDocument()
+  })
+
+  it('hands off reorder selections to purchase orders inside inventory', async () => {
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Reorder' }))
+    await waitFor(() => {
+      expect(screen.getByText('Cabernet')).toBeInTheDocument()
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: 'Purchase Orders' })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      )
+    })
+    expect(screen.getByText('New Purchase Order')).toBeInTheDocument()
   })
 
   it('performs search and shows dropdown with results', async () => {
@@ -239,6 +357,76 @@ describe('InventoryModal', () => {
     await userEvent.type(searchInput, '1')
     await waitFor(() => {
       expect(screen.queryByText('+ Add New Item')).not.toBeInTheDocument()
+    })
+  })
+
+  it('forces the items tab open when openItemNumber is provided', async () => {
+    window.localStorage.setItem('inventory-modal-last-tab', 'tax-codes')
+
+    render(<InventoryModal isOpen onClose={vi.fn()} openItemNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: 'Items' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('tab', { name: 'Tax Codes' })).toHaveAttribute(
+        'aria-selected',
+        'false'
+      )
+    })
+  })
+
+  it('activates needs-pricing mode and clears it when typing a manual search', async () => {
+    vi.mocked(api.getUnpricedProducts).mockResolvedValue([
+      {
+        item_number: 9,
+        sku: 'UNPRICED-001',
+        item_name: 'Unpriced Item',
+        category_id: null,
+        category_name: null,
+        item_type: 'Wine',
+        cost: 3,
+        retail_price: 0,
+        in_stock: 4,
+        tax_1: 0,
+        tax_2: 0,
+        distributor_number: 1,
+        distributor_name: 'North Wines',
+        bottles_per_case: 12,
+        case_discount_price: null,
+        special_pricing_enabled: 0,
+        special_price: null,
+        is_active: 1,
+        barcode: null,
+        description: null,
+        size: null,
+        case_cost: null,
+        nysla_discounts: null,
+        brand_name: null,
+        proof: null,
+        alcohol_pct: null,
+        vintage: null,
+        ttb_id: null,
+        display_name: null
+      }
+    ])
+
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    const needsPricingChip = await screen.findByRole('button', { name: /Needs pricing/i })
+    await waitFor(() => {
+      expect(needsPricingChip).toHaveTextContent('1')
+    })
+
+    await userEvent.click(needsPricingChip)
+
+    await waitFor(() => {
+      expect(api.getUnpricedProducts).toHaveBeenCalledTimes(2)
+      expect(needsPricingChip.className).toContain('inventory-modal__filter-chip--active')
+    })
+
+    await userEvent.type(screen.getByLabelText('Search Inventory'), 'C')
+
+    await waitFor(() => {
+      expect(needsPricingChip.className).not.toContain('inventory-modal__filter-chip--active')
     })
   })
 })

@@ -20,6 +20,7 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         bottles_per_case: 12,
         barcode: null,
         description: null,
+        size: '750ML',
         special_pricing_enabled: 0,
         special_price: null,
         is_active: 1,
@@ -43,6 +44,7 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         bottles_per_case: 6,
         barcode: null,
         description: null,
+        size: '1.75L',
         special_pricing_enabled: 0,
         special_price: null,
         is_active: 1,
@@ -152,6 +154,7 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
         { code: 'RATE_0', rate: 0 },
         { code: 'RATE_0_13', rate: 0.13 }
       ],
+      listSizesInUse: async () => ['750ML', '1.75L', '355ML'],
       getItemTypes: async () => [
         {
           id: 1,
@@ -232,7 +235,7 @@ const attachInventoryApiMock = async (page: Page): Promise<void> => {
           alcohol_pct: payload.alcohol_pct ?? null,
           vintage: payload.vintage ?? null,
           ttb_id: payload.ttb_id ?? null,
-          size: null,
+          size: payload.size ?? null,
           case_cost: null,
           nysla_discounts: null,
           brand_name: null,
@@ -408,5 +411,49 @@ test.describe('Inventory Management', () => {
 
     await expect(page.getByRole('textbox', { name: 'SKU', exact: true })).toHaveValue(sku)
     await expect(page.getByLabel('Display Name')).toHaveValue('Short Name')
+  })
+
+  test('supports keyboard selection from the inventory footer search dropdown', async ({
+    page
+  }) => {
+    await attachInventoryApiMock(page)
+    await gotoAndLogin(page)
+
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
+
+    const searchInput = page.getByRole('combobox', { name: 'Search Inventory' })
+    await searchInput.fill('SKU')
+    await expect(page.getByRole('option', { name: /Inventory Item/ })).toBeVisible()
+
+    await searchInput.press('ArrowDown')
+    await searchInput.press('ArrowDown')
+    await searchInput.press('Enter')
+
+    await expect(page.getByRole('textbox', { name: 'SKU', exact: true })).toHaveValue('SKU-002')
+    await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue(
+      'Second Item'
+    )
+  })
+
+  test('positions footer search results above the search input', async ({ page }) => {
+    await attachInventoryApiMock(page)
+    await gotoAndLogin(page)
+
+    await page.getByRole('button', { name: 'F2 Inventory' }).click()
+
+    const searchInput = page.getByRole('combobox', { name: 'Search Inventory' })
+    await searchInput.fill('SKU')
+
+    const listbox = page.getByRole('listbox', { name: 'Search results' })
+    await expect(listbox).toBeVisible()
+
+    const inputBox = await searchInput.boundingBox()
+    const listboxBox = await listbox.boundingBox()
+
+    expect(inputBox).not.toBeNull()
+    expect(listboxBox).not.toBeNull()
+    expect((listboxBox?.y ?? 0) + (listboxBox?.height ?? 0)).toBeLessThanOrEqual(
+      (inputBox?.y ?? 0) + 1
+    )
   })
 })

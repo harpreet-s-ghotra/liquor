@@ -82,7 +82,7 @@ export default function Dashboard({ user, onSignOut }: Props): React.JSX.Element
 
   const selectedMerchant = merchants.find((m) => m.id === selectedMerchantId) ?? null
   const filteredMerchants = merchants.filter((m) =>
-    m.merchant_name.toLowerCase().includes(merchantSearch.toLowerCase()),
+    m.merchant_name.toLowerCase().includes(merchantSearch.toLowerCase())
   )
 
   const filteredRows = diffRows.filter((row) => {

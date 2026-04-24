@@ -145,7 +145,10 @@ async function fetchCanonicalDistributorMap(merchantId: string): Promise<Map<num
 
 async function fetchMerchants(): Promise<Merchant[]> {
   const supabase = getServiceClient()
-  const { data, error } = await supabase.from('merchants').select('id, merchant_name').order('merchant_name')
+  const { data, error } = await supabase
+    .from('merchants')
+    .select('id, merchant_name')
+    .order('merchant_name')
   if (error) throw new Error(error.message)
   return (data ?? []) as Merchant[]
 }
@@ -174,7 +177,9 @@ async function fetchMerchantProducts(merchantId: string): Promise<MerchantProduc
   return results.map((row) => ({
     ...row,
     canonical_distributor_id:
-      row.distributor_number != null ? (canonicalDistributorMap.get(row.distributor_number) ?? null) : null
+      row.distributor_number != null
+        ? (canonicalDistributorMap.get(row.distributor_number) ?? null)
+        : null
   }))
 }
 

@@ -8,7 +8,7 @@
 
 ## Overview
 
-The inventory modal (`InventoryModal` + `ItemForm`) was redesigned into a more professional, dense, POS-style interface. The changes were **primarily visual** — the underlying data model, IPC channels, and business logic remained intact with targeted additions for new fields.
+The inventory modal (`InventoryModal` + `ItemForm`) was redesigned into a more professional, dense, POS-style interface. The changes were primarily visual, and the modal now also owns the inventory-adjacent procurement workflows for Reorder and Purchase Orders.
 
 ---
 
@@ -19,15 +19,17 @@ Understanding the existing system is essential before making changes.
 ### Component Hierarchy
 
 ```
-InventoryModal.tsx          ← Modal shell + tab container
-├── ItemForm.tsx            ← Product CRUD (search, create, edit, save)
+InventoryModal.tsx              ← Modal shell + tab container
+├── ItemForm.tsx                ← Product CRUD (search, create, edit, save)
 │   ├── Tab: Case & Quantity    (bottles per case, case discount)
 │   ├── Tab: Additional SKUs    (alternate UPC/SKU codes)
 │   ├── Tab: Special Pricing    (quantity-based pricing rules table)
 │   └── Tab: Sales History      (transaction history for this item)
-├── DepartmentPanel.tsx     ← CRUD for item types (uses useCrudPanel hook, backed by departments table)
-├── TaxCodePanel.tsx        ← CRUD for tax codes (uses useCrudPanel hook)
-└── DistributorPanel.tsx    ← CRUD for distributors (uses useCrudPanel hook)
+├── DepartmentPanel.tsx         ← CRUD for item types (uses useCrudPanel hook, backed by departments table)
+├── TaxCodePanel.tsx            ← CRUD for tax codes (uses useCrudPanel hook)
+├── DistributorPanel.tsx        ← CRUD for distributors (uses useCrudPanel hook)
+├── ReorderDashboard.tsx        ← Inventory-scoped reorder projections and PO handoff
+└── PurchaseOrderPanel.tsx      ← Inventory-scoped purchase order workflow
 ```
 
 ### Data Flow

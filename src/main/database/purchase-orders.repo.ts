@@ -1,7 +1,7 @@
 import { getDb } from './connection'
 import { getDeviceConfig } from './device-config.repo'
 import { getInventoryDeltaSyncPayload, recordDelta } from './inventory-deltas.repo'
-import { createCostLayer } from './product-cost-layers.repo'
+import { consumeCostLayersForSale, createCostLayer } from './product-cost-layers.repo'
 import { enqueueSyncItem } from './sync-queue.repo'
 import type {
   PurchaseOrder,
@@ -9,6 +9,7 @@ import type {
   PurchaseOrderDetail,
   CreatePurchaseOrderInput,
   UpdatePurchaseOrderInput,
+  UpdatePurchaseOrderItemsInput,
   ReceivePurchaseOrderItemInput
 } from '../../shared/types'
 
@@ -48,6 +49,79 @@ function recalcTotals(poId: number): void {
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`
   ).run(poId, poId, poId)
+}
+
+function syncInventoryDelta(input: {
+  productId: number
+  delta: number
+  reason: 'receiving' | 'receiving_correction'
+  referenceId: string
+  deviceId: string | null
+}): void {
+  const db = getDb()
+  const skuRow = db
+    .prepare('SELECT sku FROM products WHERE id = ? LIMIT 1')
+    .get(input.productId) as { sku: string } | undefined
+
+  const deltaId = recordDelta({
+    product_id: input.productId,
+    product_sku: skuRow?.sku ?? `UNKNOWN-${input.productId}`,
+    delta: input.delta,
+    reason: input.reason,
+    reference_id: input.referenceId,
+    device_id: input.deviceId
+  })
+
+  const payload = getInventoryDeltaSyncPayload(deltaId)
+  if (payload && input.deviceId) {
+    enqueueSyncItem({
+      entity_type: 'inventory_delta',
+      entity_id: String(deltaId),
+      operation: 'INSERT',
+      payload: JSON.stringify(payload),
+      device_id: input.deviceId
+    })
+  }
+}
+
+function reconcilePurchaseOrderStatus(poId: number): void {
+  const db = getDb()
+  const items = db
+    .prepare('SELECT quantity_ordered, quantity_received FROM purchase_order_items WHERE po_id = ?')
+    .all(poId) as Array<{ quantity_ordered: number; quantity_received: number }>
+
+  const fullyReceived =
+    items.length > 0 && items.every((item) => item.quantity_received >= item.quantity_ordered)
+
+  if (fullyReceived) {
+    db.prepare(
+      `UPDATE purchase_orders
+       SET status = 'received',
+           received_at = COALESCE(received_at, CURRENT_TIMESTAMP),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).run(poId)
+    return
+  }
+
+  // Lock: once a PO has been fully received, never downgrade it back to
+  // 'submitted' on later edits. The PO's header status is authoritative;
+  // line-item edit history stays on the items themselves.
+  const current = db.prepare('SELECT status FROM purchase_orders WHERE id = ?').get(poId) as
+    | { status: string }
+    | undefined
+  if (current?.status === 'received') {
+    db.prepare(`UPDATE purchase_orders SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(poId)
+    return
+  }
+
+  db.prepare(
+    `UPDATE purchase_orders
+     SET status = 'submitted',
+         received_at = NULL,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`
+  ).run(poId)
 }
 
 // ── Queries ──
@@ -101,8 +175,17 @@ export function createPurchaseOrder(input: CreatePurchaseOrderInput): PurchaseOr
      VALUES (?, ?, ?, 'draft', ?)`
   )
   const insertItem = db.prepare(
-    `INSERT INTO purchase_order_items (po_id, product_id, sku, product_name, unit_cost, quantity_ordered, line_total)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO purchase_order_items (
+       po_id,
+       product_id,
+       sku,
+       product_name,
+       unit_cost,
+       bottles_per_case,
+       quantity_ordered,
+       line_total
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   )
 
   const create = db.transaction(() => {
@@ -116,7 +199,9 @@ export function createPurchaseOrder(input: CreatePurchaseOrderInput): PurchaseOr
 
     for (const item of input.items) {
       const product = db
-        .prepare('SELECT id, sku, name, cost, distributor_number FROM products WHERE id = ?')
+        .prepare(
+          'SELECT id, sku, name, cost, distributor_number, COALESCE(bottles_per_case, 1) AS bottles_per_case FROM products WHERE id = ?'
+        )
         .get(item.product_id) as
         | {
             id: number
@@ -124,6 +209,7 @@ export function createPurchaseOrder(input: CreatePurchaseOrderInput): PurchaseOr
             name: string
             cost: number | null
             distributor_number: number | null
+            bottles_per_case: number
           }
         | undefined
       if (!product) throw new Error(`Product ${item.product_id} not found`)
@@ -143,6 +229,7 @@ export function createPurchaseOrder(input: CreatePurchaseOrderInput): PurchaseOr
         product.sku,
         product.name,
         unitCost,
+        product.bottles_per_case > 0 ? product.bottles_per_case : 1,
         item.quantity_ordered,
         lineTotal
       )
@@ -227,8 +314,8 @@ export function receivePurchaseOrderItem(input: ReceivePurchaseOrderItemInput): 
     throw new Error('Can only receive items on submitted orders')
   }
 
-  if (input.quantity_received < 0 || input.quantity_received > item.quantity_ordered) {
-    throw new Error('Received quantity must be between 0 and quantity ordered')
+  if (input.quantity_received < 0) {
+    throw new Error('Received quantity must be greater than or equal to 0')
   }
 
   const previousReceived = item.quantity_received
@@ -262,46 +349,161 @@ export function receivePurchaseOrderItem(input: ReceivePurchaseOrderItemInput): 
       deviceId: device?.device_id ?? null
     })
 
-    const skuRow = db
-      .prepare('SELECT sku FROM products WHERE id = ? LIMIT 1')
-      .get(item.product_id) as { sku: string } | undefined
-
-    const deltaId = recordDelta({
-      product_id: item.product_id,
-      product_sku: skuRow?.sku ?? `UNKNOWN-${item.product_id}`,
+    syncInventoryDelta({
+      productId: item.product_id,
       delta: newlyReceived,
       reason: 'receiving',
-      reference_id: `po-item-${item.id}`,
-      device_id: device?.device_id ?? null
+      referenceId: `po-item-${item.id}`,
+      deviceId: device?.device_id ?? null
     })
-
-    const payload = getInventoryDeltaSyncPayload(deltaId)
-    if (payload && device) {
-      enqueueSyncItem({
-        entity_type: 'inventory_delta',
-        entity_id: String(deltaId),
-        operation: 'INSERT',
-        payload: JSON.stringify(payload),
-        device_id: device.device_id
-      })
-    }
   }
 
-  // Check if all items are fully received — auto-mark PO as received
-  const updatedItems = db
-    .prepare('SELECT quantity_ordered, quantity_received FROM purchase_order_items WHERE po_id = ?')
-    .all(item.po_id) as Array<{ quantity_ordered: number; quantity_received: number }>
-
-  const fullyReceived = updatedItems.every((i) => i.quantity_received >= i.quantity_ordered)
-  if (fullyReceived) {
-    db.prepare(
-      `UPDATE purchase_orders SET status = 'received', received_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-    ).run(item.po_id)
-  }
+  reconcilePurchaseOrderStatus(item.po_id)
 
   return db
     .prepare('SELECT * FROM purchase_order_items WHERE id = ?')
     .get(input.id) as PurchaseOrderItem
+}
+
+export function updatePurchaseOrderItems(
+  input: UpdatePurchaseOrderItemsInput
+): PurchaseOrderDetail {
+  const db = getDb()
+  const device = getDeviceConfig()
+
+  const po = db.prepare('SELECT id, status FROM purchase_orders WHERE id = ?').get(input.po_id) as
+    | { id: number; status: string }
+    | undefined
+  if (!po) throw new Error('Purchase order not found')
+  if (po.status === 'draft') throw new Error('Can only edit submitted or received orders')
+  if (po.status === 'cancelled') throw new Error('Cannot edit a cancelled purchase order')
+
+  const updateItemsTx = db.transaction(() => {
+    for (const line of input.lines) {
+      const current = db
+        .prepare('SELECT * FROM purchase_order_items WHERE id = ? AND po_id = ?')
+        .get(line.id, input.po_id) as PurchaseOrderItem | undefined
+
+      if (!current) {
+        throw new Error(`Purchase order item ${line.id} not found`)
+      }
+
+      const nextUnitCost = line.unit_cost ?? current.unit_cost
+      const nextOrdered = line.quantity_ordered ?? current.quantity_ordered
+      const nextReceived = line.quantity_received ?? current.quantity_received
+
+      if (!Number.isFinite(nextUnitCost) || nextUnitCost < 0) {
+        throw new Error('Unit cost must be greater than or equal to 0')
+      }
+      if (!Number.isInteger(nextOrdered) || nextOrdered <= 0) {
+        throw new Error('Quantity ordered must be a positive integer')
+      }
+      if (!Number.isInteger(nextReceived) || nextReceived < 0) {
+        throw new Error('Quantity received must be greater than or equal to 0')
+      }
+
+      db.prepare(
+        `UPDATE purchase_order_items
+         SET unit_cost = ?,
+             quantity_ordered = ?,
+             quantity_received = ?,
+             line_total = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      ).run(nextUnitCost, nextOrdered, nextReceived, nextUnitCost * nextOrdered, current.id)
+
+      if (nextUnitCost !== current.unit_cost && current.quantity_received > 0) {
+        // Only rewrite cost on layers that have not yet been consumed by
+        // sales. Editing cost on a partially/fully consumed layer would
+        // retroactively shift historical COGS and is not safe.
+        const layer = db
+          .prepare(
+            `SELECT id, quantity_received, quantity_remaining
+             FROM product_cost_layers
+             WHERE product_id = ? AND source_reference = ?`
+          )
+          .get(current.product_id, `po-item-${current.id}`) as
+          | { id: number; quantity_received: number; quantity_remaining: number }
+          | undefined
+
+        if (layer) {
+          if (layer.quantity_remaining < layer.quantity_received) {
+            throw new Error(
+              'Cannot change unit cost — cost layer has already been consumed by sales'
+            )
+          }
+          db.prepare(`UPDATE product_cost_layers SET cost_per_unit = ? WHERE id = ?`).run(
+            nextUnitCost,
+            layer.id
+          )
+        }
+      }
+
+      const delta = nextReceived - current.quantity_received
+      if (delta === 0) continue
+
+      db.prepare(
+        `UPDATE products
+         SET
+           in_stock = COALESCE(in_stock, quantity, 0) + ?,
+           quantity = COALESCE(quantity, in_stock, 0) + ?
+         WHERE id = ?`
+      ).run(delta, delta, current.product_id)
+
+      if (delta > 0) {
+        createCostLayer({
+          productId: current.product_id,
+          quantity: delta,
+          costPerUnit: nextUnitCost,
+          source: 'receiving',
+          sourceReference: `po-item-${current.id}`,
+          deviceId: device?.device_id ?? null
+        })
+      } else {
+        consumeCostLayersForSale({
+          productId: current.product_id,
+          quantity: Math.abs(delta),
+          fallbackUnitCost: nextUnitCost
+        })
+      }
+
+      syncInventoryDelta({
+        productId: current.product_id,
+        delta,
+        reason: 'receiving_correction',
+        referenceId: `po-item-${current.id}-correction-${Date.now()}`,
+        deviceId: device?.device_id ?? null
+      })
+    }
+
+    recalcTotals(input.po_id)
+    reconcilePurchaseOrderStatus(input.po_id)
+  })
+
+  updateItemsTx()
+  return getPurchaseOrderDetail(input.po_id)!
+}
+
+export function markPurchaseOrderFullyReceived(poId: number): PurchaseOrderDetail {
+  const detail = getPurchaseOrderDetail(poId)
+  if (!detail) throw new Error('Purchase order not found')
+  if (detail.status === 'draft') throw new Error('Can only mark submitted or received orders')
+  if (detail.status === 'cancelled')
+    throw new Error('Cannot mark a cancelled purchase order as received')
+
+  const outstandingLines = detail.items
+    .filter((item) => item.quantity_received !== item.quantity_ordered)
+    .map((item) => ({ id: item.id, quantity_received: item.quantity_ordered }))
+
+  if (outstandingLines.length === 0) {
+    reconcilePurchaseOrderStatus(poId)
+    return getPurchaseOrderDetail(poId)!
+  }
+
+  return updatePurchaseOrderItems({
+    po_id: poId,
+    lines: outstandingLines
+  })
 }
 
 export function addPurchaseOrderItem(

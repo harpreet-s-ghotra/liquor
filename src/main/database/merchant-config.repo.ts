@@ -94,6 +94,7 @@ export function saveMerchantConfig(input: SaveMerchantConfigInput): MerchantConf
   db.prepare(
     `INSERT OR REPLACE INTO merchant_config (
        id,
+       merchant_account_id,
        finix_api_username,
        finix_api_password,
        merchant_id,
@@ -108,11 +109,12 @@ export function saveMerchantConfig(input: SaveMerchantConfigInput): MerchantConf
      )
      VALUES (
        1,
-       ?, ?, ?, ?, ?, ?, ?, ?, ?,
+       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
        COALESCE((SELECT activated_at FROM merchant_config WHERE id = 1), CURRENT_TIMESTAMP),
        CURRENT_TIMESTAMP
      )`
   ).run(
+    input.merchant_account_id ?? getMerchantConfig()?.merchant_account_id ?? '',
     input.finix_api_username,
     input.finix_api_password,
     input.merchant_id,

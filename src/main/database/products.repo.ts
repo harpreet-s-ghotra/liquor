@@ -5,6 +5,7 @@ import { createCostLayer } from './product-cost-layers.repo'
 import { normalizeSearch } from './schema'
 import { enqueueSyncItem } from './sync-queue.repo'
 import { SKU_PATTERN, SKU_MAX_LENGTH, NAME_MAX_LENGTH } from '../../shared/constants'
+// import { normalizeSize } from '../../shared/utils/size' // (was unused)
 import type {
   Product,
   InventoryProduct,
@@ -52,6 +53,19 @@ export function getProducts(): Product[] {
       `
     )
     .all() as Product[]
+}
+
+export function hasAnyActiveProduct(): boolean {
+  const row = getDb()
+    .prepare(
+      `SELECT 1 AS present
+       FROM products
+       WHERE is_active = 1
+         AND (COALESCE(retail_price, 0) > 0 OR COALESCE(price, 0) > 0)
+       LIMIT 1`
+    )
+    .get() as { present: number } | undefined
+  return !!row
 }
 
 export function getInventoryProducts(): InventoryProduct[] {
@@ -946,7 +960,10 @@ export function getDistributorsWithReorderable(): ReorderDistributorRow[] {
     .all() as ReorderDistributorRow[]
 }
 
-export function getReorderProducts(query: ReorderQuery): ReorderProduct[] {
+export function getReorderProducts(
+  query: ReorderQuery,
+  velocityBySku?: ReadonlyMap<string, number>
+): ReorderProduct[] {
   const distributorClause =
     query.distributor === 'unassigned'
       ? 'p.distributor_number IS NULL'
@@ -954,17 +971,7 @@ export function getReorderProducts(query: ReorderQuery): ReorderProduct[] {
 
   const rows = getDb()
     .prepare(
-      `WITH sales_velocity AS (
-        SELECT
-          ti.product_id,
-          SUM(ti.quantity) / 365.0 AS velocity_per_day
-        FROM transaction_items ti
-        INNER JOIN transactions t ON t.id = ti.transaction_id
-        WHERE t.status = 'completed'
-          AND t.created_at >= date('now', '-365 days')
-        GROUP BY ti.product_id
-      )
-      SELECT
+      `SELECT
         p.id,
         p.sku,
         COALESCE(p.display_name, p.name) AS name,
@@ -985,11 +992,9 @@ export function getReorderProducts(query: ReorderQuery): ReorderProduct[] {
           WHEN COALESCE(p.bottles_per_case, 0) > 0 THEN p.bottles_per_case
           ELSE 12
         END AS bottles_per_case,
-        COALESCE(p.retail_price, p.price, 0) AS price,
-        COALESCE(sv.velocity_per_day, 0) AS velocity_per_day
+        COALESCE(p.retail_price, p.price, 0) AS price
       FROM products p
       LEFT JOIN distributors d ON p.distributor_number = d.distributor_number
-      LEFT JOIN sales_velocity sv ON sv.product_id = p.id
       WHERE p.is_active = 1
         AND COALESCE(p.is_discontinued, 0) = 0
         AND COALESCE(p.retail_price, p.price, 0) > 0
@@ -1009,12 +1014,11 @@ export function getReorderProducts(query: ReorderQuery): ReorderProduct[] {
     cost: number
     bottles_per_case: number
     price: number
-    velocity_per_day: number
   }>
 
   return rows
     .map((row) => {
-      const velocityPerDay = Number(row.velocity_per_day ?? 0)
+      const velocityPerDay = Number(velocityBySku?.get(row.sku) ?? 0)
       const projectedStock = row.in_stock - velocityPerDay * query.window_days
       return {
         ...row,
@@ -1127,10 +1131,12 @@ export function getDistinctSizes(): string[] {
   return getDb()
     .prepare(
       `
-      SELECT DISTINCT size
+      SELECT size, COUNT(*) AS count
       FROM products
-      WHERE size IS NOT NULL AND size != ''
-      ORDER BY size
+      WHERE size IS NOT NULL AND TRIM(size) != ''
+      GROUP BY size
+      ORDER BY count DESC, size ASC
+      LIMIT 100
       `
     )
     .all()

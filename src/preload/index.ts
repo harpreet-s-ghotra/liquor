@@ -73,13 +73,15 @@ import type {
   Register,
   MerchantStatus,
   ReorderDistributorRow,
-  ReorderProduct,
+  ReorderProductsResult,
   ReorderQuery,
+  SkuExistenceResult,
   PurchaseOrder,
   PurchaseOrderItem,
   PurchaseOrderDetail,
   CreatePurchaseOrderInput,
   UpdatePurchaseOrderInput,
+  UpdatePurchaseOrderItemsInput,
   ReceivePurchaseOrderItemInput,
   TelemetryEventInput
 } from '../shared/types'
@@ -170,6 +172,7 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
 // Custom APIs for renderer
 const api = {
   getProducts: (): Promise<Product[]> => ipcRenderer.invoke('products:list'),
+  hasAnyProduct: (): Promise<boolean> => ipcRenderer.invoke('products:has-any'),
   searchProducts: (query: string, filters?: SearchProductFilters): Promise<Product[]> =>
     ipcRenderer.invoke('products:search', query, filters),
   getActiveSpecialPricing: (): Promise<ActiveSpecialPricingRule[]> =>
@@ -189,6 +192,7 @@ const api = {
   getInventoryItemTypes: (): Promise<string[]> => ipcRenderer.invoke('inventory:item-types:list'),
   getInventoryTaxCodes: (): Promise<InventoryTaxCode[]> =>
     ipcRenderer.invoke('inventory:tax-codes:list'),
+  listSizesInUse: (): Promise<string[]> => ipcRenderer.invoke('inventory:list-sizes-in-use'),
 
   // Item Type CRUD
   getItemTypes: (): Promise<ItemType[]> => ipcRenderer.invoke('item-types:list'),
@@ -239,6 +243,8 @@ const api = {
   authLogin: (email: string, password: string): Promise<AuthResult> =>
     ipcRenderer.invoke('auth:login', email, password),
   authLogout: (): Promise<void> => ipcRenderer.invoke('auth:logout'),
+  authFullSignOut: (): Promise<{ drained: number; remaining: number }> =>
+    ipcRenderer.invoke('auth:full-sign-out'),
   authCheckSession: (): Promise<AuthResult | null> => ipcRenderer.invoke('auth:check-session'),
   authSetSession: (accessToken: string, refreshToken: string): Promise<{ email: string }> =>
     ipcRenderer.invoke('auth:set-session', accessToken, refreshToken),
@@ -369,8 +375,13 @@ const api = {
     ipcRenderer.invoke('history:get-backfill-status'),
   triggerBackfill: (days: number): Promise<{ started: boolean; days: number }> =>
     ipcRenderer.invoke('history:trigger-backfill', days),
-  onBackfillStatusChanged: (callback: (status: TransactionBackfillStatus) => void): (() => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, status: TransactionBackfillStatus): void => {
+  onBackfillStatusChanged: (
+    callback: (status: TransactionBackfillStatus) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      status: TransactionBackfillStatus
+    ): void => {
       callback(status)
     }
     ipcRenderer.on('history:backfill-status-changed', listener)
@@ -439,7 +450,7 @@ const api = {
   deleteRegister: (id: string): Promise<void> => ipcRenderer.invoke('registers:delete', id),
 
   // Manager — Reorder
-  getReorderProducts: (query: ReorderQuery): Promise<ReorderProduct[]> =>
+  getReorderProducts: (query: ReorderQuery): Promise<ReorderProductsResult> =>
     ipcRenderer.invoke('inventory:reorder-products', query),
   getReorderDistributors: (): Promise<ReorderDistributorRow[]> =>
     ipcRenderer.invoke('inventory:reorder-distributors'),
@@ -449,6 +460,10 @@ const api = {
     ipcRenderer.invoke('inventory:unpriced-products'),
   findProductBySku: (sku: string): Promise<Product | null> =>
     ipcRenderer.invoke('inventory:find-by-sku', sku),
+  checkSkuExists: (sku: string): Promise<SkuExistenceResult> =>
+    ipcRenderer.invoke('inventory:check-sku-exists', sku),
+  pullProductBySku: (sku: string): Promise<InventoryProductDetail | null> =>
+    ipcRenderer.invoke('inventory:pull-product-by-sku', sku),
   toggleFavorite: (productId: number): Promise<void> =>
     ipcRenderer.invoke('inventory:toggle-favorite', productId),
   getDistinctSizes: (): Promise<string[]> => ipcRenderer.invoke('inventory:distinct-sizes'),
@@ -465,6 +480,10 @@ const api = {
     ipcRenderer.invoke('purchase-orders:create', input),
   updatePurchaseOrder: (input: UpdatePurchaseOrderInput): Promise<PurchaseOrder> =>
     ipcRenderer.invoke('purchase-orders:update', input),
+  updatePurchaseOrderItems: (input: UpdatePurchaseOrderItemsInput): Promise<PurchaseOrderDetail> =>
+    ipcRenderer.invoke('purchase-orders:update-items', input),
+  markPurchaseOrderReceived: (poId: number): Promise<PurchaseOrderDetail> =>
+    ipcRenderer.invoke('purchase-orders:mark-received', poId),
   receivePurchaseOrderItem: (input: ReceivePurchaseOrderItemInput): Promise<PurchaseOrderItem> =>
     ipcRenderer.invoke('purchase-orders:receive-item', input),
   addPurchaseOrderItem: (

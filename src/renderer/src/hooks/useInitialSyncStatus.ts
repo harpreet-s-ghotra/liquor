@@ -4,7 +4,7 @@ import type { InitialSyncStatus } from '../../../shared/types'
 const IDLE_STATUS: InitialSyncStatus = {
   state: 'idle',
   currentEntity: null,
-  entityProgress: { done: 0, total: null },
+  progress: {},
   completed: [],
   errors: []
 }

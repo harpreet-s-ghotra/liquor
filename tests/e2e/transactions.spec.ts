@@ -696,7 +696,7 @@ test.describe('Payment Modal', () => {
 
     const modal = page.getByTestId('payment-modal')
     await expect(modal).toBeVisible()
-    await expect(modal.getByRole('heading', { name: 'Payment' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Payment' })).toBeVisible()
     await expect(modal.getByText('Transaction Total')).toBeVisible()
     await expect(modal.getByRole('button', { name: 'Cash (Exact)' })).toBeVisible()
     await expect(modal.getByRole('button', { name: 'Credit' })).toBeVisible()
