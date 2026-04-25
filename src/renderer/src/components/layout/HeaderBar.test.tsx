@@ -107,4 +107,38 @@ describe('HeaderBar', () => {
 
     expect(onSignOutAccount).toHaveBeenCalled()
   })
+
+  it('account menu does not render a Switch Account entry', () => {
+    // Switch Account was a duplicate of Sign Out — removed for clarity
+    render(
+      <HeaderBar
+        merchantName="Downtown Liquor"
+        canSignOutAccount={true}
+        onSignOutAccount={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('account-pill'))
+    expect(screen.queryByText('Switch Account')).not.toBeInTheDocument()
+  })
+
+  it('shows Check for Updates by default', () => {
+    render(<HeaderBar />)
+    fireEvent.click(screen.getByTestId('settings-button'))
+    expect(screen.getByTestId('check-for-updates-btn')).toBeInTheDocument()
+    expect(screen.queryByTestId('restart-to-install-btn')).not.toBeInTheDocument()
+  })
+
+  it('swaps Check for Updates with Restart to Install when an update is downloaded', () => {
+    const onInstallUpdate = vi.fn()
+    render(<HeaderBar updateReadyVersion="0.1.0" onInstallUpdate={onInstallUpdate} />)
+
+    fireEvent.click(screen.getByTestId('settings-button'))
+    const restartBtn = screen.getByTestId('restart-to-install-btn')
+    expect(restartBtn).toHaveTextContent('Restart to install 0.1.0')
+    expect(screen.queryByTestId('check-for-updates-btn')).not.toBeInTheDocument()
+
+    fireEvent.click(restartBtn)
+    expect(onInstallUpdate).toHaveBeenCalled()
+  })
 })

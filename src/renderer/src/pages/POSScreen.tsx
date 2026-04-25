@@ -43,6 +43,7 @@ export function POSScreen(): React.JSX.Element {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined)
   const [skuError, setSkuError] = useState('')
   const [unpricedProduct, setUnpricedProduct] = useState<Product | null>(null)
+  const [updateReadyVersion, setUpdateReadyVersion] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const isRefundingRef = useRef(false)
 
@@ -64,7 +65,8 @@ export function POSScreen(): React.JSX.Element {
       showInfo('You are up to date.')
     })
     const offDownloaded = window.api.onUpdateDownloaded(({ version }) => {
-      showSuccess(`Update ${version} ready — it will install the next time the app is closed.`)
+      setUpdateReadyVersion(version)
+      showSuccess(`Update ${version} ready — restart to install.`)
     })
     const offError = window.api.onUpdateError(() => {
       showError('Update check failed. Please try again later.')
@@ -534,6 +536,8 @@ export function POSScreen(): React.JSX.Element {
         onSignOutAccount={() => void signOut()}
         onPrinterSettings={() => setIsPrinterSettingsOpen(true)}
         onCheckForUpdates={() => window.api?.checkForUpdates()}
+        updateReadyVersion={updateReadyVersion}
+        onInstallUpdate={() => window.api?.installUpdate()}
       />
       <AlertBar />
       <main className="pos-screen__main" style={{ gridTemplateColumns: '56% 44%' }}>

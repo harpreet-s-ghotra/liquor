@@ -38,6 +38,8 @@ type HeaderBarProps = {
   onSignOutAccount?: () => void
   onPrinterSettings?: () => void
   onCheckForUpdates?: () => void
+  updateReadyVersion?: string | null
+  onInstallUpdate?: () => void
 }
 
 export function HeaderBar({
@@ -48,7 +50,9 @@ export function HeaderBar({
   canSignOutAccount = false,
   onSignOutAccount,
   onPrinterSettings,
-  onCheckForUpdates
+  onCheckForUpdates,
+  updateReadyVersion,
+  onInstallUpdate
 }: HeaderBarProps): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
@@ -142,18 +146,6 @@ export function HeaderBar({
                   <LogOut size={16} />
                   Sign Out of Account
                 </button>
-                <button
-                  type="button"
-                  className="header-bar__dropdown-item"
-                  onClick={() => {
-                    onSignOutAccount?.()
-                    setAccountMenuOpen(false)
-                  }}
-                  disabled={!canSignOutAccount}
-                >
-                  <LogOut size={16} />
-                  Switch Account
-                </button>
               </div>
             ) : null}
           </div>
@@ -196,18 +188,33 @@ export function HeaderBar({
                 <Printer size={16} />
                 Printer Settings
               </button>
-              <button
-                type="button"
-                className="header-bar__dropdown-item"
-                onClick={() => {
-                  onCheckForUpdates?.()
-                  setMenuOpen(false)
-                }}
-                data-testid="check-for-updates-btn"
-              >
-                <RefreshCw size={16} />
-                Check for Updates
-              </button>
+              {updateReadyVersion ? (
+                <button
+                  type="button"
+                  className="header-bar__dropdown-item header-bar__dropdown-item--update-ready"
+                  onClick={() => {
+                    onInstallUpdate?.()
+                    setMenuOpen(false)
+                  }}
+                  data-testid="restart-to-install-btn"
+                >
+                  <RefreshCw size={16} />
+                  Restart to install {updateReadyVersion}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="header-bar__dropdown-item"
+                  onClick={() => {
+                    onCheckForUpdates?.()
+                    setMenuOpen(false)
+                  }}
+                  data-testid="check-for-updates-btn"
+                >
+                  <RefreshCw size={16} />
+                  Check for Updates
+                </button>
+              )}
               <div className="header-bar__dropdown-zoom" data-testid="zoom-controls">
                 <button
                   type="button"

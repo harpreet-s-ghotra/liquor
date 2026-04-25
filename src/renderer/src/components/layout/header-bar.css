@@ -107,6 +107,11 @@
   cursor: not-allowed;
 }
 
+.header-bar__dropdown-item--update-ready {
+  background: var(--semantic-success-bg, #dff5e3);
+  color: var(--semantic-success-text, #136a2a);
+}
+
 .header-bar__dropdown-zoom {
   display: flex;
   align-items: center;
