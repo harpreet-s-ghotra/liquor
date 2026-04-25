@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { setDatabase } from '../../database/connection'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { applySchema } from '../../database/schema'
-import { applyRemoteTaxCodeChange, uploadTaxCode } from './tax-code-sync'
+import { applyRemoteTaxCodeChange, deleteTaxCode, uploadTaxCode } from './tax-code-sync'
 import { getDb } from '../../database/connection'
 
 // The applyRemoteTaxCodeChange functions don't use the supabase client argument
@@ -427,5 +427,48 @@ describe('uploadTaxCode (error handling)', () => {
         payload
       )
     ).rejects.toThrow('Tax code upload failed: unknown')
+  })
+})
+
+describe('deleteTaxCode', () => {
+  beforeEach(createTestDb)
+
+  it('deletes the matching merchant_tax_codes row by merchant_id + code', async () => {
+    const eq = vi.fn().mockReturnThis()
+    const finalEq = vi.fn().mockResolvedValue({ error: null })
+    const deleteCall = vi.fn().mockReturnValue({
+      eq: eq.mockImplementation((col) =>
+        col === 'merchant_id' ? { eq: finalEq } : { error: null }
+      )
+    })
+
+    const supabase = {
+      from: vi.fn().mockReturnValue({ delete: deleteCall })
+    }
+
+    await deleteTaxCode(supabase as unknown as SupabaseClient, 'merchant-1', {
+      tax_code: { id: 1, code: 'GST', rate: 0.05, updated_at: new Date().toISOString() }
+    })
+
+    expect(supabase.from).toHaveBeenCalledWith('merchant_tax_codes')
+    expect(deleteCall).toHaveBeenCalled()
+  })
+
+  it('throws when supabase returns an error', async () => {
+    const supabase = {
+      from: vi.fn().mockReturnValue({
+        delete: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: { message: 'permission denied' } })
+          })
+        })
+      })
+    }
+
+    await expect(
+      deleteTaxCode(supabase as unknown as SupabaseClient, 'merchant-1', {
+        tax_code: { id: 1, code: 'PST', rate: 0.07, updated_at: new Date().toISOString() }
+      })
+    ).rejects.toThrow('Tax code delete failed: permission denied')
   })
 })

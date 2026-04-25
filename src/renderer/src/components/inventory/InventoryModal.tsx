@@ -93,22 +93,54 @@ export function InventoryModal({
     setPrefillUnitThreshold(10)
   }, [])
 
+  const [pendingOpenItemNumber, setPendingOpenItemNumber] = useState<number | null>(null)
+
   useEffect(() => {
     if (isOpen) {
-      requestAnimationFrame(() => {
-        const nextTab = openItemNumber != null ? 'items' : readLastTab()
-        setActiveTab(nextTab)
-        setSearchTerm('')
-        setNoResultsSku(null)
-        setInventoryFilter('all')
-        if (openItemNumber != null) {
-          void itemFormRef.current?.selectItem({ item_number: openItemNumber } as InventoryProduct)
-        } else if (nextTab === 'items') {
-          searchInputRef.current?.focus()
-        }
-      })
+      const nextTab = openItemNumber != null ? 'items' : readLastTab()
+      setActiveTab(nextTab)
+      setSearchTerm('')
+      setNoResultsSku(null)
+      setInventoryFilter('all')
+      if (openItemNumber != null) {
+        setPendingOpenItemNumber(openItemNumber)
+      } else if (nextTab === 'items') {
+        requestAnimationFrame(() => searchInputRef.current?.focus())
+      }
+    } else {
+      setPendingOpenItemNumber(null)
     }
   }, [isOpen, openItemNumber])
+
+  // Drives the actual selectItem call once the items tab is mounted and the ref is bound.
+  // Without this, calling selectItem in the same tick as setActiveTab races the ItemForm
+  // mount and the ref is null — modal opens empty.
+  useEffect(() => {
+    if (pendingOpenItemNumber == null) return
+    if (activeTab !== 'items') return
+
+    let cancelled = false
+    let attempts = 0
+    const tryDispatch = (): void => {
+      if (cancelled) return
+      const handle = itemFormRef.current
+      if (handle) {
+        void handle.selectItem({ item_number: pendingOpenItemNumber } as InventoryProduct)
+        setPendingOpenItemNumber(null)
+        return
+      }
+      if (attempts++ < 10) {
+        requestAnimationFrame(tryDispatch)
+      } else {
+        setPendingOpenItemNumber(null)
+      }
+    }
+    tryDispatch()
+
+    return () => {
+      cancelled = true
+    }
+  }, [pendingOpenItemNumber, activeTab])
 
   // Load unpriced product count whenever the modal is open
   useEffect(() => {
@@ -132,9 +164,14 @@ export function InventoryModal({
         active = false
       }
     }
-    if (!debouncedSearch.trim() || typeof api?.searchInventoryProducts !== 'function') return
+    const trimmedSearch = debouncedSearch.trim()
+    if (trimmedSearch.length < 2 || typeof api?.searchInventoryProducts !== 'function') {
+      setSearchResults([])
+      setShowSearchDropdown(false)
+      return
+    }
     let active = true
-    void api.searchInventoryProducts(debouncedSearch).then((results) => {
+    void api.searchInventoryProducts(trimmedSearch).then((results) => {
       if (!active) return
       setSearchResults(results)
       setShowSearchDropdown(results.length > 0)

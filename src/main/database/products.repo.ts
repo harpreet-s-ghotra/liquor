@@ -256,6 +256,7 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
           OR normalize_search(products.brand_name) LIKE @likeQuery
         )
       ORDER BY products.id
+      LIMIT 20
       `
     )
     .all({ likeQuery, rawLikeQuery }) as InventoryProduct[]

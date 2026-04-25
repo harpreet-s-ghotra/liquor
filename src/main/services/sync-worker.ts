@@ -21,7 +21,7 @@ import { isOnline, onConnectivityChange } from './connectivity'
 import { uploadInventoryDelta } from './sync/inventory-delta-sync'
 import { applyRemoteProductChange, uploadProduct } from './sync/product-sync'
 import { uploadTransaction } from './sync/transaction-sync'
-import { uploadTaxCode, applyRemoteTaxCodeChange } from './sync/tax-code-sync'
+import { uploadTaxCode, deleteTaxCode, applyRemoteTaxCodeChange } from './sync/tax-code-sync'
 import { uploadDistributor, applyRemoteDistributorChange } from './sync/distributor-sync'
 import { uploadItemType, applyRemoteItemTypeChange } from './sync/item-type-sync'
 import { uploadCashier, applyRemoteCashierChange } from './sync/cashier-sync'
@@ -183,7 +183,7 @@ async function drainQueue(): Promise<void> {
 
     for (const item of items) {
       try {
-        await processItem(item.id, item.entity_type, item.payload)
+        await processItem(item.id, item.entity_type, item.payload, item.operation)
         markDone([item.id])
         processed++
         lastSyncedAt = new Date().toISOString()
@@ -222,7 +222,12 @@ function getQueueDepth(): number {
   return stats.pending + stats.in_flight + stats.failed
 }
 
-async function processItem(_id: number, entityType: string, payloadJson: string): Promise<void> {
+async function processItem(
+  _id: number,
+  entityType: string,
+  payloadJson: string,
+  operation: string
+): Promise<void> {
   if (!supabase || !merchantId || !deviceId) return
 
   switch (entityType) {
@@ -259,7 +264,11 @@ async function processItem(_id: number, entityType: string, payloadJson: string)
     }
     case 'tax_code': {
       const payload = JSON.parse(payloadJson) as TaxCodeSyncPayload
-      await uploadTaxCode(supabase, merchantId, deviceId, payload)
+      if (operation === 'DELETE') {
+        await deleteTaxCode(supabase, merchantId, payload)
+      } else {
+        await uploadTaxCode(supabase, merchantId, deviceId, payload)
+      }
       break
     }
     case 'distributor': {

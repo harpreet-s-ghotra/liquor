@@ -300,6 +300,23 @@ describe('SKU reactivation on re-add', () => {
   })
 })
 
+describe('searchInventoryProducts limit', () => {
+  beforeEach(() => createTestDb())
+
+  it('caps search results at 20 even when more match', () => {
+    for (let i = 0; i < 30; i++) {
+      saveInventoryItem({
+        ...base,
+        sku: `WINE-${String(i).padStart(3, '0')}`,
+        item_name: `Wine ${i}`
+      })
+    }
+
+    const results = searchInventoryProducts('Wine')
+    expect(results).toHaveLength(20)
+  })
+})
+
 describe('getInventoryProductDetail', () => {
   beforeEach(() => createTestDb())
 

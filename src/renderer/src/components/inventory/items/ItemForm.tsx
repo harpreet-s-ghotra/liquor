@@ -1006,33 +1006,6 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             />
           </div>
 
-          <div className="item-form__field-span-2">
-            <label className="item-form__checkbox-label">
-              <Checkbox
-                checked={formState.is_favorite === 1}
-                onCheckedChange={(checked) =>
-                  setFormState((c) => ({ ...c, is_favorite: checked === true ? 1 : 0 }))
-                }
-              />
-              Show on Favorites tab
-            </label>
-          </div>
-
-          <div className="item-form__field-span-2">
-            <label className="item-form__checkbox-label">
-              <Checkbox
-                checked={formState.is_discontinued}
-                onCheckedChange={(checked) =>
-                  setFormState((current) => ({
-                    ...current,
-                    is_discontinued: checked === true
-                  }))
-                }
-              />
-              Discontinued - exclude from reorder suggestions
-            </label>
-          </div>
-
           {/* Per Bottle Cost */}
           <div>
             <label className={labelCls}>Per Bottle Cost {requiredStar}</label>
@@ -1195,6 +1168,34 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                 <span className="item-form__discount-tier item-form__discount-tier--none">—</span>
               )}
             </div>
+          </div>
+
+          {/* ── Bottom row: visibility flags ── */}
+          <div className="item-form__field-span-2 item-form__visibility-flag">
+            <label className="item-form__checkbox-label">
+              <Checkbox
+                checked={formState.is_favorite === 1}
+                onCheckedChange={(checked) =>
+                  setFormState((c) => ({ ...c, is_favorite: checked === true ? 1 : 0 }))
+                }
+              />
+              Show on Favorites tab
+            </label>
+          </div>
+
+          <div className="item-form__field-span-2 item-form__visibility-flag">
+            <label className="item-form__checkbox-label">
+              <Checkbox
+                checked={formState.is_discontinued}
+                onCheckedChange={(checked) =>
+                  setFormState((current) => ({
+                    ...current,
+                    is_discontinued: checked === true
+                  }))
+                }
+              />
+              Discontinued - exclude from reorder suggestions
+            </label>
           </div>
         </div>
       </section>

@@ -14,6 +14,7 @@ describe('InventoryModal', () => {
     api = {
       searchInventoryProducts: vi.fn(async () => []),
       getInventoryProductDetail: vi.fn(async () => null),
+      getInventoryTaxCodes: vi.fn(async () => []),
       saveInventoryItem: vi.fn(async () => ({})),
       getInventoryItemTypes: vi.fn(async () => []),
       getItemTypes: vi.fn(async () => []),
@@ -371,6 +372,56 @@ describe('InventoryModal', () => {
         'aria-selected',
         'false'
       )
+    })
+  })
+
+  it('loads the requested item even when last open tab was not Items', async () => {
+    // Regression: ItemForm ref was null because selectItem was called in the same
+    // tick as setActiveTab('items') — before the items tab mounted ItemForm.
+    window.localStorage.setItem('inventory-modal-last-tab', 'tax-codes')
+
+    const detailMock = vi.mocked(api.getInventoryProductDetail).mockResolvedValueOnce({
+      item_number: 77,
+      sku: 'AUTO-77',
+      item_name: 'Auto Loaded Item',
+      item_type: 'Wine',
+      category_id: null,
+      category_name: null,
+      cost: 5,
+      retail_price: 10,
+      in_stock: 4,
+      tax_1: 0,
+      tax_2: 0,
+      distributor_number: null,
+      distributor_name: null,
+      bottles_per_case: 12,
+      case_discount_price: null,
+      barcode: null,
+      description: null,
+      special_pricing_enabled: 0,
+      special_price: null,
+      is_active: 1,
+      size: null,
+      case_cost: null,
+      nysla_discounts: null,
+      brand_name: null,
+      proof: null,
+      alcohol_pct: null,
+      vintage: null,
+      ttb_id: null,
+      display_name: null,
+      is_favorite: 0,
+      is_discontinued: 0,
+      additional_skus: [],
+      tax_rates: [],
+      special_pricing: [],
+      sales_history: []
+    })
+
+    render(<InventoryModal isOpen onClose={vi.fn()} openItemNumber={77} />)
+
+    await waitFor(() => {
+      expect(detailMock).toHaveBeenCalledWith(77)
     })
   })
 

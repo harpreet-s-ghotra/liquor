@@ -43,6 +43,22 @@ export async function uploadTaxCode(
     .run(data.id as string, deviceId, tax_code.id)
 }
 
+export async function deleteTaxCode(
+  supabase: SupabaseClient,
+  merchantId: string,
+  payload: TaxCodeSyncPayload
+): Promise<void> {
+  const { error } = await supabase
+    .from('merchant_tax_codes')
+    .delete()
+    .eq('merchant_id', merchantId)
+    .eq('code', payload.tax_code.code)
+
+  if (error) {
+    throw new Error(`Tax code delete failed: ${error.message}`)
+  }
+}
+
 export async function applyRemoteTaxCodeChange(
   _supabase: SupabaseClient,
   _merchantId: string,

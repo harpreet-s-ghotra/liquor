@@ -60,6 +60,10 @@
   grid-column: span 2;
 }
 
+.item-form__visibility-flag {
+  margin-top: 0.25rem;
+}
+
 .item-form__checkbox-label {
   display: flex;
   gap: 0.5rem;
