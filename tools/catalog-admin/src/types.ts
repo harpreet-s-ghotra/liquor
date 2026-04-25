@@ -45,6 +45,7 @@ export type DiffStatus =
   | 'differs'
   | 'merchant_has_value_catalog_missing'
   | 'no_catalog_match'
+  | 'merchant_only'
 
 export type DiffRow = {
   /** Unique React key */
@@ -52,6 +53,8 @@ export type DiffRow = {
   merchant_product_id: string
   catalog_product_id: number | null
   product_name: string
+  /** Merchant's current SKU — used for search even when field !== 'sku' */
+  merchant_sku: string | null
   field: CuratedField
   /** Original NYSLA/catalog value (never changes) */
   original_catalog_value: string | null
@@ -64,4 +67,4 @@ export type DiffRow = {
   status: DiffStatus
 }
 
-export type FilterMode = 'all' | 'sku' | 'barcode' | 'size' | 'cost' | 'no_match'
+export type FilterMode = 'all' | 'sku' | 'barcode' | 'size' | 'cost' | 'no_match' | 'merchant_only'

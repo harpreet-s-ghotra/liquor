@@ -25,6 +25,7 @@ export default function Dashboard({ user, onSignOut }: Props): React.JSX.Element
   const [loadStats, setLoadStats] = useState<{ products: number; withDiffs: number } | null>(null)
 
   const [filter, setFilter] = useState<FilterMode>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
 
   // Load merchant list on mount
@@ -64,6 +65,7 @@ export default function Dashboard({ user, onSignOut }: Props): React.JSX.Element
   function handleMerchantChange(id: string): void {
     setSelectedMerchantId(id)
     setFilter('all')
+    setSearchQuery('')
     if (id) {
       loadDiffs(id)
     } else {
@@ -85,10 +87,24 @@ export default function Dashboard({ user, onSignOut }: Props): React.JSX.Element
     m.merchant_name.toLowerCase().includes(merchantSearch.toLowerCase())
   )
 
+  const trimmedSearch = searchQuery.trim().toLowerCase()
   const filteredRows = diffRows.filter((row) => {
-    if (filter === 'all') return true
-    if (filter === 'no_match') return row.status === 'no_catalog_match'
-    return row.field === filter
+    if (filter === 'no_match' && row.status !== 'no_catalog_match') return false
+    if (filter === 'merchant_only' && row.status !== 'merchant_only') return false
+    if (
+      filter !== 'all' &&
+      filter !== 'no_match' &&
+      filter !== 'merchant_only' &&
+      row.field !== filter
+    ) {
+      return false
+    }
+
+    if (trimmedSearch.length > 0) {
+      const haystack = `${row.product_name ?? ''} ${row.merchant_sku ?? ''}`.toLowerCase()
+      if (!haystack.includes(trimmedSearch)) return false
+    }
+    return true
   })
 
   return (
@@ -137,6 +153,25 @@ export default function Dashboard({ user, onSignOut }: Props): React.JSX.Element
           </div>
           {merchantsError && <p className="field__error">{merchantsError}</p>}
         </div>
+
+        {selectedMerchantId && (
+          <div className="diff-search">
+            <label className="field__label" htmlFor="diff-search">
+              Search
+            </label>
+            <input
+              id="diff-search"
+              type="search"
+              className="field__input diff-search__input"
+              placeholder="Filter by name or SKU…"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setPage(1)
+              }}
+            />
+          </div>
+        )}
 
         {loadStats && (
           <div className="dashboard__stats">
@@ -189,6 +224,7 @@ export default function Dashboard({ user, onSignOut }: Props): React.JSX.Element
             filter={filter}
             onFilterChange={(f) => {
               setFilter(f)
+              setSearchQuery('')
               setPage(1)
             }}
             page={page}

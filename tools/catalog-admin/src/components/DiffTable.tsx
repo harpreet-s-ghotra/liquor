@@ -10,7 +10,8 @@ const FILTER_OPTIONS: { key: FilterMode; label: string }[] = [
   { key: 'barcode', label: 'Barcode' },
   { key: 'size', label: 'Size' },
   { key: 'cost', label: 'Cost' },
-  { key: 'no_match', label: 'No catalog match' }
+  { key: 'no_match', label: 'No catalog match' },
+  { key: 'merchant_only', label: 'Additional items' }
 ]
 
 const FIELD_LABELS: Record<CuratedField, string> = {
@@ -23,7 +24,8 @@ const FIELD_LABELS: Record<CuratedField, string> = {
 const STATUS_LABELS: Record<string, string> = {
   differs: 'Differs',
   merchant_has_value_catalog_missing: 'Missing in catalog',
-  no_catalog_match: 'No catalog match'
+  no_catalog_match: 'No catalog match',
+  merchant_only: 'Additional item'
 }
 
 type Props = {
@@ -61,6 +63,7 @@ export default function DiffTable({
   function countForFilter(f: FilterMode): number {
     if (f === 'all') return allRows.length
     if (f === 'no_match') return allRows.filter((r) => r.status === 'no_catalog_match').length
+    if (f === 'merchant_only') return allRows.filter((r) => r.status === 'merchant_only').length
     return allRows.filter((r) => r.field === f).length
   }
 
@@ -287,12 +290,14 @@ export default function DiffTable({
                 <td className="diff-table__td diff-table__td--field">
                   {row.status === 'no_catalog_match' ? (
                     <span className="badge badge--danger">No match</span>
+                  ) : row.status === 'merchant_only' ? (
+                    <span className="badge badge--info">Additional</span>
                   ) : (
                     <span className="field-badge">{FIELD_LABELS[row.field]}</span>
                   )}
                 </td>
                 <td className="diff-table__td diff-table__td--catalog">
-                  {row.status === 'no_catalog_match' ? (
+                  {row.status === 'no_catalog_match' || row.status === 'merchant_only' ? (
                     <span className="diff-table__null">—</span>
                   ) : (
                     <>
@@ -386,6 +391,8 @@ function statusBadgeVariant(status: string): string {
       return 'info'
     case 'no_catalog_match':
       return 'danger'
+    case 'merchant_only':
+      return 'info'
     default:
       return 'neutral'
   }

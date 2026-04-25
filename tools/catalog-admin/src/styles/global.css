@@ -399,6 +399,16 @@ body {
   width: 320px;
 }
 
+.diff-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.diff-search__input {
+  width: 280px;
+}
+
 .dashboard__stats {
   display: flex;
   align-items: center;

@@ -130,4 +130,31 @@ describe('catalog-admin diff matching', () => {
     expect(rows[0]?.status).toBe('no_catalog_match')
     expect(rows[0]?.merchant_value).toBe(' 999999 ')
   })
+
+  it('emits a merchant_only row when merchant product has no ttb_id', () => {
+    const catalog = buildCatalogMap([])
+
+    const rows = computeDiffRows(
+      [merchantProduct({ ttb_id: null, sku: 'LOCAL-42', name: 'House Gin 750' })],
+      catalog
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.status).toBe('merchant_only')
+    expect(rows[0]?.merchant_sku).toBe('LOCAL-42')
+    expect(rows[0]?.merchant_value).toBe('LOCAL-42')
+    expect(rows[0]?.catalog_product_id).toBeNull()
+  })
+
+  it('populates merchant_sku on standard diff rows', () => {
+    const catalog = buildCatalogMap([catalogProduct({ id: 1, bot_price: 14 })])
+
+    const rows = computeDiffRows(
+      [merchantProduct({ sku: 'STORE-9', ttb_id: 'abc123', cost: 20 })],
+      catalog
+    )
+
+    const costRow = rows.find((r) => r.field === 'cost')
+    expect(costRow?.merchant_sku).toBe('STORE-9')
+  })
 })

@@ -156,9 +156,9 @@ The dashboard requires privileged Supabase access for curated catalog writes, bu
 ### Main Screen
 
 - merchant picker
-- searchable diff table
-- field-level status (`match`, `differs`, `merchant_has_value_catalog_missing`, `no_catalog_match`)
-- quick filters for common field types
+- searchable diff table — case-insensitive substring search over product name and merchant SKU
+- field-level status (`match`, `differs`, `merchant_has_value_catalog_missing`, `no_catalog_match`, `merchant_only`)
+- quick filters for common field types, plus `No catalog match` and `Additional items` (merchant products with no `ttb_id`, i.e. items added locally that never came from the central catalog)
 - per-row promote action
 - per-field clear curated value action
 - bulk actions for safe mass promotion patterns

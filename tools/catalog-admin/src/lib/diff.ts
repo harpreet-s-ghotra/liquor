@@ -191,8 +191,26 @@ export function computeDiffRows(
   const rows: DiffRow[] = []
 
   for (const mp of merchantProducts) {
+    const merchantSkuValue = getMerchantValue(mp, 'sku')
     const ttbId = normalizeTtbId(mp.ttb_id)
-    if (!ttbId) continue
+
+    if (!ttbId) {
+      // Merchant added this item locally — no NYSLA ttb_id, so it never came from the central catalog.
+      rows.push({
+        key: `${mp.id}:merchant_only`,
+        merchant_product_id: mp.id,
+        catalog_product_id: null,
+        product_name: mp.name,
+        merchant_sku: merchantSkuValue,
+        field: 'sku',
+        original_catalog_value: null,
+        curated_value: null,
+        effective_catalog_value: null,
+        merchant_value: merchantSkuValue,
+        status: 'merchant_only'
+      })
+      continue
+    }
 
     const candidates = catalogByTtbId.get(ttbId) ?? null
 
@@ -202,6 +220,7 @@ export function computeDiffRows(
         merchant_product_id: mp.id,
         catalog_product_id: null,
         product_name: mp.name,
+        merchant_sku: merchantSkuValue,
         field: 'sku',
         original_catalog_value: null,
         curated_value: null,
@@ -221,6 +240,7 @@ export function computeDiffRows(
         merchant_product_id: mp.id,
         catalog_product_id: null,
         product_name: mp.name,
+        merchant_sku: merchantSkuValue,
         field: 'sku',
         original_catalog_value: null,
         curated_value: null,
@@ -259,6 +279,7 @@ export function computeDiffRows(
           merchant_product_id: mp.id,
           catalog_product_id: cat.id,
           product_name: mp.name,
+          merchant_sku: merchantSkuValue,
           field,
           original_catalog_value: original,
           curated_value: curated,
