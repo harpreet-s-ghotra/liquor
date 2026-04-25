@@ -335,7 +335,9 @@ describe('TaxCodePanel', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Edit Tax Code Name')).toHaveValue('GST-UPDATED')
     })
-    // Table should also reflect the change
-    expect(screen.getByText('GST-UPDATED')).toBeInTheDocument()
+    // Table refresh is a separate getTaxCodes round-trip — wait for it explicitly.
+    await waitFor(() => {
+      expect(screen.getByText('GST-UPDATED')).toBeInTheDocument()
+    })
   })
 })

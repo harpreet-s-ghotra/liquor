@@ -9,7 +9,7 @@ describe('Popover', () => {
       const [open, setOpen] = useState(false)
       return (
         <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger>
+          <PopoverTrigger asChild>
             <button>Open Popover</button>
           </PopoverTrigger>
           <PopoverContent>Popover Content</PopoverContent>
