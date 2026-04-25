@@ -80,6 +80,7 @@ const attachFinixMock = async (
         consumePendingDeepLink: async () => null,
         getCashiers: async () => [testCashier],
         validatePin: async () => testCashier,
+        hasAnyProduct: async () => true,
         getProducts: async () => products,
         getActiveSpecialPricing: async () => [],
         getItemTypes: async () => [],

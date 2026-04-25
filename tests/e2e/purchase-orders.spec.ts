@@ -154,6 +154,8 @@ const attachPurchaseOrdersMock = async (page: Page): Promise<void> => {
       getCashiers: async () => [testCashier],
       validatePin: async () => testCashier,
 
+      hasAnyProduct: async () => true,
+
       getProducts: async () =>
         catalogProducts.map((product) => ({
           id: product.id,

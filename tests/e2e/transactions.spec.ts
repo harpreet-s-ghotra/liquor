@@ -175,6 +175,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
       validatePin: async () => testCashier,
 
       // Product APIs
+      hasAnyProduct: async () => true,
       getProducts: async () => products,
       getActiveSpecialPricing: async () => [],
       getItemTypes: async () => [],
@@ -1050,6 +1051,7 @@ const attachCaseDiscountMock = async (page: Page): Promise<void> => {
       consumePendingDeepLink: async () => null,
       getCashiers: async () => [testCashier],
       validatePin: async () => testCashier,
+      hasAnyProduct: async () => true,
       getProducts: async () => products,
       getActiveSpecialPricing: async () => [],
       getItemTypes: async () => [],
@@ -1222,6 +1224,7 @@ test.describe('Product Tile Display', () => {
         consumePendingDeepLink: async () => null,
         getCashiers: async () => [testCashier],
         validatePin: async () => testCashier,
+        hasAnyProduct: async () => true,
         getProducts: async () => products,
         getActiveSpecialPricing: async () => [],
         getItemTypes: async () => [],

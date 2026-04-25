@@ -98,6 +98,7 @@ const attachFullApiMock = async (page: Page): Promise<void> => {
       }),
 
       /* ── Products (POS screen) ── */
+      hasAnyProduct: async () => true,
       getProducts: async () => [...products],
 
       /* ── Inventory item search / detail / save ── */

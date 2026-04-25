@@ -101,6 +101,7 @@ const attachAuthMock = async (page: Page): Promise<void> => {
       },
 
       // Product APIs
+      hasAnyProduct: async () => true,
       getProducts: async () => products,
       getActiveSpecialPricing: async () => [],
       getItemTypes: async () => [],

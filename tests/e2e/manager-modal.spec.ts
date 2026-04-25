@@ -108,6 +108,7 @@ const attachManagerModalMock = async (page: Page): Promise<void> => {
       validatePin: async () => testCashier,
 
       // POS Product APIs
+      hasAnyProduct: async () => true,
       getProducts: async () => products,
       getActiveSpecialPricing: async () => [],
       getItemTypes: async () => [],

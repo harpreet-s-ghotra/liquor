@@ -75,6 +75,8 @@ const attachReorderDashboardMock = async (page: Page): Promise<void> => {
       getCashiers: async () => [testCashier],
       validatePin: async () => testCashier,
 
+      hasAnyProduct: async () => true,
+
       getProducts: async () =>
         reorderProducts.map((item) => ({
           id: item.id,

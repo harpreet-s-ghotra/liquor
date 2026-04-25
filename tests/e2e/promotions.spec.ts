@@ -122,6 +122,7 @@ const attachPromotionMock = async (page: Page): Promise<void> => {
       validatePin: async () => testCashier,
 
       // Product APIs
+      hasAnyProduct: async () => true,
       getProducts: async () => products,
       getActiveSpecialPricing: async () => specialPricing,
       getItemTypes: async () => [],

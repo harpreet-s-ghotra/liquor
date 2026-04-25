@@ -123,6 +123,8 @@ const attachSearchApiMock = async (page: Page): Promise<void> => {
       getCashiers: async () => [testCashier],
       validatePin: async () => testCashier,
 
+      hasAnyProduct: async () => true,
+
       getProducts: async () => [...products],
       getActiveSpecialPricing: async () => [],
 

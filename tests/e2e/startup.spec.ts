@@ -177,6 +177,8 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
         created_at: '2025-01-01'
       }),
 
+      hasAnyProduct: async () => true,
+
       getProducts: async () => products,
       getActiveSpecialPricing: async () => [],
       getItemTypes: async () => [],
