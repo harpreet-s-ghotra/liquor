@@ -179,7 +179,7 @@ type PosActions = {
   applyDiscount: (percent: number, scope: 'item' | 'transaction') => void
   reloadProducts: () => void
   loadSpecialPricing: () => void
-  holdTransaction: () => Promise<void>
+  holdTransaction: (description?: string | null) => Promise<void>
   recallHeldTransaction: (held: HeldTransaction) => Promise<void>
   deleteOneHeldTransaction: (held: HeldTransaction) => Promise<void>
   clearAllHeldTransactions: () => Promise<void>
@@ -377,7 +377,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
       })
   },
 
-  holdTransaction: async () => {
+  holdTransaction: async (description?: string | null) => {
     if (get().viewingTransaction) return
     const { cart, transactionDiscountPercent, selectedCartId, specialPricingMap } = get()
     if (cart.length === 0) return
@@ -413,7 +413,8 @@ export const usePosStore = create<PosStore>((set, get) => ({
         cart: heldItems,
         transactionDiscountPercent,
         subtotal: subtotalDiscounted,
-        total
+        total,
+        description: description?.trim() || null
       })
 
       get().clearTransaction()
@@ -653,7 +654,7 @@ type UsePosScreenState = {
   total: number
   heldTransactions: HeldTransaction[]
   isHoldLookupOpen: boolean
-  holdTransaction: () => Promise<void>
+  holdTransaction: (description?: string | null) => Promise<void>
   recallHeldTransaction: (held: HeldTransaction) => Promise<void>
   deleteOneHeldTransaction: (held: HeldTransaction) => Promise<void>
   clearAllHeldTransactions: () => Promise<void>
@@ -668,6 +669,7 @@ type UsePosScreenState = {
   isReturning: boolean
   returnSubtotal: number
   returnTax: number
+  returnSurcharge: number
   returnTotal: number
   toggleReturnItem: (cartItemId: number) => void
   toggleReturnAll: () => void
@@ -750,10 +752,11 @@ export function usePosScreen(): UsePosScreenState {
   const returnTotals = useMemo(() => {
     const vt = store.viewingTransaction
     const ri = store.returnItems
-    if (!vt) return { returnSubtotal: 0, returnTax: 0, returnTotal: 0 }
+    if (!vt) return { returnSubtotal: 0, returnTax: 0, returnSurcharge: 0, returnTotal: 0 }
 
     const markedIds = Object.keys(ri).map(Number)
-    if (markedIds.length === 0) return { returnSubtotal: 0, returnTax: 0, returnTotal: 0 }
+    if (markedIds.length === 0)
+      return { returnSubtotal: 0, returnTax: 0, returnSurcharge: 0, returnTotal: 0 }
 
     // Compute proportion of the original transaction being returned
     const originalItemsTotal = vt.items.reduce((s, i) => s + i.total_price, 0)
@@ -769,11 +772,17 @@ export function usePosScreen(): UsePosScreenState {
     // Proportional tax: (returnSubtotal / originalSubtotal) * originalTax
     const returnTax =
       originalItemsTotal > 0 ? (returnSubtotal / originalItemsTotal) * vt.tax_amount : 0
-    const returnTotal = returnSubtotal + returnTax
+    // Proportional card-processing surcharge — refund the card customer the same
+    // fee they paid on the original sale so they are made whole.
+    const originalSurcharge = vt.surcharge_amount ?? 0
+    const returnSurcharge =
+      originalItemsTotal > 0 ? (returnSubtotal / originalItemsTotal) * originalSurcharge : 0
+    const returnTotal = returnSubtotal + returnTax + returnSurcharge
 
     return {
       returnSubtotal: -Math.round(returnSubtotal * 100) / 100,
       returnTax: -Math.round(returnTax * 100) / 100,
+      returnSurcharge: -Math.round(returnSurcharge * 100) / 100,
       returnTotal: -Math.round(returnTotal * 100) / 100
     }
   }, [store.viewingTransaction, store.returnItems, store.cart])
@@ -825,6 +834,7 @@ export function usePosScreen(): UsePosScreenState {
     isReturning: Object.keys(store.returnItems).length > 0,
     returnSubtotal: returnTotals.returnSubtotal,
     returnTax: returnTotals.returnTax,
+    returnSurcharge: returnTotals.returnSurcharge,
     returnTotal: returnTotals.returnTotal,
     toggleReturnItem: store.toggleReturnItem,
     toggleReturnAll: store.toggleReturnAll,

@@ -59,6 +59,7 @@ function enqueueTransactionSync(
       transaction_number: saved.transaction_number,
       subtotal: saved.subtotal,
       tax_amount: saved.tax_amount,
+      surcharge_amount: saved.surcharge_amount ?? 0,
       total: saved.total,
       payment_method: saved.payment_method,
       finix_authorization_id: saved.finix_authorization_id,
@@ -129,12 +130,12 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
       .prepare(
         `
         INSERT INTO transactions (
-          transaction_number, subtotal, tax_amount, total,
+          transaction_number, subtotal, tax_amount, total, surcharge_amount,
           payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
           status, notes, session_id, device_id
         )
         VALUES (
-          @transaction_number, @subtotal, @tax_amount, @total,
+          @transaction_number, @subtotal, @tax_amount, @total, @surcharge_amount,
           @payment_method, @finix_authorization_id, @finix_transfer_id, @card_last_four, @card_type,
           'completed', @notes, @session_id, @device_id
         )
@@ -145,6 +146,7 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
         subtotal: input.subtotal,
         tax_amount: input.tax_amount,
         total: input.total,
+        surcharge_amount: input.surcharge_amount ?? 0,
         payment_method: derivePaymentMethod(input.payments, input.payment_method),
         finix_authorization_id: input.finix_authorization_id ?? null,
         finix_transfer_id: input.finix_transfer_id ?? null,
@@ -268,6 +270,7 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
     subtotal: input.subtotal,
     tax_amount: input.tax_amount,
     total: input.total,
+    surcharge_amount: input.surcharge_amount ?? 0,
     payment_method: derivePaymentMethod(input.payments, input.payment_method),
     finix_authorization_id: input.finix_authorization_id ?? null,
     finix_transfer_id: input.finix_transfer_id ?? null,
@@ -330,6 +333,7 @@ export function getRecentTransactions(limit = 50): SavedTransaction[] {
         `
       SELECT
         id, transaction_number, subtotal, tax_amount, total,
+        COALESCE(surcharge_amount, 0) AS surcharge_amount,
         payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
         status, original_transaction_id, created_at
       FROM transactions
@@ -353,6 +357,7 @@ export function getTransactionByNumber(txnNumber: string): TransactionDetail | n
       `
       SELECT
         id, transaction_number, subtotal, tax_amount, total,
+        COALESCE(surcharge_amount, 0) AS surcharge_amount,
         payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
         status, original_transaction_id, created_at
       FROM transactions
@@ -517,12 +522,12 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
       .prepare(
         `
         INSERT INTO transactions (
-          transaction_number, subtotal, tax_amount, total,
+          transaction_number, subtotal, tax_amount, total, surcharge_amount,
           payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
           status, original_transaction_id, notes, session_id, device_id
         )
         VALUES (
-          @transaction_number, @subtotal, @tax_amount, @total,
+          @transaction_number, @subtotal, @tax_amount, @total, @surcharge_amount,
           @payment_method, @finix_authorization_id, @finix_transfer_id, @card_last_four, @card_type,
           'refund', @original_transaction_id, @notes, @session_id, @device_id
         )
@@ -533,6 +538,7 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
         subtotal: input.subtotal,
         tax_amount: input.tax_amount,
         total: input.total,
+        surcharge_amount: input.surcharge_amount ?? 0,
         payment_method: input.payment_method,
         finix_authorization_id: input.finix_authorization_id ?? null,
         finix_transfer_id: input.finix_transfer_id ?? null,
@@ -659,6 +665,7 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
     subtotal: input.subtotal,
     tax_amount: input.tax_amount,
     total: input.total,
+    surcharge_amount: input.surcharge_amount ?? 0,
     payment_method: input.payment_method,
     finix_authorization_id: input.finix_authorization_id ?? null,
     finix_transfer_id: input.finix_transfer_id ?? null,

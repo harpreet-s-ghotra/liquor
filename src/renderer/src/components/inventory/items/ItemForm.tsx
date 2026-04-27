@@ -31,8 +31,11 @@ import type {
 import { SKU_PATTERN, SKU_MAX_LENGTH, NAME_MAX_LENGTH } from '../../../../../shared/constants'
 import {
   formatCurrency,
+  formatCostInput,
   normalizeCurrencyForInput,
-  parseCurrencyDigitsToDollars
+  normalizeDecimalInput,
+  parseCurrencyDigitsToDollars,
+  parseDecimalInput
 } from '@renderer/utils/currency'
 import { useDebounce } from '@renderer/hooks/useDebounce'
 import { useSearchDropdown } from '@renderer/hooks/useSearchDropdown'
@@ -50,6 +53,8 @@ const RESIZE_KEYBOARD_STEP = 20
 type SpecialPricingFormRow = {
   quantity: string
   price: string
+  /** YYYY-MM-DD or ''. Blank = never expires. */
+  expires_at: string
 }
 
 type CaseDiscountMode = 'percent' | 'dollar'
@@ -111,6 +116,7 @@ const emptyFormState: InventoryFormState = {
 
 export type ItemFormHandle = {
   handleNewItem: () => void
+  duplicateCurrentAsNew: () => void
   handleSave: () => void
   handleDiscard: () => void
   handleDelete: () => void
@@ -157,6 +163,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   const [sizeDropdownOpen, setSizeDropdownOpen] = useState(false)
   const tabScrollRef = useRef<HTMLDivElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const skuInputRef = useRef<HTMLInputElement | null>(null)
   const sizeInputRef = useRef<HTMLInputElement | null>(null)
   const topHeightRef = useRef<number>(0)
   const [topHeight, setTopHeight] = useState<number>(() => {
@@ -312,7 +319,9 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       sku: detail.sku,
       item_name: detail.item_name,
       item_type: detail.item_type ?? '',
-      cost: formatCurrency(detail.cost),
+      // Cost field accepts up to 3 decimals (distributor cost rounding); render
+      // raw numeric form so user-typed precision survives the round-trip.
+      cost: formatCostInput(detail.cost),
       retail_price: formatCurrency(detail.retail_price),
       distributor_number:
         detail.distributor_number != null ? String(detail.distributor_number) : '',
@@ -320,7 +329,8 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
       tax_rate: filteredTaxRates[0] != null ? String(filteredTaxRates[0]) : '',
       special_pricing: (detail.special_pricing ?? []).map((rule) => ({
         quantity: String(rule.quantity),
-        price: formatCurrency(rule.price)
+        price: formatCurrency(rule.price),
+        expires_at: rule.expires_at ? rule.expires_at.slice(0, 10) : ''
       })),
       additional_skus: [...detail.additional_skus],
       bottles_per_case: String(detail.bottles_per_case ?? 12),
@@ -356,11 +366,29 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     setSkuExists(null)
     setActiveTab('case-settings')
     setPriceAutoCalc(false)
+    requestAnimationFrame(() => skuInputRef.current?.focus())
   }
 
   const startNewWithSku = (sku: string): void => {
     handleNewItem()
     setFormState((prev) => ({ ...prev, sku: sku.replace(/[^A-Za-z0-9-]/g, '').toUpperCase() }))
+    requestAnimationFrame(() => skuInputRef.current?.focus())
+  }
+
+  const duplicateCurrentAsNew = (): void => {
+    setSelectedItem(null)
+    setShowValidation(false)
+    setSuccessMessage('')
+    setSaveError('')
+    setSkuExists(null)
+    setPriceAutoCalc(false)
+    setFormState((current) => ({
+      ...current,
+      item_number: undefined,
+      sku: '',
+      additional_skus: []
+    }))
+    requestAnimationFrame(() => skuInputRef.current?.focus())
   }
 
   const handleDiscard = (): void => {
@@ -573,15 +601,24 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   }, [])
 
   const parsePayload = (): SaveInventoryItemInput | null => {
-    const cost = parseCurrencyDigitsToDollars(formState.cost)
+    const cost = parseDecimalInput(formState.cost, 3)
     const retailPrice = parseCurrencyDigitsToDollars(formState.retail_price)
     const inStock = Number.parseInt(formState.in_stock, 10)
 
     const specialPricing: SpecialPricingRule[] = formState.special_pricing
-      .map((row) => ({
-        quantity: Number.parseInt(row.quantity, 10),
-        price: parseCurrencyDigitsToDollars(row.price)
-      }))
+      .map((row) => {
+        // Treat the date input as end-of-day local so a rule "expiring on
+        // 2026-04-30" remains valid for the entire day.
+        const expires =
+          row.expires_at && row.expires_at.trim()
+            ? new Date(`${row.expires_at}T23:59:59`).toISOString()
+            : null
+        return {
+          quantity: Number.parseInt(row.quantity, 10),
+          price: parseCurrencyDigitsToDollars(row.price),
+          expires_at: expires
+        }
+      })
       .filter(
         (rule) =>
           Number.isInteger(rule.quantity) &&
@@ -684,12 +721,14 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   /** Handle cost change — auto-calculate retail price if an item type with margin is selected.
    *  Formula: price = cost / (1 - margin%), e.g. $10 cost at 30% margin → $14.29 price. */
   const handleCostChange = (value: string): void => {
-    const normalized = normalizeCurrencyForInput(value)
+    // Cost supports up to 3 decimals (distributor cost rounding) — distinct from
+    // the 2-decimal shelf price.
+    const normalized = normalizeDecimalInput(value, 3)
     setFormState((current) => {
       const updates: Partial<InventoryFormState> = { cost: normalized }
       const itemType = itemTypeOptions.find((option) => option.name === current.item_type)
       if (itemType && itemType.default_profit_margin > 0) {
-        const costVal = parseCurrencyDigitsToDollars(normalized)
+        const costVal = parseDecimalInput(normalized, 3)
         if (!Number.isNaN(costVal) && costVal > 0) {
           const margin = itemType.default_profit_margin / 100
           updates.retail_price = formatCurrency(costVal / (1 - margin))
@@ -712,7 +751,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
         updates.tax_rate =
           itemType.default_tax_rate > 0 ? String(itemType.default_tax_rate / 100) : ''
         if (itemType.default_profit_margin > 0) {
-          const costVal = parseCurrencyDigitsToDollars(current.cost)
+          const costVal = parseDecimalInput(current.cost, 3)
           if (!Number.isNaN(costVal) && costVal > 0) {
             const margin = itemType.default_profit_margin / 100
             updates.retail_price = formatCurrency(costVal / (1 - margin))
@@ -750,7 +789,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
   const addSpecialPricingRow = (): void => {
     setFormState((current) => ({
       ...current,
-      special_pricing: [...current.special_pricing, { quantity: '', price: '' }]
+      special_pricing: [...current.special_pricing, { quantity: '', price: '', expires_at: '' }]
     }))
   }
 
@@ -784,15 +823,31 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
     return price * (1 + rate)
   }, [formState.retail_price, formState.tax_rate])
 
+  /**
+   * Gross margin: classic retail formula (price - cost) / price.
+   * Net margin folds in the customer-paid tax — useful when comparing items
+   * across different tax codes since the customer sees the tax-inclusive price.
+   */
   const profitMargin = useMemo(() => {
     const price = parseCurrencyDigitsToDollars(formState.retail_price)
-    const cost = parseCurrencyDigitsToDollars(formState.cost)
+    const cost = parseDecimalInput(formState.cost, 3)
     if (Number.isNaN(price) || price <= 0 || Number.isNaN(cost)) return null
     return ((price - cost) / price) * 100
   }, [formState.retail_price, formState.cost])
 
+  const netMargin = useMemo(() => {
+    const price = parseCurrencyDigitsToDollars(formState.retail_price)
+    const cost = parseDecimalInput(formState.cost, 3)
+    const taxRate = Number.parseFloat(formState.tax_rate || '0')
+    if (Number.isNaN(price) || price <= 0 || Number.isNaN(cost)) return null
+    const denom = price * (1 + (Number.isFinite(taxRate) ? taxRate : 0))
+    if (denom <= 0) return null
+    return ((price - cost) / denom) * 100
+  }, [formState.retail_price, formState.cost, formState.tax_rate])
+
   useImperativeHandle(ref, () => ({
     handleNewItem,
+    duplicateCurrentAsNew,
     handleSave: () => void handleSave(),
     handleDiscard,
     handleDelete: () => void handleDelete(),
@@ -863,6 +918,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
           <div>
             <label className={labelCls}>SKU {requiredStar}</label>
             <InventoryInput
+              ref={skuInputRef}
               type="text"
               aria-label="SKU"
               hasError={!!fieldErrors.sku && (showValidation || skuExists?.exists === true)}
@@ -1012,12 +1068,12 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             <InventoryInput
               type="text"
               aria-label="Per Bottle Cost"
-              inputMode="numeric"
+              inputMode="decimal"
               hasError={showValidation && !!fieldErrors.cost}
               className="item-form__cost-input"
               value={formState.cost}
               onChange={(e) => handleCostChange(e.target.value)}
-              placeholder="$0.00"
+              placeholder="0.000"
             />
             {showValidation && fieldErrors.cost && <p className={errCls}>{fieldErrors.cost}</p>}
           </div>
@@ -1127,11 +1183,11 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
             />
           </div>
 
-          {/* Profit Margin */}
-          <div className="item-form__field-span-2">
-            <label className={labelCls}>Profit Margin</label>
+          {/* Gross Margin: (price - cost) / price */}
+          <div>
+            <label className={labelCls}>Gross Margin</label>
             <div
-              aria-label="Profit Margin"
+              aria-label="Gross Margin"
               className={cn(
                 'item-form__margin-display',
                 profitMargin == null
@@ -1144,6 +1200,30 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
               )}
             >
               {profitMargin != null ? `${profitMargin.toFixed(1)}%` : '—'}
+            </div>
+          </div>
+
+          {/* Margin after tax: (price - cost) / (price * (1 + tax_rate)).
+              Customers see the tax-inclusive price on the shelf — this number
+              shows the margin against THAT amount. NOT a true accounting net
+              margin (no overhead/processing-fee allocation). See
+              docs/features/inventory-v2.md. */}
+          <div>
+            <label className={labelCls}>Margin after tax</label>
+            <div
+              aria-label="Margin after tax"
+              className={cn(
+                'item-form__margin-display',
+                netMargin == null
+                  ? 'item-form__margin-display--none'
+                  : netMargin > 20
+                    ? 'item-form__margin-display--high'
+                    : netMargin >= 10
+                      ? 'item-form__margin-display--mid'
+                      : 'item-form__margin-display--low'
+              )}
+            >
+              {netMargin != null ? `${netMargin.toFixed(1)}%` : '—'}
             </div>
           </div>
 
@@ -1377,6 +1457,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                   <tr>
                     <th>Quantity</th>
                     <th>Price</th>
+                    <th>Expires</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -1401,6 +1482,16 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                           placeholder="e.g. $19.99 total"
                           value={row.price}
                           onChange={(e) => updateSpecialPricingRow(index, 'price', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <Input
+                          type="date"
+                          aria-label={`Rule ${index + 1} Expires`}
+                          value={row.expires_at}
+                          onChange={(e) =>
+                            updateSpecialPricingRow(index, 'expires_at', e.target.value)
+                          }
                         />
                       </td>
                       <td>
@@ -1499,6 +1590,7 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                     <th>Date</th>
                     <th>Txn #</th>
                     <th>Qty</th>
+                    <th>Cost</th>
                     <th>Price</th>
                     <th>Total</th>
                     <th>Payment</th>
@@ -1533,6 +1625,11 @@ export const ItemForm = forwardRef<ItemFormHandle, ItemFormProps>(function ItemF
                           style={isRefund ? { color: refundColor } : undefined}
                         >
                           {isRefund ? `-${h.quantity}` : h.quantity}
+                        </td>
+                        <td style={isRefund ? { color: refundColor } : undefined}>
+                          {h.cost_at_sale != null && h.cost_at_sale > 0
+                            ? formatCurrency(h.cost_at_sale)
+                            : '—'}
                         </td>
                         <td style={isRefund ? { color: refundColor } : undefined}>
                           {isRefund

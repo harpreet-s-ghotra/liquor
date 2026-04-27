@@ -33,6 +33,9 @@ export type FooterActionBarProps = {
   onAddNewWithSku: (sku: string) => void
   // Actions — only rendered when on the Items tab
   showItemActions: boolean
+  canDuplicate: boolean
+  onNewItem: () => void
+  onDuplicate: () => void
   canSave: boolean
   canDelete: boolean
   onSave: () => void
@@ -56,6 +59,9 @@ export function FooterActionBar({
   noResultsSku,
   onAddNewWithSku,
   showItemActions,
+  canDuplicate,
+  onNewItem,
+  onDuplicate,
   canSave,
   canDelete,
   onSave,
@@ -83,12 +89,19 @@ export function FooterActionBar({
               listboxLabel="Search results"
               getOptionKey={(item) => item.item_number}
               renderOption={(item) => (
-                <>
+                <div className="footer-action-bar__dropdown-item-grid">
                   <span className="footer-action-bar__dropdown-item-name">{item.item_name}</span>
-                  <span className="footer-action-bar__dropdown-item-meta">
-                    {item.sku} · {formatCurrency(item.retail_price)}
+                  <span className="footer-action-bar__dropdown-item-sku">{item.sku}</span>
+                  <span className="footer-action-bar__dropdown-item-distributor">
+                    {item.distributor_name ?? 'No distributor'}
                   </span>
-                </>
+                  <span className="footer-action-bar__dropdown-item-price">
+                    {formatCurrency(item.retail_price)}
+                  </span>
+                  <span className="footer-action-bar__dropdown-item-stock">
+                    {item.in_stock} in stock
+                  </span>
+                </div>
               )}
               placeholder={SEARCH_PLACEHOLDER[activeTab] ?? 'Search...'}
               listboxPlacement="top"
@@ -124,6 +137,16 @@ export function FooterActionBar({
       {/* Right: Action buttons — only on Items tab */}
       {showItemActions && (
         <div className="footer-action-bar__actions">
+          <AppButton size="md" variant="neutral" onClick={onNewItem}>
+            New Item
+          </AppButton>
+
+          <AppButton size="md" variant="neutral" disabled={!canDuplicate} onClick={onDuplicate}>
+            Duplicate
+          </AppButton>
+
+          <div className="footer-action-bar__divider" />
+
           <AppButton size="md" variant="success" disabled={!canSave} onClick={onSave}>
             Save
           </AppButton>

@@ -86,6 +86,8 @@ export type PaymentEntry = {
   card_type?: string | null
   finix_authorization_id?: string | null
   finix_transfer_id?: string | null
+  /** Card-only: surcharge fee folded into amount. base = amount - surcharge_amount. */
+  surcharge_amount?: number
 }
 
 export type PaymentStatus = 'idle' | 'collecting' | 'processing-card' | 'complete'

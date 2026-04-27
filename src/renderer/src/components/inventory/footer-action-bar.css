@@ -55,7 +55,7 @@
 .footer-action-bar__dropdown {
   position: absolute;
   top: auto;
-  right: 0;
+  right: auto;
   bottom: calc(100% + 0.25rem);
   left: 0;
   z-index: 50;
@@ -63,14 +63,12 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   background: var(--bg-surface);
+  width: min(720px, calc(100vw - 3rem));
   max-height: 12rem;
   overflow-y: auto;
 }
 
 .footer-action-bar__dropdown-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   cursor: pointer;
   padding: 0.375rem 0.75rem;
 }
@@ -79,20 +77,43 @@
   background: var(--bg-surface-soft);
 }
 
-.footer-action-bar__dropdown-item-name {
+.footer-action-bar__dropdown-item-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1.2fr) auto auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.footer-action-bar__dropdown-item-name,
+.footer-action-bar__dropdown-item-sku,
+.footer-action-bar__dropdown-item-distributor {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.footer-action-bar__dropdown-item-name {
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 700;
 }
 
-.footer-action-bar__dropdown-item-meta {
-  flex-shrink: 0;
-  margin-left: 0.5rem;
+.footer-action-bar__dropdown-item-sku,
+.footer-action-bar__dropdown-item-distributor,
+.footer-action-bar__dropdown-item-stock {
   color: var(--text-muted);
   font-size: 11px;
+}
+
+.footer-action-bar__dropdown-item-price {
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.footer-action-bar__dropdown-item-price,
+.footer-action-bar__dropdown-item-stock {
+  justify-self: end;
 }
 
 .footer-action-bar__no-results {

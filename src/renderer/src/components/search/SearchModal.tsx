@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
 import { Button } from '@renderer/components/ui/button'
+import { Checkbox } from '@renderer/components/ui/checkbox'
 import { Input } from '@renderer/components/ui/input'
 import { cn } from '@renderer/lib/utils'
 import { AppModalHeader } from '@renderer/components/common/AppModalHeader'
@@ -29,13 +30,15 @@ export function SearchModal({
   const [distributors, setDistributors] = useState<Distributor[]>([])
   const [sizes, setSizes] = useState<string[]>([])
   const [itemTypeId, setItemTypeId] = useState<number | undefined>(undefined)
-  const [distributorNumber, setDistributorNumber] = useState<number | undefined>(undefined)
+  const [distributorNumber, setDistributorNumber] = useState<number | 'none' | undefined>(undefined)
   const [size, setSize] = useState<string | undefined>(undefined)
+  const [unpricedOnly, setUnpricedOnly] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastFiltersRef = useRef({
     itemTypeId: undefined as number | undefined,
-    distributorNumber: undefined as number | undefined,
-    size: undefined as string | undefined
+    distributorNumber: undefined as number | 'none' | undefined,
+    size: undefined as string | undefined,
+    unpricedOnly: false
   })
 
   // Load filter options on mount
@@ -94,11 +97,13 @@ export function SearchModal({
     setItemTypeId(undefined)
     setDistributorNumber(undefined)
     setSize(undefined)
+    setUnpricedOnly(false)
     /* eslint-enable react-hooks/set-state-in-effect */
     lastFiltersRef.current = {
       itemTypeId: undefined,
       distributorNumber: undefined,
-      size: undefined
+      size: undefined,
+      unpricedOnly: false
     }
     const api = window.api
     if (!api?.searchProducts) return
@@ -124,17 +129,23 @@ export function SearchModal({
   const runSearch = useCallback(
     async (
       searchQuery: string,
-      filters?: { itemTypeId?: number; distributorNumber?: number; size?: string }
+      filters?: {
+        itemTypeId?: number
+        distributorNumber?: number | 'none'
+        size?: string
+        unpricedOnly?: boolean
+      }
     ) => {
       const trimmed = searchQuery.trim()
-      const f = filters ?? { itemTypeId, distributorNumber, size }
+      const f = filters ?? { itemTypeId, distributorNumber, size, unpricedOnly }
       const api = window.api
       if (!api?.searchProducts) return
       try {
         const data = await api.searchProducts(trimmed, {
           departmentId: f.itemTypeId,
           distributorNumber: f.distributorNumber,
-          size: f.size
+          size: f.size,
+          unpricedOnly: f.unpricedOnly
         })
         setResults(data)
         setSelectedProduct(null)
@@ -144,7 +155,7 @@ export function SearchModal({
         setHasSearched(true)
       }
     },
-    [itemTypeId, distributorNumber, size]
+    [itemTypeId, distributorNumber, size, unpricedOnly]
   )
 
   const handleSubmit = useCallback(
@@ -163,7 +174,8 @@ export function SearchModal({
         runSearch(query, {
           itemTypeId: value,
           distributorNumber: lastFiltersRef.current.distributorNumber,
-          size: lastFiltersRef.current.size
+          size: lastFiltersRef.current.size,
+          unpricedOnly: lastFiltersRef.current.unpricedOnly
         })
       }
     },
@@ -171,14 +183,15 @@ export function SearchModal({
   )
 
   const handleDistributorChange = useCallback(
-    (value: number | undefined) => {
+    (value: number | 'none' | undefined) => {
       setDistributorNumber(value)
       lastFiltersRef.current.distributorNumber = value
       if (hasSearched) {
         runSearch(query, {
           itemTypeId: lastFiltersRef.current.itemTypeId,
           distributorNumber: value,
-          size: lastFiltersRef.current.size
+          size: lastFiltersRef.current.size,
+          unpricedOnly: lastFiltersRef.current.unpricedOnly
         })
       }
     },
@@ -193,7 +206,24 @@ export function SearchModal({
         runSearch(query, {
           itemTypeId: lastFiltersRef.current.itemTypeId,
           distributorNumber: lastFiltersRef.current.distributorNumber,
-          size: value
+          size: value,
+          unpricedOnly: lastFiltersRef.current.unpricedOnly
+        })
+      }
+    },
+    [hasSearched, query, runSearch]
+  )
+
+  const handleUnpricedOnlyChange = useCallback(
+    (checked: boolean) => {
+      setUnpricedOnly(checked)
+      lastFiltersRef.current.unpricedOnly = checked
+      if (hasSearched) {
+        runSearch(query, {
+          itemTypeId: lastFiltersRef.current.itemTypeId,
+          distributorNumber: lastFiltersRef.current.distributorNumber,
+          size: lastFiltersRef.current.size,
+          unpricedOnly: checked
         })
       }
     },
@@ -214,15 +244,14 @@ export function SearchModal({
   const handleOpenInInventory = useCallback(() => {
     if (selectedProduct && onOpenInInventory) {
       onOpenInInventory(selectedProduct)
-      onClose()
     }
-  }, [selectedProduct, onOpenInInventory, onClose])
+  }, [selectedProduct, onOpenInInventory])
 
   const formatMoney = (amount: number): string =>
     amount < 0 ? `-$${Math.abs(amount).toFixed(2)}` : `$${amount.toFixed(2)}`
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} modal={false} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className="search-modal"
         aria-label="Product Search"
@@ -257,19 +286,34 @@ export function SearchModal({
 
           <select
             value={distributorNumber ?? ''}
-            onChange={(e) =>
+            onChange={(e) => {
+              if (e.target.value === 'none') {
+                handleDistributorChange('none')
+                return
+              }
               handleDistributorChange(e.target.value ? Number(e.target.value) : undefined)
-            }
+            }}
             className="search-modal__filter-select"
             aria-label="Filter by distributor"
           >
             <option value="">All Distributors</option>
+            <option value="none">No distributor</option>
             {distributors.map((d) => (
               <option key={d.distributor_number} value={d.distributor_number}>
                 {d.distributor_name}
               </option>
             ))}
           </select>
+
+          <label className="search-modal__filter-checkbox" htmlFor="search-unpriced-only">
+            <Checkbox
+              id="search-unpriced-only"
+              checked={unpricedOnly}
+              onCheckedChange={(checked) => handleUnpricedOnlyChange(checked === true)}
+              aria-label="Unpriced only"
+            />
+            <span>Unpriced only</span>
+          </label>
 
           <select
             value={size ?? ''}

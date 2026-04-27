@@ -1,7 +1,11 @@
 import { getDb } from './connection'
 import { getDeviceConfig } from './device-config.repo'
 import { enqueueSyncItem } from './sync-queue.repo'
-import type { MerchantConfig, SaveMerchantConfigInput } from '../../shared/types'
+import type {
+  CardSurchargeConfig,
+  MerchantConfig,
+  SaveMerchantConfigInput
+} from '../../shared/types'
 import type { MerchantSettingsSyncPayload } from '../services/sync/types'
 
 function parseExtras(raw: string | null | undefined): Record<string, unknown> {
@@ -129,6 +133,60 @@ export function saveMerchantConfig(input: SaveMerchantConfigInput): MerchantConf
   enqueueSettingsSync()
 
   return getMerchantConfig()!
+}
+
+const DEFAULT_SURCHARGE: CardSurchargeConfig = { enabled: false, percent: 0 }
+const MAX_SURCHARGE_PERCENT = 10
+
+function readExtras(): Record<string, unknown> {
+  const row = getDb()
+    .prepare('SELECT settings_extras_json FROM merchant_config WHERE id = 1 LIMIT 1')
+    .get() as { settings_extras_json: string | null } | undefined
+  return parseExtras(row?.settings_extras_json)
+}
+
+function writeExtras(next: Record<string, unknown>): void {
+  const db = getDb()
+  const result = db
+    .prepare(
+      `UPDATE merchant_config
+       SET settings_extras_json = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = 1`
+    )
+    .run(JSON.stringify(next))
+  if (result.changes === 0) {
+    throw new Error('Merchant config not initialized')
+  }
+}
+
+export function getCardSurcharge(): CardSurchargeConfig {
+  const extras = readExtras()
+  const raw = extras.card_surcharge
+  if (!raw || typeof raw !== 'object') return DEFAULT_SURCHARGE
+  const obj = raw as Record<string, unknown>
+  const percent = Number(obj.percent)
+  return {
+    enabled: obj.enabled === true,
+    percent: Number.isFinite(percent) && percent >= 0 ? percent : 0
+  }
+}
+
+export function setCardSurcharge(input: CardSurchargeConfig): CardSurchargeConfig {
+  if (!Number.isFinite(input.percent) || input.percent < 0) {
+    throw new Error('Surcharge percent must be 0 or higher')
+  }
+  if (input.percent > MAX_SURCHARGE_PERCENT) {
+    throw new Error(`Surcharge percent must be ${MAX_SURCHARGE_PERCENT}% or less`)
+  }
+
+  const extras = readExtras()
+  const next = {
+    ...extras,
+    card_surcharge: { enabled: !!input.enabled, percent: Number(input.percent.toFixed(3)) }
+  }
+  writeExtras(next)
+  enqueueSettingsSync()
+  return getCardSurcharge()
 }
 
 /**

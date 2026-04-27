@@ -72,6 +72,7 @@ export type TransactionHistoryItem = InventorySalesHistory & {
   card_last_four: string | null
   card_type: string | null
   status: string
+  cost_at_sale?: number | null
 }
 
 /** A single tender entry within a split (or single) payment */
@@ -90,6 +91,8 @@ export type SaveTransactionInput = {
   subtotal: number
   tax_amount: number
   total: number
+  /** Card processing surcharge folded into total. 0 when no surcharge applied. */
+  surcharge_amount?: number
   payment_method: string
   finix_authorization_id?: string | null
   finix_transfer_id?: string | null
@@ -114,6 +117,8 @@ export type SaveRefundInput = {
   original_transaction_number: string
   subtotal: number
   tax_amount: number
+  /** Signed surcharge component refunded — negative when refunding card fees. */
+  surcharge_amount?: number
   total: number
   payment_method: string
   finix_authorization_id?: string | null
@@ -161,6 +166,8 @@ export type PrintReceiptInput = {
   discount_amount?: number | null
   tax_amount: number
   total: number
+  /** Card processing surcharge component already included in `total`. */
+  surcharge_amount?: number
   payment_method: string
   card_last_four?: string | null
   card_type?: string | null
@@ -176,6 +183,7 @@ export type SavedTransaction = {
   subtotal: number
   tax_amount: number
   total: number
+  surcharge_amount?: number
   payment_method: string
   finix_authorization_id: string | null
   finix_transfer_id: string | null
@@ -235,6 +243,8 @@ export type TransactionListResult = {
 export type SpecialPricingRule = {
   quantity: number
   price: number
+  /** Optional ISO timestamp; rule is ignored once now() > expires_at. */
+  expires_at?: string | null
 }
 
 /** An active special pricing rule returned for POS cart evaluation */
@@ -242,6 +252,7 @@ export type ActiveSpecialPricingRule = {
   product_id: number
   quantity: number
   price: number
+  expires_at?: string | null
 }
 
 /** Promotion metadata attached to a cart line by the pricing engine */
@@ -391,6 +402,8 @@ export type SaveHeldTransactionInput = {
   transactionDiscountPercent: number
   subtotal: number
   total: number
+  /** Optional cashier-entered note shown on the lookup screen (e.g. customer name). */
+  description?: string | null
 }
 
 /** A held transaction record returned from the database */
@@ -403,6 +416,7 @@ export type HeldTransaction = {
   total: number
   item_count: number
   held_at: string
+  description?: string | null
 }
 
 // ── Supabase Auth & Catalog ──
@@ -467,6 +481,41 @@ export type MerchantConfig = {
   settings_extras_json?: string
   activated_at: string
   updated_at: string
+}
+
+export type CardSurchargeConfig = {
+  enabled: boolean
+  /** Percent applied to credit/debit. Stored as a positive number, e.g. 3.5 = 3.5%. */
+  percent: number
+}
+
+/**
+ * Snapshot pushed from the cashier window to the customer-facing display window.
+ * Mirrors only what the customer should see: cart contents, totals, and live
+ * payment state (not raw card data or terminal IDs).
+ */
+export type CustomerDisplaySnapshot = {
+  storeName?: string | null
+  cart: Array<{
+    id: number
+    name: string
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+  }>
+  subtotal: number
+  tax: number
+  total: number
+  /** When >0, surcharge config is active and this percent applies on card payments. */
+  cardSurchargePercent?: number
+  /** Filled when payment modal is open or a method has been selected. */
+  paymentMethod?: 'cash' | 'credit' | 'debit' | null
+  /** When card method is in flight, this reflects the surcharged amount that will be charged. */
+  cardChargeAmount?: number
+  surchargeAmount?: number
+  paymentStatus?: 'idle' | 'collecting' | 'processing-card' | 'complete'
+  /** Set when the cashier is owed change after a cash overpayment. */
+  changeDue?: number
 }
 
 export type SaveMerchantConfigInput = {
@@ -562,8 +611,9 @@ export type UpdateCashierInput = {
 /** Filters for the POS product search modal */
 export type SearchProductFilters = {
   departmentId?: number
-  distributorNumber?: number
+  distributorNumber?: number | 'none'
   size?: string
+  unpricedOnly?: boolean
 }
 
 /** Input for a manual card entry charge (Phase A — no hardware) */

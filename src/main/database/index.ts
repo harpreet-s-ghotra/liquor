@@ -84,7 +84,13 @@ export {
 } from './held-transactions.repo'
 
 // Merchant config
-export { getMerchantConfig, saveMerchantConfig, clearMerchantConfig } from './merchant-config.repo'
+export {
+  clearMerchantConfig,
+  getCardSurcharge,
+  getMerchantConfig,
+  saveMerchantConfig,
+  setCardSurcharge
+} from './merchant-config.repo'
 
 // Cashiers
 export {

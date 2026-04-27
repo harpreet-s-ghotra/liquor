@@ -28,6 +28,13 @@ type ActionPanelProps = {
   isViewingTransaction?: boolean
   isReturning?: boolean
   isViewingRefund?: boolean
+  /** When set and the cashier picks a card method, the totals box renders the
+   *  surcharge row and inflates the grand total accordingly. */
+  cardSurchargeContext?: {
+    enabled: boolean
+    percent: number
+    activeMethod: 'cash' | 'credit' | 'debit' | null
+  }
 }
 
 type ItemSize = 'small' | 'large'
@@ -56,9 +63,23 @@ export function ActionPanel({
   canPrintReceipt,
   isViewingTransaction,
   isReturning,
-  isViewingRefund
+  isViewingRefund,
+  cardSurchargeContext
 }: ActionPanelProps): React.JSX.Element {
   const discountAmount = subtotalBeforeDiscount - subtotalDiscounted
+
+  const surchargeActive =
+    !!cardSurchargeContext &&
+    cardSurchargeContext.enabled &&
+    cardSurchargeContext.percent > 0 &&
+    !isReturning &&
+    !isViewingRefund &&
+    (cardSurchargeContext.activeMethod === 'credit' ||
+      cardSurchargeContext.activeMethod === 'debit')
+  const surchargeAmount = surchargeActive
+    ? Math.round(total * (cardSurchargeContext!.percent / 100) * 100) / 100
+    : 0
+  const grandTotalDisplay = surchargeActive ? total + surchargeAmount : total
   const [menuOpen, setMenuOpen] = useState(false)
   const showAsRefund = isReturning || isViewingRefund
   const fmtMoney = (v: number): string =>
@@ -144,9 +165,26 @@ export function ActionPanel({
             {showAsRefund ? fmtRefundMoney(tax) : fmtMoney(tax)}
           </strong>
         </div>
+        {surchargeActive && (
+          <div
+            className="action-panel__totals-row action-panel__totals-row--surcharge"
+            data-testid="action-panel-surcharge-row"
+          >
+            <span className="action-panel__totals-label">
+              Card processing fee ({cardSurchargeContext!.percent}%)
+            </span>
+            <strong className="action-panel__totals-value">{fmtMoney(surchargeAmount)}</strong>
+          </div>
+        )}
         <div className="action-panel__grand-total grand-total">
           <span className="action-panel__grand-total-label">
-            {showAsRefund ? 'Refund' : 'Total'}
+            {showAsRefund
+              ? 'Refund'
+              : surchargeActive
+                ? cardSurchargeContext!.activeMethod === 'credit'
+                  ? 'Credit Total'
+                  : 'Debit Total'
+                : 'Total'}
           </span>
           <strong
             className={cn(
@@ -154,7 +192,7 @@ export function ActionPanel({
               showAsRefund && 'action-panel__grand-total-value--refund'
             )}
           >
-            {showAsRefund ? fmtRefundMoney(total) : fmtMoney(total)}
+            {showAsRefund ? fmtRefundMoney(total) : fmtMoney(grandTotalDisplay)}
           </strong>
         </div>
       </div>
@@ -195,7 +233,7 @@ export function ActionPanel({
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M18 3H6v4h12V3zm1 9c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm-3 7H8v-5h8v5zm3-11H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3z" />
           </svg>
-          Receipt
+          {isViewingTransaction ? 'Receipt' : 'Last Receipt'}
         </button>
         <button
           type="button"

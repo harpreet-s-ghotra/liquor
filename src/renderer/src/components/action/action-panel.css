@@ -74,6 +74,10 @@
   color: var(--accent-peach);
 }
 
+.action-panel__totals-row--surcharge {
+  color: var(--accent-blue, #1f6feb);
+}
+
 .action-panel__totals-label {
   text-transform: uppercase;
   letter-spacing: 0.05rem;

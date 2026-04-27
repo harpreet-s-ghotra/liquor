@@ -109,6 +109,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
       getRecentTransactions: async () => [...savedTransactions].reverse(),
 
       saveHeldTransaction: async (input: Record<string, unknown>) => {
+        const desc = (input.description as string | null | undefined) ?? null
         const held = {
           id: heldTransactions.length + 1,
           hold_number: nextHoldNumber++,
@@ -120,6 +121,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
             (s, i) => s + i.lineQuantity,
             0
           ),
+          description: desc && desc.trim() ? desc.trim() : null,
           held_at: new Date().toISOString()
         }
         heldTransactions.push(held)
@@ -164,6 +166,16 @@ const addProductToCart = async (page: Page): Promise<void> => {
   await page.locator('.action-panel__product-tile').first().click()
 }
 
+/** Click Hold and submit the description prompt with the (optional) note. */
+const holdCart = async (page: Page, description = ''): Promise<void> => {
+  await page.getByTestId('hold-btn').click()
+  const promptInput = page.getByTestId('prompt-dialog-input')
+  await promptInput.waitFor({ state: 'visible' })
+  if (description) await promptInput.fill(description)
+  await page.getByTestId('prompt-dialog-confirm-btn').click()
+  await promptInput.waitFor({ state: 'detached' })
+}
+
 test.describe('Hold Transactions', () => {
   test('Hold button is disabled when cart is empty', async ({ page }) => {
     await attachPosApiMock(page)
@@ -198,7 +210,7 @@ test.describe('Hold Transactions', () => {
     await expect(page.locator('.ticket-panel__line').first()).toBeVisible()
 
     // Click Hold
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Cart should be empty after hold
     await expect(page.getByTestId('hold-btn')).toBeDisabled()
@@ -206,6 +218,31 @@ test.describe('Hold Transactions', () => {
     // TS Lookup badge should show "1"
     const badge = page.getByTestId('ts-lookup-btn').locator('span')
     await expect(badge).toHaveText('1')
+  })
+
+  test('Hold description typed in the prompt surfaces on the lookup row', async ({ page }) => {
+    await attachPosApiMock(page)
+    await gotoAndLogin(page)
+    await addProductToCart(page)
+
+    await holdCart(page, "Mike's pickup")
+
+    await page.getByTestId('ts-lookup-btn').click()
+    await expect(page.getByTestId('hold-description-1')).toHaveText("Mike's pickup")
+  })
+
+  test('Hold without a description hides the description chip on the lookup row', async ({
+    page
+  }) => {
+    await attachPosApiMock(page)
+    await gotoAndLogin(page)
+    await addProductToCart(page)
+
+    await holdCart(page) // blank
+
+    await page.getByTestId('ts-lookup-btn').click()
+    await expect(page.getByTestId('hold-row-1')).toBeVisible()
+    await expect(page.getByTestId('hold-description-1')).toHaveCount(0)
   })
 
   test('TS Lookup modal shows "No transactions on hold" when empty', async ({ page }) => {
@@ -224,7 +261,7 @@ test.describe('Hold Transactions', () => {
     await addProductToCart(page)
 
     // Hold the transaction
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Open TS Lookup
     await page.getByTestId('ts-lookup-btn').click()
@@ -252,7 +289,7 @@ test.describe('Hold Transactions', () => {
 
     // Add product A and hold it (becomes Hold #1)
     await addProductToCart(page)
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Add product B (a different product) — now in cart
     await selectAllCategory(page)
@@ -279,12 +316,12 @@ test.describe('Hold Transactions', () => {
 
     // Hold #1
     await addProductToCart(page)
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Hold #2
     await selectAllCategory(page)
     await page.locator('.action-panel__product-tile').nth(1).click()
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Open TS Lookup — should show both
     await page.getByTestId('ts-lookup-btn').click()
@@ -319,7 +356,7 @@ test.describe('Hold Transactions', () => {
       .first()
       .innerText()
     await page.locator('.action-panel__product-tile').first().click()
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Recall it
     await page.getByTestId('ts-lookup-btn').click()
@@ -346,7 +383,7 @@ test.describe('Hold Transactions', () => {
     const totalBefore = await page.locator('.grand-total strong').innerText()
 
     // Hold
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Cart should be empty, total should be $0.00
     await expect(page.locator('.grand-total strong')).toHaveText('$0.00')
@@ -366,12 +403,12 @@ test.describe('Hold Transactions', () => {
     // Hold product A (Hold #1)
     await selectAllCategory(page)
     await page.locator('.action-panel__product-tile').first().click()
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Hold product B (Hold #2)
     await selectAllCategory(page)
     await page.locator('.action-panel__product-tile').nth(1).click()
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Badge should show 2
     await expect(page.getByTestId('ts-lookup-btn').locator('span')).toHaveText('2')
@@ -395,11 +432,11 @@ test.describe('Hold Transactions', () => {
 
     // Hold two transactions
     await addProductToCart(page)
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     await selectAllCategory(page)
     await page.locator('.action-panel__product-tile').nth(1).click()
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Badge shows 2
     await expect(page.getByTestId('ts-lookup-btn').locator('span')).toHaveText('2')
@@ -408,6 +445,8 @@ test.describe('Hold Transactions', () => {
     await page.getByTestId('ts-lookup-btn').click()
     await expect(page.getByTestId('hold-row-1')).toBeVisible()
     await page.getByTestId('hold-delete-1').click()
+    // Confirm dialog now stands between the trash icon and the actual delete.
+    await page.getByTestId('confirm-dialog-confirm-btn').click()
 
     // Hold #1 should be gone, Hold #2 remains
     await expect(page.getByTestId('hold-row-1')).not.toBeVisible()
@@ -420,11 +459,11 @@ test.describe('Hold Transactions', () => {
 
     // Hold two transactions
     await addProductToCart(page)
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     await selectAllCategory(page)
     await page.locator('.action-panel__product-tile').nth(1).click()
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     // Badge shows 2
     await expect(page.getByTestId('ts-lookup-btn').locator('span')).toHaveText('2')
@@ -433,6 +472,7 @@ test.describe('Hold Transactions', () => {
     await page.getByTestId('ts-lookup-btn').click()
     await expect(page.getByTestId('hold-clear-all-btn')).toBeVisible()
     await page.getByTestId('hold-clear-all-btn').click()
+    await page.getByTestId('confirm-dialog-confirm-btn').click()
 
     // Should show empty state
     await expect(page.getByTestId('hold-lookup-empty')).toBeVisible()
@@ -454,13 +494,14 @@ test.describe('Hold Transactions', () => {
 
     // Hold one transaction
     await addProductToCart(page)
-    await page.getByTestId('hold-btn').click()
+    await holdCart(page)
 
     await expect(page.getByTestId('ts-lookup-btn').locator('span')).toHaveText('1')
 
     // Open TS Lookup and Clear All
     await page.getByTestId('ts-lookup-btn').click()
     await page.getByTestId('hold-clear-all-btn').click()
+    await page.getByTestId('confirm-dialog-confirm-btn').click()
 
     // Close modal
     await page.keyboard.press('Escape')

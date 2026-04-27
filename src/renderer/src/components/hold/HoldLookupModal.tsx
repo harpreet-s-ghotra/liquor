@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
 import { AppModalHeader } from '../common/AppModalHeader'
+import { ConfirmDialog } from '../common/ConfirmDialog'
 import { HoldIcon } from '../common/modal-icons'
 import type { HeldTransaction } from '../../../../shared/types'
 import './hold-lookup-modal.css'
@@ -26,6 +28,9 @@ export function HoldLookupModal({
   onClearAll,
   onClose
 }: HoldLookupModalProps): React.JSX.Element {
+  const [pendingDelete, setPendingDelete] = useState<HeldTransaction | null>(null)
+  const [pendingClearAll, setPendingClearAll] = useState(false)
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -46,7 +51,7 @@ export function HoldLookupModal({
                 <button
                   type="button"
                   className="hold-lookup__clear-all"
-                  onClick={onClearAll}
+                  onClick={() => setPendingClearAll(true)}
                   data-testid="hold-clear-all-btn"
                 >
                   Clear All
@@ -75,6 +80,14 @@ export function HoldLookupModal({
                   onClick={() => onRecall(held)}
                 >
                   <span className="hold-lookup__item-number">Hold #{held.hold_number}</span>
+                  {held.description ? (
+                    <span
+                      className="hold-lookup__item-description"
+                      data-testid={`hold-description-${held.hold_number}`}
+                    >
+                      {held.description}
+                    </span>
+                  ) : null}
                   <span className="hold-lookup__item-count">
                     {held.item_count} item{held.item_count !== 1 ? 's' : ''}
                   </span>
@@ -84,7 +97,7 @@ export function HoldLookupModal({
                 <button
                   type="button"
                   className="hold-lookup__delete-btn"
-                  onClick={() => onDelete(held)}
+                  onClick={() => setPendingDelete(held)}
                   data-testid={`hold-delete-${held.hold_number}`}
                   aria-label={`Delete Hold #${held.hold_number}`}
                 >
@@ -102,6 +115,36 @@ export function HoldLookupModal({
             ))
           )}
         </div>
+
+        <ConfirmDialog
+          isOpen={pendingDelete !== null}
+          title="Delete hold"
+          message={
+            pendingDelete
+              ? `Permanently delete Hold #${pendingDelete.hold_number}? The cart cannot be recovered.`
+              : ''
+          }
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={() => {
+            if (pendingDelete) onDelete(pendingDelete)
+            setPendingDelete(null)
+          }}
+          onCancel={() => setPendingDelete(null)}
+        />
+
+        <ConfirmDialog
+          isOpen={pendingClearAll}
+          title="Clear all holds"
+          message={`Permanently delete all ${heldTransactions.length} held transactions? This cannot be undone.`}
+          confirmLabel="Clear All"
+          variant="danger"
+          onConfirm={() => {
+            onClearAll()
+            setPendingClearAll(false)
+          }}
+          onCancel={() => setPendingClearAll(false)}
+        />
       </DialogContent>
     </Dialog>
   )

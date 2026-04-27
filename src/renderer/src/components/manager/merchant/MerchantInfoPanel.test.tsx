@@ -24,7 +24,9 @@ describe('MerchantInfoPanel', () => {
   beforeEach(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api = {
-      getFinixMerchantStatus: vi.fn().mockResolvedValue(mockStatus)
+      getFinixMerchantStatus: vi.fn().mockResolvedValue(mockStatus),
+      getCardSurcharge: vi.fn().mockResolvedValue({ enabled: false, percent: 0 }),
+      setCardSurcharge: vi.fn(async (input: { enabled: boolean; percent: number }) => input)
     }
 
     useAuthStore.setState({
@@ -251,5 +253,70 @@ describe('MerchantInfoPanel', () => {
     })
 
     expect(screen.queryByText(/network error/i)).not.toBeInTheDocument()
+  })
+
+  describe('Card Surcharge', () => {
+    it('renders the card surcharge section with the saved values', async () => {
+      vi.mocked(window.api!.getCardSurcharge).mockResolvedValueOnce({
+        enabled: true,
+        percent: 3.5
+      })
+
+      render(<MerchantInfoPanel />)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('card-surcharge-section')).toBeInTheDocument()
+      })
+
+      const percentInput = screen.getByLabelText('Card surcharge percent') as HTMLInputElement
+      await waitFor(() => {
+        expect(percentInput.value).toBe('3.5')
+      })
+      expect(screen.getByLabelText('Apply surcharge on credit and debit')).toBeChecked()
+    })
+
+    it('saves a new surcharge percent and shows success', async () => {
+      render(<MerchantInfoPanel />)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('card-surcharge-section')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByLabelText('Apply surcharge on credit and debit'))
+      const percentInput = screen.getByLabelText('Card surcharge percent')
+      fireEvent.change(percentInput, { target: { value: '2.5' } })
+
+      const saveButtons = screen.getAllByRole('button', { name: /^save$/i })
+      fireEvent.click(saveButtons[saveButtons.length - 1])
+
+      await waitFor(() => {
+        expect(window.api!.setCardSurcharge).toHaveBeenCalledWith({
+          enabled: true,
+          percent: 2.5
+        })
+      })
+      await waitFor(() => {
+        expect(screen.getByText('Card surcharge saved')).toBeInTheDocument()
+      })
+    })
+
+    it('blocks saves above 10%', async () => {
+      render(<MerchantInfoPanel />)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('card-surcharge-section')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByLabelText('Apply surcharge on credit and debit'))
+      fireEvent.change(screen.getByLabelText('Card surcharge percent'), {
+        target: { value: '12' }
+      })
+
+      const saveButtons = screen.getAllByRole('button', { name: /^save$/i })
+      fireEvent.click(saveButtons[saveButtons.length - 1])
+
+      expect(await screen.findByText(/10% or less/i)).toBeInTheDocument()
+      expect(window.api!.setCardSurcharge).not.toHaveBeenCalled()
+    })
   })
 })

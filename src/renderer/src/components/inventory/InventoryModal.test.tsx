@@ -1,6 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('@renderer/hooks/useDebounce', () => ({
+  useDebounce: (value: string) => value
+}))
+
 import { InventoryModal } from './InventoryModal'
 
 describe('InventoryModal', () => {
@@ -209,7 +214,9 @@ describe('InventoryModal', () => {
 
   it('shows "New Item" breadcrumb when no item is selected', () => {
     render(<InventoryModal isOpen onClose={vi.fn()} />)
-    expect(screen.getByText('New Item')).toBeInTheDocument()
+    expect(
+      screen.getByText('New Item', { selector: '.app-modal-header__title' })
+    ).toBeInTheDocument()
   })
 
   it('shows "Item Types" breadcrumb when on item types tab', async () => {
@@ -303,6 +310,164 @@ describe('InventoryModal', () => {
 
     await waitFor(() => {
       expect(api.searchInventoryProducts).toHaveBeenCalledWith('wine')
+    })
+  })
+
+  it('refocuses the search input after opening a selected result', async () => {
+    const detailMock = vi.mocked(api.getInventoryProductDetail).mockResolvedValueOnce({
+      item_number: 1,
+      sku: 'WINE-001',
+      item_name: 'Red Wine',
+      item_type: 'Wine',
+      category_id: null,
+      category_name: null,
+      cost: 5,
+      retail_price: 9.99,
+      in_stock: 10,
+      tax_1: 0.08,
+      tax_2: 0,
+      distributor_number: 1,
+      distributor_name: 'North Wines',
+      bottles_per_case: 12,
+      case_discount_price: null,
+      barcode: null,
+      description: null,
+      special_pricing_enabled: 0,
+      special_price: null,
+      is_active: 1,
+      size: null,
+      case_cost: null,
+      nysla_discounts: null,
+      brand_name: null,
+      proof: null,
+      alcohol_pct: null,
+      vintage: null,
+      ttb_id: null,
+      display_name: null,
+      is_favorite: 0,
+      is_discontinued: 0,
+      additional_skus: [],
+      tax_rates: [],
+      special_pricing: [],
+      sales_history: []
+    })
+
+    vi.mocked(api.searchInventoryProducts).mockResolvedValue([
+      {
+        item_number: 1,
+        sku: 'WINE-001',
+        item_name: 'Red Wine',
+        category_id: null,
+        category_name: null,
+        cost: 5,
+        retail_price: 9.99,
+        in_stock: 10,
+        tax_1: 0.08,
+        tax_2: 0,
+        distributor_number: 1,
+        distributor_name: 'North Wines',
+        bottles_per_case: 12,
+        case_discount_price: null,
+        special_pricing_enabled: 0,
+        special_price: null,
+        is_active: 1,
+        barcode: null,
+        description: null
+      }
+    ])
+
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    const searchInput = screen.getByLabelText('Search Inventory')
+    await userEvent.type(searchInput, 'wine')
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('listbox', { name: 'Search results' })).toBeInTheDocument()
+    })
+
+    fireEvent.mouseDown(screen.getByText('Red Wine'))
+
+    await waitFor(() => {
+      expect(detailMock).toHaveBeenCalledWith(1)
+      expect(searchInput).toHaveFocus()
+      expect(searchInput).toHaveValue('')
+    })
+  })
+
+  it('auto-opens an exact unique sku match after debounce', async () => {
+    const detailMock = vi.mocked(api.getInventoryProductDetail).mockResolvedValueOnce({
+      item_number: 1,
+      sku: 'WINE-001',
+      item_name: 'Red Wine',
+      item_type: 'Wine',
+      category_id: null,
+      category_name: null,
+      cost: 5,
+      retail_price: 9.99,
+      in_stock: 10,
+      tax_1: 0.08,
+      tax_2: 0,
+      distributor_number: 1,
+      distributor_name: 'North Wines',
+      bottles_per_case: 12,
+      case_discount_price: null,
+      barcode: null,
+      description: null,
+      special_pricing_enabled: 0,
+      special_price: null,
+      is_active: 1,
+      size: null,
+      case_cost: null,
+      nysla_discounts: null,
+      brand_name: null,
+      proof: null,
+      alcohol_pct: null,
+      vintage: null,
+      ttb_id: null,
+      display_name: null,
+      is_favorite: 0,
+      is_discontinued: 0,
+      additional_skus: [],
+      tax_rates: [],
+      special_pricing: [],
+      sales_history: []
+    })
+
+    vi.mocked(api.searchInventoryProducts).mockResolvedValueOnce([
+      {
+        item_number: 1,
+        sku: 'WINE-001',
+        item_name: 'Red Wine',
+        category_id: null,
+        category_name: null,
+        cost: 5,
+        retail_price: 9.99,
+        in_stock: 10,
+        tax_1: 0.08,
+        tax_2: 0,
+        distributor_number: 1,
+        distributor_name: 'North Wines',
+        bottles_per_case: 12,
+        case_discount_price: null,
+        special_pricing_enabled: 0,
+        special_price: null,
+        is_active: 1,
+        barcode: null,
+        description: null
+      }
+    ])
+
+    render(<InventoryModal isOpen onClose={vi.fn()} />)
+
+    const searchInput = screen.getByLabelText('Search Inventory')
+    fireEvent.change(searchInput, { target: { value: 'wine-001' } })
+
+    await waitFor(() => {
+      expect(api.searchInventoryProducts).toHaveBeenCalledWith('wine-001')
+      expect(detailMock).toHaveBeenCalledWith(1)
+      expect(searchInput).toHaveFocus()
+      expect(searchInput).toHaveValue('')
     })
   })
 

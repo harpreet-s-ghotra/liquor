@@ -1,8 +1,14 @@
 import Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { setDatabase } from './connection'
+import { setDatabase, getDb } from './connection'
 import { applySchema } from './schema'
-import { getTaxCodes, createTaxCode, updateTaxCode, deleteTaxCode } from './tax-codes.repo'
+import {
+  getTaxCodes,
+  createTaxCode,
+  updateTaxCode,
+  deleteTaxCode,
+  setDefaultTaxCode
+} from './tax-codes.repo'
 import { getPendingItems } from './sync-queue.repo'
 
 // Mock getDeviceConfig so enqueue doesn't fail
@@ -148,11 +154,11 @@ describe('tax-codes.repo', () => {
 
   describe('deleteTaxCode', () => {
     it('deletes a tax code and enqueues DELETE sync', () => {
+      // A default tax code must exist so products can be reassigned away from
+      // the deleted code.
+      const fallback = createTaxCode({ code: 'DEFAULT', rate: 0.05 })
+      setDefaultTaxCode(fallback.id)
       const created = createTaxCode({ code: 'TO_DELETE', rate: 0.08 })
-
-      // Clear pending to focus on delete operation
-      const pending1 = getPendingItems()
-      expect(pending1).toHaveLength(1) // The INSERT
 
       deleteTaxCode(created.id)
 
@@ -161,13 +167,36 @@ describe('tax-codes.repo', () => {
       expect(deleteOps).toHaveLength(1)
       expect(deleteOps[0].entity_id).toBe(String(created.id))
 
-      // Verify actually deleted
       const list = getTaxCodes()
-      expect(list).toEqual([])
+      expect(list.map((t) => t.code)).toEqual(['DEFAULT'])
     })
 
     it('throws when tax code does not exist', () => {
       expect(() => deleteTaxCode(9999)).toThrow('Tax code not found')
+    })
+
+    it('throws when no default tax code is set', () => {
+      const tc = createTaxCode({ code: 'ORPHAN', rate: 0.1 })
+      expect(() => deleteTaxCode(tc.id)).toThrow(/default tax code/i)
+    })
+
+    it('reassigns products from the deleted rate to the default rate', () => {
+      const defaultTc = createTaxCode({ code: 'DEFAULT_TC', rate: 0.05 })
+      setDefaultTaxCode(defaultTc.id)
+      const oldTc = createTaxCode({ code: 'OLD_TC', rate: 0.13 })
+
+      const db = getDb()
+      db.prepare(
+        `INSERT INTO products (sku, name, category, price, retail_price, in_stock, tax_1)
+         VALUES ('A', 'A', 'Misc', 10, 10, 5, ?), ('B', 'B', 'Misc', 20, 20, 5, ?), ('C', 'C', 'Misc', 30, 30, 5, ?)`
+      ).run(0.13, 0.13, 0.05)
+
+      deleteTaxCode(oldTc.id)
+
+      const rows = db
+        .prepare('SELECT sku, COALESCE(tax_1, tax_rate) AS rate FROM products ORDER BY sku')
+        .all() as { sku: string; rate: number }[]
+      expect(rows.map((r) => `${r.sku}:${r.rate}`)).toEqual(['A:0.05', 'B:0.05', 'C:0.05'])
     })
   })
 
@@ -191,12 +220,21 @@ describe('tax-codes.repo', () => {
     it('enqueues multiple operations in FIFO order', () => {
       const tc1 = createTaxCode({ code: 'FIRST', rate: 0.08 })
       const tc2 = createTaxCode({ code: 'SECOND', rate: 0.09 })
+      // Make tc1 the default so deleting tc2 has a fallback to reassign to.
+      setDefaultTaxCode(tc1.id)
 
       updateTaxCode({ id: tc1.id, code: 'FIRST', rate: 0.085 })
       deleteTaxCode(tc2.id)
 
       const pending = getPendingItems()
-      expect(pending.map((p) => p.operation)).toEqual(['INSERT', 'INSERT', 'UPDATE', 'DELETE'])
+      // INSERT (tc1), INSERT (tc2), UPDATE (default flag), UPDATE (rate edit), DELETE (tc2)
+      expect(pending.map((p) => p.operation)).toEqual([
+        'INSERT',
+        'INSERT',
+        'UPDATE',
+        'UPDATE',
+        'DELETE'
+      ])
     })
   })
 })

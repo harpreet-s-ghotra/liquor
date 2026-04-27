@@ -151,8 +151,7 @@ test.describe('Search modal — Open in Inventory', () => {
     // Click "Open in Inventory"
     await page.getByRole('button', { name: 'Open in Inventory' }).click()
 
-    // The search modal should close and the inventory modal should open
-    await expect(page.getByRole('dialog', { name: 'Search' })).not.toBeVisible()
+    // Inventory opens on top; when it closes, the search modal should still be there.
     await expect(page.getByRole('dialog', { name: 'Inventory Management' })).toBeVisible()
 
     // The item's SKU and name should be loaded in the form
@@ -164,5 +163,10 @@ test.describe('Search modal — Open in Inventory', () => {
 
     // The header breadcrumb should reflect the selected item
     await expect(page.getByText('Edit Record: WINE-001')).toBeVisible()
+
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Inventory Management' })).not.toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Search' })).toBeVisible()
+    await expect(page.getByTestId('search-result-1')).toBeVisible()
   })
 })

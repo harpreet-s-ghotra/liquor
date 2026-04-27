@@ -36,6 +36,7 @@
 | [Keyboard-Navigable Search Dropdown](features/keyboard-navigable-search-dropdown.md) | Complete | Shared keyboard-driven typeahead dropdown for inventory, reorder, and purchase-order search |
 | [Inventory Size Field Fix](features/inventory-size-field-fix.md)                     | Complete | Free-form size entry, shared normalization, size backfill, and non-canonical display fix    |
 | [Monitoring & Observability](features/monitoring-observability.md)                   | Active   | Lightweight telemetry for errors, IPC performance, startup timings, and behavior            |
+| [Card Surcharge](features/card-surcharge.md)                                         | Complete | Manager-configurable percent surcharge on credit/debit charges to offset processing fees    |
 
 ## AI Navigation
 

@@ -15,6 +15,9 @@ export const DEPARTMENT_NAME_MAX_LENGTH = 64
 /** Maximum length for tax code name */
 export const TAX_CODE_MAX_LENGTH = 32
 
+/** Maximum length for the optional cashier-entered note on a held transaction */
+export const HOLD_DESCRIPTION_MAX_LENGTH = 120
+
 /** Length of cashier PINs */
 export const PIN_LENGTH = 4
 

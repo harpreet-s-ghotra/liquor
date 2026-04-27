@@ -19,6 +19,8 @@ import type {
   CreateSalesRepInput,
   UpdateSalesRepInput,
   MerchantConfig,
+  CardSurchargeConfig,
+  CustomerDisplaySnapshot,
   Cashier,
   CreateCashierInput,
   UpdateCashierInput,
@@ -140,6 +142,12 @@ type AppApi = {
     merchantId: string
   ) => Promise<MerchantConfig>
   deactivateMerchant: () => Promise<void>
+  getCardSurcharge: () => Promise<CardSurchargeConfig>
+  setCardSurcharge: (input: CardSurchargeConfig) => Promise<CardSurchargeConfig>
+
+  // Customer-facing display
+  pushCustomerSnapshot: (snapshot: CustomerDisplaySnapshot) => Promise<void>
+  onCustomerSnapshot: (callback: (snapshot: CustomerDisplaySnapshot) => void) => () => void
 
   // Cashiers
   getCashiers: () => Promise<Cashier[]>

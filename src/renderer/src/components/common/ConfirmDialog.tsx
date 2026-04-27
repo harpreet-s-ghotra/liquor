@@ -45,10 +45,20 @@ export function ConfirmDialog({
         </div>
 
         <div className="confirm-dialog__footer">
-          <AppButton variant="neutral" size="md" onClick={onCancel}>
+          <AppButton
+            variant="neutral"
+            size="md"
+            onClick={onCancel}
+            data-testid="confirm-dialog-cancel-btn"
+          >
             {cancelLabel}
           </AppButton>
-          <AppButton variant={variant} size="md" onClick={onConfirm}>
+          <AppButton
+            variant={variant}
+            size="md"
+            onClick={onConfirm}
+            data-testid="confirm-dialog-confirm-btn"
+          >
             {confirmLabel}
           </AppButton>
         </div>

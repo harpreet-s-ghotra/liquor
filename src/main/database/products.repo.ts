@@ -150,30 +150,34 @@ export function getInventoryTaxCodes(): InventoryTaxCode[] {
 
 export function searchProducts(
   query: string,
-  filters: { departmentId?: number; distributorNumber?: number; size?: string } = {}
+  filters: {
+    departmentId?: number
+    distributorNumber?: number | 'none'
+    size?: string
+    unpricedOnly?: boolean
+  } = {}
 ): Product[] {
-  const normalizedQuery = query.trim()
-
   const conditions: string[] = ['p.is_active = 1']
   const params: Record<string, unknown> = {}
 
-  if (normalizedQuery) {
-    conditions.push('(normalize_search(p.name) LIKE @likeQuery OR p.sku LIKE @rawLikeQuery)')
-    params.likeQuery = `%${normalizeSearch(normalizedQuery)}%`
-    params.rawLikeQuery = `%${normalizedQuery}%`
-  }
+  buildSearchPredicate(query, ['p.name', 'p.brand_name'], 'p.sku', params, conditions)
 
   if (filters.departmentId != null) {
     conditions.push('it.id = @departmentId')
     params.departmentId = filters.departmentId
   }
-  if (filters.distributorNumber != null) {
+  if (filters.distributorNumber === 'none') {
+    conditions.push('p.distributor_number IS NULL')
+  } else if (filters.distributorNumber != null) {
     conditions.push('p.distributor_number = @distributorNumber')
     params.distributorNumber = filters.distributorNumber
   }
   if (filters.size != null && filters.size.trim() !== '') {
     conditions.push('p.size = @size')
     params.size = filters.size.trim()
+  }
+  if (filters.unpricedOnly) {
+    conditions.push('COALESCE(p.retail_price, p.price) = 0')
   }
 
   return getDb()
@@ -203,14 +207,19 @@ export function searchProducts(
 }
 
 export function searchInventoryProducts(query: string): InventoryProduct[] {
-  const normalizedQuery = query.trim()
-
-  if (!normalizedQuery) {
+  if (!query.trim()) {
     return getInventoryProducts()
   }
 
-  const likeQuery = `%${normalizeSearch(normalizedQuery)}%`
-  const rawLikeQuery = `%${normalizedQuery}%`
+  const params: Record<string, unknown> = {}
+  const conditions: string[] = ['products.is_active = 1']
+  buildSearchPredicate(
+    query,
+    ['products.name', 'products.brand_name'],
+    'products.sku',
+    params,
+    conditions
+  )
 
   return getDb()
     .prepare(
@@ -249,17 +258,43 @@ export function searchInventoryProducts(query: string): InventoryProduct[] {
         COALESCE(products.is_discontinued, 0) AS is_discontinued
       FROM products
       LEFT JOIN distributors ON distributors.distributor_number = products.distributor_number
-      WHERE products.is_active = 1
-        AND (
-          products.sku LIKE @rawLikeQuery
-          OR normalize_search(products.name) LIKE @likeQuery
-          OR normalize_search(products.brand_name) LIKE @likeQuery
-        )
+      WHERE ${conditions.join(' AND ')}
       ORDER BY products.id
       LIMIT 20
       `
     )
-    .all({ likeQuery, rawLikeQuery }) as InventoryProduct[]
+    .all(params) as InventoryProduct[]
+}
+
+function buildSearchPredicate(
+  query: string,
+  normalizedFields: string[],
+  skuField: string,
+  params: Record<string, unknown>,
+  conditions: string[]
+): void {
+  const tokens = query
+    .trim()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+
+  if (tokens.length === 0) return
+
+  const tokenConditions = tokens.map((token, index) => {
+    const normalizedKey = `normToken${index}`
+    const rawKey = `rawToken${index}`
+    params[normalizedKey] = `%${normalizeSearch(token)}%`
+    params[rawKey] = `%${token}%`
+
+    const normalizedPredicates = normalizedFields
+      .map((field) => `normalize_search(${field}) LIKE @${normalizedKey}`)
+      .join(' OR ')
+
+    return `(${normalizedPredicates} OR ${skuField} LIKE @${rawKey})`
+  })
+
+  conditions.push(...tokenConditions)
 }
 
 export function getInventoryProductDetail(itemNumber: number): InventoryProductDetail | null {
@@ -342,6 +377,7 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
         ti.quantity,
         ti.unit_price,
         ti.total_price,
+        ti.cost_at_sale,
         t.payment_method,
         t.finix_authorization_id,
         t.card_last_four,
@@ -359,7 +395,7 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
   const specialPricing = getDb()
     .prepare(
       `
-      SELECT quantity, price
+      SELECT quantity, price, expires_at
       FROM special_pricing
       WHERE product_id = ?
       ORDER BY quantity
@@ -378,7 +414,8 @@ export function getInventoryProductDetail(itemNumber: number): InventoryProductD
 
 /**
  * Return all special pricing rules for active products for POS cart evaluation.
- * Rules are permanent until the merchant deletes them.
+ * Rules with a past `expires_at` are filtered out at query time so the cashier
+ * never sees a stale promo. NULL expires_at = never expires.
  */
 export function getActiveSpecialPricing(): ActiveSpecialPricingRule[] {
   return getDb()
@@ -387,9 +424,11 @@ export function getActiveSpecialPricing(): ActiveSpecialPricingRule[] {
       SELECT
         sp.product_id,
         sp.quantity,
-        sp.price
+        sp.price,
+        sp.expires_at
       FROM special_pricing sp
       INNER JOIN products p ON p.id = sp.product_id AND p.is_active = 1
+      WHERE sp.expires_at IS NULL OR sp.expires_at > CURRENT_TIMESTAMP
       ORDER BY sp.product_id, sp.quantity
       `
     )
@@ -823,13 +862,13 @@ export function saveInventoryItem(input: SaveInventoryItemInput): InventoryProdu
 
     const insertPricingRule = db.prepare(
       `
-      INSERT INTO special_pricing (product_id, quantity, price)
-      VALUES (?, ?, ?)
+      INSERT INTO special_pricing (product_id, quantity, price, expires_at)
+      VALUES (?, ?, ?, ?)
       `
     )
 
     for (const rule of payload.special_pricing) {
-      insertPricingRule.run(productId, rule.quantity, rule.price)
+      insertPricingRule.run(productId, rule.quantity, rule.price, rule.expires_at ?? null)
     }
 
     return productId

@@ -126,6 +126,8 @@ describe('POSScreen', () => {
         footerMessage: '',
         alwaysPrint: false
       }),
+      getCardSurcharge: vi.fn().mockResolvedValue({ enabled: false, percent: 0 }),
+      pushCustomerSnapshot: vi.fn().mockResolvedValue(undefined),
       listSessions: vi.fn().mockResolvedValue({ sessions: [], total_count: 0 }),
       createSession: vi.fn().mockResolvedValue({ id: 1, status: 'active' })
     }
@@ -254,6 +256,57 @@ describe('POSScreen', () => {
     })
 
     expect(clearTransaction).toHaveBeenCalled()
+  })
+
+  it('pushes change due to the customer display after a cash overpayment completes', async () => {
+    const pushCustomerSnapshot = vi.fn().mockResolvedValue(undefined)
+    const saveTransaction = vi.fn().mockResolvedValue({ id: 1, transaction_number: 'TXN-1' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.pushCustomerSnapshot = pushCustomerSnapshot
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.saveTransaction = saveTransaction
+
+    mockUsePosScreen.mockReturnValue(
+      createDefaultMock({
+        cart: [sampleCartItem],
+        cartLines: [{ ...sampleCartItem, lineQuantity: 1 }],
+        subtotalBeforeDiscount: 43,
+        subtotalDiscounted: 43,
+        tax: 0,
+        total: 43
+      })
+    )
+
+    render(<POSScreen />)
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Pay Now'))
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '$50' }))
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('payment-ok-btn'))
+      await Promise.resolve()
+    })
+
+    const completeSnapshot = pushCustomerSnapshot.mock.calls
+      .map((call) => call[0])
+      .find((snapshot) => snapshot?.paymentStatus === 'complete' && snapshot?.changeDue === 7)
+
+    expect(completeSnapshot).toMatchObject({
+      paymentMethod: 'cash',
+      paymentStatus: 'complete',
+      changeDue: 7
+    })
   })
 
   it('calls reloadProducts when inventory modal closes', () => {

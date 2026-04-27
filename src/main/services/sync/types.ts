@@ -10,6 +10,7 @@ export type CloudTransactionPayload = {
   transaction_number: string
   subtotal: number
   tax_amount: number
+  surcharge_amount: number
   total: number
   payment_method: string | null
   finix_authorization_id: string | null
@@ -43,6 +44,7 @@ export type TransactionSyncPayload = {
     transaction_number: string
     subtotal: number
     tax_amount: number
+    surcharge_amount: number
     total: number
     payment_method: string | null
     finix_authorization_id: string | null
@@ -143,6 +145,7 @@ export type ProductSyncPayload = {
   special_pricing: Array<{
     quantity: number
     price: number
+    expires_at?: string | null
   }>
 }
 

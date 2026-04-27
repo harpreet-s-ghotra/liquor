@@ -130,7 +130,8 @@ Two new read-only fields must be **computed in the frontend** and displayed in t
 | Field                       | Formula                                        | Notes                                                                                     |
 | --------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | **Final Price (after tax)** | `retail_price × (1 + sum(tax_rates))`          | Recalculates whenever `retail_price` or `tax_rates` changes                               |
-| **Profit Margin %**         | `((retail_price − cost) / retail_price) × 100` | Recalculates whenever `retail_price` or `cost` changes; show as `--` if retail_price is 0 |
+| **Gross Margin %**          | `((retail_price − cost) / retail_price) × 100` | Standard retail markup. Recalculates whenever `retail_price` or `cost` changes; `--` if `retail_price` is 0. |
+| **Margin after tax %**      | `((retail_price − cost) / (retail_price × (1 + tax_rate))) × 100` | Margin expressed against the customer-paid total (price + tax). Useful for comparing items across different tax codes since the customer sees the tax-inclusive shelf price. **Not** a true accounting "net margin" — overhead, labor, and card-processing fees are NOT allocated. The label intentionally avoids the word "net" so cashiers don't read more into the number than is there. |
 
 These are display-only and are **not saved to the backend**.
 

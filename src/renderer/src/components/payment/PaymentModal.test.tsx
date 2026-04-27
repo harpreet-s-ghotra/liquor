@@ -28,8 +28,7 @@ describe('PaymentModal', () => {
 
     expect(screen.getByText('Payment')).toBeInTheDocument()
     expect(screen.getByText('Transaction Total')).toBeInTheDocument()
-    const totalLabel = screen.getByText('Transaction Total')
-    expect(totalLabel.parentElement).toHaveTextContent('$22.59')
+    expect(screen.getByTestId('payment-total-bar')).toHaveTextContent('$22.59')
     expect(screen.getByText('No payments yet')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cash (Exact)' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Credit' })).toBeEnabled()
@@ -546,65 +545,17 @@ describe('PaymentModal', () => {
     })
   })
 
-  // ── Print Receipt button tests ──
+  // ── Per-transaction print button removed in favor of Last Receipt button ──
 
-  describe('Print Receipt button', () => {
-    it('shows Print Receipt button alongside OK when alwaysPrint is false (default)', () => {
+  describe('payment-complete actions', () => {
+    it('shows only OK on the complete screen (no per-transaction Print Receipt)', () => {
       render(<PaymentModal isOpen={true} total={10.0} onComplete={vi.fn()} onCancel={vi.fn()} />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Cash (Exact)' }))
 
       expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
-      expect(screen.getByTestId('payment-print-btn')).toBeInTheDocument()
-      expect(screen.getByTestId('payment-ok-btn')).toBeInTheDocument()
-    })
-
-    it('does not show Print Receipt button when alwaysPrint is true', () => {
-      render(
-        <PaymentModal
-          isOpen={true}
-          total={10.0}
-          onComplete={vi.fn()}
-          onCancel={vi.fn()}
-          alwaysPrint={true}
-        />
-      )
-
-      fireEvent.click(screen.getByRole('button', { name: 'Cash (Exact)' }))
-
-      expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
       expect(screen.queryByTestId('payment-print-btn')).not.toBeInTheDocument()
       expect(screen.getByTestId('payment-ok-btn')).toBeInTheDocument()
-    })
-
-    it('does not show Print Receipt button in refund mode', () => {
-      render(
-        <PaymentModal
-          isOpen={true}
-          total={10.0}
-          onComplete={vi.fn()}
-          onCancel={vi.fn()}
-          isRefund={true}
-          initialMethod="cash"
-        />
-      )
-
-      act(() => {
-        vi.advanceTimersByTime(1)
-      })
-
-      expect(screen.getByTestId('payment-complete')).toBeInTheDocument()
-      expect(screen.queryByTestId('payment-print-btn')).not.toBeInTheDocument()
-    })
-
-    it('clicking Print Receipt calls onComplete with shouldPrint: true', () => {
-      const onComplete = vi.fn()
-      render(<PaymentModal isOpen={true} total={10.0} onComplete={onComplete} onCancel={vi.fn()} />)
-
-      fireEvent.click(screen.getByRole('button', { name: 'Cash (Exact)' }))
-      fireEvent.click(screen.getByTestId('payment-print-btn'))
-
-      expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ shouldPrint: true }))
     })
 
     it('clicking OK calls onComplete with shouldPrint: false', () => {
@@ -734,6 +685,109 @@ describe('PaymentModal', () => {
 
       rerender(<PaymentModal isOpen={true} total={10} onComplete={vi.fn()} onCancel={onCancel} />)
       expect(screen.getByText('No payments yet')).toBeInTheDocument()
+    })
+  })
+
+  describe('Card surcharge', () => {
+    it('shows the surcharge hint when enabled and method has not been chosen', () => {
+      render(
+        <PaymentModal
+          isOpen={true}
+          total={100}
+          onComplete={vi.fn()}
+          onCancel={vi.fn()}
+          cardSurcharge={{ enabled: true, percent: 3 }}
+        />
+      )
+
+      const hint = screen.getByTestId('payment-surcharge-note')
+      expect(hint).toHaveTextContent('3%')
+      // Total bar still shows base total until a card method is chosen.
+      expect(screen.getByTestId('payment-total-bar')).toHaveTextContent('$100.00')
+    })
+
+    it('hides the surcharge note when disabled or percent is zero', () => {
+      const { rerender } = render(
+        <PaymentModal
+          isOpen={true}
+          total={100}
+          onComplete={vi.fn()}
+          onCancel={vi.fn()}
+          cardSurcharge={{ enabled: false, percent: 3 }}
+        />
+      )
+      expect(screen.queryByTestId('payment-surcharge-note')).not.toBeInTheDocument()
+
+      rerender(
+        <PaymentModal
+          isOpen={true}
+          total={100}
+          onComplete={vi.fn()}
+          onCancel={vi.fn()}
+          cardSurcharge={{ enabled: true, percent: 0 }}
+        />
+      )
+      expect(screen.queryByTestId('payment-surcharge-note')).not.toBeInTheDocument()
+    })
+
+    it('charges the surcharged total via Finix and completes the transaction', async () => {
+      vi.useRealTimers()
+      const mockFinixChargeCard = vi.fn().mockResolvedValue({
+        success: true,
+        authorization_id: 'AUTH-1',
+        transfer_id: 'TR-1',
+        last_four: '4242',
+        card_type: 'visa',
+        message: 'Approved',
+        status: 'approved'
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).api = { finixChargeCard: mockFinixChargeCard }
+
+      const onComplete = vi.fn()
+      render(
+        <PaymentModal
+          isOpen={true}
+          total={100}
+          onComplete={onComplete}
+          onCancel={vi.fn()}
+          cardSurcharge={{ enabled: true, percent: 3.5 }}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Credit' }))
+
+      await waitFor(() => {
+        expect(mockFinixChargeCard).toHaveBeenCalled()
+      })
+      const call = mockFinixChargeCard.mock.calls[0][0]
+      expect(call.total).toBeCloseTo(103.5, 2)
+
+      // Total bar updates to show the surcharged total + fee subline.
+      await waitFor(() => {
+        expect(screen.getByTestId('payment-total-bar')).toHaveTextContent('$103.50')
+      })
+      expect(screen.getByTestId('payment-surcharge-fee')).toHaveTextContent('3.5%')
+
+      // Completion buttons render — surcharge must not be mistaken for change.
+      const okBtn = await screen.findByTestId('payment-ok-btn')
+      fireEvent.click(okBtn)
+      expect(onComplete).toHaveBeenCalledTimes(1)
+    })
+
+    it('cash exact still uses base total when surcharge is enabled', () => {
+      render(
+        <PaymentModal
+          isOpen={true}
+          total={50}
+          onComplete={vi.fn()}
+          onCancel={vi.fn()}
+          cardSurcharge={{ enabled: true, percent: 4 }}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cash (Exact)' }))
+      expect(screen.getByTestId('paid-so-far-list')).toHaveTextContent('$50.00 Cash (Exact)')
     })
   })
 })

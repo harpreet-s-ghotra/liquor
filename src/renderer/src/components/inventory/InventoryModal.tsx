@@ -173,6 +173,13 @@ export function InventoryModal({
     let active = true
     void api.searchInventoryProducts(trimmedSearch).then((results) => {
       if (!active) return
+      if (
+        results.length === 1 &&
+        results[0].sku.trim().toLowerCase() === trimmedSearch.toLowerCase()
+      ) {
+        selectSearchResult(results[0])
+        return
+      }
       setSearchResults(results)
       setShowSearchDropdown(results.length > 0)
     })
@@ -241,8 +248,10 @@ export function InventoryModal({
     setShowSearchDropdown(false)
     setNoResultsSku(null)
     setSearchTerm('')
+    setSearchResults([])
     setActiveTab('items')
     itemFormRef.current?.selectItem(item)
+    requestAnimationFrame(() => searchInputRef.current?.focus())
   }
 
   const handleAddNewWithSku = (sku: string): void => {
@@ -425,6 +434,9 @@ export function InventoryModal({
           noResultsSku={noResultsSku}
           onAddNewWithSku={handleAddNewWithSku}
           showItemActions={activeTab === 'items'}
+          canDuplicate={itemBtnState.canNew}
+          onNewItem={() => itemFormRef.current?.handleNewItem()}
+          onDuplicate={() => itemFormRef.current?.duplicateCurrentAsNew()}
           canSave={itemBtnState.canSave}
           canDelete={itemBtnState.canDelete}
           onSave={() => itemFormRef.current?.handleSave()}

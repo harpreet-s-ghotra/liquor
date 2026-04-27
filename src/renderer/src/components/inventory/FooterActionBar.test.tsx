@@ -15,8 +15,8 @@ const sampleProduct: InventoryProduct = {
   in_stock: 10,
   tax_1: 0.08,
   tax_2: 0,
-  distributor_number: null,
-  distributor_name: null,
+  distributor_number: 1,
+  distributor_name: 'North Wines',
   bottles_per_case: 12,
   case_discount_price: null,
   special_pricing_enabled: 0,
@@ -52,6 +52,9 @@ function makeProps(overrides?: Partial<FooterActionBarProps>): FooterActionBarPr
     noResultsSku: null,
     onAddNewWithSku: vi.fn(),
     showItemActions: true,
+    canDuplicate: false,
+    onNewItem: vi.fn(),
+    onDuplicate: vi.fn(),
     canSave: true,
     canDelete: true,
     onSave: vi.fn(),
@@ -65,7 +68,8 @@ describe('FooterActionBar', () => {
   it('renders search input and action buttons on items tab', () => {
     render(<FooterActionBar {...makeProps()} />)
     expect(screen.getByLabelText('Search Inventory')).toBeInTheDocument()
-    expect(screen.queryByText('+ New Item')).not.toBeInTheDocument()
+    expect(screen.getByText('New Item')).toBeInTheDocument()
+    expect(screen.getByText('Duplicate').closest('button')).toBeDisabled()
     expect(screen.getByText('Save')).toBeInTheDocument()
     expect(screen.getByText('Delete Item')).toBeInTheDocument()
     expect(screen.getByText('Discard')).toBeInTheDocument()
@@ -126,6 +130,10 @@ describe('FooterActionBar', () => {
     )
     expect(screen.getByRole('listbox', { name: 'Search results' })).toBeInTheDocument()
     expect(screen.getByText('Red Wine')).toBeInTheDocument()
+    expect(screen.getByText('WINE-001')).toBeInTheDocument()
+    expect(screen.getByText('North Wines')).toBeInTheDocument()
+    expect(screen.getByText('$9.99')).toBeInTheDocument()
+    expect(screen.getByText('10 in stock')).toBeInTheDocument()
   })
 
   it('does not show search dropdown on non-items tab', () => {
@@ -220,10 +228,22 @@ describe('FooterActionBar', () => {
   })
 
   it('calls action handlers when buttons are clicked', () => {
+    const onNewItem = vi.fn()
+    const onDuplicate = vi.fn()
     const onSave = vi.fn()
     const onDelete = vi.fn()
     const onDiscard = vi.fn()
-    render(<FooterActionBar {...makeProps({ onSave, onDelete, onDiscard })} />)
+    render(
+      <FooterActionBar
+        {...makeProps({ onNewItem, onDuplicate, canDuplicate: true, onSave, onDelete, onDiscard })}
+      />
+    )
+
+    fireEvent.click(screen.getByText('New Item'))
+    expect(onNewItem).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByText('Duplicate'))
+    expect(onDuplicate).toHaveBeenCalled()
 
     fireEvent.click(screen.getByText('Save'))
     expect(onSave).toHaveBeenCalled()
@@ -236,7 +256,10 @@ describe('FooterActionBar', () => {
   })
 
   it('disables buttons based on canSave, canDelete', () => {
-    render(<FooterActionBar {...makeProps({ canSave: false, canDelete: false })} />)
+    render(
+      <FooterActionBar {...makeProps({ canDuplicate: false, canSave: false, canDelete: false })} />
+    )
+    expect(screen.getByText('Duplicate').closest('button')).toBeDisabled()
     expect(screen.getByText('Save').closest('button')).toBeDisabled()
     expect(screen.getByText('Delete Item').closest('button')).toBeDisabled()
   })

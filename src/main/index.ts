@@ -36,8 +36,10 @@ import {
   createSalesRep,
   updateSalesRep,
   deleteSalesRep,
+  getCardSurcharge,
   getMerchantConfig,
   saveMerchantConfig,
+  setCardSurcharge,
   clearMerchantConfig,
   getCashiers,
   createCashier,
@@ -219,6 +221,11 @@ import { pullSingleProductBySku } from './services/sync/product-sync'
 import { getDeviceConfig } from './database/device-config.repo'
 import { getQueueStats } from './database/sync-queue.repo'
 import { initAutoUpdater, checkForUpdates, installUpdate } from './services/auto-updater'
+import {
+  createCustomerDisplay,
+  pushCustomerSnapshot,
+  closeCustomerDisplay
+} from './customer-display'
 import type {
   FinixCardInput,
   FinixTerminalChargeInput,
@@ -644,6 +651,25 @@ app
         throw new Error(err instanceof Error ? err.message : 'Failed to deactivate merchant')
       }
     })
+
+    handle('merchant:get-card-surcharge', async () => {
+      try {
+        return getCardSurcharge()
+      } catch (err) {
+        throw new Error(err instanceof Error ? err.message : 'Failed to get card surcharge')
+      }
+    })
+
+    handle(
+      'merchant:set-card-surcharge',
+      async (_, input: { enabled: boolean; percent: number }) => {
+        try {
+          return setCardSurcharge(input)
+        } catch (err) {
+          throw new Error(err instanceof Error ? err.message : 'Failed to save card surcharge')
+        }
+      }
+    )
 
     // Supabase Auth
     handle('auth:login', async (_, email: string, password: string) => {
@@ -1344,6 +1370,17 @@ app
     })
 
     createWindow()
+    createCustomerDisplay(join(__dirname, '../preload/index.js'))
+
+    // Customer-facing display IPC: cashier window pushes a snapshot, main forwards to the
+    // secondary window. Snapshot shape is owned by the renderer; the main process is a relay.
+    handle('customer-display:update', async (_, snapshot) => {
+      pushCustomerSnapshot(snapshot)
+    })
+
+    handle('customer-display:close', async () => {
+      closeCustomerDisplay()
+    })
 
     // Forward connectivity changes to the renderer
     onConnectivityChange((online) => {

@@ -2,7 +2,8 @@ import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dial
 import { AppModalHeader } from '@renderer/components/common/AppModalHeader'
 import { PrinterIcon } from '@renderer/components/common/modal-icons'
 import { AppButton } from '@renderer/components/common/AppButton'
-import { Checkbox } from '@renderer/components/ui/checkbox'
+import { RadioGroup, RadioGroupItem } from '@renderer/components/ui/radio-group'
+import { Label } from '@renderer/components/ui/label'
 import { SuccessModal } from '@renderer/components/common/SuccessModal'
 import { ErrorModal } from '@renderer/components/common/ErrorModal'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -321,19 +322,33 @@ export function PrinterSettingsModal({
             </div>
           </div>
 
-          {/* ── Always Print ── */}
+          {/* ── Receipt Printing Mode ── */}
           <div className="printer-settings-modal__section">
             <h3 className="printer-settings-modal__section-title">Receipt Printing</h3>
-            <label className="printer-settings-modal__toggle-row">
-              <Checkbox
-                checked={cfg.alwaysPrint}
-                onCheckedChange={(v) => updateCfg({ alwaysPrint: v === true })}
-                data-testid="always-print-checkbox"
-              />
-              <span className="printer-settings-modal__toggle-label">
-                Always print receipt after payment
-              </span>
-            </label>
+            <RadioGroup
+              value={cfg.alwaysPrint ? 'always' : 'never'}
+              onValueChange={(v) => updateCfg({ alwaysPrint: v === 'always' })}
+              className="printer-settings-modal__radio-group"
+            >
+              <div className="printer-settings-modal__radio-row">
+                <RadioGroupItem
+                  id="receipt-mode-always"
+                  value="always"
+                  data-testid="receipt-mode-always"
+                />
+                <Label htmlFor="receipt-mode-always">Always print a receipt after payment</Label>
+              </div>
+              <div className="printer-settings-modal__radio-row">
+                <RadioGroupItem
+                  id="receipt-mode-never"
+                  value="never"
+                  data-testid="receipt-mode-never"
+                />
+                <Label htmlFor="receipt-mode-never">
+                  Never print a receipt (use Last Receipt button when needed)
+                </Label>
+              </div>
+            </RadioGroup>
           </div>
 
           {/* ── Store Name ── */}

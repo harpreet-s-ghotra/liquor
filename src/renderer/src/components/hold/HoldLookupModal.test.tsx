@@ -98,7 +98,7 @@ describe('HoldLookupModal', () => {
     expect(screen.getByTestId('hold-clear-all-btn')).toBeInTheDocument()
   })
 
-  it('calls onClearAll when Clear All button is clicked', () => {
+  it('calls onClearAll only after the confirm dialog is accepted', () => {
     const onClearAll = vi.fn()
     render(
       <HoldLookupModal
@@ -108,6 +108,10 @@ describe('HoldLookupModal', () => {
       />
     )
     fireEvent.click(screen.getByTestId('hold-clear-all-btn'))
+    // First click only opens the confirm dialog — does not invoke yet.
+    expect(onClearAll).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByTestId('confirm-dialog-confirm-btn'))
     expect(onClearAll).toHaveBeenCalledTimes(1)
   })
 
@@ -118,11 +122,13 @@ describe('HoldLookupModal', () => {
     expect(screen.getByTestId('hold-delete-2')).toBeInTheDocument()
   })
 
-  it('calls onDelete with the correct hold when delete button is clicked', () => {
+  it('calls onDelete with the correct hold after confirming the dialog', () => {
     const onDelete = vi.fn()
     const held = makeHeld()
     render(<HoldLookupModal {...defaultProps()} heldTransactions={[held]} onDelete={onDelete} />)
     fireEvent.click(screen.getByTestId('hold-delete-1'))
+    expect(onDelete).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('confirm-dialog-confirm-btn'))
     expect(onDelete).toHaveBeenCalledWith(held)
   })
 
@@ -138,7 +144,56 @@ describe('HoldLookupModal', () => {
       />
     )
     fireEvent.click(screen.getByTestId('hold-delete-1'))
+    fireEvent.click(screen.getByTestId('confirm-dialog-confirm-btn'))
     expect(onDelete).toHaveBeenCalledTimes(1)
     expect(onRecall).not.toHaveBeenCalled()
+  })
+
+  it('renders the cashier-entered description on the row when present', () => {
+    render(
+      <HoldLookupModal
+        {...defaultProps()}
+        heldTransactions={[makeHeld({ description: "Mike's pickup" })]}
+      />
+    )
+    expect(screen.getByTestId('hold-description-1')).toHaveTextContent("Mike's pickup")
+  })
+
+  it('omits the description chip when no description is set', () => {
+    render(
+      <HoldLookupModal
+        {...defaultProps()}
+        heldTransactions={[makeHeld({ description: null })]}
+      />
+    )
+    expect(screen.queryByTestId('hold-description-1')).not.toBeInTheDocument()
+  })
+
+  it('cancelling the delete confirm leaves the hold intact', () => {
+    const onDelete = vi.fn()
+    render(
+      <HoldLookupModal
+        {...defaultProps()}
+        heldTransactions={[makeHeld()]}
+        onDelete={onDelete}
+      />
+    )
+    fireEvent.click(screen.getByTestId('hold-delete-1'))
+    fireEvent.click(screen.getByTestId('confirm-dialog-cancel-btn'))
+    expect(onDelete).not.toHaveBeenCalled()
+  })
+
+  it('cancelling the clear-all confirm leaves the holds intact', () => {
+    const onClearAll = vi.fn()
+    render(
+      <HoldLookupModal
+        {...defaultProps()}
+        heldTransactions={[makeHeld()]}
+        onClearAll={onClearAll}
+      />
+    )
+    fireEvent.click(screen.getByTestId('hold-clear-all-btn'))
+    fireEvent.click(screen.getByTestId('confirm-dialog-cancel-btn'))
+    expect(onClearAll).not.toHaveBeenCalled()
   })
 })

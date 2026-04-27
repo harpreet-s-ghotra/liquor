@@ -26,6 +26,7 @@ export async function uploadTransaction(
     transaction_number: transaction.transaction_number,
     subtotal: transaction.subtotal,
     tax_amount: transaction.tax_amount,
+    surcharge_amount: transaction.surcharge_amount ?? 0,
     total: transaction.total,
     payment_method: transaction.payment_method,
     finix_authorization_id: transaction.finix_authorization_id,

@@ -156,16 +156,17 @@ export async function backfillTransactions(
           const tx = getDb().transaction(() => {
             const insertTxn = getDb().prepare(
               `INSERT INTO transactions
-                 (transaction_number, subtotal, tax_amount, total, payment_method,
+                 (transaction_number, subtotal, tax_amount, surcharge_amount, total, payment_method,
                   finix_authorization_id, finix_transfer_id, card_last_four, card_type, status,
                   notes, session_id, device_id, backfilled, created_at, synced_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 1, ?, CURRENT_TIMESTAMP)`
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 1, ?, CURRENT_TIMESTAMP)`
             )
 
             const txnRes = insertTxn.run(
               txnNumber,
               Number(row.subtotal ?? 0),
               Number(row.tax_amount ?? 0),
+              Number(row.surcharge_amount ?? 0),
               Number(row.total ?? 0),
               (row.payment_method as string | null) ?? null,
               (row.finix_authorization_id as string | null) ?? null,

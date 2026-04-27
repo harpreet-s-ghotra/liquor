@@ -25,6 +25,8 @@ import type {
   CreateSalesRepInput,
   UpdateSalesRepInput,
   MerchantConfig,
+  CardSurchargeConfig,
+  CustomerDisplaySnapshot,
   Cashier,
   CreateCashierInput,
   UpdateCashierInput,
@@ -272,6 +274,19 @@ const api = {
   ): Promise<MerchantConfig> =>
     ipcRenderer.invoke('merchant:activate', apiUsername, apiPassword, merchantId),
   deactivateMerchant: (): Promise<void> => ipcRenderer.invoke('merchant:deactivate'),
+  getCardSurcharge: (): Promise<CardSurchargeConfig> =>
+    ipcRenderer.invoke('merchant:get-card-surcharge'),
+  setCardSurcharge: (input: CardSurchargeConfig): Promise<CardSurchargeConfig> =>
+    ipcRenderer.invoke('merchant:set-card-surcharge', input),
+
+  // Customer-facing display
+  pushCustomerSnapshot: (snapshot: CustomerDisplaySnapshot): Promise<void> =>
+    ipcRenderer.invoke('customer-display:update', snapshot),
+  onCustomerSnapshot: (callback: (snapshot: CustomerDisplaySnapshot) => void) => {
+    const handler = (_: unknown, snapshot: CustomerDisplaySnapshot): void => callback(snapshot)
+    ipcRenderer.on('customer-display:snapshot', handler)
+    return () => ipcRenderer.removeListener('customer-display:snapshot', handler)
+  },
 
   // Cashiers
   getCashiers: (): Promise<Cashier[]> => ipcRenderer.invoke('cashiers:list'),

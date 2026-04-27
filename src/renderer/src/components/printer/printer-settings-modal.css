@@ -115,6 +115,24 @@
   user-select: none;
 }
 
+.printer-settings-modal__radio-group {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.printer-settings-modal__radio-row {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-surface-soft);
+  padding: 0.625rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
 .printer-settings-modal__status-badge--connected,
 .printer-settings-modal__status-badge--disconnected {
   display: flex;

@@ -388,6 +388,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       product_id INTEGER NOT NULL,
       quantity INTEGER NOT NULL,
       price REAL NOT NULL,
+      expires_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
@@ -398,6 +399,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       subtotal REAL NOT NULL,
       tax_amount REAL NOT NULL,
       total REAL NOT NULL,
+      surcharge_amount REAL NOT NULL DEFAULT 0,
       payment_method TEXT,
       finix_authorization_id TEXT,
       finix_transfer_id TEXT,
@@ -508,6 +510,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       subtotal                     REAL NOT NULL,
       total                        REAL NOT NULL,
       item_count                   INTEGER NOT NULL,
+      description                  TEXT,
       held_at                      DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -604,6 +607,8 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('transactions', 'device_id', 'device_id TEXT')
   ensureColumn('transactions', 'synced_at', 'synced_at DATETIME')
   ensureColumn('transactions', 'backfilled', 'backfilled INTEGER NOT NULL DEFAULT 0')
+  ensureColumn('transactions', 'surcharge_amount', 'surcharge_amount REAL NOT NULL DEFAULT 0')
+  ensureColumn('held_transactions', 'description', 'description TEXT')
   ensureColumn(
     'purchase_order_items',
     'bottles_per_case',
@@ -673,8 +678,12 @@ export function applySchema(database: InstanceType<typeof Database>): void {
 
   // Special pricing column migrations
   ensureColumn('special_pricing', 'pricing_type', "pricing_type TEXT DEFAULT 'group'")
+  // Re-introduce optional expiry on special pricing rules. Rules with a past
+  // expires_at are filtered out by the pricing engine. NULL = never expires.
+  ensureColumn('special_pricing', 'expires_at', 'expires_at DATETIME')
 
-  // Drop legacy duration_days column from special_pricing (feature removed).
+  // Legacy duration_days column was dropped in 2026-04. We do not re-add it —
+  // the new model uses an absolute expires_at timestamp instead.
   if (columnExists(database, 'special_pricing', 'duration_days')) {
     try {
       database.exec('ALTER TABLE special_pricing DROP COLUMN duration_days')

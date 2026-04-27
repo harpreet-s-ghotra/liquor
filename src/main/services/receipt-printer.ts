@@ -111,6 +111,15 @@ function renderContent(
     cfg.paddingX
   )
   labelValue(doc, 'Tax:', `$${input.tax_amount.toFixed(2)}`, cfg.paddingX)
+  if (input.surcharge_amount && input.surcharge_amount !== 0) {
+    // Refunds store a negative surcharge — render in parentheses to match the
+    // negative-money convention used elsewhere on the receipt.
+    const fee =
+      input.surcharge_amount < 0
+        ? `($${Math.abs(input.surcharge_amount).toFixed(2)})`
+        : `$${input.surcharge_amount.toFixed(2)}`
+    labelValue(doc, 'Card processing fee:', fee, cfg.paddingX)
+  }
   doc.font('Helvetica-Bold').fontSize(cfg.fontSize + 1)
   labelValue(doc, 'TOTAL:', `$${input.total.toFixed(2)}`, cfg.paddingX)
 

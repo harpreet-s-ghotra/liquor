@@ -469,6 +469,7 @@ All documentation lives in `docs/`. See `docs/README.md` for the full index.
 | `docs/features/inventory-modal-reorder-po-move.md` | Complete: relocate Reorder Dashboard + Purchase Orders from Manager (F6) to Inventory (F2)                            |
 | `docs/features/purchase-order-receive-and-edit.md` | Purchase-order mark-received flow, submitted/received edits, case-aware receiving, and unit/case cost interlock       |
 | `docs/features/monitoring-observability.md`        | Telemetry events and operational logging (electron-log, scoped loggers, IPC + sync-worker instrumentation, redaction) |
+| `docs/features/card-surcharge.md`                  | Manager-configurable percent surcharge applied to credit/debit charges (cash never surcharged)                        |
 
 ### Documentation Conventions
 

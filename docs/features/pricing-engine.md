@@ -389,3 +389,81 @@ The item search in the edit section uses the existing product search backend. Ty
 2. **Mix-match time limits:** Should mix-match groups have an expiration date? (Special pricing rules used to expire via `duration_days` but the field was removed 2026-04-21 — rules are now permanent until deleted.)
 3. **Receipt printing:** When receipts are implemented (Phase 4), promo savings should be itemized on the receipt. Noted for later.
 4. **Reporting:** Should there be a report showing promo usage / savings given? Noted for later.
+
+---
+
+## Phase 2 — UX spec for the Inventory Modal
+
+**Status:** Spec only. No code in flight.
+
+### Where it lives
+
+A new sub-tab **Mix & Match** sits alongside Items / Item Types / Tax Codes / Distributors / Reorder / Purchase Orders inside the Inventory modal (F2). Distinct from per-item Special Pricing because mix-and-match spans products.
+
+### Layout
+
+```
+┌─ Inventory ─────────────────────────────────────────────────────────────┐
+│ [Items] [Types] [Tax] [Distributors] [Reorder] [POs] [Mix & Match] *  │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ┌── Groups list (left, 1/3 width) ──┐ ┌── Group editor (right, 2/3) ─┐ │
+│ │  + New group                       │ │  Name:   [Stella Rosa Red 6 ] │ │
+│ │  ─────────────────────────────────  │ │  Qty:    [ 6 ]                │ │
+│ │  Stella Rosa Red 6           ★     │ │  Price:  [ 9.99 ]  per item    │ │
+│ │  Wine & Cheese Combo                │ │  Expires:[ 2026-12-31 ]        │ │
+│ │  Beer 6-Pack Deal                   │ │                                │ │
+│ │                                     │ │  Products in group:            │ │
+│ │                                     │ │  ┌──────────────────────────┐ │ │
+│ │                                     │ │  │ × Stella Rosa Red 750ml  │ │ │
+│ │                                     │ │  │ × Stella Rosa Black 750  │ │ │
+│ │                                     │ │  │ × Stella Rosa Pink 750   │ │ │
+│ │                                     │ │  └──────────────────────────┘ │ │
+│ │                                     │ │  [+ Add product…]              │ │
+│ │                                     │ │                                │ │
+│ └─────────────────────────────────────┘ │  [Discard]  [Delete]  [Save]   │ │
+│                                          └────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Components to reuse (no new primitives)
+
+| Need                          | Existing component                                                   |
+| ----------------------------- | -------------------------------------------------------------------- |
+| List + editor split           | `useCrudPanel<MixMatchGroup>` (same pattern as Tax Codes, Distributors) |
+| Add-product picker            | `SearchDropdown<InventoryProduct>` + `useSearchDropdown`             |
+| Per-product chip with × remove| `Badge` from `ui/badge` + `Button variant="ghost"`                   |
+| Date input for `expires_at`   | `<Input type="date">` (same as Special Pricing per-rule expires)     |
+| Save / Delete / Discard       | `FooterActionBar` from inventory modal                               |
+
+### Validation rules
+
+- `name`: required, max `NAME_MAX_LENGTH` (120 chars).
+- `required_qty`: integer ≥ 2 (a "1-item deal" is just special pricing).
+- `deal_price`: ≥ 0; warn (but allow) if higher than the **lowest** product retail price in the group.
+- A group must contain at least 2 products.
+- A product can belong to multiple groups; the engine picks whichever yields the higher savings (per the existing best-deal-wins rule).
+
+### Engine integration
+
+`getActiveMixMatchGroups()` joins `mix_match_groups` + `mix_match_items` + `products`, filters out inactive groups and any with `expires_at < now()`. The renderer's pricing engine receives a `MixMatchGroup[]` alongside the existing `SpecialPricingMap` and runs the greedy distribution defined above.
+
+`PromoAnnotation.promoType: 'mix-match'` is already in `shared/types`, so the cart line can render the promo badge without further type changes.
+
+### Receipt + customer display
+
+- Receipt: each discounted unit prints with the `promoLabel` (e.g. *"Stella Rosa Red 6 — Save $X.XX"*).
+- Customer display: rows with `promoType === 'mix-match'` render a faint group-label chip below the line name (no separate component — reuse `ticket-panel__badge-row`).
+
+### Refunds
+
+Refunding a unit that was part of a complete mix-match set breaks the set. The proportional-refund formula already used for tax + surcharge applies to the mix-match savings:
+```
+returnPromoSavings = (returnSubtotal / originalItemsTotal) * vt.mix_match_savings
+```
+This requires storing `mix_match_savings` on the saved transaction. Add a column in the same migration that introduces the tables.
+
+### Open questions to resolve before implementation
+
+- **Per-group tax allocation** — when a group spans products with different tax rates, do we allocate the discount proportionally to each product's pre-discount line, or apply a single weighted tax rate to the discounted total? Recommend proportional.
+- **POS UI affordance** — should the cashier see "Add 1 more for $X.XX off" hints when a partial group is in the cart? Defer; nice-to-have.
+- **Reporting** — surface mix-match savings as its own line in the sales summary (alongside special-pricing savings, discount totals, and surcharge). Out of scope for the v1 implementation; add at the same time as the surcharge follow-up listed in `card-surcharge.md`.

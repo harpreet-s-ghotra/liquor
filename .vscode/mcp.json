@@ -5,13 +5,13 @@
       "args": ["@playwright/mcp@latest"],
       "type": "stdio"
     },
-    "staxapi": {
-      "url": "https://docs.staxpayments.com/mcp",
-      "type": "http"
-    },
     "finix-redocly-mcp": {
       "type": "http",
       "url": "https://docs.finix.com/mcp"
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
     }
   }
 }

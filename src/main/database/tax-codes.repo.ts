@@ -115,16 +115,44 @@ export function setDefaultTaxCode(id: number): void {
 export function deleteTaxCode(id: number): void {
   const db = getDb()
 
-  const taxCode = db.prepare('SELECT id FROM tax_codes WHERE id = ?').get(id) as
-    | { id: number }
-    | undefined
+  const taxCode = db
+    .prepare('SELECT id, rate, COALESCE(is_default, 0) AS is_default FROM tax_codes WHERE id = ?')
+    .get(id) as { id: number; rate: number; is_default: number } | undefined
 
   if (!taxCode) {
     throw new Error('Tax code not found')
   }
 
-  enqueueTaxCodeSync(id, 'DELETE')
-  db.prepare('DELETE FROM tax_codes WHERE id = ?').run(id)
+  // Reassign products that reference this rate to the default tax code so a
+  // delete never leaves products pointing at a missing rate. The default-tax
+  // lookup ignores the row being deleted.
+  const fallbackRow = db
+    .prepare(
+      `SELECT rate FROM tax_codes
+       WHERE is_default = 1 AND id != ?
+       LIMIT 1`
+    )
+    .get(id) as { rate: number } | undefined
+
+  if (!fallbackRow) {
+    throw new Error('Set a default tax code before deleting another tax code')
+  }
+
+  const fallbackRate = normalizeTaxRate(fallbackRow.rate)
+  const deletedRate = normalizeTaxRate(taxCode.rate)
+
+  const tx = db.transaction(() => {
+    if (fallbackRate !== deletedRate) {
+      db.prepare(
+        `UPDATE products
+         SET tax_1 = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE COALESCE(tax_1, tax_rate) = ?`
+      ).run(fallbackRate, deletedRate)
+    }
+    enqueueTaxCodeSync(id, 'DELETE')
+    db.prepare('DELETE FROM tax_codes WHERE id = ?').run(id)
+  })
+  tx()
 }
 
 // ── Sync helpers ──

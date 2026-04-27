@@ -1,6 +1,6 @@
 {
   "name": "high-spirits-pos",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Point of sale software for liquor stores by Checkoutmain & Co.",
   "main": "./out/main/index.js",
   "author": "Checkoutmain & Co.",

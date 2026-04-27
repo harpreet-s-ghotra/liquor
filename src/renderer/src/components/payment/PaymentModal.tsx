@@ -32,8 +32,13 @@ type PaymentModalProps = {
   onComplete: (result: PaymentResult) => void
   onCancel: () => void
   onStatusChange?: (status: PaymentStatus) => void
+  /** Fired when the cashier picks a method inside the modal. Lets the cashier
+   *  screen + customer display reflect the surcharged total before the charge
+   *  finishes. */
+  onActiveMethodChange?: (method: PaymentMethod | null) => void
   isRefund?: boolean
-  alwaysPrint?: boolean
+  /** Optional surcharge applied only to the card-paid portion of the cart. */
+  cardSurcharge?: { enabled: boolean; percent: number }
 }
 
 const TENDER_DENOMINATIONS = [1, 2, 5, 10, 20, 50, 100]
@@ -61,30 +66,58 @@ export function PaymentModal({
   onComplete,
   onCancel,
   onStatusChange,
+  onActiveMethodChange,
   isRefund,
-  alwaysPrint = false
+  cardSurcharge
 }: PaymentModalProps): React.JSX.Element | null {
+  const surchargeActive =
+    !!cardSurcharge && cardSurcharge.enabled && cardSurcharge.percent > 0 && !isRefund
+  const surchargePercent = surchargeActive ? (cardSurcharge?.percent ?? 0) : 0
+  const surchargeMultiplier = 1 + surchargePercent / 100
   const nextPaymentIdRef = useRef(1)
   const [payments, setPayments] = useState<PaymentEntry[]>([])
   const paymentsRef = useRef<PaymentEntry[]>([])
   const [status, setStatus] = useState<PaymentStatus>('idle')
   const [cardError, setCardError] = useState('')
+  const [activeMethod, setActiveMethod] = useState<PaymentMethod | null>(null)
   const paymentResultRef = useRef<PaymentResult>({ method: 'cash' })
 
+  // Sum of money actually moved (cash + surcharged-card amounts).
   const paidSoFar = useMemo(
     () => payments.reduce((sum, entry) => sum + entry.amount, 0),
     [payments]
   )
 
-  const remaining = useMemo(() => Math.max(total - paidSoFar, 0), [total, paidSoFar])
-  const change = useMemo(() => (paidSoFar > total ? paidSoFar - total : 0), [paidSoFar, total])
-  const isFullyPaid = paidSoFar >= total && total > 0
+  // Sum of base coverage (excludes surcharge). Compare this against `total` for
+  // remaining / completion to avoid the surcharge being mistaken for change.
+  const basePaid = useMemo(
+    () => payments.reduce((sum, entry) => sum + (entry.amount - (entry.surcharge_amount ?? 0)), 0),
+    [payments]
+  )
+
+  const remaining = useMemo(() => Math.max(total - basePaid, 0), [total, basePaid])
+  const change = useMemo(() => (basePaid > total ? basePaid - total : 0), [basePaid, total])
+  const isFullyPaid = basePaid + 0.005 >= total && total > 0
+
+  // What the big total bar shows. When the active charge is a card payment
+  // with a surcharge, display the inflated total so the customer sees the
+  // amount they will actually be charged.
+  const showCardTotal = surchargeActive && (activeMethod === 'credit' || activeMethod === 'debit')
+  const displayedTotal = showCardTotal ? total * surchargeMultiplier : total
+  const displayedFee = showCardTotal ? displayedTotal - total : 0
+
+  // Notify parents whenever the chosen method changes so the cashier screen and
+  // customer display can update their totals immediately.
+  useEffect(() => {
+    onActiveMethodChange?.(activeMethod)
+  }, [activeMethod, onActiveMethodChange])
 
   const resetState = useCallback(() => {
     setPayments([])
     paymentsRef.current = []
     setStatus('idle')
     setCardError('')
+    setActiveMethod(null)
     paymentResultRef.current = { method: 'cash' }
     nextPaymentIdRef.current = 1
   }, [])
@@ -100,12 +133,6 @@ export function PaymentModal({
       shouldPrint: false,
       payments: paymentsRef.current
     }
-    resetState()
-    onComplete(result)
-  }, [onComplete, resetState])
-
-  const handlePrint = useCallback(() => {
-    const result = { ...paymentResultRef.current, shouldPrint: true, payments: paymentsRef.current }
     resetState()
     onComplete(result)
   }, [onComplete, resetState])
@@ -131,6 +158,7 @@ export function PaymentModal({
     (amount: number) => {
       if (status === 'processing-card' || status === 'complete') return
       setCardError('')
+      setActiveMethod('cash')
 
       const entry: PaymentEntry = {
         id: nextPaymentIdRef.current++,
@@ -154,6 +182,7 @@ export function PaymentModal({
   const handleCashExact = useCallback(() => {
     if (status === 'processing-card' || status === 'complete') return
     setCardError('')
+    setActiveMethod('cash')
 
     const cashAmount = remaining
     if (cashAmount <= 0) return
@@ -177,15 +206,20 @@ export function PaymentModal({
   const handleCardPayment = useCallback(
     async (method: 'credit' | 'debit') => {
       if (status === 'processing-card' || status === 'complete') return
-      const cardAmount = remaining
-      if (cardAmount <= 0) return
+      const baseCardAmount = remaining
+      if (baseCardAmount <= 0) return
 
       setCardError('')
+      setActiveMethod(method)
       setStatus('processing-card')
       onStatusChange?.('processing-card')
 
+      // Apply surcharge to the card-paid portion only.
+      const cardAmount = Math.round(baseCardAmount * surchargeMultiplier * 100) / 100
+      const surchargeAmount = Math.round((cardAmount - baseCardAmount) * 100) / 100
+
       try {
-        const chargedTotal = Math.round(cardAmount * 100) / 100
+        const chargedTotal = cardAmount
         const api = window.api
         if (!api) {
           throw new Error('Payment API unavailable')
@@ -200,14 +234,18 @@ export function PaymentModal({
         if (!result.success) {
           setCardError(friendlyCardError(result.message || 'Card declined'))
           setStatus('collecting')
+          setActiveMethod(null)
           return
         }
 
+        const surchargeNote =
+          surchargeAmount > 0 ? ` (incl. $${surchargeAmount.toFixed(2)} fee)` : ''
         const entry: PaymentEntry = {
           id: nextPaymentIdRef.current++,
           method,
           amount: cardAmount,
-          label: `$${cardAmount.toFixed(2)} ${method === 'credit' ? 'Credit' : 'Debit'} (${result.card_type} ****${result.last_four})`,
+          surcharge_amount: surchargeAmount > 0 ? surchargeAmount : undefined,
+          label: `$${cardAmount.toFixed(2)} ${method === 'credit' ? 'Credit' : 'Debit'}${surchargeNote} (${result.card_type} ****${result.last_four})`,
           card_last_four: result.last_four ?? null,
           card_type: result.card_type ?? null,
           finix_authorization_id: result.authorization_id ?? null,
@@ -217,9 +255,14 @@ export function PaymentModal({
         setPayments((prev) => {
           const updated = [...prev, entry]
           paymentsRef.current = updated
-          const updatedTotal = updated.reduce((sum, e) => sum + e.amount, 0)
 
-          if (updatedTotal >= total) {
+          // Use base coverage so surcharge can't be mistaken for an overpayment.
+          const baseCovered = updated.reduce(
+            (sum, e) => sum + (e.amount - (e.surcharge_amount ?? 0)),
+            0
+          )
+
+          if (baseCovered + 0.005 >= total) {
             paymentResultRef.current = {
               method,
               finix_authorization_id: result.authorization_id,
@@ -238,9 +281,10 @@ export function PaymentModal({
       } catch (err) {
         setCardError(friendlyCardError(err instanceof Error ? err.message : 'Payment failed'))
         setStatus('collecting')
+        setActiveMethod(null)
       }
     },
-    [remaining, total, status, onStatusChange]
+    [remaining, total, status, onStatusChange, surchargeMultiplier]
   )
 
   // Close on ESC — only when not mid-card-processing to avoid cancelling an in-flight charge.
@@ -309,12 +353,34 @@ export function PaymentModal({
           className={cn(
             'payment-total-bar',
             'payment-modal__total-bar',
-            isRefund && 'payment-modal__total-bar--refund'
+            isRefund && 'payment-modal__total-bar--refund',
+            showCardTotal && 'payment-modal__total-bar--card'
           )}
+          data-testid="payment-total-bar"
         >
-          <span>{isRefund ? 'Refund Amount' : 'Transaction Total'}</span>
+          <div className="payment-modal__total-lines">
+            <span>
+              {isRefund
+                ? 'Refund Amount'
+                : showCardTotal
+                  ? `${activeMethod === 'credit' ? 'Credit' : 'Debit'} Total`
+                  : 'Transaction Total'}
+            </span>
+            {showCardTotal ? (
+              <span className="payment-modal__total-fee" data-testid="payment-surcharge-fee">
+                Includes {surchargePercent}% card fee · ${displayedFee.toFixed(2)}
+              </span>
+            ) : surchargeActive ? (
+              <span
+                className="payment-modal__total-fee payment-modal__total-fee--hint"
+                data-testid="payment-surcharge-note"
+              >
+                Credit/debit add {surchargePercent}% surcharge
+              </span>
+            ) : null}
+          </div>
           <strong className="payment-modal__total-value">
-            {isRefund ? `($${Math.abs(total).toFixed(2)})` : `$${total.toFixed(2)}`}
+            {isRefund ? `($${Math.abs(total).toFixed(2)})` : `$${displayedTotal.toFixed(2)}`}
           </strong>
         </div>
 
@@ -384,16 +450,6 @@ export function PaymentModal({
                       : `Payment complete!${change > 0 ? ` Change: $${change.toFixed(2)}` : ''}`}
                   </span>
                   <div className="payment-modal__complete-actions">
-                    {!isRefund && !alwaysPrint && (
-                      <Button
-                        variant="neutral"
-                        className="payment-modal__ok-btn"
-                        data-testid="payment-print-btn"
-                        onClick={handlePrint}
-                      >
-                        Print Receipt
-                      </Button>
-                    )}
                     <Button
                       variant="success"
                       className="payment-modal__ok-btn"

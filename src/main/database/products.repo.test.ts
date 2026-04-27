@@ -492,6 +492,58 @@ describe('inventory read queries', () => {
     expect(searchProducts('Cabernet', { size: '' })).toHaveLength(2)
   })
 
+  it('searchProducts matches all tokens across name and brand fields', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'STELLA-001',
+      item_name: 'Stella Rosa Red Apple',
+      brand_name: 'Stella Rosa'
+    })
+
+    expect(searchProducts('Stella Red Apple')).toEqual([
+      expect.objectContaining({ sku: 'STELLA-001', name: 'Stella Rosa Red Apple' })
+    ])
+  })
+
+  it('searchProducts requires every token to match somewhere', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'STELLA-002',
+      item_name: 'Stella Rosa Red Apple',
+      brand_name: 'Stella Rosa'
+    })
+
+    expect(searchProducts('Stella Pear')).toEqual([])
+  })
+
+  it('searchProducts filters for missing distributor and unpriced items', () => {
+    getDb()
+      .prepare('INSERT INTO distributors (distributor_number, distributor_name) VALUES (?, ?)')
+      .run(201, 'Priced Distributor')
+
+    saveInventoryItem({
+      ...base,
+      sku: 'UNPRICED-001',
+      item_name: 'Loose Bottle',
+      distributor_number: null,
+      retail_price: 0
+    })
+    saveInventoryItem({
+      ...base,
+      sku: 'PRICED-001',
+      item_name: 'Priced Bottle',
+      distributor_number: 201,
+      retail_price: 10
+    })
+
+    expect(searchProducts('Bottle', { distributorNumber: 'none' })).toEqual([
+      expect.objectContaining({ sku: 'UNPRICED-001' })
+    ])
+    expect(searchProducts('Bottle', { unpricedOnly: true })).toEqual([
+      expect.objectContaining({ sku: 'UNPRICED-001' })
+    ])
+  })
+
   it('getActiveSpecialPricing returns rules for active products regardless of age', () => {
     const created = saveInventoryItem({
       ...base,
@@ -512,9 +564,33 @@ describe('inventory read queries', () => {
       .run(created.item_number, 3, 27)
 
     expect(getActiveSpecialPricing()).toEqual([
-      { product_id: created.item_number, quantity: 2, price: 20 },
-      { product_id: created.item_number, quantity: 3, price: 27 }
+      { product_id: created.item_number, quantity: 2, price: 20, expires_at: null },
+      { product_id: created.item_number, quantity: 3, price: 27, expires_at: null }
     ])
+  })
+
+  it('getActiveSpecialPricing skips rules whose expires_at has already passed', () => {
+    const created = saveInventoryItem({
+      ...base,
+      sku: 'SPECIAL-EXPIRY',
+      item_name: 'Expiry Bottle',
+      special_pricing: []
+    })
+
+    getDb()
+      .prepare(
+        `
+        INSERT INTO special_pricing (product_id, quantity, price, expires_at)
+        VALUES
+          (?, 2, 18, datetime('now', '-1 day')),
+          (?, 3, 25, datetime('now', '+1 day')),
+          (?, 4, 32, NULL)
+        `
+      )
+      .run(created.item_number, created.item_number, created.item_number)
+
+    const rules = getActiveSpecialPricing()
+    expect(rules.map((r) => `${r.quantity}@${r.price}`)).toEqual(['3@25', '4@32'])
   })
 
   it('saveInventoryItem accepts special pricing with just quantity and price', () => {
@@ -529,8 +605,8 @@ describe('inventory read queries', () => {
     })
 
     expect(created.special_pricing).toEqual([
-      { quantity: 6, price: 9.99 },
-      { quantity: 12, price: 8.99 }
+      { quantity: 6, price: 9.99, expires_at: null },
+      { quantity: 12, price: 8.99, expires_at: null }
     ])
   })
 })
@@ -734,6 +810,20 @@ describe('normalized search queries', () => {
 
     const results = searchInventoryProducts('moet')
     expect(results).toEqual([expect.objectContaining({ sku: 'BRAND-001' })])
+  })
+
+  it('searchInventoryProducts requires all tokens to match somewhere', () => {
+    saveInventoryItem({
+      ...base,
+      sku: 'TOKEN-001',
+      item_name: 'Stella Rosa Red Apple',
+      brand_name: 'Stella Rosa'
+    })
+
+    expect(searchInventoryProducts('Stella Red Apple')).toEqual([
+      expect.objectContaining({ sku: 'TOKEN-001' })
+    ])
+    expect(searchInventoryProducts('Stella Pear')).toEqual([])
   })
 })
 

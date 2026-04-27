@@ -65,6 +65,7 @@ function ItemFormWithButtons(): React.JSX.Element {
   return (
     <>
       <button onClick={() => ref.current?.handleNewItem()}>New Item</button>
+      <button onClick={() => ref.current?.duplicateCurrentAsNew()}>Duplicate Item</button>
       <button onClick={() => ref.current?.handleSave()}>Save Item</button>
       <button onClick={() => ref.current?.handleDiscard()}>Discard</button>
       <button onClick={() => ref.current?.handleDelete()}>Delete Item</button>
@@ -165,7 +166,7 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NEW' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Item' } })
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '8.50' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: 'abc' } })
     setTaxRate('0.13')
@@ -179,14 +180,14 @@ describe('ItemForm', () => {
     render(<ItemForm />)
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST' } })
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '999' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '9.99' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1234' } })
 
     await userEvent.click(screen.getByRole('tab', { name: 'Special Pricing' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Add Rule' }))
     fireEvent.change(screen.getByLabelText('Rule 1 Price'), { target: { value: '501' } })
 
-    expect(screen.getByLabelText('Per Bottle Cost')).toHaveValue('$9.99')
+    expect(screen.getByLabelText('Per Bottle Cost')).toHaveValue('9.99')
     expect(screen.getByLabelText('Price Charged')).toHaveValue('$12.34')
     expect(screen.getByLabelText('Rule 1 Price')).toHaveValue('$5.01')
   })
@@ -200,7 +201,7 @@ describe('ItemForm', () => {
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NEW' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Item' } })
     setItemType('02')
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '8.50' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
     setTaxRate('0.13')
@@ -227,7 +228,7 @@ describe('ItemForm', () => {
       expect.objectContaining({
         cost: 8.5,
         retail_price: 12.75,
-        special_pricing: [{ quantity: 2, price: 10.99 }]
+        special_pricing: [{ quantity: 2, price: 10.99, expires_at: null }]
       })
     )
     expect(await screen.findByText('Item saved')).toBeInTheDocument()
@@ -282,7 +283,7 @@ describe('ItemForm', () => {
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-WINE' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Premium Wine' } })
     setItemType('11')
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '10.00' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '2500' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '5' } })
     setTaxRate('0.13')
@@ -407,7 +408,7 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SIZE-001' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Sized Item' } })
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '8.50' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
     setTaxRate('0.13')
@@ -451,7 +452,7 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SIZE-002' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Clear Size Item' } })
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '8.50' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1275' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
     setTaxRate('0.13')
@@ -541,6 +542,28 @@ describe('ItemForm', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('')
   })
 
+  it('duplicates the current item into a new draft and focuses SKU', async () => {
+    render(<ItemFormWithButtons />)
+    fireEvent.click(screen.getByRole('button', { name: 'Load Item' }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('SKU')).toHaveValue('SKU-001')
+    })
+
+    fireEvent.change(screen.getByLabelText('Brand'), { target: { value: 'Stella Rosa' } })
+    fireEvent.change(screen.getByLabelText('Size'), { target: { value: '750ML' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate Item' }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('SKU')).toHaveValue('')
+      expect(screen.getByLabelText('SKU')).toHaveFocus()
+      expect(screen.getByLabelText('Name')).toHaveValue('Inventory Item')
+      expect(screen.getByLabelText('Brand')).toHaveValue('Stella Rosa')
+      expect(screen.getByLabelText('Size')).toHaveValue('750ML')
+    })
+  })
+
   it('handleDiscard restores form to last loaded state', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const api = (window as any).api
@@ -623,7 +646,7 @@ describe('ItemForm', () => {
     setItemType('11')
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-ERR' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Error Item' } })
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '500' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '5.00' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '1' } })
     setTaxRate('0.13')
@@ -703,7 +726,7 @@ describe('ItemForm', () => {
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-CASE' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Case Item' } })
     setItemType('11')
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '850' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '8.50' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '7' } })
     setTaxRate('0.13')
@@ -728,7 +751,7 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'SKU-NOTAX' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'No Tax Item' } })
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '500' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '5.00' } })
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('In Stock'), { target: { value: '1' } })
 
@@ -759,17 +782,17 @@ describe('ItemForm', () => {
   it('displays computed profit margin', () => {
     render(<ItemForm />)
 
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } }) // $10
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '10.00' } }) // $10
     fireEvent.change(screen.getByLabelText('Price Charged'), { target: { value: '2000' } }) // $20
 
     // profit = (20-10)/20 * 100 = 50%
-    expect(screen.getByLabelText('Profit Margin')).toHaveTextContent('50.0%')
+    expect(screen.getByLabelText('Gross Margin')).toHaveTextContent('50.0%')
   })
 
   it('displays — for profit margin when fields are empty', () => {
     render(<ItemForm />)
 
-    expect(screen.getByLabelText('Profit Margin')).toHaveTextContent('—')
+    expect(screen.getByLabelText('Gross Margin')).toHaveTextContent('—')
   })
 
   it('displays computed final price with tax', async () => {
@@ -837,7 +860,7 @@ describe('ItemForm', () => {
 
     fireEvent.change(screen.getByLabelText('Item Type'), { target: { value: 'Spirits' } })
     // Enter cost $10.00 → price = 10 / (1 - 0.25) = $13.33
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '10.00' } })
 
     await waitFor(() => {
       expect(screen.getByLabelText('Price Charged')).toHaveValue('$13.33')
@@ -865,7 +888,7 @@ describe('ItemForm', () => {
     })
 
     // Enter cost first
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '2000' } }) // $20
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '20.00' } })
 
     // Change item type to one with a margin — price = 20 / (1 - 0.40) = $33.33
     fireEvent.change(screen.getByLabelText('Item Type'), { target: { value: 'Whiskey' } })
@@ -895,7 +918,7 @@ describe('ItemForm', () => {
     })
 
     fireEvent.change(screen.getByLabelText('Item Type'), { target: { value: 'Wine' } })
-    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '1000' } })
+    fireEvent.change(screen.getByLabelText('Per Bottle Cost'), { target: { value: '10.00' } })
 
     // Auto label should appear
     await waitFor(() => {

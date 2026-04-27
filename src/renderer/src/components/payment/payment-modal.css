@@ -70,6 +70,32 @@
   color: #ffffff;
 }
 
+.payment-modal__total-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.payment-modal__total-fee {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.payment-modal__total-fee--hint {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.payment-modal__total-bar--card {
+  background: var(--accent-blue, #1f6feb);
+  color: #ffffff;
+}
+
+.payment-modal__total-bar--card .payment-modal__total-fee {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .payment-modal__total-value {
   font-size: 2rem;
 }

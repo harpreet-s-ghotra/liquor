@@ -242,23 +242,22 @@ test.describe('Inventory Modal — Resizable Split', () => {
   })
 })
 
-test.describe('Inventory Modal — Special Pricing without Duration', () => {
+test.describe('Inventory Modal — Special Pricing with Expiry', () => {
   test.beforeEach(async ({ page }) => {
     await attachMock(page)
   })
 
-  test('special pricing table has no Duration column', async ({ page }) => {
+  test('special pricing table now exposes Quantity / Price / Expires columns', async ({ page }) => {
     await openInventoryAndLoad(page)
     await page.getByRole('tab', { name: 'Special Pricing' }).click()
 
     const table = page.getByRole('table', { name: 'Special Pricing Rules' })
     await expect(table).toBeVisible()
     const headers = await table.locator('thead th').allTextContents()
-    expect(headers.map((h) => h.trim())).toEqual(['Quantity', 'Price', ''])
-    await expect(page.getByLabel('Rule 1 Duration')).toHaveCount(0)
+    expect(headers.map((h) => h.trim())).toEqual(['Quantity', 'Price', 'Expires', ''])
   })
 
-  test('adds a new rule and saves without a duration field', async ({ page }) => {
+  test('a rule saved without an expiry sends expires_at: null', async ({ page }) => {
     await openInventoryAndLoad(page)
     await page.getByRole('tab', { name: 'Special Pricing' }).click()
 
@@ -279,9 +278,46 @@ test.describe('Inventory Modal — Special Pricing without Duration', () => {
         (window as any).__lastInventorySave.value as { special_pricing: unknown[] } | null
     )
     expect(payload).not.toBeNull()
-    for (const rule of payload!.special_pricing as Record<string, unknown>[]) {
-      expect(Object.keys(rule).sort()).toEqual(['price', 'quantity'])
-    }
-    expect(payload!.special_pricing).toContainEqual({ quantity: 12, price: 120 })
+    expect(payload!.special_pricing).toContainEqual({
+      quantity: 12,
+      price: 120,
+      expires_at: null
+    })
+  })
+
+  test('a rule with an expiry date round-trips an ISO timestamp', async ({ page }) => {
+    await openInventoryAndLoad(page)
+    await page.getByRole('tab', { name: 'Special Pricing' }).click()
+
+    await page.getByRole('button', { name: 'Add Rule' }).click()
+    const lastRuleIndex = await page
+      .getByRole('table', { name: 'Special Pricing Rules' })
+      .locator('tbody tr')
+      .count()
+    // Use a quantity that won't collide with any preloaded rule from the mock.
+    await page.getByLabel(`Rule ${lastRuleIndex} Quantity`).fill('7')
+    await page.getByLabel(`Rule ${lastRuleIndex} Price`).fill('5999')
+    await page.getByLabel(`Rule ${lastRuleIndex} Expires`).fill('2026-12-31')
+
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Item saved')).toBeVisible()
+
+    const payload = await page.evaluate(
+      () =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).__lastInventorySave.value as { special_pricing: unknown[] } | null
+    )
+    const saved = (payload!.special_pricing as Record<string, unknown>[]).find(
+      (r) => r.quantity === 7
+    )
+    expect(saved).toBeDefined()
+    expect(saved!.price).toBe(59.99)
+    expect(typeof saved!.expires_at).toBe('string')
+    // Date input is interpreted as local end-of-day, then serialised to UTC ISO.
+    // Verify the resulting timestamp resolves back to the same local calendar
+    // date the cashier picked, regardless of the test runner timezone.
+    const localDate = new Date(saved!.expires_at as string)
+    const localYmd = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`
+    expect(localYmd).toBe('2026-12-31')
   })
 })

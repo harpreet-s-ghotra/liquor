@@ -10,6 +10,9 @@ import { SearchModal } from '@renderer/components/search/SearchModal'
 import { ActionPanel } from '@renderer/components/action/ActionPanel'
 import { AlertBar } from '@renderer/components/common/AlertBar'
 import { ErrorModal } from '@renderer/components/common/ErrorModal'
+import { PromptDialog } from '@renderer/components/common/PromptDialog'
+import { HOLD_DESCRIPTION_MAX_LENGTH } from '../../../shared/constants'
+import { useCustomerDisplaySnapshot } from '@renderer/hooks/useCustomerDisplaySnapshot'
 import { HoldLookupModal } from '@renderer/components/hold/HoldLookupModal'
 import { BottomShortcutBar } from '@renderer/components/layout/BottomShortcutBar'
 import { HeaderBar } from '@renderer/components/layout/HeaderBar'
@@ -21,8 +24,8 @@ import { useAuthStore } from '@renderer/store/useAuthStore'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import '../styles/auth.css'
 import './pos-screen.css'
-import type { PaymentMethod, PaymentResult } from '@renderer/types/pos'
-import type { DeviceConfig, Product } from '../../../shared/types'
+import type { PaymentEntry, PaymentMethod, PaymentResult } from '@renderer/types/pos'
+import type { DeviceConfig, Product, TransactionDetail } from '../../../shared/types'
 
 export function POSScreen(): React.JSX.Element {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false)
@@ -44,6 +47,18 @@ export function POSScreen(): React.JSX.Element {
   const [skuError, setSkuError] = useState('')
   const [unpricedProduct, setUnpricedProduct] = useState<Product | null>(null)
   const [updateReadyVersion, setUpdateReadyVersion] = useState<string | null>(null)
+  const [cardSurcharge, setCardSurcharge] = useState<{ enabled: boolean; percent: number }>({
+    enabled: false,
+    percent: 0
+  })
+  const [paymentStatus, setPaymentStatus] =
+    useState<import('@renderer/types/pos').PaymentStatus>('idle')
+  const [activePaymentMethod, setActivePaymentMethod] = useState<PaymentMethod | null>(null)
+  const [completedPayments, setCompletedPayments] = useState<PaymentEntry[]>([])
+  // Snapshot of the just-finalized sale's grand total, captured before
+  // `clearTransaction()` empties the cart. Used by the customer-display
+  // snapshot to compute change-due against the real total instead of 0.
+  const [completedSaleTotal, setCompletedSaleTotal] = useState<number | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const isRefundingRef = useRef(false)
 
@@ -55,6 +70,19 @@ export function POSScreen(): React.JSX.Element {
   const showError = useAlertStore((s) => s.showError)
   const showInfo = useAlertStore((s) => s.showInfo)
   const showSuccess = useAlertStore((s) => s.showSuccess)
+
+  useEffect(() => {
+    if (!window.api?.getCardSurcharge) return
+    void window.api
+      .getCardSurcharge()
+      .then((cfg) => setCardSurcharge({ enabled: cfg.enabled, percent: cfg.percent }))
+      .catch(() => {
+        // surcharge load failure shouldn't block POS
+      })
+    // Re-fetch when the manager modal closes (saves apply there) and whenever a
+    // payment modal is about to open, so a freshly-saved surcharge takes effect
+    // without requiring a restart.
+  }, [isManagerOpen, isPaymentOpen])
 
   useEffect(() => {
     if (!window.api?.onUpdateAvailable) return
@@ -156,6 +184,7 @@ export function POSScreen(): React.JSX.Element {
     isReturning,
     returnSubtotal,
     returnTax,
+    returnSurcharge,
     returnTotal,
     toggleReturnItem,
     toggleReturnAll,
@@ -168,12 +197,46 @@ export function POSScreen(): React.JSX.Element {
     loadHeldTransactions()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Push a snapshot to the customer-facing display whenever cart or payment state changes.
+  useCustomerDisplaySnapshot({
+    cartLines,
+    subtotalDiscounted,
+    tax,
+    total,
+    isReturning,
+    returnSubtotal,
+    returnTax,
+    returnTotal,
+    paymentMethod,
+    activePaymentMethod,
+    paymentStatus,
+    completedPayments,
+    completedSaleTotal,
+    cardSurcharge,
+    storeName: merchantConfig?.merchant_name ?? null
+  })
+
   // Load alwaysPrint setting on mount
   useEffect(() => {
     void window.api?.getReceiptConfig?.()?.then((cfg) => {
       if (cfg) setAlwaysPrint(cfg.alwaysPrint ?? false)
     })
   }, [])
+
+  // Once the cashier starts a new transaction (cart transitions from 0 → >0
+  // items after a completed sale), drop the "Thank you / Change due" state so
+  // the customer display reflects the in-progress sale instead of the previous
+  // one. Tracking the prior length avoids resetting mid-payment when the
+  // status flips to 'complete' while the cart still holds the sold items.
+  const prevCartLengthRef = useRef(cart.length)
+  useEffect(() => {
+    if (prevCartLengthRef.current === 0 && cart.length > 0 && paymentStatus === 'complete') {
+      setPaymentStatus('idle')
+      setCompletedSaleTotal(null)
+      setCompletedPayments([])
+    }
+    prevCartLengthRef.current = cart.length
+  }, [cart.length, paymentStatus])
 
   useEffect(() => {
     void window.api?.getDeviceConfig?.()?.then((cfg) => {
@@ -185,31 +248,56 @@ export function POSScreen(): React.JSX.Element {
     setTimeout(() => searchRef.current?.focus(), 0)
   }, [])
 
-  const handleHold = useCallback(async () => {
+  const [holdDescriptionPromptOpen, setHoldDescriptionPromptOpen] = useState(false)
+
+  const handleHold = useCallback(() => {
     if (cart.length === 0) return
-    await holdTransaction()
-    focusSearch()
-  }, [cart.length, holdTransaction, focusSearch])
+    setHoldDescriptionPromptOpen(true)
+  }, [cart.length])
+
+  const submitHold = useCallback(
+    async (description: string) => {
+      setHoldDescriptionPromptOpen(false)
+      await holdTransaction(description)
+      focusSearch()
+    },
+    [holdTransaction, focusSearch]
+  )
 
   const handlePrintReceipt = useCallback(async () => {
-    if (!viewingTransaction) return
     try {
+      // When viewing an old recalled transaction, print that one. Otherwise,
+      // fall back to the most recent transaction in the local DB so the
+      // cashier can reprint the receipt they just rang up without recalling.
+      let detail: TransactionDetail | null = viewingTransaction
+      if (!detail) {
+        const recent = (await window.api?.getRecentTransactions?.(1)) ?? []
+        if (recent.length === 0) {
+          showError('No transactions found to print.')
+          return
+        }
+        detail = (await window.api?.getTransactionByNumber?.(recent[0].transaction_number)) ?? null
+        if (!detail) {
+          showError('Could not load the most recent transaction.')
+          return
+        }
+      }
       await window.api?.printReceipt?.({
-        transaction_number: viewingTransaction.transaction_number,
+        transaction_number: detail.transaction_number,
         store_name: merchantConfig?.merchant_name ?? 'Liquor Store',
         cashier_name: currentCashier?.name ?? '',
-        items: viewingTransaction.items.map((li) => ({
+        items: detail.items.map((li) => ({
           product_name: li.product_name,
           quantity: li.quantity,
           unit_price: li.unit_price,
           total_price: li.total_price
         })),
-        subtotal: viewingTransaction.subtotal,
-        tax_amount: viewingTransaction.tax_amount,
-        total: viewingTransaction.total,
-        payment_method: viewingTransaction.payment_method,
-        card_last_four: viewingTransaction.card_last_four ?? null,
-        card_type: viewingTransaction.card_type ?? null
+        subtotal: detail.subtotal,
+        tax_amount: detail.tax_amount,
+        total: detail.total,
+        payment_method: detail.payment_method,
+        card_last_four: detail.card_last_four ?? null,
+        card_type: detail.card_type ?? null
       })
     } catch (err) {
       console.error('Receipt print failed:', err)
@@ -236,6 +324,9 @@ export function POSScreen(): React.JSX.Element {
   const handlePaymentOpen = useCallback(
     (method?: PaymentMethod) => {
       if (cart.length === 0) return
+      setCompletedPayments([])
+      setCompletedSaleTotal(null)
+      setPaymentStatus('idle')
       setPaymentMethod(method)
       setIsPaymentOpen(true)
     },
@@ -244,6 +335,8 @@ export function POSScreen(): React.JSX.Element {
 
   const handlePaymentComplete = useCallback(
     (result: PaymentResult) => {
+      setCompletedPayments(result.payments ?? [])
+
       // Save transaction to the database (fire-and-forget)
       if (window.api?.saveTransaction && cart.length > 0) {
         const txDiscountMultiplier =
@@ -272,11 +365,18 @@ export function POSScreen(): React.JSX.Element {
           finix_transfer_id: p.finix_transfer_id ?? null
         }))
 
+        const surchargeTotal =
+          Math.round(
+            (result.payments ?? []).reduce((sum, p) => sum + (p.surcharge_amount ?? 0), 0) * 100
+          ) / 100
+        const grandTotal = Math.round((total + surchargeTotal) * 100) / 100
+
         window.api
           .saveTransaction({
             subtotal: subtotalDiscounted,
             tax_amount: tax,
-            total,
+            total: grandTotal,
+            surcharge_amount: surchargeTotal > 0 ? surchargeTotal : 0,
             payment_method: result.method,
             finix_authorization_id: result.finix_authorization_id ?? null,
             finix_transfer_id: result.finix_transfer_id ?? null,
@@ -306,7 +406,8 @@ export function POSScreen(): React.JSX.Element {
                       ? Math.round((subtotalBeforeDiscount - subtotalDiscounted) * 100) / 100
                       : null,
                   tax_amount: tax,
-                  total,
+                  total: grandTotal,
+                  surcharge_amount: surchargeTotal > 0 ? surchargeTotal : 0,
                   payment_method: result.method,
                   card_last_four: result.card_last_four ?? null,
                   card_type: result.card_type ?? null,
@@ -324,9 +425,13 @@ export function POSScreen(): React.JSX.Element {
           })
       }
 
+      // Capture the final total *before* clearing the cart so the customer
+      // display can show the correct change-due amount on cash overpayments.
+      setCompletedSaleTotal(total)
       setIsPaymentOpen(false)
       setIsPaymentComplete(false)
       setPaymentMethod(undefined)
+      setActivePaymentMethod(null)
       clearTransaction()
       focusSearch()
     },
@@ -393,6 +498,7 @@ export function POSScreen(): React.JSX.Element {
       }[]
 
       try {
+        setCompletedPayments(result.payments ?? [])
         const refundAmountCents = Math.round(Math.abs(returnTotal) * 100)
 
         if (result.method !== 'cash') {
@@ -412,6 +518,9 @@ export function POSScreen(): React.JSX.Element {
           original_transaction_number: viewingTransaction.transaction_number,
           subtotal: Math.abs(returnSubtotal),
           tax_amount: Math.abs(returnTax),
+          // returnSurcharge is negative; the repo stores the signed surcharge so
+          // SUM() over completed + refund rows yields the net fee revenue.
+          surcharge_amount: returnSurcharge,
           total: Math.abs(returnTotal),
           payment_method: result.method,
           finix_authorization_id: result.finix_authorization_id ?? null,
@@ -425,6 +534,7 @@ export function POSScreen(): React.JSX.Element {
         setIsPaymentOpen(false)
         setIsPaymentComplete(false)
         setPaymentMethod(undefined)
+        setActivePaymentMethod(null)
         dismissRecalledTransaction()
         focusSearch()
       } catch (err) {
@@ -448,14 +558,19 @@ export function POSScreen(): React.JSX.Element {
   )
 
   const handlePaymentCancel = useCallback(() => {
+    setCompletedPayments([])
+    setCompletedSaleTotal(null)
+    setPaymentStatus('idle')
     setIsPaymentOpen(false)
     setIsPaymentComplete(false)
     setPaymentMethod(undefined)
+    setActivePaymentMethod(null)
     focusSearch()
   }, [focusSearch])
 
   const handlePaymentStatusChange = useCallback(
     (status: import('@renderer/types/pos').PaymentStatus) => {
+      setPaymentStatus(status)
       setIsPaymentComplete(status === 'complete')
     },
     []
@@ -605,10 +720,15 @@ export function POSScreen(): React.JSX.Element {
           onTsLookup={openHoldLookup}
           onPrintReceipt={handlePrintReceipt}
           onOpenDrawer={handleOpenDrawer}
-          canPrintReceipt={!!viewingTransaction}
+          canPrintReceipt={true}
           isViewingTransaction={isViewingTransaction}
           isReturning={isReturning}
           isViewingRefund={viewingTransaction?.status === 'refund'}
+          cardSurchargeContext={{
+            enabled: cardSurcharge.enabled,
+            percent: cardSurcharge.percent,
+            activeMethod: activePaymentMethod
+          }}
         />
       </main>
 
@@ -665,7 +785,6 @@ export function POSScreen(): React.JSX.Element {
         onOpenInInventory={
           isAdmin
             ? (product) => {
-                setIsSearchOpen(false)
                 setPendingInventoryItemNumber(product.id)
                 setIsInventoryOpen(true)
               }
@@ -682,6 +801,17 @@ export function POSScreen(): React.JSX.Element {
         onClose={dismissHoldLookup}
       />
 
+      <PromptDialog
+        isOpen={holdDescriptionPromptOpen}
+        title="Hold transaction"
+        message="Add an optional note to identify this hold (e.g. customer name)."
+        placeholder="John's order"
+        confirmLabel="Hold"
+        maxLength={HOLD_DESCRIPTION_MAX_LENGTH}
+        onConfirm={(value) => void submitHold(value)}
+        onCancel={() => setHoldDescriptionPromptOpen(false)}
+      />
+
       <PaymentModal
         isOpen={isPaymentOpen}
         total={isReturning ? Math.abs(returnTotal) : total}
@@ -689,8 +819,9 @@ export function POSScreen(): React.JSX.Element {
         onComplete={isReturning ? handleRefundComplete : handlePaymentComplete}
         onCancel={handlePaymentCancel}
         onStatusChange={handlePaymentStatusChange}
+        onActiveMethodChange={setActivePaymentMethod}
         isRefund={isReturning}
-        alwaysPrint={alwaysPrint}
+        cardSurcharge={isReturning ? undefined : cardSurcharge}
       />
 
       <ClockOutModal

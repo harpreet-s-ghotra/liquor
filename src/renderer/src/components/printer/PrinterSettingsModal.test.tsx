@@ -266,17 +266,18 @@ describe('PrinterSettingsModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('renders always-print checkbox matching loaded config (unchecked by default)', async () => {
+  it('renders the receipt-mode radio defaulting to "never" when alwaysPrint is false', async () => {
     render(<PrinterSettingsModal isOpen={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
-      expect(screen.getByTestId('always-print-checkbox')).toBeInTheDocument()
+      expect(screen.getByTestId('receipt-mode-never')).toBeInTheDocument()
     })
 
-    expect(screen.getByTestId('always-print-checkbox')).not.toBeChecked()
+    expect(screen.getByTestId('receipt-mode-never')).toBeChecked()
+    expect(screen.getByTestId('receipt-mode-always')).not.toBeChecked()
   })
 
-  it('renders always-print checkbox as checked when config has alwaysPrint true', async () => {
+  it('renders the receipt-mode radio selected on "always" when config has alwaysPrint true', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).api.getReceiptConfig = vi
       .fn()
@@ -285,7 +286,8 @@ describe('PrinterSettingsModal', () => {
     render(<PrinterSettingsModal isOpen={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
-      expect(screen.getByTestId('always-print-checkbox')).toBeChecked()
+      expect(screen.getByTestId('receipt-mode-always')).toBeChecked()
     })
+    expect(screen.getByTestId('receipt-mode-never')).not.toBeChecked()
   })
 })

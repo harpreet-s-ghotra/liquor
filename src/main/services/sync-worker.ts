@@ -431,14 +431,15 @@ async function handleRemoteTransaction(row: any): Promise<void> {
 
   db.prepare(
     `INSERT OR IGNORE INTO transactions
-      (transaction_number, subtotal, tax_amount, total, payment_method,
+      (transaction_number, subtotal, tax_amount, surcharge_amount, total, payment_method,
        finix_authorization_id, finix_transfer_id, card_last_four, card_type, status, notes,
        device_id, synced_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`
   ).run(
     row.transaction_number,
     row.subtotal,
     row.tax_amount,
+    Number(row.surcharge_amount ?? 0),
     row.total,
     row.payment_method,
     row.finix_authorization_id,

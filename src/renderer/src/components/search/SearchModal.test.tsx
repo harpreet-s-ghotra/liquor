@@ -10,7 +10,9 @@ const mockProducts = [
     category: 'Wine',
     price: 19.99,
     quantity: 24,
-    tax_rate: 0.13
+    tax_rate: 0.13,
+    distributor_name: 'Wine Co',
+    size: '750ML'
   },
   {
     id: 2,
@@ -19,7 +21,9 @@ const mockProducts = [
     category: 'Beer',
     price: 12.99,
     quantity: 48,
-    tax_rate: 0.13
+    tax_rate: 0.13,
+    distributor_name: null,
+    size: null
   }
 ]
 
@@ -125,7 +129,9 @@ describe('SearchModal', () => {
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledWith('cab', {
         departmentId: undefined,
-        distributorNumber: undefined
+        distributorNumber: undefined,
+        size: undefined,
+        unpricedOnly: false
       })
       expect(screen.getByText('Cabernet Sauvignon')).toBeInTheDocument()
       expect(screen.getByText('IPA 6-pack')).toBeInTheDocument()
@@ -142,7 +148,9 @@ describe('SearchModal', () => {
     await waitFor(() => {
       expect(window.api!.searchProducts).toHaveBeenCalledWith('wine', {
         departmentId: undefined,
-        distributorNumber: undefined
+        distributorNumber: undefined,
+        size: undefined,
+        unpricedOnly: false
       })
     })
   })
@@ -200,7 +208,7 @@ describe('SearchModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open in Inventory' }))
 
     expect(onOpenInInventory).toHaveBeenCalledWith(mockProducts[0])
-    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('shows empty state when no results found', async () => {
@@ -272,7 +280,8 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('', {
         departmentId: undefined,
         distributorNumber: undefined,
-        size: undefined
+        size: undefined,
+        unpricedOnly: false
       })
     })
   })
@@ -298,7 +307,8 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('wine', {
         departmentId: 1,
         distributorNumber: undefined,
-        size: undefined
+        size: undefined,
+        unpricedOnly: false
       })
     })
   })
@@ -324,7 +334,23 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('beer', {
         departmentId: undefined,
         distributorNumber: 1,
-        size: undefined
+        size: undefined,
+        unpricedOnly: false
+      })
+    })
+  })
+
+  it('supports filtering for products with no distributor', async () => {
+    await renderOpenSearchModal()
+
+    fireEvent.change(screen.getByLabelText('Filter by distributor'), { target: { value: 'none' } })
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenLastCalledWith('', {
+        departmentId: undefined,
+        distributorNumber: 'none',
+        size: undefined,
+        unpricedOnly: false
       })
     })
   })
@@ -364,7 +390,8 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('cabernet', {
         departmentId: undefined,
         distributorNumber: undefined,
-        size: '750ML'
+        size: '750ML',
+        unpricedOnly: false
       })
     })
   })
@@ -386,7 +413,30 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('', {
         departmentId: 1,
         distributorNumber: undefined,
-        size: '1.5L'
+        size: '1.5L',
+        unpricedOnly: false
+      })
+    })
+  })
+
+  it('re-searches when unpriced-only is toggled after a search', async () => {
+    await renderOpenSearchModal()
+
+    fireEvent.change(screen.getByPlaceholderText('Search items...'), { target: { value: 'wine' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenCalledTimes(2)
+    })
+
+    fireEvent.click(screen.getByLabelText('Unpriced only'))
+
+    await waitFor(() => {
+      expect(window.api!.searchProducts).toHaveBeenLastCalledWith('wine', {
+        departmentId: undefined,
+        distributorNumber: undefined,
+        size: undefined,
+        unpricedOnly: true
       })
     })
   })
@@ -473,7 +523,9 @@ describe('SearchModal', () => {
       expect(window.api!.searchProducts).toHaveBeenCalledTimes(4)
       expect(window.api!.searchProducts).toHaveBeenLastCalledWith('wine', {
         departmentId: undefined,
-        distributorNumber: undefined
+        distributorNumber: undefined,
+        size: undefined,
+        unpricedOnly: false
       })
     })
   })
