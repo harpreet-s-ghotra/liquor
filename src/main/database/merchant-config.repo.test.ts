@@ -4,9 +4,11 @@ import { setDatabase, getDb } from './connection'
 import { applySchema } from './schema'
 import {
   getCardSurcharge,
+  getDeliveryServices,
   getMerchantConfig,
   saveMerchantConfig,
-  setCardSurcharge
+  setCardSurcharge,
+  setDeliveryServices
 } from './merchant-config.repo'
 
 function createTestDb(): void {
@@ -85,5 +87,47 @@ describe('card surcharge config', () => {
     setCardSurcharge({ enabled: true, percent: 4 })
     const cfg = getMerchantConfig()
     expect(cfg?.merchant_id).toBe('MU-test')
+  })
+})
+
+describe('delivery services config', () => {
+  beforeEach(createTestDb)
+
+  it('returns an empty list before anything is saved', () => {
+    seedConfig()
+    expect(getDeliveryServices()).toEqual([])
+  })
+
+  it('round-trips a list of names in stored order', () => {
+    seedConfig()
+    setDeliveryServices(['UberEats', 'DoorDash', 'Grubhub'])
+    expect(getDeliveryServices()).toEqual(['UberEats', 'DoorDash', 'Grubhub'])
+  })
+
+  it('trims, drops empty strings, and de-duplicates case-insensitively', () => {
+    seedConfig()
+    const result = setDeliveryServices(['  UberEats ', '', 'ubereats', 'DoorDash', 'doordash'])
+    expect(result).toEqual(['UberEats', 'DoorDash'])
+  })
+
+  it('rejects non-array input', () => {
+    seedConfig()
+    // @ts-expect-error -- runtime guard
+    expect(() => setDeliveryServices('UberEats')).toThrow(/list of names/)
+  })
+
+  it('rejects names longer than the configured limit', () => {
+    seedConfig()
+    const tooLong = 'x'.repeat(50)
+    expect(() => setDeliveryServices([tooLong])).toThrow(/40 characters/)
+  })
+
+  it('coexists with card_surcharge in extras_json without clobbering it', () => {
+    seedConfig()
+    setCardSurcharge({ enabled: true, percent: 2.5 })
+    setDeliveryServices(['UberEats'])
+
+    expect(getCardSurcharge()).toEqual({ enabled: true, percent: 2.5 })
+    expect(getDeliveryServices()).toEqual(['UberEats'])
   })
 })

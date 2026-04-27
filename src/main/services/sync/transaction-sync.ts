@@ -33,6 +33,7 @@ export async function uploadTransaction(
     finix_transfer_id: transaction.finix_transfer_id,
     card_last_four: transaction.card_last_four,
     card_type: transaction.card_type,
+    account_service_name: transaction.account_service_name ?? null,
     status: transaction.status,
     notes: transaction.notes,
     original_transaction_number: transaction.original_transaction_number,

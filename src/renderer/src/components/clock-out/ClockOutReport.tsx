@@ -80,9 +80,38 @@ export function ClockOutReportView({ report }: ClockOutReportProps): React.JSX.E
               <td>Debit</td>
               <td>{formatCurrency(report.debit_total)}</td>
             </tr>
+            <tr>
+              <td>Account</td>
+              <td>{formatCurrency(report.account_total)}</td>
+            </tr>
           </tbody>
         </table>
       </div>
+
+      {/* Per-service Account Breakdown */}
+      {report.account_breakdown.length > 0 && (
+        <div className="clock-out-report__section">
+          <h3 className="clock-out-report__section-title">Account Sales by Service</h3>
+          <table className="clock-out-report__table" data-testid="account-breakdown-table">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Transactions</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.account_breakdown.map((row) => (
+                <tr key={row.service_name}>
+                  <td>{row.service_name}</td>
+                  <td>{formatInteger(row.count)}</td>
+                  <td>{formatCurrency(row.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Totals Summary */}
       <div className="clock-out-report__section">

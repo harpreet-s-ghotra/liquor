@@ -1,0 +1,74 @@
+.account-payment-modal {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+}
+
+.account-payment-modal__body {
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  min-height: 0;
+  overflow: auto;
+}
+
+.account-payment-modal__tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+
+.account-payment-modal__tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  cursor: pointer;
+  padding: 1.25rem 0.75rem;
+  min-height: 5.5rem;
+  text-align: center;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.account-payment-modal__tile:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.account-payment-modal__tile-name {
+  word-break: break-word;
+}
+
+.account-payment-modal__empty {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius);
+  background: var(--bg-surface-soft);
+  padding: 2rem 1.25rem;
+  text-align: center;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.account-payment-modal__empty-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.account-payment-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-soft);
+  padding: 0.875rem 1.25rem;
+}
+
+.payment-modal__total-bar--account {
+  background: var(--accent-lavender, #8b6dba);
+  color: var(--text-white, #ffffff);
+}

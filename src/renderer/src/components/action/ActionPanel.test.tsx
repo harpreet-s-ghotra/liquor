@@ -27,6 +27,7 @@ const baseProps = {
   onCash: vi.fn(),
   onCredit: vi.fn(),
   onDebit: vi.fn(),
+  onAccount: vi.fn(),
   heldCount: 0,
   onHold: vi.fn(),
   onTsLookup: vi.fn(),
@@ -263,6 +264,71 @@ describe('ActionPanel', () => {
       expect(screen.getByRole('button', { name: 'Credit' })).toBeDisabled()
       expect(screen.getByRole('button', { name: 'Debit' })).toBeDisabled()
       expect(screen.getByRole('button', { name: 'Pay Now' })).toBeDisabled()
+    })
+  })
+
+  describe('Account payment button', () => {
+    it('renders an Account button alongside the cash/credit/debit row', () => {
+      render(
+        <ActionPanel
+          {...baseProps}
+          activeCategory="All"
+          categories={['All']}
+          setActiveCategory={vi.fn()}
+          cartCount={2}
+        />
+      )
+
+      expect(screen.getByTestId('account-pay-btn')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Account' })).toBeEnabled()
+    })
+
+    it('invokes onAccount when the button is clicked', () => {
+      const onAccount = vi.fn()
+      render(
+        <ActionPanel
+          {...baseProps}
+          activeCategory="All"
+          categories={['All']}
+          setActiveCategory={vi.fn()}
+          cartCount={2}
+          onAccount={onAccount}
+        />
+      )
+
+      fireEvent.click(screen.getByTestId('account-pay-btn'))
+      expect(onAccount).toHaveBeenCalledTimes(1)
+    })
+
+    it('disables Account when the cart is empty', () => {
+      render(
+        <ActionPanel
+          {...baseProps}
+          activeCategory="All"
+          categories={['All']}
+          setActiveCategory={vi.fn()}
+          cartCount={0}
+        />
+      )
+
+      expect(screen.getByTestId('account-pay-btn')).toBeDisabled()
+    })
+
+    it('disables Account during a transaction recall, even in return mode', () => {
+      render(
+        <ActionPanel
+          {...baseProps}
+          activeCategory="All"
+          categories={['All']}
+          setActiveCategory={vi.fn()}
+          cartCount={2}
+          isViewingTransaction={true}
+          isReturning={true}
+        />
+      )
+
+      // Account is for fresh sales only — refunds use the existing payment row.
+      expect(screen.getByTestId('account-pay-btn')).toBeDisabled()
     })
   })
 })

@@ -75,7 +75,7 @@ export type TransactionDiscountItem = {
 
 export type CartLineItem = CartItem | TransactionDiscountItem
 
-export type PaymentMethod = 'cash' | 'credit' | 'debit'
+export type PaymentMethod = 'cash' | 'credit' | 'debit' | 'account'
 
 export type PaymentEntry = {
   id: number
@@ -88,6 +88,8 @@ export type PaymentEntry = {
   finix_transfer_id?: string | null
   /** Card-only: surcharge fee folded into amount. base = amount - surcharge_amount. */
   surcharge_amount?: number
+  /** Account-only: name of the third-party delivery service the sale is billed to. */
+  account_service_name?: string | null
 }
 
 export type PaymentStatus = 'idle' | 'collecting' | 'processing-card' | 'complete'
@@ -105,6 +107,8 @@ export type PaymentResult = {
   card_last_four?: string | null
   /** Card brand: Visa, Mastercard, etc. */
   card_type?: string | null
+  /** Account-only: delivery service name (UberEats, DoorDash, etc.). */
+  account_service_name?: string | null
   /** True when the user explicitly clicked "Print Receipt" (false = OK only) */
   shouldPrint?: boolean
 }

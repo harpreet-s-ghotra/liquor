@@ -64,7 +64,9 @@ const sampleReport: ClockOutReport = {
   expected_cash_at_close: 50,
   cash_total: 50,
   credit_total: 30,
-  debit_total: 19.95
+  debit_total: 19.95,
+  account_total: 0,
+  account_breakdown: []
 }
 
 const buildSessionPage = (count: number, base: Session): Session[] =>

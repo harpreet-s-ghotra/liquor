@@ -26,7 +26,9 @@ describe('MerchantInfoPanel', () => {
     ;(window as any).api = {
       getFinixMerchantStatus: vi.fn().mockResolvedValue(mockStatus),
       getCardSurcharge: vi.fn().mockResolvedValue({ enabled: false, percent: 0 }),
-      setCardSurcharge: vi.fn(async (input: { enabled: boolean; percent: number }) => input)
+      setCardSurcharge: vi.fn(async (input: { enabled: boolean; percent: number }) => input),
+      getDeliveryServices: vi.fn().mockResolvedValue([]),
+      setDeliveryServices: vi.fn(async (list: string[]) => list)
     }
 
     useAuthStore.setState({
@@ -317,6 +319,72 @@ describe('MerchantInfoPanel', () => {
 
       expect(await screen.findByText(/10% or less/i)).toBeInTheDocument()
       expect(window.api!.setCardSurcharge).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Delivery Services', () => {
+    it('renders the empty state when no services are configured', async () => {
+      render(<MerchantInfoPanel />)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('delivery-services-section')).toBeInTheDocument()
+      })
+      expect(screen.getByTestId('delivery-services-empty')).toBeInTheDocument()
+    })
+
+    it('shows existing services and lets the manager add a new one', async () => {
+      vi.mocked(window.api!.getDeliveryServices).mockResolvedValueOnce(['UberEats'])
+      vi.mocked(window.api!.setDeliveryServices).mockImplementation(async (list) => list)
+
+      render(<MerchantInfoPanel />)
+
+      await waitFor(() => {
+        expect(screen.getByText('UberEats')).toBeInTheDocument()
+      })
+
+      fireEvent.change(screen.getByLabelText('New delivery service name'), {
+        target: { value: 'DoorDash' }
+      })
+      fireEvent.click(screen.getByTestId('delivery-service-add-btn'))
+
+      await waitFor(() => {
+        expect(window.api!.setDeliveryServices).toHaveBeenCalledWith(['UberEats', 'DoorDash'])
+      })
+    })
+
+    it('blocks adding a duplicate service name (case-insensitive)', async () => {
+      vi.mocked(window.api!.getDeliveryServices).mockResolvedValueOnce(['UberEats'])
+
+      render(<MerchantInfoPanel />)
+
+      await waitFor(() => {
+        expect(screen.getByText('UberEats')).toBeInTheDocument()
+      })
+
+      fireEvent.change(screen.getByLabelText('New delivery service name'), {
+        target: { value: 'ubereats' }
+      })
+      fireEvent.click(screen.getByTestId('delivery-service-add-btn'))
+
+      expect(await screen.findByText(/already on the list/i)).toBeInTheDocument()
+      expect(window.api!.setDeliveryServices).not.toHaveBeenCalled()
+    })
+
+    it('removes a service when the Remove button is clicked', async () => {
+      vi.mocked(window.api!.getDeliveryServices).mockResolvedValueOnce(['UberEats', 'DoorDash'])
+      vi.mocked(window.api!.setDeliveryServices).mockImplementation(async (list) => list)
+
+      render(<MerchantInfoPanel />)
+
+      await waitFor(() => {
+        expect(screen.getByText('UberEats')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByTestId('delivery-service-remove-DoorDash'))
+
+      await waitFor(() => {
+        expect(window.api!.setDeliveryServices).toHaveBeenCalledWith(['UberEats'])
+      })
     })
   })
 })

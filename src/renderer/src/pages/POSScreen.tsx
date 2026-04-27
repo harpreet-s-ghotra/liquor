@@ -3,6 +3,7 @@ import { InventoryModal } from '@renderer/components/inventory/InventoryModal'
 import { UnpricedItemPrompt } from '@renderer/components/inventory/items/UnpricedItemPrompt'
 import { ManagerModal } from '@renderer/components/manager/ManagerModal'
 import { PaymentModal } from '@renderer/components/payment/PaymentModal'
+import { AccountPaymentModal } from '@renderer/components/payment/AccountPaymentModal'
 import { PrinterSettingsModal } from '@renderer/components/printer/PrinterSettingsModal'
 import { ReportsModal } from '@renderer/components/reports/ReportsModal'
 import { SalesHistoryModal } from '@renderer/components/sales-history/SalesHistoryModal'
@@ -59,6 +60,8 @@ export function POSScreen(): React.JSX.Element {
   // `clearTransaction()` empties the cart. Used by the customer-display
   // snapshot to compute change-due against the real total instead of 0.
   const [completedSaleTotal, setCompletedSaleTotal] = useState<number | null>(null)
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false)
+  const [deliveryServices, setDeliveryServices] = useState<string[]>([])
   const searchRef = useRef<HTMLInputElement>(null)
   const isRefundingRef = useRef(false)
 
@@ -223,6 +226,18 @@ export function POSScreen(): React.JSX.Element {
     })
   }, [])
 
+  // Refresh delivery services list when manager modal closes (CRUD lives there)
+  // and on initial mount so the Account tile picker is up to date.
+  useEffect(() => {
+    if (!window.api?.getDeliveryServices) return
+    void window.api
+      .getDeliveryServices()
+      .then((list) => setDeliveryServices(list))
+      .catch(() => {
+        // Failure to load delivery services must never block POS
+      })
+  }, [isManagerOpen])
+
   // Once the cashier starts a new transaction (cart transitions from 0 → >0
   // items after a completed sale), drop the "Thank you / Change due" state so
   // the customer display reflects the in-progress sale instead of the previous
@@ -333,6 +348,135 @@ export function POSScreen(): React.JSX.Element {
     [cart.length]
   )
 
+  const handleAccountOpen = useCallback(() => {
+    if (cart.length === 0 || isViewingTransaction) return
+    setCompletedPayments([])
+    setCompletedSaleTotal(null)
+    setPaymentStatus('idle')
+    setIsAccountModalOpen(true)
+  }, [cart.length, isViewingTransaction])
+
+  const handleAccountSelect = useCallback(
+    async (serviceName: string) => {
+      if (cart.length === 0) return
+      setIsAccountModalOpen(false)
+
+      const txDiscountMultiplier =
+        transactionDiscountPercent > 0 ? 1 - transactionDiscountPercent / 100 : 1
+      const lineItems = cart.map((item) => {
+        const itemDiscountMultiplier = item.itemDiscountPercent
+          ? 1 - item.itemDiscountPercent / 100
+          : 1
+        const effectiveUnitPrice = item.price * itemDiscountMultiplier * txDiscountMultiplier
+        return {
+          product_id: item.id,
+          product_name: item.name,
+          quantity: item.lineQuantity,
+          unit_price: Math.round(effectiveUnitPrice * 100) / 100,
+          total_price: Math.round(effectiveUnitPrice * item.lineQuantity * 100) / 100
+        }
+      })
+
+      const grandTotal = Math.round(total * 100) / 100
+      const payments: PaymentEntry[] = [
+        {
+          id: 1,
+          method: 'account',
+          amount: grandTotal,
+          label: `${serviceName} Account`,
+          account_service_name: serviceName
+        }
+      ]
+
+      try {
+        const savedTxn = await window.api?.saveTransaction?.({
+          subtotal: subtotalDiscounted,
+          tax_amount: tax,
+          total: grandTotal,
+          surcharge_amount: 0,
+          payment_method: 'account',
+          finix_authorization_id: null,
+          finix_transfer_id: null,
+          card_last_four: null,
+          card_type: null,
+          account_service_name: serviceName,
+          payments: payments.map((p) => ({
+            method: p.method,
+            amount: p.amount,
+            account_service_name: p.account_service_name ?? null
+          })),
+          items: lineItems
+        })
+
+        if (savedTxn && alwaysPrint) {
+          void window.api
+            ?.printReceipt?.({
+              transaction_number: savedTxn.transaction_number,
+              store_name: merchantConfig?.merchant_name ?? 'Liquor Store',
+              cashier_name: currentCashier?.name ?? '',
+              items: lineItems.map((li) => ({
+                product_name: li.product_name,
+                quantity: li.quantity,
+                unit_price: li.unit_price,
+                total_price: li.total_price
+              })),
+              subtotal: subtotalDiscounted,
+              subtotal_before_discount:
+                subtotalBeforeDiscount > subtotalDiscounted ? subtotalBeforeDiscount : null,
+              discount_amount:
+                subtotalBeforeDiscount > subtotalDiscounted
+                  ? Math.round((subtotalBeforeDiscount - subtotalDiscounted) * 100) / 100
+                  : null,
+              tax_amount: tax,
+              total: grandTotal,
+              surcharge_amount: 0,
+              payment_method: 'account',
+              account_service_name: serviceName,
+              payments: payments.map((p) => ({
+                method: p.method,
+                amount: p.amount,
+                account_service_name: p.account_service_name ?? null
+              }))
+            })
+            ?.catch((err: unknown) => {
+              console.error('Receipt print failed:', err)
+              showError('Transaction saved. Receipt failed to print.')
+            })
+        }
+      } catch (err) {
+        console.error('Failed to save account transaction:', err)
+        showError('Failed to save transaction. Please try again.')
+        return
+      }
+
+      setCompletedPayments(payments)
+      setCompletedSaleTotal(total)
+      setPaymentStatus('complete')
+      setIsPaymentComplete(false)
+      clearTransaction()
+      focusSearch()
+    },
+    [
+      alwaysPrint,
+      cart,
+      clearTransaction,
+      currentCashier,
+      focusSearch,
+      merchantConfig,
+      showError,
+      subtotalBeforeDiscount,
+      subtotalDiscounted,
+      tax,
+      total,
+      transactionDiscountPercent
+    ]
+  )
+
+  const handleAccountCancel = useCallback(() => {
+    setIsAccountModalOpen(false)
+    focusSearch()
+  }, [focusSearch])
+
   const handlePaymentComplete = useCallback(
     (result: PaymentResult) => {
       setCompletedPayments(result.payments ?? [])
@@ -362,7 +506,8 @@ export function POSScreen(): React.JSX.Element {
           card_last_four: p.card_last_four ?? null,
           card_type: p.card_type ?? null,
           finix_authorization_id: p.finix_authorization_id ?? null,
-          finix_transfer_id: p.finix_transfer_id ?? null
+          finix_transfer_id: p.finix_transfer_id ?? null,
+          account_service_name: p.account_service_name ?? null
         }))
 
         const surchargeTotal =
@@ -382,6 +527,7 @@ export function POSScreen(): React.JSX.Element {
             finix_transfer_id: result.finix_transfer_id ?? null,
             card_last_four: result.card_last_four ?? null,
             card_type: result.card_type ?? null,
+            account_service_name: result.account_service_name ?? null,
             payments: tendersForSave,
             items: lineItems
           })
@@ -411,6 +557,7 @@ export function POSScreen(): React.JSX.Element {
                   payment_method: result.method,
                   card_last_four: result.card_last_four ?? null,
                   card_type: result.card_type ?? null,
+                  account_service_name: result.account_service_name ?? null,
                   payments: tendersForSave
                 })
                 ?.catch((err: unknown) => {
@@ -715,6 +862,7 @@ export function POSScreen(): React.JSX.Element {
           onCash={() => handlePaymentOpen('cash')}
           onCredit={() => handlePaymentOpen('credit')}
           onDebit={() => handlePaymentOpen('debit')}
+          onAccount={handleAccountOpen}
           heldCount={heldTransactions.length}
           onHold={handleHold}
           onTsLookup={openHoldLookup}
@@ -727,7 +875,12 @@ export function POSScreen(): React.JSX.Element {
           cardSurchargeContext={{
             enabled: cardSurcharge.enabled,
             percent: cardSurcharge.percent,
-            activeMethod: activePaymentMethod
+            activeMethod:
+              activePaymentMethod === 'cash' ||
+              activePaymentMethod === 'credit' ||
+              activePaymentMethod === 'debit'
+                ? activePaymentMethod
+                : null
           }}
         />
       </main>
@@ -822,6 +975,14 @@ export function POSScreen(): React.JSX.Element {
         onActiveMethodChange={setActivePaymentMethod}
         isRefund={isReturning}
         cardSurcharge={isReturning ? undefined : cardSurcharge}
+      />
+
+      <AccountPaymentModal
+        isOpen={isAccountModalOpen}
+        total={total}
+        services={deliveryServices}
+        onSelect={handleAccountSelect}
+        onCancel={handleAccountCancel}
       />
 
       <ClockOutModal

@@ -1,6 +1,6 @@
 import * as net from 'net'
 import { execFile } from 'child_process'
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import type { ReceiptConfig, ReceiptPrinterConfig } from '../../shared/types'
@@ -118,37 +118,125 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-/** Check whether the named CUPS printer is currently reachable (idle/processing). */
-export function checkPrinterConnected(printerName: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    execFile('lpstat', ['-p', printerName], (_err, stdout) => {
-      const out = stdout.toLowerCase()
-      resolve(out.includes('idle') || out.includes('processing'))
-    })
-  })
+/**
+ * Pick a webContents for printer enumeration. We borrow the cashier window's
+ * webContents because Electron's printer APIs hang off webContents (not the
+ * `app` module). The customer-display window also has webContents but is
+ * optional; either one works.
+ */
+function pickPrinterWebContents(): Electron.WebContents | null {
+  const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed())
+  return win?.webContents ?? null
 }
 
-export function listReceiptPrinters(): Promise<string[]> {
+/**
+ * List installed printers using Electron's cross-platform driver bridge.
+ * Works on Windows (winspool), macOS, and Linux (CUPS) without shelling out
+ * to platform-specific binaries like `lpstat`. Stations running on Windows
+ * never had CUPS installed, so the previous lpstat path returned an empty
+ * list which surfaced as "no printers" in the manager modal.
+ */
+export async function listReceiptPrinters(): Promise<string[]> {
+  const wc = pickPrinterWebContents()
+  if (!wc) {
+    throw new Error('Failed to list printers: no application window is open')
+  }
+  try {
+    const printers = await wc.getPrintersAsync()
+    const names = printers.map((p) => p.name).filter((n): n is string => !!n)
+    return [...new Set(names)].sort((left, right) => left.localeCompare(right))
+  } catch (err) {
+    throw new Error(`Failed to list printers: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
+
+/**
+ * A printer is "connected" when the OS still has it installed and reports
+ * a non-stopped state. Electron's PrinterInfo doesn't expose a portable
+ * status field, so we inspect the `options` bag the OS attaches: CUPS uses
+ * `printer-state` (3=idle, 4=processing, 5=stopped); Windows exposes
+ * `printer-state` strings like "idle"/"stopped". Anything that isn't an
+ * explicit "stopped" / non-zero error counts as connected so transient
+ * states (processing, paused) don't flicker the badge offline.
+ */
+export async function checkPrinterConnected(printerName: string): Promise<boolean> {
+  const wc = pickPrinterWebContents()
+  if (!wc) return false
+  try {
+    const printers = await wc.getPrintersAsync()
+    const match = printers.find((p) => p.name === printerName)
+    if (!match) return false
+    const opts = (match.options ?? {}) as Record<string, string | undefined>
+    const state = String(opts['printer-state'] ?? '').toLowerCase()
+    if (!state) return true
+    if (state === '5' || state === 'stopped' || state.includes('offline')) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Kick the drawer through the printer on Windows. The drawer is daisy-chained
+ * off the receipt printer's RJ11 jack, so we just need to push the ESC/POS
+ * bytes (`ESC p 0 25 250` — pin 2, 50ms on, 500ms off) to the printer queue.
+ *
+ * Implementation uses an inline C# wrapper around the WINSPOOL APIs
+ * (OpenPrinter / StartDocPrinter / WritePrinter) executed through PowerShell,
+ * which avoids shipping a native node module that has to be rebuilt for each
+ * Electron version.
+ */
+function openViaUsbWindows(printerName: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    execFile('lpstat', ['-v'], (err, stdout) => {
-      if (err) {
-        reject(new Error(`Failed to list printers: ${err.message}`))
-        return
+    const escapedName = printerName.replace(/'/g, "''")
+    const script = `
+$ErrorActionPreference = 'Stop'
+$code = @"
+using System;
+using System.Runtime.InteropServices;
+public class HSPOSRawPrinter {
+  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+  public class DOCINFO { public string DocName; public string OutputFile; public string DataType; }
+  [DllImport("winspool.Drv", SetLastError=true, CharSet=CharSet.Unicode)] public static extern bool OpenPrinter(string p, out IntPtr h, IntPtr d);
+  [DllImport("winspool.Drv", SetLastError=true)] public static extern bool ClosePrinter(IntPtr h);
+  [DllImport("winspool.Drv", SetLastError=true, CharSet=CharSet.Unicode)] public static extern bool StartDocPrinter(IntPtr h, int level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFO di);
+  [DllImport("winspool.Drv", SetLastError=true)] public static extern bool EndDocPrinter(IntPtr h);
+  [DllImport("winspool.Drv", SetLastError=true)] public static extern bool StartPagePrinter(IntPtr h);
+  [DllImport("winspool.Drv", SetLastError=true)] public static extern bool EndPagePrinter(IntPtr h);
+  [DllImport("winspool.Drv", SetLastError=true)] public static extern bool WritePrinter(IntPtr h, byte[] b, int cnt, out int written);
+  public static int Send(string printer, byte[] bytes) {
+    IntPtr h;
+    if (!OpenPrinter(printer, out h, IntPtr.Zero)) return Marshal.GetLastWin32Error();
+    var di = new DOCINFO{ DocName = "HSPOS Drawer Kick", DataType = "RAW" };
+    int written = 0;
+    bool ok = StartDocPrinter(h, 1, di) && StartPagePrinter(h) && WritePrinter(h, bytes, bytes.Length, out written);
+    int err = ok ? 0 : Marshal.GetLastWin32Error();
+    EndPagePrinter(h); EndDocPrinter(h); ClosePrinter(h);
+    return err;
+  }
+}
+"@
+Add-Type -TypeDefinition $code
+$bytes = [byte[]](0x1b,0x70,0x00,0x19,0xfa)
+$rc = [HSPOSRawPrinter]::Send('${escapedName}', $bytes)
+if ($rc -ne 0) { Write-Error "WritePrinter failed (Win32 error $rc)"; exit 1 }
+`
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      (err, _stdout, stderr) => {
+        if (err) {
+          const detail = stderr?.trim() || err.message
+          reject(new Error(`Cash drawer (USB): ${detail}`))
+        } else {
+          resolve()
+        }
       }
-
-      const printers = stdout
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith('device for '))
-        .map((line) => line.match(/^device for (.+?):/)?.[1] ?? '')
-        .filter((printerName): printerName is string => Boolean(printerName))
-
-      resolve([...new Set(printers)].sort((left, right) => left.localeCompare(right)))
-    })
+    )
   })
 }
 
-function openViaUsb(printerName: string): Promise<void> {
+function openViaUsbCups(printerName: string): Promise<void> {
   return new Promise((resolve, reject) => {
     // Use the Star CUPS driver's CashDrawerSetting option — no raw bytes needed.
     // Sending a minimal print job with CashDrawerSetting=1OpenDrawer1 fires the drawer.
@@ -173,6 +261,11 @@ function openViaUsb(printerName: string): Promise<void> {
     lp.stdin?.write(' ')
     lp.stdin?.end()
   })
+}
+
+function openViaUsb(printerName: string): Promise<void> {
+  if (process.platform === 'win32') return openViaUsbWindows(printerName)
+  return openViaUsbCups(printerName)
 }
 
 function openViaTcp(ip: string, port: number): Promise<void> {

@@ -144,6 +144,8 @@ type AppApi = {
   deactivateMerchant: () => Promise<void>
   getCardSurcharge: () => Promise<CardSurchargeConfig>
   setCardSurcharge: (input: CardSurchargeConfig) => Promise<CardSurchargeConfig>
+  getDeliveryServices: () => Promise<string[]>
+  setDeliveryServices: (input: string[]) => Promise<string[]>
 
   // Customer-facing display
   pushCustomerSnapshot: (snapshot: CustomerDisplaySnapshot) => Promise<void>

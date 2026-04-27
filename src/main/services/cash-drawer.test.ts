@@ -3,9 +3,11 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { execFileMock, getPathMock } = vi.hoisted(() => ({
+const { execFileMock, getPathMock, getPrintersAsyncMock, getAllWindowsMock } = vi.hoisted(() => ({
   execFileMock: vi.fn(),
-  getPathMock: vi.fn()
+  getPathMock: vi.fn(),
+  getPrintersAsyncMock: vi.fn(),
+  getAllWindowsMock: vi.fn()
 }))
 
 vi.mock('child_process', () => ({
@@ -15,6 +17,9 @@ vi.mock('child_process', () => ({
 vi.mock('electron', () => ({
   app: {
     getPath: getPathMock
+  },
+  BrowserWindow: {
+    getAllWindows: getAllWindowsMock
   }
 }))
 
@@ -38,6 +43,12 @@ describe('cash-drawer config helpers', () => {
     vi.clearAllMocks()
     userDataPath = mkdtempSync(join(tmpdir(), 'liquor-pos-cash-drawer-'))
     getPathMock.mockReturnValue(userDataPath)
+    getAllWindowsMock.mockReturnValue([
+      {
+        isDestroyed: () => false,
+        webContents: { getPrintersAsync: getPrintersAsyncMock }
+      }
+    ])
   })
 
   afterEach(() => {
@@ -175,65 +186,65 @@ describe('cash-drawer config helpers', () => {
 
   // ── Printer utilities ──
 
-  it('lists installed printers from lpstat output', async () => {
-    execFileMock.mockImplementation(
-      (
-        _command: string,
-        _args: string[],
-        callback: (err: Error | null, stdout: string) => void
-      ) => {
-        callback(
-          null,
-          [
-            'device for Star-TSP654: usb://Star/TSP654%20(STR-T001)?location=2120000',
-            'device for Office-Printer: ipp://192.168.1.25/printers/Office-Printer'
-          ].join('\n')
-        )
-        return {} as never
-      }
-    )
+  it('lists installed printers from the Electron printer bridge', async () => {
+    getPrintersAsyncMock.mockResolvedValue([
+      { name: 'Star-TSP654', options: {} },
+      { name: 'Office-Printer', options: {} }
+    ])
     await expect(listReceiptPrinters()).resolves.toEqual(['Office-Printer', 'Star-TSP654'])
   })
 
-  it('rejects when lpstat fails', async () => {
-    execFileMock.mockImplementation(
-      (
-        _command: string,
-        _args: string[],
-        callback: (err: Error | null, stdout: string) => void
-      ) => {
-        callback(new Error('lpstat not found'), '')
-        return {} as never
-      }
-    )
-    await expect(listReceiptPrinters()).rejects.toThrow('Failed to list printers: lpstat not found')
+  it('deduplicates printers and ignores entries without a name', async () => {
+    getPrintersAsyncMock.mockResolvedValue([
+      { name: 'Star-TSP654', options: {} },
+      { name: '', options: {} },
+      { name: 'Star-TSP654', options: {} }
+    ])
+    await expect(listReceiptPrinters()).resolves.toEqual(['Star-TSP654'])
   })
 
-  it('resolves true when printer is idle', async () => {
-    execFileMock.mockImplementation(
-      (
-        _command: string,
-        _args: string[],
-        callback: (err: Error | null, stdout: string) => void
-      ) => {
-        callback(null, 'printer Star-TSP654 is idle')
-        return {} as never
-      }
+  it('rejects when no application window is available to enumerate printers', async () => {
+    getAllWindowsMock.mockReturnValue([])
+    await expect(listReceiptPrinters()).rejects.toThrow(
+      'Failed to list printers: no application window is open'
     )
+  })
+
+  it('rejects when the Electron printer bridge throws', async () => {
+    getPrintersAsyncMock.mockRejectedValue(new Error('printer service unreachable'))
+    await expect(listReceiptPrinters()).rejects.toThrow(
+      'Failed to list printers: printer service unreachable'
+    )
+  })
+
+  it('reports the configured printer as connected when CUPS state is idle (3)', async () => {
+    getPrintersAsyncMock.mockResolvedValue([
+      { name: 'Star-TSP654', options: { 'printer-state': '3' } }
+    ])
     await expect(checkPrinterConnected('Star-TSP654')).resolves.toBe(true)
   })
 
-  it('resolves false when printer is offline', async () => {
-    execFileMock.mockImplementation(
-      (
-        _command: string,
-        _args: string[],
-        callback: (err: Error | null, stdout: string) => void
-      ) => {
-        callback(null, 'printer Star-TSP654 is disabled')
-        return {} as never
-      }
-    )
+  it('reports the configured printer as connected when no state is reported', async () => {
+    getPrintersAsyncMock.mockResolvedValue([{ name: 'Star-TSP654', options: {} }])
+    await expect(checkPrinterConnected('Star-TSP654')).resolves.toBe(true)
+  })
+
+  it('reports the printer as not connected when CUPS state is stopped (5)', async () => {
+    getPrintersAsyncMock.mockResolvedValue([
+      { name: 'Star-TSP654', options: { 'printer-state': '5' } }
+    ])
+    await expect(checkPrinterConnected('Star-TSP654')).resolves.toBe(false)
+  })
+
+  it('reports the printer as not connected when Windows reports stopped/offline', async () => {
+    getPrintersAsyncMock.mockResolvedValue([
+      { name: 'Star-TSP654', options: { 'printer-state': 'offline' } }
+    ])
+    await expect(checkPrinterConnected('Star-TSP654')).resolves.toBe(false)
+  })
+
+  it('reports the printer as not connected when missing from the OS list', async () => {
+    getPrintersAsyncMock.mockResolvedValue([{ name: 'Some-Other', options: {} }])
     await expect(checkPrinterConnected('Star-TSP654')).resolves.toBe(false)
   })
 
@@ -268,5 +279,94 @@ describe('cash-drawer config helpers', () => {
     await expect(openCashDrawer({ type: 'usb', printerName: 'Star-TSP654' })).rejects.toThrow(
       'Cash drawer (USB): Printer offline'
     )
+  })
+
+  it('opens drawer on Windows via PowerShell + WINSPOOL', async () => {
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    execFileMock.mockImplementation(
+      (
+        _command: string,
+        _args: string[],
+        callback: (err: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        callback(null, '', '')
+        return {} as never
+      }
+    )
+    try {
+      await expect(
+        openCashDrawer({ type: 'usb', printerName: 'Star-TSP654' })
+      ).resolves.toBeUndefined()
+
+      expect(execFileMock).toHaveBeenCalledTimes(1)
+      const call = execFileMock.mock.calls[0]
+      expect(call[0]).toBe('powershell.exe')
+      const args = call[1] as string[]
+      expect(args).toContain('-NoProfile')
+      expect(args).toContain('-Command')
+      const script = args[args.length - 1]
+      expect(script).toContain('Star-TSP654')
+      expect(script).toContain('WritePrinter')
+      // The ESC/POS open-drawer payload must be embedded in the script
+      expect(script).toContain('0x1b,0x70,0x00,0x19,0xfa')
+    } finally {
+      Object.defineProperty(process, 'platform', {
+        value: originalPlatform,
+        configurable: true
+      })
+    }
+  })
+
+  it('escapes single quotes in printer names so the PowerShell call is safe', async () => {
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    execFileMock.mockImplementation(
+      (
+        _command: string,
+        _args: string[],
+        callback: (err: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        callback(null, '', '')
+        return {} as never
+      }
+    )
+    try {
+      await openCashDrawer({ type: 'usb', printerName: "Mike's Star" })
+      const args = execFileMock.mock.calls[0][1] as string[]
+      const script = args[args.length - 1]
+      // PowerShell single-quoted strings escape ' as ''.
+      expect(script).toContain("'Mike''s Star'")
+    } finally {
+      Object.defineProperty(process, 'platform', {
+        value: originalPlatform,
+        configurable: true
+      })
+    }
+  })
+
+  it('surfaces the PowerShell stderr message when the Windows drawer kick fails', async () => {
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    execFileMock.mockImplementation(
+      (
+        _command: string,
+        _args: string[],
+        callback: (err: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        callback(new Error('exit code 1'), '', 'WritePrinter failed (Win32 error 1801)')
+        return {} as never
+      }
+    )
+    try {
+      await expect(openCashDrawer({ type: 'usb', printerName: 'Star-TSP654' })).rejects.toThrow(
+        /WritePrinter failed \(Win32 error 1801\)/
+      )
+    } finally {
+      Object.defineProperty(process, 'platform', {
+        value: originalPlatform,
+        configurable: true
+      })
+    }
   })
 })

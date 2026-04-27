@@ -194,7 +194,7 @@ export function generateClockOutReport(sessionId: number): ClockOutReport {
     )
     .get(sessionId) as { total_refund_count: number; total_refund_amount: number }
 
-  // Cash/credit/debit breakdown
+  // Cash/credit/debit/account breakdown
   const cashBreakdown = db
     .prepare(
       `
@@ -202,7 +202,8 @@ export function generateClockOutReport(sessionId: number): ClockOutReport {
         COALESCE(SUM(CASE WHEN payment_method = 'cash' AND status = 'completed' THEN total ELSE 0 END), 0) AS cash_sales,
         COALESCE(SUM(CASE WHEN payment_method = 'cash' AND status = 'refund' THEN ABS(total) ELSE 0 END), 0) AS cash_refunds,
         COALESCE(SUM(CASE WHEN payment_method = 'credit' AND status = 'completed' THEN total ELSE 0 END), 0) AS credit_total,
-        COALESCE(SUM(CASE WHEN payment_method = 'debit' AND status = 'completed' THEN total ELSE 0 END), 0) AS debit_total
+        COALESCE(SUM(CASE WHEN payment_method = 'debit' AND status = 'completed' THEN total ELSE 0 END), 0) AS debit_total,
+        COALESCE(SUM(CASE WHEN payment_method = 'account' AND status = 'completed' THEN total ELSE 0 END), 0) AS account_total
       FROM transactions
       WHERE session_id = ?
       `
@@ -212,7 +213,25 @@ export function generateClockOutReport(sessionId: number): ClockOutReport {
     cash_refunds: number
     credit_total: number
     debit_total: number
+    account_total: number
   }
+
+  // Per-service breakdown for account-method sales — lets the manager see how
+  // much was charged to each delivery partner during the shift.
+  const accountBreakdown = db
+    .prepare(
+      `
+      SELECT
+        COALESCE(account_service_name, '(unspecified)') AS service_name,
+        COUNT(*) AS count,
+        COALESCE(SUM(total), 0) AS total
+      FROM transactions
+      WHERE session_id = ? AND status = 'completed' AND payment_method = 'account'
+      GROUP BY COALESCE(account_service_name, '(unspecified)')
+      ORDER BY total DESC
+      `
+    )
+    .all(sessionId) as Array<{ service_name: string; total: number; count: number }>
 
   const netSales = totals.gross_sales - totals.total_tax_collected
   const averageTransactionValue =
@@ -233,6 +252,8 @@ export function generateClockOutReport(sessionId: number): ClockOutReport {
     expected_cash_at_close: expectedCashAtClose,
     cash_total: cashBreakdown.cash_sales,
     credit_total: cashBreakdown.credit_total,
-    debit_total: cashBreakdown.debit_total
+    debit_total: cashBreakdown.debit_total,
+    account_total: cashBreakdown.account_total,
+    account_breakdown: accountBreakdown
   }
 }

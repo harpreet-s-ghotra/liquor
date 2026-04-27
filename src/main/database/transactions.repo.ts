@@ -66,6 +66,7 @@ function enqueueTransactionSync(
       finix_transfer_id: saved.finix_transfer_id,
       card_last_four: saved.card_last_four,
       card_type: saved.card_type,
+      account_service_name: saved.account_service_name ?? null,
       status: saved.status,
       notes: null,
       original_transaction_number: originalTxnNumber,
@@ -132,12 +133,12 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
         INSERT INTO transactions (
           transaction_number, subtotal, tax_amount, total, surcharge_amount,
           payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
-          status, notes, session_id, device_id
+          account_service_name, status, notes, session_id, device_id
         )
         VALUES (
           @transaction_number, @subtotal, @tax_amount, @total, @surcharge_amount,
           @payment_method, @finix_authorization_id, @finix_transfer_id, @card_last_four, @card_type,
-          'completed', @notes, @session_id, @device_id
+          @account_service_name, 'completed', @notes, @session_id, @device_id
         )
         `
       )
@@ -152,6 +153,7 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
         finix_transfer_id: input.finix_transfer_id ?? null,
         card_last_four: input.card_last_four ?? null,
         card_type: input.card_type ?? null,
+        account_service_name: input.account_service_name ?? null,
         notes: input.notes ?? null,
         session_id: sessionId,
         device_id: device?.device_id ?? null
@@ -161,8 +163,8 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
 
     if (input.payments && input.payments.length > 0) {
       const insertPayment = db.prepare(`
-        INSERT INTO transaction_payments (transaction_id, method, amount, card_last_four, card_type, finix_authorization_id, finix_transfer_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO transaction_payments (transaction_id, method, amount, card_last_four, card_type, finix_authorization_id, finix_transfer_id, account_service_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `)
       for (const p of input.payments) {
         insertPayment.run(
@@ -172,7 +174,8 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
           p.card_last_four ?? null,
           p.card_type ?? null,
           p.finix_authorization_id ?? null,
-          p.finix_transfer_id ?? null
+          p.finix_transfer_id ?? null,
+          p.account_service_name ?? null
         )
       }
     }
@@ -276,6 +279,7 @@ export function saveTransaction(input: SaveTransactionInput): SavedTransaction {
     finix_transfer_id: input.finix_transfer_id ?? null,
     card_last_four: input.card_last_four ?? null,
     card_type: input.card_type ?? null,
+    account_service_name: input.account_service_name ?? null,
     status: 'completed',
     original_transaction_id: null,
     session_id: sessionId,
@@ -335,6 +339,7 @@ export function getRecentTransactions(limit = 50): SavedTransaction[] {
         id, transaction_number, subtotal, tax_amount, total,
         COALESCE(surcharge_amount, 0) AS surcharge_amount,
         payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
+        account_service_name,
         status, original_transaction_id, created_at
       FROM transactions
       ORDER BY created_at DESC
@@ -359,6 +364,7 @@ export function getTransactionByNumber(txnNumber: string): TransactionDetail | n
         id, transaction_number, subtotal, tax_amount, total,
         COALESCE(surcharge_amount, 0) AS surcharge_amount,
         payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
+        account_service_name,
         status, original_transaction_id, created_at
       FROM transactions
       WHERE transaction_number = ?
@@ -397,7 +403,7 @@ export function getTransactionByNumber(txnNumber: string): TransactionDetail | n
 
   const payments = db
     .prepare(
-      `SELECT id, method, amount, card_last_four, card_type, finix_authorization_id, finix_transfer_id
+      `SELECT id, method, amount, card_last_four, card_type, finix_authorization_id, finix_transfer_id, account_service_name
        FROM transaction_payments
        WHERE transaction_id = ?
        ORDER BY id`
@@ -485,6 +491,7 @@ export function listTransactions(filter: TransactionListFilter = {}): Transactio
       SELECT
         t.id, t.transaction_number, t.subtotal, t.tax_amount, t.total,
         t.payment_method, t.finix_authorization_id, t.card_last_four, t.card_type,
+        t.account_service_name,
         t.status, t.original_transaction_id, t.notes, t.created_at,
         COUNT(ti.id) AS item_count
       FROM transactions t
@@ -524,12 +531,12 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
         INSERT INTO transactions (
           transaction_number, subtotal, tax_amount, total, surcharge_amount,
           payment_method, finix_authorization_id, finix_transfer_id, card_last_four, card_type,
-          status, original_transaction_id, notes, session_id, device_id
+          account_service_name, status, original_transaction_id, notes, session_id, device_id
         )
         VALUES (
           @transaction_number, @subtotal, @tax_amount, @total, @surcharge_amount,
           @payment_method, @finix_authorization_id, @finix_transfer_id, @card_last_four, @card_type,
-          'refund', @original_transaction_id, @notes, @session_id, @device_id
+          @account_service_name, 'refund', @original_transaction_id, @notes, @session_id, @device_id
         )
         `
       )
@@ -544,6 +551,7 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
         finix_transfer_id: input.finix_transfer_id ?? null,
         card_last_four: input.card_last_four ?? null,
         card_type: input.card_type ?? null,
+        account_service_name: null,
         original_transaction_id: input.original_transaction_id,
         notes: `Refund for ${input.original_transaction_number}`,
         session_id: sessionId,
@@ -671,6 +679,7 @@ export function saveRefundTransaction(input: SaveRefundInput): SavedTransaction 
     finix_transfer_id: input.finix_transfer_id ?? null,
     card_last_four: input.card_last_four ?? null,
     card_type: input.card_type ?? null,
+    account_service_name: null,
     status: 'refund',
     original_transaction_id: input.original_transaction_id,
     session_id: sessionId,

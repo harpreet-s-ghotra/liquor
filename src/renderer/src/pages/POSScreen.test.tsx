@@ -127,6 +127,7 @@ describe('POSScreen', () => {
         alwaysPrint: false
       }),
       getCardSurcharge: vi.fn().mockResolvedValue({ enabled: false, percent: 0 }),
+      getDeliveryServices: vi.fn().mockResolvedValue([]),
       pushCustomerSnapshot: vi.fn().mockResolvedValue(undefined),
       listSessions: vi.fn().mockResolvedValue({ sessions: [], total_count: 0 }),
       createSession: vi.fn().mockResolvedValue({ id: 1, status: 'active' })
@@ -307,6 +308,104 @@ describe('POSScreen', () => {
       paymentStatus: 'complete',
       changeDue: 7
     })
+  })
+
+  it('opens the AccountPaymentModal with manager-configured tiles when Account is pressed', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.getDeliveryServices = vi.fn().mockResolvedValue(['UberEats', 'DoorDash'])
+
+    mockUsePosScreen.mockReturnValue(
+      createDefaultMock({
+        cart: [sampleCartItem],
+        cartLines: [{ ...sampleCartItem, lineQuantity: 1 }],
+        total: 5
+      })
+    )
+
+    render(<POSScreen />)
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('account-pay-btn'))
+      await Promise.resolve()
+    })
+
+    expect(screen.getByTestId('account-payment-modal')).toBeInTheDocument()
+    expect(screen.getByTestId('account-service-tile-UberEats')).toBeInTheDocument()
+    expect(screen.getByTestId('account-service-tile-DoorDash')).toBeInTheDocument()
+  })
+
+  it('saves an account-method transaction when a service tile is picked', async () => {
+    const saveTransaction = vi.fn().mockResolvedValue({ id: 99, transaction_number: 'TXN-ACC' })
+    const clearTransaction = vi.fn()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.getDeliveryServices = vi.fn().mockResolvedValue(['UberEats'])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).api.saveTransaction = saveTransaction
+
+    mockUsePosScreen.mockReturnValue(
+      createDefaultMock({
+        cart: [sampleCartItem],
+        cartLines: [{ ...sampleCartItem, lineQuantity: 1 }],
+        subtotalDiscounted: 5,
+        tax: 0.5,
+        total: 5.5,
+        clearTransaction
+      })
+    )
+
+    render(<POSScreen />)
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('account-pay-btn'))
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('account-service-tile-UberEats'))
+      await Promise.resolve()
+    })
+
+    expect(saveTransaction).toHaveBeenCalledTimes(1)
+    expect(saveTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment_method: 'account',
+        account_service_name: 'UberEats',
+        total: 5.5
+      })
+    )
+    expect(clearTransaction).toHaveBeenCalled()
+    expect(screen.queryByTestId('account-payment-modal')).not.toBeInTheDocument()
+  })
+
+  it('shows the empty state on the AccountPaymentModal when no services are configured', async () => {
+    mockUsePosScreen.mockReturnValue(
+      createDefaultMock({
+        cart: [sampleCartItem],
+        cartLines: [{ ...sampleCartItem, lineQuantity: 1 }],
+        total: 10
+      })
+    )
+
+    render(<POSScreen />)
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('account-pay-btn'))
+      await Promise.resolve()
+    })
+
+    expect(screen.getByTestId('account-payment-modal-empty')).toBeInTheDocument()
   })
 
   it('calls reloadProducts when inventory modal closes', () => {

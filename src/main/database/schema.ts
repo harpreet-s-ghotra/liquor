@@ -405,6 +405,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       finix_transfer_id TEXT,
       card_last_four TEXT,
       card_type TEXT,
+      account_service_name TEXT,
       status TEXT DEFAULT 'completed',
       notes TEXT,
       backfilled INTEGER NOT NULL DEFAULT 0,
@@ -434,6 +435,7 @@ export function applySchema(database: InstanceType<typeof Database>): void {
       card_type TEXT,
       finix_authorization_id TEXT,
       finix_transfer_id TEXT,
+      account_service_name TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (transaction_id) REFERENCES transactions(id)
     );
@@ -602,6 +604,8 @@ export function applySchema(database: InstanceType<typeof Database>): void {
   ensureColumn('transactions', 'finix_transfer_id', 'finix_transfer_id TEXT')
   ensureColumn('transactions', 'card_last_four', 'card_last_four TEXT')
   ensureColumn('transactions', 'card_type', 'card_type TEXT')
+  ensureColumn('transactions', 'account_service_name', 'account_service_name TEXT')
+  ensureColumn('transaction_payments', 'account_service_name', 'account_service_name TEXT')
   ensureColumn('transactions', 'original_transaction_id', 'original_transaction_id INTEGER')
   ensureColumn('transactions', 'session_id', 'session_id INTEGER')
   ensureColumn('transactions', 'device_id', 'device_id TEXT')

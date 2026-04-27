@@ -17,6 +17,7 @@ export type CloudTransactionPayload = {
   finix_transfer_id: string | null
   card_last_four: string | null
   card_type: string | null
+  account_service_name: string | null
   status: string
   notes: string | null
   original_transaction_number: string | null
@@ -51,6 +52,7 @@ export type TransactionSyncPayload = {
     finix_transfer_id: string | null
     card_last_four: string | null
     card_type: string | null
+    account_service_name: string | null
     status: string
     notes: string | null
     original_transaction_number: string | null
@@ -73,6 +75,7 @@ export type TransactionSyncPayload = {
     card_type?: string | null
     finix_authorization_id?: string | null
     finix_transfer_id?: string | null
+    account_service_name?: string | null
   }>
 }
 

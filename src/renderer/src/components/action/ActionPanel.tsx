@@ -19,6 +19,8 @@ type ActionPanelProps = {
   onCash: () => void
   onCredit: () => void
   onDebit: () => void
+  /** Opens the Account modal (third-party delivery service tile picker). */
+  onAccount: () => void
   heldCount: number
   onHold: () => void
   onTsLookup: () => void
@@ -55,6 +57,7 @@ export function ActionPanel({
   onCash,
   onCredit,
   onDebit,
+  onAccount,
   heldCount,
   onHold,
   onTsLookup,
@@ -397,7 +400,7 @@ export function ActionPanel({
         ))}
       </div>
 
-      {/* ── Payment row ── */}
+      {/* ── Payment grid ── 2 cols x 3 rows: Cash/Debit, Credit/Account, Pay Now */}
       <div className="action-panel__payment-row">
         <button
           type="button"
@@ -416,6 +419,19 @@ export function ActionPanel({
           type="button"
           className="action-panel__pay-btn"
           style={{
+            background: 'var(--pay-debit-bg)',
+            borderColor: 'var(--pay-debit-border)',
+            color: 'var(--pay-debit-text)'
+          }}
+          disabled={cartCount === 0 || (!!isViewingTransaction && !isReturning)}
+          onClick={onDebit}
+        >
+          {isReturning ? 'Debit Refund' : 'Debit'}
+        </button>
+        <button
+          type="button"
+          className="action-panel__pay-btn"
+          style={{
             background: 'var(--pay-credit-bg)',
             borderColor: 'var(--pay-credit-border)',
             color: 'var(--pay-credit-text)'
@@ -427,16 +443,12 @@ export function ActionPanel({
         </button>
         <button
           type="button"
-          className="action-panel__pay-btn"
-          style={{
-            background: 'var(--pay-debit-bg)',
-            borderColor: 'var(--pay-debit-border)',
-            color: 'var(--pay-debit-text)'
-          }}
-          disabled={cartCount === 0 || (!!isViewingTransaction && !isReturning)}
-          onClick={onDebit}
+          className="action-panel__pay-btn action-panel__pay-btn--account"
+          disabled={cartCount === 0 || !!isViewingTransaction}
+          onClick={onAccount}
+          data-testid="account-pay-btn"
         >
-          {isReturning ? 'Debit Refund' : 'Debit'}
+          Account
         </button>
         <button
           type="button"

@@ -189,6 +189,55 @@ export function setCardSurcharge(input: CardSurchargeConfig): CardSurchargeConfi
   return getCardSurcharge()
 }
 
+const MAX_DELIVERY_SERVICES = 24
+const MAX_DELIVERY_SERVICE_NAME_LENGTH = 40
+
+/**
+ * Read the manager-configured delivery service names. Stored under
+ * `delivery_services` inside `settings_extras_json` so no schema bump is
+ * required. Names are returned in stored order so the manager controls the
+ * tile layout shown in the Account payment modal.
+ */
+export function getDeliveryServices(): string[] {
+  const extras = readExtras()
+  const raw = extras.delivery_services
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((v): v is string => typeof v === 'string')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .slice(0, MAX_DELIVERY_SERVICES)
+}
+
+export function setDeliveryServices(input: string[]): string[] {
+  if (!Array.isArray(input)) {
+    throw new Error('Delivery services must be a list of names')
+  }
+  const cleaned: string[] = []
+  const seen = new Set<string>()
+  for (const raw of input) {
+    if (typeof raw !== 'string') continue
+    const trimmed = raw.trim()
+    if (!trimmed) continue
+    if (trimmed.length > MAX_DELIVERY_SERVICE_NAME_LENGTH) {
+      throw new Error(
+        `Delivery service name must be ${MAX_DELIVERY_SERVICE_NAME_LENGTH} characters or fewer`
+      )
+    }
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    cleaned.push(trimmed)
+    if (cleaned.length >= MAX_DELIVERY_SERVICES) break
+  }
+
+  const extras = readExtras()
+  const next = { ...extras, delivery_services: cleaned }
+  writeExtras(next)
+  enqueueSettingsSync()
+  return getDeliveryServices()
+}
+
 /**
  * Remove the merchant config (deactivate this POS terminal).
  */

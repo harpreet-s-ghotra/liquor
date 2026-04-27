@@ -157,9 +157,10 @@ export async function backfillTransactions(
             const insertTxn = getDb().prepare(
               `INSERT INTO transactions
                  (transaction_number, subtotal, tax_amount, surcharge_amount, total, payment_method,
-                  finix_authorization_id, finix_transfer_id, card_last_four, card_type, status,
+                  finix_authorization_id, finix_transfer_id, card_last_four, card_type,
+                  account_service_name, status,
                   notes, session_id, device_id, backfilled, created_at, synced_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 1, ?, CURRENT_TIMESTAMP)`
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 1, ?, CURRENT_TIMESTAMP)`
             )
 
             const txnRes = insertTxn.run(
@@ -173,6 +174,7 @@ export async function backfillTransactions(
               (row.finix_transfer_id as string | null) ?? null,
               (row.card_last_four as string | null) ?? null,
               (row.card_type as string | null) ?? null,
+              (row.account_service_name as string | null) ?? null,
               String(row.status ?? 'completed'),
               (row.notes as string | null) ?? null,
               (row.device_id as string | null) ?? null,

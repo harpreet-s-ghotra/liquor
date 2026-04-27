@@ -317,7 +317,7 @@ export function PaymentModal({
         finishTransaction(initialMethod === 'cash', { method: initialMethod })
       } else if (initialMethod === 'cash') {
         handleCashExact()
-      } else {
+      } else if (initialMethod === 'credit' || initialMethod === 'debit') {
         handleCardPayment(initialMethod)
       }
     }, 0)

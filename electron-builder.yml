@@ -8,6 +8,10 @@ files:
   - '!**/*.map'
 asarUnpack:
   - node_modules/better-sqlite3/**
+  # pdf-to-printer ships SumatraPDF.exe to print PDFs on Windows. The binary
+  # has to live outside the asar archive so it can be spawned from the packaged
+  # build; otherwise printing fails with "ENOENT" or silently does nothing.
+  - node_modules/pdf-to-printer/**
 win:
   executableName: HighSpiritsPOS
 nsis:

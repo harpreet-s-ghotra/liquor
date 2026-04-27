@@ -40,6 +40,8 @@ import {
   getMerchantConfig,
   saveMerchantConfig,
   setCardSurcharge,
+  getDeliveryServices,
+  setDeliveryServices,
   clearMerchantConfig,
   getCashiers,
   createCashier,
@@ -670,6 +672,22 @@ app
         }
       }
     )
+
+    handle('merchant:get-delivery-services', async () => {
+      try {
+        return getDeliveryServices()
+      } catch (err) {
+        throw new Error(err instanceof Error ? err.message : 'Failed to load delivery services')
+      }
+    })
+
+    handle('merchant:set-delivery-services', async (_, input: string[]) => {
+      try {
+        return setDeliveryServices(input)
+      } catch (err) {
+        throw new Error(err instanceof Error ? err.message : 'Failed to save delivery services')
+      }
+    })
 
     // Supabase Auth
     handle('auth:login', async (_, email: string, password: string) => {

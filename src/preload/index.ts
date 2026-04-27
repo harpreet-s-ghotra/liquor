@@ -278,6 +278,10 @@ const api = {
     ipcRenderer.invoke('merchant:get-card-surcharge'),
   setCardSurcharge: (input: CardSurchargeConfig): Promise<CardSurchargeConfig> =>
     ipcRenderer.invoke('merchant:set-card-surcharge', input),
+  getDeliveryServices: (): Promise<string[]> =>
+    ipcRenderer.invoke('merchant:get-delivery-services'),
+  setDeliveryServices: (input: string[]): Promise<string[]> =>
+    ipcRenderer.invoke('merchant:set-delivery-services', input),
 
   // Customer-facing display
   pushCustomerSnapshot: (snapshot: CustomerDisplaySnapshot): Promise<void> =>

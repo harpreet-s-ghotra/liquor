@@ -83,8 +83,8 @@
 }
 
 .payment-modal__total-fee--hint {
-  font-style: italic;
   opacity: 0.85;
+  font-style: italic;
 }
 
 .payment-modal__total-bar--card {

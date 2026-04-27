@@ -87,9 +87,11 @@ export {
 export {
   clearMerchantConfig,
   getCardSurcharge,
+  getDeliveryServices,
   getMerchantConfig,
   saveMerchantConfig,
-  setCardSurcharge
+  setCardSurcharge,
+  setDeliveryServices
 } from './merchant-config.repo'
 
 // Cashiers

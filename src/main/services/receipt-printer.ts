@@ -1,7 +1,7 @@
-import { execFile } from 'child_process'
 import { writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { execFile } from 'child_process'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const bwipjs = require('bwip-js')
 import PDFDocument from 'pdfkit'
@@ -135,6 +135,8 @@ function renderContent(
           ? p.card_type.charAt(0).toUpperCase() + p.card_type.slice(1) + ' '
           : ''
         label = `${label} (${brand}****${p.card_last_four})`
+      } else if (p.method === 'account' && p.account_service_name) {
+        label = `ACCOUNT (${p.account_service_name})`
       }
       labelValue(doc, label + ':', `$${p.amount.toFixed(2)}`, cfg.paddingX)
     }
@@ -148,6 +150,8 @@ function renderContent(
         ? input.card_type.charAt(0).toUpperCase() + input.card_type.slice(1) + ' '
         : ''
       payLabel = `${payLabel} (${brand}****${input.card_last_four})`
+    } else if (input.payment_method === 'account' && input.account_service_name) {
+      payLabel = `ACCOUNT (${input.account_service_name})`
     }
     labelValue(doc, payLabel + ':', `$${input.total.toFixed(2)}`, cfg.paddingX)
   }
@@ -294,6 +298,12 @@ function renderClockOutContent(
   labelValue(doc, 'Cash:', fmt(report.cash_total), cfg.paddingX)
   labelValue(doc, 'Credit:', fmt(report.credit_total), cfg.paddingX)
   labelValue(doc, 'Debit:', fmt(report.debit_total), cfg.paddingX)
+  labelValue(doc, 'Account:', fmt(report.account_total), cfg.paddingX)
+  if (report.account_breakdown.length > 0) {
+    for (const row of report.account_breakdown) {
+      labelValue(doc, `  ${row.service_name}:`, fmt(row.total), cfg.paddingX)
+    }
+  }
   doc.moveDown(0.2)
   drawLine(doc, cfg.paddingX)
 
@@ -377,6 +387,56 @@ function generateClockOutPdf(input: PrintClockOutReportInput, cfg: ReceiptConfig
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
+/**
+ * Cross-platform PDF printing.
+ *
+ * - Windows: delegate to `pdf-to-printer` (ships SumatraPDF). Imported lazily
+ *   because the package throws "Operating System not supported" at module load
+ *   on macOS/Linux, which would also break developer machines.
+ * - macOS / Linux: shell to CUPS `lp` with the receipt printer's queue name.
+ *
+ * The previous Electron BrowserWindow approach rasterized the PDF as a solid
+ * black bitmap because Chromium's PDF viewer isn't loaded for raw
+ * `loadURL('file://*.pdf')`, so the thermal driver printed the all-black
+ * frame as one giant filled rectangle.
+ */
+async function printPdfFile(filePath: string, deviceName: string): Promise<void> {
+  try {
+    if (process.platform === 'win32') {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const ptp = require('pdf-to-printer') as typeof import('pdf-to-printer')
+      await ptp.print(filePath, { printer: deviceName, silent: true })
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        execFile(
+          'lp',
+          [
+            '-d',
+            deviceName,
+            '-o',
+            'DocCutType=1PartialCutDoc',
+            '-o',
+            'PageCutType=0NoCutPage',
+            filePath
+          ],
+          (err) => {
+            if (err) reject(err)
+            else resolve()
+          }
+        )
+      })
+    }
+  } catch (err) {
+    throw new Error(`Print failed: ${err instanceof Error ? err.message : String(err)}`)
+  } finally {
+    try {
+      unlinkSync(filePath)
+    } catch {
+      /* ignore cleanup errors */
+    }
+  }
+}
+
 export async function printClockOutReport(input: PrintClockOutReportInput): Promise<void> {
   const printerConfig = getReceiptPrinterConfig()
   if (!printerConfig) {
@@ -388,29 +448,7 @@ export async function printClockOutReport(input: PrintClockOutReportInput): Prom
   const tmpFile = join(tmpdir(), `clock-out-report-${Date.now()}.pdf`)
   writeFileSync(tmpFile, pdf)
 
-  return new Promise((resolve, reject) => {
-    execFile(
-      'lp',
-      [
-        '-d',
-        printerConfig.printerName,
-        '-o',
-        'DocCutType=1PartialCutDoc',
-        '-o',
-        'PageCutType=0NoCutPage',
-        tmpFile
-      ],
-      (err) => {
-        try {
-          unlinkSync(tmpFile)
-        } catch {
-          /* ignore cleanup errors */
-        }
-        if (err) reject(new Error(`Print failed: ${err.message}`))
-        else resolve()
-      }
-    )
-  })
+  await printPdfFile(tmpFile, printerConfig.printerName)
 }
 
 export async function printReceipt(input: PrintReceiptInput): Promise<void> {
@@ -434,28 +472,5 @@ export async function printReceipt(input: PrintReceiptInput): Promise<void> {
   const tmpFile = join(tmpdir(), `receipt-${Date.now()}.pdf`)
   writeFileSync(tmpFile, pdf)
 
-  // Single print job — CUPS renders the PDF through the Star raster driver
-  return new Promise((resolve, reject) => {
-    execFile(
-      'lp',
-      [
-        '-d',
-        printerConfig.printerName,
-        '-o',
-        'DocCutType=1PartialCutDoc',
-        '-o',
-        'PageCutType=0NoCutPage',
-        tmpFile
-      ],
-      (err) => {
-        try {
-          unlinkSync(tmpFile)
-        } catch {
-          /* ignore cleanup errors */
-        }
-        if (err) reject(new Error(`Print failed: ${err.message}`))
-        else resolve()
-      }
-    )
-  })
+  await printPdfFile(tmpFile, printerConfig.printerName)
 }

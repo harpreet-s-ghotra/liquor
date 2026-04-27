@@ -39,6 +39,8 @@ function createMockReport(overrides?: Partial<ClockOutReport>): ClockOutReport {
     cash_total: 200.0,
     credit_total: 150.25,
     debit_total: 80.5,
+    account_total: 0,
+    account_breakdown: [],
     ...overrides
   }
 }
@@ -247,22 +249,47 @@ describe('ClockOutReportView', () => {
       expect(screen.getByText('$80.50')).toBeInTheDocument()
     })
 
-    it('renders all three payment methods together', () => {
+    it('renders all four payment methods together', () => {
       const report = createMockReport({
         cash_total: 200.0,
         credit_total: 150.25,
-        debit_total: 80.5
+        debit_total: 80.5,
+        account_total: 60
       })
       render(<ClockOutReportView report={report} />)
 
       const table = screen.getByTestId('payment-breakdown-table')
       const rows = table.querySelectorAll('tbody tr')
-      expect(rows.length).toBe(3) // Cash, Credit, Debit
+      expect(rows.length).toBe(4) // Cash, Credit, Debit, Account
 
-      // Verify the table contains all payment methods
       expect(screen.getByText('Cash')).toBeInTheDocument()
       expect(screen.getByText('Credit')).toBeInTheDocument()
       expect(screen.getByText('Debit')).toBeInTheDocument()
+      expect(screen.getByText('Account')).toBeInTheDocument()
+    })
+
+    it('renders the per-service Account breakdown table when there are entries', () => {
+      const report = createMockReport({
+        account_total: 60,
+        account_breakdown: [
+          { service_name: 'UberEats', total: 40, count: 2 },
+          { service_name: 'DoorDash', total: 20, count: 1 }
+        ]
+      })
+      render(<ClockOutReportView report={report} />)
+
+      const table = screen.getByTestId('account-breakdown-table')
+      expect(table).toBeInTheDocument()
+      expect(table).toHaveTextContent('UberEats')
+      expect(table).toHaveTextContent('$40.00')
+      expect(table).toHaveTextContent('DoorDash')
+      expect(table).toHaveTextContent('$20.00')
+    })
+
+    it('hides the Account breakdown table when no account sales exist', () => {
+      const report = createMockReport({ account_breakdown: [] })
+      render(<ClockOutReportView report={report} />)
+      expect(screen.queryByTestId('account-breakdown-table')).not.toBeInTheDocument()
     })
 
     it('renders table headers for payment breakdown', () => {

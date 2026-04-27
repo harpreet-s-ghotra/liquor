@@ -84,6 +84,8 @@ export type TransactionPayment = {
   card_type?: string | null
   finix_authorization_id?: string | null
   finix_transfer_id?: string | null
+  /** Account-only: third-party delivery service name. */
+  account_service_name?: string | null
 }
 
 /** Input for saving a completed transaction */
@@ -98,6 +100,8 @@ export type SaveTransactionInput = {
   finix_transfer_id?: string | null
   card_last_four?: string | null
   card_type?: string | null
+  /** Account-only: delivery service name (e.g. "UberEats"). */
+  account_service_name?: string | null
   notes?: string | null
   session_id?: number | null
   /** All tender entries (required for split payments; single entry for single-method) */
@@ -171,6 +175,8 @@ export type PrintReceiptInput = {
   payment_method: string
   card_last_four?: string | null
   card_type?: string | null
+  /** Account-only: delivery service name printed on receipt. */
+  account_service_name?: string | null
   footer_message?: string | null
   /** All tender entries for split-payment receipt rendering */
   payments?: TransactionPayment[]
@@ -189,6 +195,8 @@ export type SavedTransaction = {
   finix_transfer_id: string | null
   card_last_four: string | null
   card_type: string | null
+  /** Account-only: delivery service name. Null for non-account methods. */
+  account_service_name?: string | null
   status: string
   original_transaction_id: number | null
   session_id?: number | null
@@ -509,7 +517,9 @@ export type CustomerDisplaySnapshot = {
   /** When >0, surcharge config is active and this percent applies on card payments. */
   cardSurchargePercent?: number
   /** Filled when payment modal is open or a method has been selected. */
-  paymentMethod?: 'cash' | 'credit' | 'debit' | null
+  paymentMethod?: 'cash' | 'credit' | 'debit' | 'account' | null
+  /** Account-only: delivery service name to display on the customer screen. */
+  accountServiceName?: string | null
   /** When card method is in flight, this reflects the surcharged amount that will be charged. */
   cardChargeAmount?: number
   surchargeAmount?: number
@@ -741,6 +751,10 @@ export type ClockOutReport = {
   cash_total: number
   credit_total: number
   debit_total: number
+  /** Sum of sales charged to a delivery-service account (Account method). */
+  account_total: number
+  /** Per-service breakdown for account-method sales. */
+  account_breakdown: Array<{ service_name: string; total: number; count: number }>
 }
 
 /** Paginated list of sessions */

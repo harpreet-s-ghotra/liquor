@@ -65,7 +65,8 @@ function insertTransaction(
   paymentMethod: string = 'cash',
   total: number = 10.0,
   taxAmount: number = 0.8,
-  status: string = 'completed'
+  status: string = 'completed',
+  accountServiceName: string | null = null
 ): number {
   const txnNumber = `TXN-${Date.now()}-${Math.random()}`
   const subtotal = total - taxAmount
@@ -73,11 +74,20 @@ function insertTransaction(
     .prepare(
       `
       INSERT INTO transactions
-      (transaction_number, subtotal, tax_amount, total, payment_method, status, session_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      (transaction_number, subtotal, tax_amount, total, payment_method, status, session_id, account_service_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `
     )
-    .run(txnNumber, subtotal, taxAmount, total, paymentMethod, status, sessionId)
+    .run(
+      txnNumber,
+      subtotal,
+      taxAmount,
+      total,
+      paymentMethod,
+      status,
+      sessionId,
+      accountServiceName
+    )
   return Number(result.lastInsertRowid)
 }
 
@@ -637,6 +647,37 @@ describe('sessions.repo', () => {
       expect(report.cash_total).toBeCloseTo(40.0)
       expect(report.credit_total).toBeCloseTo(30.0)
       expect(report.debit_total).toBeCloseTo(10.0)
+    })
+
+    it('reports account-method totals + per-service breakdown', () => {
+      const cashierId = insertCashier('Alice')
+      const session = createSession({ cashier_id: cashierId, cashier_name: 'Alice' })
+      const productId = insertProduct('WINE-001', 'Wine', undefined, 10.0, 0.08)
+
+      const uberA = insertTransaction(session.id, 'account', 25.0, 2.0, 'completed', 'UberEats')
+      insertTransactionItem(uberA, productId, 1, 25.0)
+      const uberB = insertTransaction(session.id, 'account', 15.0, 1.2, 'completed', 'UberEats')
+      insertTransactionItem(uberB, productId, 1, 15.0)
+      const door = insertTransaction(session.id, 'account', 20.0, 1.6, 'completed', 'DoorDash')
+      insertTransactionItem(door, productId, 1, 20.0)
+      // Cash sale should not affect account totals
+      const cash = insertTransaction(session.id, 'cash', 10.0, 0.8, 'completed')
+      insertTransactionItem(cash, productId, 1, 10.0)
+
+      const report = generateClockOutReport(session.id)
+
+      expect(report.account_total).toBeCloseTo(60.0)
+      expect(report.account_breakdown).toHaveLength(2)
+      expect(report.account_breakdown).toContainEqual({
+        service_name: 'UberEats',
+        total: 40.0,
+        count: 2
+      })
+      expect(report.account_breakdown).toContainEqual({
+        service_name: 'DoorDash',
+        total: 20.0,
+        count: 1
+      })
     })
 
     it('ignores non-completed transactions in sales totals', () => {

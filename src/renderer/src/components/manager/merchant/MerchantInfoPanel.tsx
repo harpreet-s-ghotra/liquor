@@ -23,6 +23,13 @@ export function MerchantInfoPanel(): React.JSX.Element {
   const [surchargeSuccess, setSurchargeSuccess] = useState<string | null>(null)
   const [surchargeSaving, setSurchargeSaving] = useState(false)
 
+  // Delivery services configured for the Account payment method.
+  const [deliveryServices, setDeliveryServicesState] = useState<string[]>([])
+  const [newDeliveryService, setNewDeliveryService] = useState('')
+  const [deliveryError, setDeliveryError] = useState<string | null>(null)
+  const [deliverySuccess, setDeliverySuccess] = useState<string | null>(null)
+  const [deliverySaving, setDeliverySaving] = useState(false)
+
   const fetchStatus = useCallback(async () => {
     if (!api) return
     try {
@@ -53,6 +60,59 @@ export function MerchantInfoPanel(): React.JSX.Element {
         // Surcharge load failure should not block the merchant panel
       })
   }, [api])
+
+  useEffect(() => {
+    if (!api?.getDeliveryServices) return
+    void api
+      .getDeliveryServices()
+      .then((list) => setDeliveryServicesState(list))
+      .catch(() => {
+        // Failure to load delivery services must not block the panel
+      })
+  }, [api])
+
+  const persistDeliveryServices = useCallback(
+    async (next: string[], successMessage: string): Promise<void> => {
+      if (!api?.setDeliveryServices) return
+      setDeliveryError(null)
+      setDeliverySuccess(null)
+      setDeliverySaving(true)
+      try {
+        const saved = await api.setDeliveryServices(next)
+        setDeliveryServicesState(saved)
+        setDeliverySuccess(successMessage)
+      } catch (err) {
+        setDeliveryError(err instanceof Error ? stripIpcPrefix(err.message) : 'Save failed')
+      } finally {
+        setDeliverySaving(false)
+      }
+    },
+    [api]
+  )
+
+  const handleAddDeliveryService = useCallback(async (): Promise<void> => {
+    const trimmed = newDeliveryService.trim()
+    if (!trimmed) {
+      setDeliveryError('Enter a delivery service name')
+      return
+    }
+    if (deliveryServices.some((existing) => existing.toLowerCase() === trimmed.toLowerCase())) {
+      setDeliveryError('That service is already on the list')
+      return
+    }
+    await persistDeliveryServices([...deliveryServices, trimmed], `Added ${trimmed}`)
+    setNewDeliveryService('')
+  }, [deliveryServices, newDeliveryService, persistDeliveryServices])
+
+  const handleRemoveDeliveryService = useCallback(
+    async (name: string): Promise<void> => {
+      await persistDeliveryServices(
+        deliveryServices.filter((existing) => existing !== name),
+        `Removed ${name}`
+      )
+    },
+    [deliveryServices, persistDeliveryServices]
+  )
 
   const handleSaveSurcharge = async (): Promise<void> => {
     if (!api?.setCardSurcharge) return
@@ -191,6 +251,61 @@ export function MerchantInfoPanel(): React.JSX.Element {
 
         {surchargeError && <p className="merchant-info__msg--error">{surchargeError}</p>}
         {surchargeSuccess && <p className="merchant-info__msg--success">{surchargeSuccess}</p>}
+      </div>
+
+      {/* Delivery services for the Account payment method */}
+      <div className="merchant-info__section" data-testid="delivery-services-section">
+        <h3 className="merchant-info__section-title">Account Delivery Services</h3>
+        <p className="merchant-info__section-help">
+          Names listed here appear as tiles when the cashier picks Account as the payment method.
+          Use this for online delivery partners (UberEats, DoorDash, Grubhub, etc.).
+        </p>
+
+        <div className="merchant-info__delivery-add">
+          <ValidatedInput
+            fieldType="text"
+            aria-label="New delivery service name"
+            value={newDeliveryService}
+            onChange={setNewDeliveryService}
+            placeholder="e.g. UberEats"
+            disabled={deliverySaving}
+          />
+          <AppButton
+            variant="default"
+            size="md"
+            onClick={() => void handleAddDeliveryService()}
+            disabled={deliverySaving || !newDeliveryService.trim()}
+            data-testid="delivery-service-add-btn"
+          >
+            Add
+          </AppButton>
+        </div>
+
+        {deliveryServices.length === 0 ? (
+          <p className="merchant-info__delivery-empty" data-testid="delivery-services-empty">
+            No services configured yet.
+          </p>
+        ) : (
+          <ul className="merchant-info__delivery-list" data-testid="delivery-services-list">
+            {deliveryServices.map((name) => (
+              <li key={name} className="merchant-info__delivery-row">
+                <span className="merchant-info__delivery-name">{name}</span>
+                <AppButton
+                  variant="danger"
+                  size="sm"
+                  onClick={() => void handleRemoveDeliveryService(name)}
+                  disabled={deliverySaving}
+                  data-testid={`delivery-service-remove-${name}`}
+                >
+                  Remove
+                </AppButton>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {deliveryError && <p className="merchant-info__msg--error">{deliveryError}</p>}
+        {deliverySuccess && <p className="merchant-info__msg--success">{deliverySuccess}</p>}
       </div>
     </div>
   )
