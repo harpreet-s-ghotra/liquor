@@ -250,7 +250,9 @@ describe('cash-drawer config helpers', () => {
 
   // ── openCashDrawer (USB) ──
 
-  it('opens drawer via USB using lp', async () => {
+  it('opens drawer via USB using lp on macOS/Linux', async () => {
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true })
     const stdinMock = { write: vi.fn(), end: vi.fn() }
     execFileMock.mockImplementation(
       (_command: string, _args: string[], callback: (err: Error | null) => void) => {
@@ -258,17 +260,26 @@ describe('cash-drawer config helpers', () => {
         return { stdin: stdinMock } as never
       }
     )
-    await expect(
-      openCashDrawer({ type: 'usb', printerName: 'Star-TSP654' })
-    ).resolves.toBeUndefined()
-    expect(execFileMock).toHaveBeenCalledWith(
-      'lp',
-      expect.arrayContaining(['-d', 'Star-TSP654']),
-      expect.any(Function)
-    )
+    try {
+      await expect(
+        openCashDrawer({ type: 'usb', printerName: 'Star-TSP654' })
+      ).resolves.toBeUndefined()
+      expect(execFileMock).toHaveBeenCalledWith(
+        'lp',
+        expect.arrayContaining(['-d', 'Star-TSP654']),
+        expect.any(Function)
+      )
+    } finally {
+      Object.defineProperty(process, 'platform', {
+        value: originalPlatform,
+        configurable: true
+      })
+    }
   })
 
-  it('rejects when USB open fails', async () => {
+  it('rejects when USB open fails on macOS/Linux', async () => {
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true })
     const stdinMock = { write: vi.fn(), end: vi.fn() }
     execFileMock.mockImplementation(
       (_command: string, _args: string[], callback: (err: Error | null) => void) => {
@@ -276,9 +287,16 @@ describe('cash-drawer config helpers', () => {
         return { stdin: stdinMock } as never
       }
     )
-    await expect(openCashDrawer({ type: 'usb', printerName: 'Star-TSP654' })).rejects.toThrow(
-      'Cash drawer (USB): Printer offline'
-    )
+    try {
+      await expect(openCashDrawer({ type: 'usb', printerName: 'Star-TSP654' })).rejects.toThrow(
+        'Cash drawer (USB): Printer offline'
+      )
+    } finally {
+      Object.defineProperty(process, 'platform', {
+        value: originalPlatform,
+        configurable: true
+      })
+    }
   })
 
   it('opens drawer on Windows via PowerShell + WINSPOOL', async () => {

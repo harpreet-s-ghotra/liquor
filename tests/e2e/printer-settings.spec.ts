@@ -273,21 +273,24 @@ test.describe('Printer Settings Modal', () => {
     await expect(xPaddingValue).toHaveText('6 pt')
   })
 
-  test('toggles "Always Print" checkbox', async ({ page }) => {
+  test('switches between Always-print and Never-print receipt modes', async ({ page }) => {
     await page.getByTestId('settings-button').click()
     await page.getByTestId('printer-settings-btn').click()
 
-    // Find the always print checkbox
-    const alwaysPrintCheckbox = page.getByTestId('always-print-checkbox')
-    await expect(alwaysPrintCheckbox).not.toBeChecked()
+    const alwaysRadio = page.getByTestId('receipt-mode-always')
+    const neverRadio = page.getByTestId('receipt-mode-never')
 
-    // Click to check
-    await alwaysPrintCheckbox.click()
-    await expect(alwaysPrintCheckbox).toBeChecked()
+    // Defaults to "never" because alwaysPrint is false in the loaded config.
+    await expect(neverRadio).toBeChecked()
+    await expect(alwaysRadio).not.toBeChecked()
 
-    // Click to uncheck
-    await alwaysPrintCheckbox.click()
-    await expect(alwaysPrintCheckbox).not.toBeChecked()
+    await alwaysRadio.click()
+    await expect(alwaysRadio).toBeChecked()
+    await expect(neverRadio).not.toBeChecked()
+
+    await neverRadio.click()
+    await expect(neverRadio).toBeChecked()
+    await expect(alwaysRadio).not.toBeChecked()
   })
 
   test('saves receipt configuration', async ({ page }) => {
@@ -384,8 +387,8 @@ test.describe('Printer Settings Modal', () => {
     const incrementBtn = fontStepper.locator('button').nth(1)
     await incrementBtn.click()
 
-    // Check always print
-    await page.getByTestId('always-print-checkbox').click()
+    // Switch receipt mode to "always print" so reset can flip it back.
+    await page.getByTestId('receipt-mode-always').click()
 
     // Click Reset to Defaults
     await page.locator('button:has-text("Reset to Defaults")').click()
@@ -398,7 +401,8 @@ test.describe('Printer Settings Modal', () => {
         .first()
         .locator('.printer-settings-modal__stepper-value')
     ).toHaveText('10 pt')
-    await expect(page.getByTestId('always-print-checkbox')).not.toBeChecked()
+    await expect(page.getByTestId('receipt-mode-never')).toBeChecked()
+    await expect(page.getByTestId('receipt-mode-always')).not.toBeChecked()
   })
 
   test('closes modal with dismiss button', async ({ page }) => {

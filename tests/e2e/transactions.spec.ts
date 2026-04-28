@@ -948,7 +948,7 @@ test.describe('Payment Modal', () => {
     await expect(page.locator('.ticket-panel__line').first()).toContainText('Craft IPA')
   })
 
-  test('Print Receipt button shown alongside OK when alwaysPrint is off', async ({ page }) => {
+  test('completion screen only shows OK (per-tx Print Receipt removed)', async ({ page }) => {
     await attachPosApiMock(page)
     await gotoAndLogin(page)
     await addProductToCart(page)
@@ -958,25 +958,8 @@ test.describe('Payment Modal', () => {
     await modal.getByRole('button', { name: 'Cash (Exact)' }).click()
 
     await expect(modal.getByTestId('payment-complete')).toBeVisible()
-    await expect(modal.getByTestId('payment-print-btn')).toBeVisible()
+    await expect(modal.getByTestId('payment-print-btn')).toHaveCount(0)
     await expect(modal.getByTestId('payment-ok-btn')).toBeVisible()
-  })
-
-  test('clicking Print Receipt closes modal and clears cart', async ({ page }) => {
-    await attachPosApiMock(page)
-    await gotoAndLogin(page)
-    await addProductToCart(page)
-
-    await page.getByRole('button', { name: 'Pay Now' }).click()
-    const modal = page.getByTestId('payment-modal')
-    await modal.getByRole('button', { name: 'Cash (Exact)' }).click()
-    await expect(modal.getByTestId('payment-print-btn')).toBeVisible()
-
-    await modal.getByTestId('payment-print-btn').click()
-
-    await expect(page.getByTestId('payment-modal')).toHaveCount(0)
-    await expect(page.locator('.ticket-panel__line')).toHaveCount(0)
-    await expect(page.getByPlaceholder('Search item')).toBeFocused()
   })
 })
 
