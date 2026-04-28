@@ -76,7 +76,9 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
       expected_cash_at_close: 180.01,
       cash_total: 200.0,
       credit_total: 150.85,
-      debit_total: 79.0
+      debit_total: 79.0,
+      account_total: 0,
+      account_breakdown: []
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
