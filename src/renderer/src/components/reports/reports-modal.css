@@ -335,6 +335,11 @@
   font-weight: 700;
 }
 
+.reports-modal__table-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .reports-modal__export-type-label {
   color: var(--text-muted);
   font-size: var(--text-sm);

@@ -123,6 +123,7 @@ describe('reports.repo', () => {
       expect(report.refund_count).toBe(0)
       expect(report.refund_amount).toBe(0)
       expect(report.sales_by_payment).toEqual([])
+      expect(report.sales_by_account_service).toEqual([])
       expect(report.sales_by_day).toEqual([])
     })
 
@@ -190,6 +191,36 @@ describe('reports.repo', () => {
       expect(mastercard?.transaction_count).toBe(1)
       expect(report.sales_by_card_brand.length).toBe(2)
       expect(tx1).toBeGreaterThan(0)
+    })
+
+    it('groups Account-method sales by service_name', () => {
+      const db = getDb()
+      const tx1 = insertTransaction(null, 'account', 30.0, 0, 'completed', '2024-06-15 10:00:00')
+      const tx2 = insertTransaction(null, 'account', 50.0, 0, 'completed', '2024-06-15 11:00:00')
+      const tx3 = insertTransaction(null, 'account', 20.0, 0, 'completed', '2024-06-15 12:00:00')
+      const tx4 = insertTransaction(null, 'cash', 99.0, 0, 'completed', '2024-06-15 13:00:00')
+      db.prepare(`UPDATE transactions SET account_service_name = 'UberEats' WHERE id = ?`).run(tx1)
+      db.prepare(`UPDATE transactions SET account_service_name = 'UberEats' WHERE id = ?`).run(tx2)
+      db.prepare(`UPDATE transactions SET account_service_name = 'DoorDash' WHERE id = ?`).run(tx3)
+      // tx4 cash — must not appear in account breakdown
+      expect(tx4).toBeGreaterThan(0)
+
+      const report = getSalesSummary(juneRange)
+      expect(report.sales_by_account_service.length).toBe(2)
+      const uber = report.sales_by_account_service.find((r) => r.service_name === 'UberEats')
+      const door = report.sales_by_account_service.find((r) => r.service_name === 'DoorDash')
+      expect(uber?.transaction_count).toBe(2)
+      expect(uber?.total_amount).toBe(80.0)
+      expect(door?.transaction_count).toBe(1)
+      expect(door?.total_amount).toBe(20.0)
+    })
+
+    it('labels Account sales without a service_name as "(unspecified)"', () => {
+      insertTransaction(null, 'account', 15.0, 0, 'completed', '2024-06-15 10:00:00')
+
+      const report = getSalesSummary(juneRange)
+      expect(report.sales_by_account_service.length).toBe(1)
+      expect(report.sales_by_account_service[0].service_name).toBe('(unspecified)')
     })
 
     it('groups sales by day', () => {

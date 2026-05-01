@@ -6,6 +6,7 @@ import type {
   DailySalesRow,
   PaymentMethodSalesRow,
   CardBrandSalesRow,
+  AccountServiceSalesRow,
   ProductSalesReport,
   ProductSalesRow,
   CategorySalesReport,
@@ -134,6 +135,24 @@ export function getSalesSummary(range: ReportDateRange): SalesSummaryReport {
     )
     .all(from, to, ...deviceArgs) as CardBrandSalesRow[]
 
+  const salesByAccountService = db
+    .prepare(
+      `
+      SELECT
+        COALESCE(NULLIF(TRIM(account_service_name), ''), '(unspecified)') AS service_name,
+        COUNT(*) AS transaction_count,
+        COALESCE(SUM(total), 0) AS total_amount
+      FROM transactions
+      WHERE status = 'completed'
+        AND payment_method = 'account'
+        AND created_at >= ? AND created_at <= ?
+        ${deviceClause}
+      GROUP BY service_name
+      ORDER BY total_amount DESC
+      `
+    )
+    .all(from, to, ...deviceArgs) as AccountServiceSalesRow[]
+
   const netSales = totals.gross_sales - totals.tax_collected
   const avgTransaction =
     totals.transaction_count > 0 ? totals.gross_sales / totals.transaction_count : 0
@@ -148,6 +167,7 @@ export function getSalesSummary(range: ReportDateRange): SalesSummaryReport {
     avg_transaction: Math.round(avgTransaction * 100) / 100,
     sales_by_payment: salesByPayment,
     sales_by_card_brand: salesByCardBrand,
+    sales_by_account_service: salesByAccountService,
     sales_by_day: salesByDay
   }
 }

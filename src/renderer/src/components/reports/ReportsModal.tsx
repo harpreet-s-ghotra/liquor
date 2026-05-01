@@ -667,6 +667,39 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
                   </div>
                 </div>
 
+                {summary.sales_by_account_service.length > 0 && (
+                  <div
+                    className="reports-modal__chart-panel reports-modal__chart-panel--full-width"
+                    data-testid="account-service-breakdown"
+                  >
+                    <h3 className="reports-modal__chart-title">Account Sales by Service</h3>
+                    <div className="reports-modal__chart-body">
+                      <table className="reports-modal__table">
+                        <thead>
+                          <tr>
+                            <th>Service</th>
+                            <th className="reports-modal__table-num">Transactions</th>
+                            <th className="reports-modal__table-num">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {summary.sales_by_account_service.map((row) => (
+                            <tr key={row.service_name}>
+                              <td>{row.service_name}</td>
+                              <td className="reports-modal__table-num">
+                                {formatInteger(row.transaction_count)}
+                              </td>
+                              <td className="reports-modal__table-num">
+                                {formatCurrency(row.total_amount)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {summary.refund_count > 0 && (
                   <div className="reports-modal__refund-summary">
                     Refunds: {formatInteger(summary.refund_count)} totaling{' '}

@@ -12,6 +12,10 @@ export default defineConfig({
     name: 'node',
     environment: 'node',
     globals: true,
+    // Windows CI runners are noticeably slower at filesystem + sqlite ops than
+    // macOS/Linux. Default 5s timeout flakes on multi-DB lifecycle tests.
+    testTimeout: 30000,
+    hookTimeout: 30000,
     include: [
       'src/main/**/*.test.ts',
       'src/shared/**/*.test.ts',

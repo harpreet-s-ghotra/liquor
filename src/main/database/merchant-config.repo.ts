@@ -95,6 +95,13 @@ export function getMerchantConfig(): MerchantConfig | null {
  */
 export function saveMerchantConfig(input: SaveMerchantConfigInput): MerchantConfig {
   const db = getDb()
+  const existing = getMerchantConfig()
+
+  const pickString = (
+    next: string | null | undefined,
+    prev: string | null | undefined
+  ): string | null => (next === undefined ? (prev ?? null) : (next ?? null))
+
   db.prepare(
     `INSERT OR REPLACE INTO merchant_config (
        id,
@@ -118,16 +125,16 @@ export function saveMerchantConfig(input: SaveMerchantConfigInput): MerchantConf
        CURRENT_TIMESTAMP
      )`
   ).run(
-    input.merchant_account_id ?? getMerchantConfig()?.merchant_account_id ?? '',
+    input.merchant_account_id ?? existing?.merchant_account_id ?? '',
     input.finix_api_username,
     input.finix_api_password,
     input.merchant_id,
     input.merchant_name,
-    input.store_name ?? null,
-    input.receipt_header ?? null,
-    input.receipt_footer ?? null,
-    input.theme ?? null,
-    input.settings_extras_json ?? '{}'
+    pickString(input.store_name, existing?.store_name),
+    pickString(input.receipt_header, existing?.receipt_header),
+    pickString(input.receipt_footer, existing?.receipt_footer),
+    pickString(input.theme, existing?.theme),
+    input.settings_extras_json ?? existing?.settings_extras_json ?? '{}'
   )
 
   enqueueSettingsSync()

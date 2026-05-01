@@ -5,6 +5,7 @@ The following reporting/export upgrades are now implemented in code:
 - Sales Summary now surfaces tax-audit metadata (store name, merchant name, Finix merchant ID) in the UI and in exported report headers.
 - Daily Sales Trend now renders as a full-width chart panel for better readability.
 - Sales Summary now includes card-brand breakdown (Visa, Mastercard, Amex, Discover, Other).
+- Sales Summary now includes an Account Sales by Service breakdown — totals grouped by `account_service_name` (e.g. UberEats, DoorDash, Grubhub) for transactions whose `payment_method = 'account'`. Hidden when no Account-method sales exist in the selected period.
 - Product Analysis now includes a Distributors tile.
 - Sales by Category now includes profit margin % in both UI and exports.
 - Comparisons now provide explicit grouping controls (day, week, month, quarter, year) and always show this-year (YTD) sales against last-year sales in those buckets.

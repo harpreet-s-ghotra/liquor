@@ -735,6 +735,13 @@ export type CardBrandSalesRow = {
   total_amount: number
 }
 
+/** Sales breakdown by Account-method delivery service (UberEats, DoorDash, etc.) */
+export type AccountServiceSalesRow = {
+  service_name: string
+  transaction_count: number
+  total_amount: number
+}
+
 /** Full End-of-Day (clock-out) report data */
 export type ClockOutReport = {
   session: Session
@@ -922,6 +929,7 @@ export type SalesSummaryReport = {
   avg_transaction: number
   sales_by_payment: PaymentMethodSalesRow[]
   sales_by_card_brand: CardBrandSalesRow[]
+  sales_by_account_service: AccountServiceSalesRow[]
   sales_by_day: DailySalesRow[]
 }
 

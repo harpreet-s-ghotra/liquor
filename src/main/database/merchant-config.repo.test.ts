@@ -130,4 +130,22 @@ describe('delivery services config', () => {
     expect(getCardSurcharge()).toEqual({ enabled: true, percent: 2.5 })
     expect(getDeliveryServices()).toEqual(['UberEats'])
   })
+
+  it('survives a re-activation that omits settings_extras_json', () => {
+    seedConfig()
+    setDeliveryServices(['UberEats', 'DoorDash'])
+    setCardSurcharge({ enabled: true, percent: 3 })
+
+    // Simulate the supabase activation flow re-running saveMerchantConfig
+    // without supplying settings_extras_json — must not wipe extras.
+    saveMerchantConfig({
+      finix_api_username: 'US-test',
+      finix_api_password: 'pw',
+      merchant_id: 'MU-test',
+      merchant_name: 'Test Liquor'
+    })
+
+    expect(getDeliveryServices()).toEqual(['UberEats', 'DoorDash'])
+    expect(getCardSurcharge()).toEqual({ enabled: true, percent: 3 })
+  })
 })

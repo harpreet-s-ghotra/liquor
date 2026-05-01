@@ -33,6 +33,10 @@ const mockSummary: SalesSummaryReport = {
     { card_brand: 'Visa', transaction_count: 3, total_amount: 150 },
     { card_brand: 'Mastercard', transaction_count: 1, total_amount: 50 }
   ],
+  sales_by_account_service: [
+    { service_name: 'UberEats', transaction_count: 3, total_amount: 120 },
+    { service_name: 'DoorDash', transaction_count: 2, total_amount: 80 }
+  ],
   sales_by_day: [
     {
       date: '2024-06-10',
@@ -351,12 +355,39 @@ describe('ReportsModal', () => {
       sales_by_day: [],
       sales_by_payment: [],
       sales_by_card_brand: [],
+      sales_by_account_service: [],
       refund_count: 0
     })
     render(<ReportsModal isOpen={true} onClose={vi.fn()} />)
     await waitFor(() => {
       expect(screen.getAllByText('No data for selected period').length).toBeGreaterThan(0)
     })
+  })
+
+  it('renders Account Sales by Service breakdown when account services are present', async () => {
+    render(<ReportsModal isOpen={true} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('account-service-breakdown')).toBeInTheDocument()
+    })
+
+    const panel = screen.getByTestId('account-service-breakdown')
+    expect(panel).toHaveTextContent('UberEats')
+    expect(panel).toHaveTextContent('DoorDash')
+    expect(panel).toHaveTextContent('$120.00')
+    expect(panel).toHaveTextContent('$80.00')
+  })
+
+  it('hides Account Sales by Service when there are no account-method sales', async () => {
+    mockApi.getReportSalesSummary.mockResolvedValue({
+      ...mockSummary,
+      sales_by_account_service: []
+    })
+    render(<ReportsModal isOpen={true} onClose={vi.fn()} />)
+    await waitFor(() => {
+      expect(mockApi.getReportSalesSummary).toHaveBeenCalled()
+    })
+    expect(screen.queryByTestId('account-service-breakdown')).not.toBeInTheDocument()
   })
 
   it('does not call export on comparison tab (no export available)', async () => {

@@ -208,6 +208,55 @@ npm run test:e2e             # for UI flow changes
 
 ---
 
+## Pre-Commit / Release Gate — Mirror GitHub Actions
+
+GitHub Actions release pipeline runs `.github/workflows/test-windows.yml` (unit + E2E on Windows) and `.github/workflows/release.yml` (build + publish on tag push). To avoid red tags, Claude MUST run the same suite locally before any commit that may end up on `main` or before bumping the version.
+
+**Mandatory pre-commit sequence — run all four, in order, every time:**
+
+```bash
+npx prettier --write .                      # 1. Format
+npm run lint                                # 2. Lint
+npx stylelint "src/**/*.css"                # 3. Style order
+npm run typecheck                           # 4. Type check
+npm run test                                # 5. Unit + backend tests (mirrors CI `test-windows.yml > unit`)
+npm run test:e2e                            # 6. Playwright E2E (mirrors CI `test-windows.yml > e2e`)
+```
+
+If any step fails, fix before committing — do **not** push and "see if CI passes." That is the loop the user is trying to break.
+
+### Cross-platform parity rules
+
+GitHub runners are Windows. Local dev is macOS. Anything platform-specific is a CI failure waiting to happen. Apply these rules in any change:
+
+- **Tests that touch `process.platform`** must mock the value via `Object.defineProperty(process, 'platform', { value: 'darwin' | 'win32', configurable: true })` and restore in a `finally` block. Never assume the runner platform.
+- **File-system / SQLite tests** that switch databases or apply the full schema must use the per-suite `testTimeout` from `vitest.config.node.ts` (currently 30s). Windows CI runners are ~3-5x slower at sqlite + fs ops. Do not lower this without re-running on CI.
+- **Playwright assertions** that wait for async-fetched UI must rely on the `expect.timeout` set in `playwright.config.ts` (10s) or pass an explicit timeout. Do not hardcode `{ timeout: 5000 }` — that is the default that previously flaked.
+- **CI parallelism**: `playwright.config.ts` caps `workers` to 2 on CI (`process.env.CI`). Past failures included `ERR_CONNECTION_FAILED` from the dev server being overwhelmed. Do not raise this without proof CI can sustain it.
+- **External commands**: never invoke `lp`, `lpr`, `cupsfilter`, or other Unix-only printer commands without a `process.platform === 'win32'` branch.
+
+### Before pushing a release tag
+
+A release tag (`v*`) triggers `release.yml`, which in turn calls `test-windows.yml`. Failures here block the public release and ship a bad version number. Required steps:
+
+1. Confirm the last `main` push has a green Windows Test run (`gh run list --workflow test-windows.yml --limit 3`).
+2. Run the full pre-commit sequence above one more time on the version-bump commit itself — bumping the version is still a code change.
+3. Push the tag only after the version-bump commit is green on CI.
+4. After tagging, watch the release run with `gh run watch` and be ready to revert if the Windows builder fails.
+
+### When CI fails and local passes
+
+The cause is almost always one of:
+
+- A test that depends on `process.platform`, system locale, line endings, or path separators.
+- A timeout tuned for fast local hardware.
+- A test that races on a real timer / animation / focus that Windows handles differently.
+- A flaky parallel resource (Vite port, sqlite WAL, named pipe) that only surfaces under CI's worker count.
+
+Do **not** add `retries`, `--detect-open-handles`, or `it.skip` as a workaround. Open the failing run with `gh run view <id> --log-failed`, identify the platform-specific cause, and fix it at the source. Update this section if a new class of cross-platform bug is found.
+
+---
+
 ## Testing Conventions
 
 ### Backend Tests (Vitest — Node environment)
