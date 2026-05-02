@@ -57,6 +57,7 @@ const attachPosApiMock = async (page: Page): Promise<void> => {
         { payment_method: 'credit', transaction_count: 4, total_amount: 200 }
       ],
       sales_by_card_brand: [],
+      sales_by_account_service: [],
       sales_by_day: [
         {
           date: '2024-06-10',

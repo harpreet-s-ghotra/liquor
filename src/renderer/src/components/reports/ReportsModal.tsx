@@ -667,7 +667,7 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
                   </div>
                 </div>
 
-                {summary.sales_by_account_service.length > 0 && (
+                {(summary.sales_by_account_service ?? []).length > 0 && (
                   <div
                     className="reports-modal__chart-panel reports-modal__chart-panel--full-width"
                     data-testid="account-service-breakdown"
@@ -683,7 +683,7 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps): React.JSX.
                           </tr>
                         </thead>
                         <tbody>
-                          {summary.sales_by_account_service.map((row) => (
+                          {(summary.sales_by_account_service ?? []).map((row) => (
                             <tr key={row.service_name}>
                               <td>{row.service_name}</td>
                               <td className="reports-modal__table-num">
